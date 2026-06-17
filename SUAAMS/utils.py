@@ -1,5 +1,7 @@
 from flask import session,redirect,url_for
 from functools import wraps
+import mysql.connector
+from config import DB_CONFIG
 
 
 #it finally worked !!!!!!!!!
@@ -15,3 +17,5 @@ def login_required(role):
         return wrapper
     return decorator
     
+def connect_to_database():
+    return mysql.connector.connect(**DB_CONFIG)

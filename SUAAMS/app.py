@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from datetime import date
-import mysql.connector
-from config import DB_CONFIG,SECRET_KEY
+from utils import connect_to_database
+from config import SECRET_KEY
 from blueprints.auth import auth_bp 
 from blueprints.admin import admin_bp
 
@@ -10,10 +10,6 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
 app.secret_key = SECRET_KEY
 
-# afeez :) pls don't forget that you want to move this to utils later on
-
-def connect_to_database():
-    return mysql.connector.connect(**DB_CONFIG)
 
 #reminder:: the fuction below will help find student  :)
 def find_student_by_rfid(cursor, RFID_UID):

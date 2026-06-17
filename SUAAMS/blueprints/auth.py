@@ -1,7 +1,7 @@
 from flask import Blueprint,flash,render_template,redirect,request,session,url_for
 import mysql.connector
 import bcrypt
-from config import DB_CONFIG
+from utils import connect_to_database
 
 auth_bp = Blueprint('auth',__name__)
 
@@ -18,7 +18,7 @@ def login():
             flash('Username and password are required','error')
             return render_template('auth/login.html')
         
-        connection = mysql.connector.connect(**DB_CONFIG)
+        connection = connect_to_database()
         cursor = connection.cursor()
         
         cursor.execute("select id ,username, passwordhash,role,is_active from users where username =%s", (username,))
