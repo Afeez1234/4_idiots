@@ -10,6 +10,8 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
 app.secret_key = SECRET_KEY
 
+# afeez :) pls don't forget that you want to move this to utils later on
+
 def connect_to_database():
     return mysql.connector.connect(**DB_CONFIG)
 
