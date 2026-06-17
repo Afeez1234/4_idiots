@@ -2,6 +2,8 @@ import bcrypt
 import mysql.connector
 from config import DB_CONFIG
 
+# this will help us to create an admin user if it doesn't exist already. we can run this script once after setting up the database to ensure we have an admin user to log in with. the password is set to "admin1234" but i might change it to something cooler
+
 def seed_admin():
     
     password = "admin1234"
