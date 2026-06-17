@@ -3,7 +3,7 @@ import mysql.connector
 
 from mysql.connector import Error
 from datetime import date
-from suaams_Api.config import DB_CONFIG, SERIAL_PORT, BAUD_RATE        
+from config import DB_CONFIG, SERIAL_PORT, BAUD_RATE        
 
 def connect_to_database():
     try:
