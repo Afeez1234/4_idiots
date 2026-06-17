@@ -11,7 +11,7 @@
     <div class="row">
       <div class="col-12">
         <div class="bg-white rounded-4 shadow-sm p-4 mb-4">
-          <h2 class="mb-0">Welcome, {{session['username']}}</h2>
+          <h2 class="mb-0 text-center">Welcome, {{session['username']}}</h2>
         </div>
       </div>
     </div>
@@ -48,7 +48,7 @@
 
     <div class="row mt-4">
       <div class="col-12 text-end">
-        <a href="{{ url_for('admin.logout') }}" class="btn btn-danger">Logout</a>
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-danger">Logout</a>
       </div>
     </div>
   </div>
