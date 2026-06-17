@@ -1,5 +1,4 @@
 from flask import Blueprint,flash,render_template,redirect,request,session,url_for
-import mysql.connector
 import bcrypt
 from utils import connect_to_database
 

@@ -1,6 +1,6 @@
 from flask import Blueprint,flash,render_template,redirect,request,session,url_for
 from utils import login_required
-from app import connect_to_database
+from utils import connect_to_database
 admin_bp = Blueprint('admin', __name__)
 
 @admin_bp.route('/admin/dashboard')
