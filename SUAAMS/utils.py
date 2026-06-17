@@ -2,7 +2,7 @@ from flask import session,redirect,url_for
 from functools import wraps
 
 
-
+#it finally worked !!!!!!!!!
 def login_required(role):
     def decorator(func):
         @wraps(func)
