@@ -4,10 +4,12 @@ from utils import connect_to_database
 from config import SECRET_KEY
 from blueprints.auth import auth_bp 
 from blueprints.admin import admin_bp
+from blueprints.lecturer import lecturer_bp
 
 app = Flask(__name__)
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
+app.register_blueprint(lecturer_bp)
 app.secret_key = SECRET_KEY
 
 

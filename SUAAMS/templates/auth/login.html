@@ -16,7 +16,7 @@
                         <h3 class="mb-0">Log In </h3>
                     </div>
                     <div class="card-body p-4 p-md-5">
-                        {% for category, message in get_flashed_messages(with_categories=true) %}
+                        {% for category, message in get_flashed_messages(with_categories=True) %}
                             <div class ='alert {%if category == "error"%} alert-danger{%else%}alert-success{%endif%}'>   
                                 {{message}}
                             </div>

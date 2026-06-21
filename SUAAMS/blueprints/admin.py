@@ -44,7 +44,7 @@ def create_lecturer():
                         (staff_id, hashed_password, 'lecturer', 1))
             user_id = cursor.lastrowid
             cursor.execute("INSERT INTO lecturers (user_id, full_name, staff_id) VALUES (%s, %s, %s)", 
-                        (user_id, full_name))
+                        (user_id, full_name, staff_id))
             connection.commit()
             cursor.close()
             connection.close()
@@ -70,8 +70,8 @@ def create_student():
         level = request.form.get('level')
         rfid_uid = request.form.get('rfid_uid')
         
-        if not full_name or not matric_number:
-            flash('Full name and matric number are required.', 'error')
+        if not full_name or not matric_number or not department or not level or not rfid_uid:
+            flash('All fields are required.', 'error')
             return render_template('admin/create-student.html')
         
         connection = connect_to_database()

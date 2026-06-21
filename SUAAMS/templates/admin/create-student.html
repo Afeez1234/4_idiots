@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Student</title>
+   <link href = "{{url_for('static', filename='css/bootstrap.min.css')}}" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-lg-8">
+        <div class="card shadow-sm border-0 rounded-4">
+          <div class="card-body p-4 p-md-5">
+            {% for category, message in get_flashed_messages(with_categories=True) %}
+                <div class ='alert {%if category == "error"%} alert-danger{%else%}alert-success{%endif%}'>   
+                    {{message}}
+                </div>
+            {% endfor %}
+            <h2 class="mb-4 text-center">Create Student</h2>
+            <form method="POST">
+              <div class="row g-3">
+                <div class="col-12">
+                  <label for="full_name" class="form-label">Full Name</label>
+                  <input type="text" class="form-control" id="full_name" name="full_name" placeholder="Enter full name" />
+                </div>
+                <div class="col-12">
+                  <label for="matric_number" class="form-label">Matric Number</label>
+                  <input type="text" class="form-control" id="matric_number" name="matric_number" placeholder="Enter matric number" />
+                </div>
+                <div class="col-12">
+                  <label for="department" class="form-label">Department</label>
+                  <input type="text" class="form-control" id="department" name="department" placeholder="Enter department" />
+                </div>
+                <div class="col-12">
+                  <label for="level" class="form-label">Level</label>
+                  <input type="text" class="form-control" id="level" name="level" placeholder="Enter level" />
+                </div>
+                <div class="col-12">
+                  <label for="rfid_uid" class="form-label">RFID UID</label>
+                  <input type="text" class="form-control" id="rfid_uid" name="rfid_uid" placeholder="Enter RFID UID" />
+                </div>
+              </div>
+              <div class="mt-4 d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary">Back</a>
+                <button type="submit" class="btn btn-primary">Create Student</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src = "{{url_for('static', filename='js/bootstrap.bundle.min.js')}}"></script>
+</body>
+</html>
