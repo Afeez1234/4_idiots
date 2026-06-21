@@ -10,10 +10,11 @@ def dashboard():
     connection = connect_to_database()
     cursor = connection.cursor()
     cursor.execute('SELECT id FROM lecturers WHERE user_id = %s', (user_id,))
-    lecturer_id = cursor.fetchone()
-    if not lecturer_id:
+    lecturer = cursor.fetchone()
+    if not lecturer:
         flash('Lecturer profile not found.', 'error')
         return redirect(url_for('auth.login'))
+    lecturer_id, = lecturer
     cursor.execute('SELECT id, course_title,course_code FROM courses WHERE lecturer_id = %s', (lecturer_id,))
     courses = cursor.fetchall()
     cursor.close()
