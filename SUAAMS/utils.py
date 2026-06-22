@@ -19,3 +19,8 @@ def login_required(role):
     
 def connect_to_database():
     return mysql.connector.connect(**DB_CONFIG)
+
+def get_active_session_by_course_id(cursor, course_id):
+    query = "SELECT id, course_id, start_time, stop_time, session_date FROM sessions WHERE is_active = 1 AND course_id = %s ORDER BY id DESC LIMIT 1"
+    cursor.execute(query, (course_id,))
+    return cursor.fetchone()

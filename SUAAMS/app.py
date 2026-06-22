@@ -5,7 +5,7 @@ from config import SECRET_KEY
 from blueprints.auth import auth_bp 
 from blueprints.admin import admin_bp
 from blueprints.lecturer import lecturer_bp
-
+from utils import get_active_session_by_course_id
 app = Flask(__name__)
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
@@ -25,23 +25,13 @@ def record_attendance(cursor, connection, student_id,RFID_UID,session_id):
     cursor.execute(query, (student_id, RFID_UID,session_id))
     connection.commit()
 
-#reminder:: the fuction below will create a new session for the course,i'm still wondering if i shoud keep it here or put it in the endpoint
-def create_session(cursor,connection,course_id,start_time,stop_time,session_date):
-    query = "INSERT INTO sessions (course_id,start_time,stop_time,session_date,is_active) VALUES(%s,%s,%s,%s,1)"
-    cursor.execute(query, (course_id,start_time,stop_time,session_date))
-    connection.commit()
+
 
 #reminder:: i'm starting to get tired of commenting but anyways just in case ,i think i'll link this to dashboard
 def get_all_active_sessions(cursor):
     query = "SELECT id, course_id, start_time, stop_time, session_date FROM sessions WHERE is_active = 1"
     cursor.execute(query)
     return cursor.fetchall()
-
-#reminder:: might use it for esp32
-def get_active_session_by_course_id(cursor, course_id):
-    query = "SELECT id, course_id, start_time, stop_time, session_date FROM sessions WHERE is_active = 1 AND course_id = %s ORDER BY id DESC LIMIT 1"
-    cursor.execute(query, (course_id,))
-    return cursor.fetchone()
 
 def get_active_sesh(cursor):
     query = "SELECT id,course_id FROM sessions WHERE is_active = 1 ORDER BY id desc LIMIT 1"
@@ -81,7 +71,7 @@ def start_session():
 
     connection = connect_to_database()
     cursor = connection.cursor()
-    create_session(cursor,connection,course_id,start_time,stop_time,session_date)
+    # create_session(cursor,connection,course_id,start_time,stop_time,session_date)
     cursor.close()
     connection.close()
     return jsonify({

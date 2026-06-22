@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Course Workspace</title>
+   <link href = "{{url_for('static', filename='css/bootstrap.min.css')}}" rel="stylesheet">
+  <link href="{{url_for('static', filename='css/course-workspace.css')}}" rel="stylesheet">
+</head>
+<body>
+  <div class="container py-5">
+    <div class="workspace-shell p-4 p-md-5">
+      <div class="row g-4">
+        <div class="col-lg-3">
+          <div class="sidebar h-100">
+            <div class="mb-4">
+              <p class="text-muted mb-1">Course</p>
+              <h5 class="mb-0">{{ course[1] }}</h5>
+              <small class="text-primary">{{ course[2] }}</small>
+            </div>
+            <a href="#overview" class="sidebar-link active">Overview</a>
+            <a href="#live-attendance" class="sidebar-link">Live Attendance</a>
+            <a href="#attendance-history" class="sidebar-link">Attendance History</a>
+            <a href="#student-report" class="sidebar-link">Student Report</a>
+            <div class="mt-4 pt-3 border-top">
+              <a href="{{ url_for('lecturer.dashboard') }}" class="btn btn-outline-secondary w-100">Back to Dashboard</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-9">
+          <section id="overview" class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+              <div>
+                <h5 class="mb-1">Session Controls</h5>
+                <p class="text-muted mb-0">Start or stop attendance tracking for this course.</p>
+              </div>
+              {% if active_session %}
+                <form method="POST" action="{{ url_for('lecturer.end_session', course_id=course[0]) }}">
+                  <button type="submit" class="btn btn-danger">End Session</button>
+                </form>
+              {% else %}
+                <form method="POST" action="{{ url_for('lecturer.start_session', course_id=course[0]) }}">
+                  <button type="submit" class="btn btn-success">Start Session</button>
+                </form>
+              {% endif %}
+            </div>
+          </section>
+
+          {% if active_session %}
+          <section id="live-attendance" class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+              <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+                <h4 class="mb-0">Live Attendance</h4>
+                <div class="d-flex gap-2 w-100 w-md-auto">
+                  <input type="search" class="form-control form-control-sm" data-table-filter="live-attendance-table" placeholder="Search student or matric number" />
+                  <span class="badge bg-success-subtle text-success">Session Active</span>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table id="live-attendance-table" class="table attendance-table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Matric Number</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for record in attendance_records %}
+                    <tr>
+                      <td>{{ record[0] }}</td>
+                      <td>{{ record[3] }}</td>
+                      <td>
+                        {% if record[4] == 'present' %}
+                          <span class="badge bg-success-subtle text-success">Present</span>
+                        {% else %}
+                          <span class="badge bg-danger-subtle text-danger">Absent</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+          {% endif %}
+
+          <section id="attendance-history" class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-body p-4">
+              <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+                <h4 class="mb-0">Attendance History</h4>
+                <div class="d-flex gap-2 w-100 w-md-auto">
+                  <input type="date" class="form-control form-control-sm" id="history-date-filter" />
+                  <select class="form-select form-select-sm w-auto">
+                    <option>Last 7 days</option>
+                    <option>Last 30 days</option>
+                    <option>This semester</option>
+                  </select>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table id="history-table" class="table table-sm align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Session</th>
+                      <th>Present</th>
+                      <th>Absent</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for session in history_sessions %}
+                    <tr>
+                      <td>{{ session.date }}</td>
+                      <td>{{ session.label }}</td>
+                      <td>{{ session.present_count }}</td>
+                      <td>{{ session.absent_count }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                      <td colspan="4" class="text-center text-muted">No attendance history available yet.</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+          <section id="student-report" class="card border-0 shadow-sm rounded-4">
+            <div class="card-body p-4">
+              <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+                <h4 class="mb-0">Student Report</h4>
+                <div class="d-flex gap-2 w-100 w-md-auto">
+                  <input type="search" class="form-control form-control-sm" data-table-filter="student-report-table" placeholder="Search student or matric number" />
+                  <button class="btn btn-outline-primary btn-sm">Export Report</button>
+                </div>
+              </div>
+              <div class="table-responsive">
+                <table id="student-report-table" class="table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Student</th>
+                      <th>Matric Number</th>
+                      <th>Present</th>
+                      <th>Absent</th>
+                      <th>Attendance %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for report in student_reports %}
+                    <tr>
+                      <td>{{ report.student_name }}</td>
+                      <td>{{ report.matric_number }}</td>
+                      <td>{{ report.present_count }}</td>
+                      <td>{{ report.absent_count }}</td>
+                      <td>
+                        <span class="badge {% if report.attendance_percentage >= 75 %}bg-success-subtle text-success{% else %}bg-warning-subtle text-warning-emphasis{% endif %}">
+                          {{ report.attendance_percentage }}%
+                        </span>
+                      </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                      <td colspan="5" class="text-center text-muted">No student report data available yet.</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src = "{{url_for('static', filename='js/bootstrap.bundle.min.js')}}"></script>
+  <script src="{{url_for('static', filename='js/course-workspace.js')}}"></script>
+</body>
+</html>
