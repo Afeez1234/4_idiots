@@ -25,7 +25,6 @@
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text); min-height: 100vh; display: flex; }
 
-        /* Sidebar — shared component */
         .sidebar { width: var(--sidebar-w); background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
         .sidebar-brand { padding: 1.5rem 1.25rem 1rem; border-bottom: 1px solid var(--border); }
         .brand-badge { display: flex; align-items: center; gap: .6rem; }
@@ -45,7 +44,6 @@
         .btn-logout:hover { background: rgba(255,77,106,0.15); color: var(--danger); }
         .btn-logout svg { width: 16px; height: 16px; }
 
-        /* Main */
         .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
         .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 1rem 1.75rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
         .topbar-left { display: flex; align-items: center; gap: .75rem; }
@@ -58,89 +56,61 @@
         .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--cyan-dim); border: 1px solid var(--cyan); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: .75rem; font-weight: 700; color: var(--cyan); }
 
         .content { padding: 1.75rem; flex: 1; }
-        .content-wrap { max-width: 560px; }
+        .content-wrap { max-width: 600px; }
 
-        /* Flash */
         .flash-msg { border-radius: 8px; padding: .75rem 1rem; font-size: .85rem; margin-bottom: 1.25rem; border: 1px solid; }
         .flash-msg.error { background: rgba(255,77,106,0.08); border-color: rgba(255,77,106,0.3); color: #FF8099; }
         .flash-msg.success { background: rgba(0,230,118,0.07); border-color: rgba(0,230,118,0.25); color: var(--success); }
 
-        /* Form card */
-        .form-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            overflow: hidden;
-        }
-        .form-card-header {
-            padding: 1.25rem 1.5rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: .85rem;
-        }
-        .form-card-icon {
-            width: 40px; height: 40px;
-            border-radius: 10px;
-            background: var(--cyan-dim);
-            border: 1px solid rgba(0,212,255,.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+        .form-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+        .form-card-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: .85rem; }
+        .form-card-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--cyan-dim); border: 1px solid rgba(0,212,255,.2); display: flex; align-items: center; justify-content: center; }
         .form-card-icon svg { width: 18px; height: 18px; stroke: var(--cyan); }
         .form-card-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; }
         .form-card-sub { font-size: .8rem; color: var(--muted); margin-top: .1rem; }
         .form-card-body { padding: 1.5rem; }
 
-        .form-group { margin-bottom: 1.25rem; }
+        /* Two-column grid for form fields */
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.1rem; }
+        .form-group { margin-bottom: 1.15rem; }
+        .form-group.full { grid-column: 1 / -1; }
         .form-label { display: block; font-size: .78rem; font-weight: 500; color: var(--muted); margin-bottom: .45rem; letter-spacing: .05em; text-transform: uppercase; }
         .form-hint { font-size: .75rem; color: var(--muted); margin-top: .35rem; opacity: .7; }
-        .form-control {
-            width: 100%;
-            background: var(--card-2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: .75rem 1rem;
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            font-size: .9rem;
-            transition: border-color .2s, box-shadow .2s;
-            outline: none;
-        }
+        .form-control { width: 100%; background: var(--card-2); border: 1px solid var(--border); border-radius: 8px; padding: .75rem 1rem; color: var(--text); font-family: 'Inter', sans-serif; font-size: .9rem; transition: border-color .2s, box-shadow .2s; outline: none; }
         .form-control::placeholder { color: var(--muted); opacity: .5; }
         .form-control:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); }
+        select.form-control { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238892A4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 1rem center; padding-right: 2.5rem; }
+        select.form-control option { background: var(--card-2); }
 
-        .form-divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
-
-        .info-box {
-            background: rgba(0,212,255,0.05);
-            border: 1px solid rgba(0,212,255,0.15);
-            border-radius: 8px;
-            padding: .85rem 1rem;
-            font-size: .82rem;
-            color: #7ECFDF;
-            display: flex;
-            gap: .6rem;
-            align-items: flex-start;
-            margin-bottom: 1.5rem;
+        /* RFID section */
+        .rfid-group { position: relative; }
+        .rfid-indicator {
+            position: absolute;
+            right: .75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--border);
+            transition: background .3s, box-shadow .3s;
         }
+        .rfid-indicator.scanning {
+            background: var(--cyan);
+            box-shadow: 0 0 8px var(--cyan);
+            animation: rfid-pulse 1s ease-in-out infinite;
+        }
+        @keyframes rfid-pulse { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+
+        .rfid-hint-row { display: flex; align-items: center; gap: .5rem; margin-top: .4rem; }
+        .rfid-hint-row svg { width: 12px; height: 12px; stroke: var(--cyan); flex-shrink: 0; }
+        .rfid-hint-text { font-size: .75rem; color: #7ECFDF; }
+
+        .form-divider { height: 1px; background: var(--border); margin: 1.4rem 0; }
+
+        .info-box { background: rgba(0,212,255,0.05); border: 1px solid rgba(0,212,255,0.15); border-radius: 8px; padding: .85rem 1rem; font-size: .82rem; color: #7ECFDF; display: flex; gap: .6rem; align-items: flex-start; margin-bottom: 1.4rem; }
         .info-box svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; stroke: var(--cyan); }
 
-        .btn-submit {
-            width: 100%;
-            background: var(--cyan);
-            color: #0D0F14;
-            border: none;
-            border-radius: 8px;
-            padding: .8rem;
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: .95rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: opacity .2s, box-shadow .2s, transform .1s;
-            letter-spacing: .01em;
-        }
+        .btn-submit { width: 100%; background: var(--cyan); color: #0D0F14; border: none; border-radius: 8px; padding: .8rem; font-family: 'Space Grotesk', sans-serif; font-size: .95rem; font-weight: 600; cursor: pointer; transition: opacity .2s, box-shadow .2s, transform .1s; letter-spacing: .01em; }
         .btn-submit:hover { opacity: .88; box-shadow: 0 0 18px var(--cyan-glow); transform: translateY(-1px); }
         .btn-submit:active { transform: translateY(0); }
 
@@ -148,7 +118,9 @@
             .sidebar { transform: translateX(-100%); }
             .main { margin-left: 0; }
             .content { padding: 1rem; }
+            .form-row { grid-template-columns: 1fr; }
         }
+        @media (prefers-reduced-motion: reduce) { .rfid-indicator.scanning { animation: none; } }
     </style>
 </head>
 <body>
@@ -220,46 +192,64 @@
                 <div class="form-card">
                     <div class="form-card-header">
                         <div class="form-card-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M20 8v6m-3-3h6"/></svg>
                         </div>
                         <div>
-                            <div class="form-card-title">New Student Account</div>
-                            <div class="form-card-sub">Fill in the details below to create an account</div>
+                            <div class="form-card-title">New Student Enrolment</div>
+                            <div class="form-card-sub">Complete all fields including RFID tag assignment</div>
                         </div>
                     </div>
 
                     <div class="form-card-body">
                         <div class="info-box">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                            The student's default password will be set to their Matric Number. They can change it after logging in.
+                            The student's default password will be set to their Matric Number. The RFID UID links their physical card to this account for attendance scanning.
                         </div>
 
                         <form method="post">
-                            <div class="form-group">
-                                <label class="form-label" for="full_name">Full Name</label>
-                                <input type="text" id="full_name" name="full_name" class="form-control" placeholder="e.g. John Doe" required>
+                            <div class="form-row">
+                                <div class="form-group full">
+                                    <label class="form-label" for="full_name">Full Name</label>
+                                    <input type="text" id="full_name" name="full_name" class="form-control" placeholder="e.g. Abubakar Musa Yusuf" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="matric_number">Matric Number</label>
+                                    <input type="text" id="matric_number" name="matric_number" class="form-control" placeholder="e.g. CSC/2021/042" required>
+                                    <div class="form-hint">Also used as login username.</div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label" for="level">Level</label>
+                                    <select id="level" name="level" class="form-control">
+                                        <option value="" disabled selected>Select level</option>
+                                        <option value="100">100 Level</option>
+                                        <option value="200">200 Level</option>
+                                        <option value="300">300 Level</option>
+                                        <option value="400">400 Level</option>
+                                        <option value="500">500 Level</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group full">
+                                    <label class="form-label" for="department">Department</label>
+                                    <input type="text" id="department" name="department" class="form-control" placeholder="e.g. Computer Science">
+                                </div>
                             </div>
 
-                            <div class="form-group">
-                                <label class="form-label" for="matric_no">Matric Number</label>
-                                <input type="text" id="matric_no" name="matric_no" class="form-control" placeholder="e.g. S2024/001" required>
-                                <div class="form-hint">This will also serve as the student's login username.</div>
-                            </div>
+                            <div class="form-divider"></div>
 
+                            <!-- RFID Section -->
                             <div class="form-group">
-                                <label class="form-label" for="department">Department (optional)</label>
-                                <input type="text" id="department" name="department" class="form-control" placeholder="e.g. Computer Science">
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label" for="level">Level</label>
-                                <input type="text" id="level" name="level" class="form-control" placeholder="e.g. 400" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label class="form-label" for="uid">UID</label>
-                                <input type="text" id="uid" name="uid" class="form-control" placeholder="e.g. 12345678" required>
-                                <div class="form-hint">Unique identifier for the student (internal UID).</div>
+                                <label class="form-label" for="rfid_uid">RFID Tag UID</label>
+                                <div class="rfid-group">
+                                    <input type="text" id="rfid_uid" name="rfid_uid" class="form-control" placeholder="Scan card or enter UID manually" autocomplete="off">
+                                    <div class="rfid-indicator" id="rfidDot"></div>
+                                </div>
+                                <div class="rfid-hint-row">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>
+                                    <span class="rfid-hint-text">Click the field then tap/scan the RFID card, or type the UID directly.</span>
+                                </div>
                             </div>
 
                             <div class="form-divider"></div>
@@ -274,5 +264,12 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <script>
+        // Pulse the RFID indicator when the field is focused
+        const rfidInput = document.getElementById('rfid_uid');
+        const rfidDot   = document.getElementById('rfidDot');
+        rfidInput.addEventListener('focus', () => rfidDot.classList.add('scanning'));
+        rfidInput.addEventListener('blur',  () => rfidDot.classList.remove('scanning'));
+    </script>
 </body>
 </html>
