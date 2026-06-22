@@ -6,150 +6,7 @@
     <title>SUAAMS — Register Student</title>
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg:        #0D0F14;
-            --sidebar:   #0F1219;
-            --card:      #141720;
-            --card-2:    #1A1F2E;
-            --border:    #252C3F;
-            --cyan:      #00D4FF;
-            --cyan-dim:  rgba(0,212,255,0.10);
-            --cyan-glow: rgba(0,212,255,0.30);
-            --text:      #E8EAF0;
-            --muted:     #8892A4;
-            --success:   #00E676;
-            --danger:    #FF4D6A;
-            --sidebar-w: 240px;
-        }
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text); min-height: 100vh; display: flex; }
-
-        /* Sidebar — shared component */
-        .sidebar { width: var(--sidebar-w); background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
-        .sidebar-brand { padding: 1.5rem 1.25rem 1rem; border-bottom: 1px solid var(--border); }
-        .brand-badge { display: flex; align-items: center; gap: .6rem; }
-        .brand-icon { width: 34px; height: 34px; border-radius: 8px; background: var(--cyan-dim); border: 1px solid var(--cyan); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px var(--cyan-glow); flex-shrink: 0; }
-        .brand-icon svg { width: 16px; height: 16px; }
-        .brand-name { font-family: 'Space Grotesk', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--text); }
-        .brand-name span { color: var(--cyan); }
-        .brand-role { font-size: .7rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-top: .15rem; }
-        .sidebar-nav { flex: 1; padding: 1rem .75rem; overflow-y: auto; }
-        .nav-section-label { font-size: .65rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: .5rem .5rem .4rem; margin-top: .75rem; }
-        .nav-link { display: flex; align-items: center; gap: .65rem; padding: .6rem .75rem; border-radius: 8px; color: var(--muted); text-decoration: none; font-size: .875rem; font-weight: 500; transition: background .15s, color .15s; margin-bottom: 2px; }
-        .nav-link svg { width: 16px; height: 16px; flex-shrink: 0; }
-        .nav-link:hover { background: var(--card-2); color: var(--text); }
-        .nav-link.active { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(0,212,255,.15); }
-        .sidebar-footer { padding: 1rem .75rem; border-top: 1px solid var(--border); }
-        .btn-logout { display: flex; align-items: center; gap: .6rem; width: 100%; padding: .6rem .75rem; border-radius: 8px; background: rgba(255,77,106,0.08); border: 1px solid rgba(255,77,106,0.2); color: var(--danger); font-size: .875rem; font-weight: 500; text-decoration: none; transition: background .15s; }
-        .btn-logout:hover { background: rgba(255,77,106,0.15); color: var(--danger); }
-        .btn-logout svg { width: 16px; height: 16px; }
-
-        /* Main */
-        .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
-        .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 1rem 1.75rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
-        .topbar-left { display: flex; align-items: center; gap: .75rem; }
-        .topbar-back { display: flex; align-items: center; gap: .4rem; color: var(--muted); text-decoration: none; font-size: .82rem; transition: color .15s; }
-        .topbar-back:hover { color: var(--cyan); }
-        .topbar-back svg { width: 14px; height: 14px; }
-        .topbar-sep { color: var(--border); }
-        .topbar-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; }
-        .topbar-user { display: flex; align-items: center; gap: .6rem; font-size: .85rem; color: var(--muted); }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--cyan-dim); border: 1px solid var(--cyan); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: .75rem; font-weight: 700; color: var(--cyan); }
-
-        .content { padding: 1.75rem; flex: 1; }
-        .content-wrap { max-width: 560px; }
-
-        /* Flash */
-        .flash-msg { border-radius: 8px; padding: .75rem 1rem; font-size: .85rem; margin-bottom: 1.25rem; border: 1px solid; }
-        .flash-msg.error { background: rgba(255,77,106,0.08); border-color: rgba(255,77,106,0.3); color: #FF8099; }
-        .flash-msg.success { background: rgba(0,230,118,0.07); border-color: rgba(0,230,118,0.25); color: var(--success); }
-
-        /* Form card */
-        .form-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            overflow: hidden;
-        }
-        .form-card-header {
-            padding: 1.25rem 1.5rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            gap: .85rem;
-        }
-        .form-card-icon {
-            width: 40px; height: 40px;
-            border-radius: 10px;
-            background: var(--cyan-dim);
-            border: 1px solid rgba(0,212,255,.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .form-card-icon svg { width: 18px; height: 18px; stroke: var(--cyan); }
-        .form-card-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; }
-        .form-card-sub { font-size: .8rem; color: var(--muted); margin-top: .1rem; }
-        .form-card-body { padding: 1.5rem; }
-
-        .form-group { margin-bottom: 1.25rem; }
-        .form-label { display: block; font-size: .78rem; font-weight: 500; color: var(--muted); margin-bottom: .45rem; letter-spacing: .05em; text-transform: uppercase; }
-        .form-hint { font-size: .75rem; color: var(--muted); margin-top: .35rem; opacity: .7; }
-        .form-control {
-            width: 100%;
-            background: var(--card-2);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: .75rem 1rem;
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            font-size: .9rem;
-            transition: border-color .2s, box-shadow .2s;
-            outline: none;
-        }
-        .form-control::placeholder { color: var(--muted); opacity: .5; }
-        .form-control:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); }
-
-        .form-divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
-
-        .info-box {
-            background: rgba(0,212,255,0.05);
-            border: 1px solid rgba(0,212,255,0.15);
-            border-radius: 8px;
-            padding: .85rem 1rem;
-            font-size: .82rem;
-            color: #7ECFDF;
-            display: flex;
-            gap: .6rem;
-            align-items: flex-start;
-            margin-bottom: 1.5rem;
-        }
-        .info-box svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; stroke: var(--cyan); }
-
-        .btn-submit {
-            width: 100%;
-            background: var(--cyan);
-            color: #0D0F14;
-            border: none;
-            border-radius: 8px;
-            padding: .8rem;
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: .95rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: opacity .2s, box-shadow .2s, transform .1s;
-            letter-spacing: .01em;
-        }
-        .btn-submit:hover { opacity: .88; box-shadow: 0 0 18px var(--cyan-glow); transform: translateY(-1px); }
-        .btn-submit:active { transform: translateY(0); }
-
-        @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); }
-            .main { margin-left: 0; }
-            .content { padding: 1rem; }
-        }
-    </style>
+    <link href="{{ url_for('static', filename='css/create-student.css') }}" rel="stylesheet">
 </head>
 <body>
 
@@ -241,8 +98,8 @@
                             </div>
 
                             <div class="form-group">
-                                <label class="form-label" for="matric_no">Matric Number</label>
-                                <input type="text" id="matric_no" name="matric_no" class="form-control" placeholder="e.g. S2024/001" required>
+                                <label class="form-label" for="matric_number">Matric Number</label>
+                                <input type="text" id="matric_number" name="matric_number" class="form-control" placeholder="e.g. S2024/001" required>
                                 <div class="form-hint">This will also serve as the student's login username.</div>
                             </div>
 
@@ -257,8 +114,8 @@
                             </div>
 
                             <div class="form-group">
-                                <label class="form-label" for="uid">UID</label>
-                                <input type="text" id="uid" name="uid" class="form-control" placeholder="e.g. 12345678" required>
+                                <label class="form-label" for="rfid_uid">UID</label>
+                                <input type="text" id="rfid_uid" name="rfid_uid" class="form-control" placeholder="e.g. 12345678" required>
                                 <div class="form-hint">Unique identifier for the student (internal UID).</div>
                             </div>
 

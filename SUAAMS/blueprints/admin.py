@@ -7,14 +7,31 @@ admin_bp = Blueprint('admin', __name__)
 @admin_bp.route('/admin/dashboard')
 @login_required('admin')
 def dashboard():
-    return render_template('admin/dashboard.html')
+    connection = connect_to_database()
+    cursor = connection.cursor()
+    cursor.execute("SELECT COUNT(*) FROM lecturers")
+    lecturer_count = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM students")
+    student_count = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM sessions where is_active = 1")
+    active_sessions = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM attendance WHERE time_in >= CURDATE()")
+    today_scans = cursor.fetchone()[0]
+    
+    cursor.close()
+    connection.close()
+
+    return render_template('admin1/dashboard.html', lecturer_count=lecturer_count, student_count=student_count, active_sessions=active_sessions, today_scans=today_scans)
 
 
 @admin_bp.route('/admin/create-lecturer', methods=['GET', 'POST'])
 @login_required('admin')
 def create_lecturer():
     if request.method == 'GET':
-        return render_template('admin/create-lecturer.html')
+        return render_template('admin1/create-lecturer.html')
     
     if request.method == 'POST':
         full_name = request.form.get('full_name')
@@ -22,7 +39,7 @@ def create_lecturer():
         
         if not full_name or not staff_id:
             flash('Full name and staff ID are required.', 'error')
-            return render_template('admin/create-lecturer.html')
+            return render_template('admin1/create-lecturer.html')
         
         connection = connect_to_database()
         cursor = connection.cursor()
@@ -34,7 +51,7 @@ def create_lecturer():
             flash('A user with this staff ID already exists.', 'error')
             cursor.close()
             connection.close()
-            return render_template('admin/create-lecturer.html')
+            return render_template('admin1/create-lecturer.html')
         
         password = staff_id
         password_bytes = password.encode('utf-8')
@@ -61,7 +78,7 @@ def create_lecturer():
 @login_required('admin')
 def create_student():
     if request.method == 'GET':
-        return render_template('admin/create-student.html')
+        return render_template('admin1/create-student.html')
     
     if request.method == 'POST':
         full_name = request.form.get('full_name')
@@ -72,7 +89,7 @@ def create_student():
         
         if not full_name or not matric_number or not department or not level or not rfid_uid:
             flash('All fields are required.', 'error')
-            return render_template('admin/create-student.html')
+            return render_template('admin1/create-student.html')
         
         connection = connect_to_database()
         cursor = connection.cursor()
@@ -84,7 +101,7 @@ def create_student():
             flash('A user with this matric number already exists.', 'error')
             cursor.close()
             connection.close()
-            return render_template('admin/create-student.html')
+            return render_template('admin1/create-student.html')
         
         password = matric_number
         password_bytes = password.encode('utf-8')

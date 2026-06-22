@@ -6,400 +6,9 @@
     <title>SUAAMS — Admin Dashboard</title>
     <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg:        #0D0F14;
-            --sidebar:   #0F1219;
-            --card:      #141720;
-            --card-2:    #1A1F2E;
-            --border:    #252C3F;
-            --cyan:      #00D4FF;
-            --cyan-dim:  rgba(0,212,255,0.10);
-            --cyan-glow: rgba(0,212,255,0.30);
-            --text:      #E8EAF0;
-            --muted:     #8892A4;
-            --success:   #00E676;
-            --danger:    #FF4D6A;
-            --warning:   #FFB300;
-            --sidebar-w: 240px;
-        }
-
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            background: var(--bg);
-            font-family: 'Inter', sans-serif;
-            color: var(--text);
-            min-height: 100vh;
-            display: flex;
-        }
-
-        /* ── Sidebar ── */
-        .sidebar {
-            width: var(--sidebar-w);
-            background: var(--sidebar);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            position: fixed;
-            top: 0; left: 0; bottom: 0;
-            z-index: 100;
-            transition: transform .25s;
-        }
-
-        .sidebar-brand {
-            padding: 1.5rem 1.25rem 1rem;
-            border-bottom: 1px solid var(--border);
-        }
-        .brand-badge {
-            display: flex;
-            align-items: center;
-            gap: .6rem;
-        }
-        .brand-icon {
-            width: 34px; height: 34px;
-            border-radius: 8px;
-            background: var(--cyan-dim);
-            border: 1px solid var(--cyan);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 12px var(--cyan-glow);
-            flex-shrink: 0;
-        }
-        .brand-icon svg { width: 16px; height: 16px; }
-        .brand-name {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text);
-            letter-spacing: -.01em;
-        }
-        .brand-name span { color: var(--cyan); }
-        .brand-role {
-            font-size: .7rem;
-            color: var(--muted);
-            letter-spacing: .08em;
-            text-transform: uppercase;
-            margin-top: .15rem;
-        }
-
-        .sidebar-nav {
-            flex: 1;
-            padding: 1rem .75rem;
-            overflow-y: auto;
-        }
-        .nav-section-label {
-            font-size: .65rem;
-            letter-spacing: .12em;
-            text-transform: uppercase;
-            color: var(--muted);
-            padding: .5rem .5rem .4rem;
-            margin-top: .75rem;
-        }
-        .nav-link {
-            display: flex;
-            align-items: center;
-            gap: .65rem;
-            padding: .6rem .75rem;
-            border-radius: 8px;
-            color: var(--muted);
-            text-decoration: none;
-            font-size: .875rem;
-            font-weight: 500;
-            transition: background .15s, color .15s;
-            margin-bottom: 2px;
-        }
-        .nav-link svg { width: 16px; height: 16px; flex-shrink: 0; }
-        .nav-link:hover { background: var(--card-2); color: var(--text); }
-        .nav-link.active { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(0,212,255,.15); }
-
-        .sidebar-footer {
-            padding: 1rem .75rem;
-            border-top: 1px solid var(--border);
-        }
-        .btn-logout {
-            display: flex;
-            align-items: center;
-            gap: .6rem;
-            width: 100%;
-            padding: .6rem .75rem;
-            border-radius: 8px;
-            background: rgba(255,77,106,0.08);
-            border: 1px solid rgba(255,77,106,0.2);
-            color: var(--danger);
-            font-size: .875rem;
-            font-weight: 500;
-            text-decoration: none;
-            cursor: pointer;
-            transition: background .15s;
-        }
-        .btn-logout:hover { background: rgba(255,77,106,0.15); color: var(--danger); }
-        .btn-logout svg { width: 16px; height: 16px; }
-
-        /* ── Main content ── */
-        .main {
-            margin-left: var(--sidebar-w);
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        .topbar {
-            background: var(--card);
-            border-bottom: 1px solid var(--border);
-            padding: 1rem 1.75rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 50;
-        }
-        .topbar-title {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 1rem;
-            font-weight: 600;
-        }
-        .topbar-user {
-            display: flex;
-            align-items: center;
-            gap: .6rem;
-            font-size: .85rem;
-            color: var(--muted);
-        }
-        .user-avatar {
-            width: 32px; height: 32px;
-            border-radius: 50%;
-            background: var(--cyan-dim);
-            border: 1px solid var(--cyan);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: .75rem;
-            font-weight: 700;
-            color: var(--cyan);
-        }
-
-        .content {
-            padding: 1.75rem;
-            flex: 1;
-        }
-
-        /* Flash messages */
-        .flash-msg {
-            border-radius: 8px;
-            padding: .75rem 1rem;
-            font-size: .85rem;
-            margin-bottom: 1.25rem;
-            border: 1px solid;
-            display: flex;
-            align-items: center;
-            gap: .5rem;
-        }
-        .flash-msg.error { background: rgba(255,77,106,0.08); border-color: rgba(255,77,106,0.3); color: #FF8099; }
-        .flash-msg.success { background: rgba(0,230,118,0.07); border-color: rgba(0,230,118,0.25); color: var(--success); }
-
-        /* Stat cards */
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.75rem;
-        }
-        .stat-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.25rem;
-            position: relative;
-            overflow: hidden;
-        }
-        .stat-card::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
-        }
-        .stat-card.cyan::after  { background: var(--cyan); }
-        .stat-card.green::after { background: var(--success); }
-        .stat-card.amber::after { background: var(--warning); }
-        .stat-card.red::after   { background: var(--danger); }
-
-        .stat-label {
-            font-size: .75rem;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: .07em;
-            margin-bottom: .5rem;
-        }
-        .stat-value {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.9rem;
-            font-weight: 700;
-            line-height: 1;
-            margin-bottom: .25rem;
-        }
-        .stat-card.cyan .stat-value  { color: var(--cyan); }
-        .stat-card.green .stat-value { color: var(--success); }
-        .stat-card.amber .stat-value { color: var(--warning); }
-        .stat-card.red .stat-value   { color: var(--danger); }
-        .stat-desc { font-size: .78rem; color: var(--muted); }
-
-        /* Action cards */
-        .section-heading {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: .8rem;
-            font-weight: 600;
-            letter-spacing: .1em;
-            text-transform: uppercase;
-            color: var(--muted);
-            margin-bottom: 1rem;
-        }
-        .action-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.75rem;
-        }
-        .action-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-            transition: border-color .2s, transform .2s;
-            text-decoration: none;
-            color: var(--text);
-        }
-        .action-card:hover {
-            border-color: var(--cyan);
-            transform: translateY(-2px);
-            color: var(--text);
-        }
-        .action-icon {
-            width: 44px; height: 44px;
-            border-radius: 10px;
-            background: var(--cyan-dim);
-            border: 1px solid rgba(0,212,255,.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .action-icon svg { width: 20px; height: 20px; stroke: var(--cyan); }
-        .action-title {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: .25rem;
-        }
-        .action-desc { font-size: .83rem; color: var(--muted); line-height: 1.45; }
-        .action-arrow {
-            display: inline-flex;
-            align-items: center;
-            gap: .35rem;
-            font-size: .82rem;
-            font-weight: 500;
-            color: var(--cyan);
-            margin-top: auto;
-        }
-        .action-arrow svg { width: 14px; height: 14px; }
-
-        /* Active sessions table */
-        .sessions-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        .sessions-header {
-            padding: 1.1rem 1.4rem;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .sessions-title {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: .95rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: .5rem;
-        }
-        .live-dot {
-            width: 8px; height: 8px;
-            border-radius: 50%;
-            background: var(--success);
-            box-shadow: 0 0 6px var(--success);
-            animation: pulse 2s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: .4; }
-        }
-        table { width: 100%; border-collapse: collapse; }
-        thead th {
-            padding: .65rem 1.4rem;
-            font-size: .72rem;
-            font-weight: 500;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-            color: var(--muted);
-            background: var(--card-2);
-            text-align: left;
-        }
-        tbody tr {
-            border-top: 1px solid var(--border);
-            transition: background .15s;
-        }
-        tbody tr:hover { background: var(--card-2); }
-        tbody td {
-            padding: .85rem 1.4rem;
-            font-size: .875rem;
-            color: var(--text);
-        }
-        .badge-active {
-            display: inline-flex;
-            align-items: center;
-            gap: .35rem;
-            background: rgba(0,230,118,0.1);
-            border: 1px solid rgba(0,230,118,0.25);
-            color: var(--success);
-            border-radius: 20px;
-            padding: .2rem .65rem;
-            font-size: .75rem;
-            font-weight: 500;
-        }
-        .empty-state {
-            text-align: center;
-            padding: 2.5rem 1rem;
-            color: var(--muted);
-        }
-        .empty-state svg { width: 36px; height: 36px; margin-bottom: .75rem; opacity: .4; }
-        .empty-state p { font-size: .875rem; }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); }
-            .sidebar.open { transform: translateX(0); }
-            .main { margin-left: 0; }
-            .topbar { padding: 1rem; }
-            .content { padding: 1rem; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .live-dot { animation: none; }
-        }
-    </style>
+    <link href="{{ url_for('static', filename='css/admin-dashboard.css') }}" rel="stylesheet">
 </head>
 <body>
-
-    <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
             <div class="brand-badge">
@@ -448,7 +57,6 @@
         </div>
     </aside>
 
-    <!-- Main -->
     <div class="main">
         <header class="topbar">
             <div class="topbar-title">Dashboard Overview</div>
@@ -459,36 +67,33 @@
         </header>
 
         <div class="content">
-
             {% for category, message in get_flashed_messages(with_categories=True) %}
                 <div class="flash-msg {{ category }}">{{ message }}</div>
             {% endfor %}
 
-            <!-- Stats -->
             <div class="stats-grid">
                 <div class="stat-card cyan">
                     <div class="stat-label">Total Students</div>
-                    <div class="stat-value">—</div>
+                    <div class="stat-value">{{ student_count }}</div>
                     <div class="stat-desc">Registered in system</div>
                 </div>
                 <div class="stat-card green">
                     <div class="stat-label">Active Sessions</div>
-                    <div class="stat-value">—</div>
+                    <div class="stat-value">{{ active_sessions }}</div>
                     <div class="stat-desc">Currently running</div>
                 </div>
                 <div class="stat-card amber">
                     <div class="stat-label">Lecturers</div>
-                    <div class="stat-value">—</div>
+                    <div class="stat-value">{{ lecturer_count }}</div>
                     <div class="stat-desc">Total staff accounts</div>
                 </div>
                 <div class="stat-card red">
                     <div class="stat-label">Today's Scans</div>
-                    <div class="stat-value">—</div>
+                    <div class="stat-value">{{ today_scans }}</div>
                     <div class="stat-desc">RFID check-ins today</div>
                 </div>
             </div>
 
-            <!-- Quick actions -->
             <div class="section-heading">Quick Actions</div>
             <div class="action-grid">
                 <a href="{{ url_for('admin.create_lecturer') }}" class="action-card">
@@ -520,7 +125,6 @@
                 </a>
             </div>
 
-            <!-- Active sessions -->
             <div class="section-heading">Live Sessions</div>
             <div class="sessions-card">
                 <div class="sessions-header">
@@ -552,36 +156,10 @@
                     </tbody>
                 </table>
             </div>
-
         </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-    <script>
-        // Load active sessions from the API
-        async function loadSessions() {
-            try {
-                const res = await fetch('/sessions/active');
-                const data = await res.json();
-                const tbody = document.getElementById('sessions-body');
-
-                if (!data.active_sessions || data.active_sessions.length === 0) return;
-
-                tbody.innerHTML = data.active_sessions.map(s => `
-                    <tr>
-                        <td>#${s.id}</td>
-                        <td>${s.course_id}</td>
-                        <td>${s.session_date}</td>
-                        <td>${s.start_time}</td>
-                        <td>${s.stop_time}</td>
-                        <td><span class="badge-active"><span style="width:6px;height:6px;border-radius:50%;background:#00E676;display:inline-block;"></span> Active</span></td>
-                    </tr>
-                `).join('');
-            } catch (e) {
-                // silently fail — server may not be available
-            }
-        }
-        loadSessions();
-    </script>
+    <script src="{{ url_for('static', filename='js/admin-dashboard.js') }}"></script>
 </body>
 </html>
