@@ -168,19 +168,48 @@
 
         /* Section heading */
         .section-heading { font-family: 'Space Grotesk', sans-serif; font-size: .78rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .85rem; }
-
-        @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); }
-            .main { margin-left: 0; }
             .content { padding: 1rem; }
             .greeting-banner { flex-direction: column; align-items: flex-start; }
         }
         @media (prefers-reduced-motion: reduce) {
             .live .status-dot { animation: none; }
         }
+
+        /* ── Mobile sidebar toggle ── */
+        .hamburger {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 36px; height: 36px;
+            border-radius: 8px;
+            background: var(--card-2);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .hamburger svg { width: 18px; height: 18px; stroke: var(--text); }
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 99;
+            backdrop-filter: blur(2px);
+        }
+        .overlay.open { display: block; }
+        @media (max-width: 768px) {
+            .hamburger { display: flex; }
+            .sidebar { transform: translateX(-100%); transition: transform .25s ease; }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+            .topbar { padding: 1rem; }
+            .content { padding: 1rem; }
+        }
     </style>
 </head>
 <body>
+
+    <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
 
     <aside class="sidebar">
         <div class="sidebar-brand">
@@ -220,6 +249,13 @@
 
     <div class="main">
         <header class="topbar">
+            <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Toggle menu">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
+                </svg>
+            </button>
             <div class="topbar-title">Lecturer Dashboard</div>
             <div class="topbar-user">
                 <div class="user-avatar">{{ session['username'][0]|upper }}</div>
@@ -455,6 +491,16 @@
         document.getElementById('statSessions').textContent  = '0';
         document.getElementById('statCheckins').textContent  = '0';
         document.getElementById('statStatus').textContent    = 'Idle';
+    </script>
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('overlay').classList.toggle('open');
+        }
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('overlay').classList.remove('open');
+        }
     </script>
 </body>
 </html>
