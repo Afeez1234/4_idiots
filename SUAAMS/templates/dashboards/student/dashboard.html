@@ -28,7 +28,7 @@
         body { background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text); min-height: 100vh; display: flex; }
 
         /* ── Sidebar ── */
-        .sidebar { width: var(--sidebar-w); background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+        .sidebar { width: var(--sidebar-w); background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; transition: transform .25s ease; }
         .sidebar-brand { padding: 1.5rem 1.25rem 1rem; border-bottom: 1px solid var(--border); }
         .brand-badge { display: flex; align-items: center; gap: .6rem; }
         .brand-icon { width: 34px; height: 34px; border-radius: 8px; background: var(--cyan-dim); border: 1px solid var(--cyan); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px var(--cyan-glow); flex-shrink: 0; }
@@ -49,198 +49,222 @@
 
         /* ── Main ── */
         .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-        .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 1rem 1.75rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
-        .topbar-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; }
-        .topbar-user { display: flex; align-items: center; gap: .6rem; font-size: .85rem; color: var(--muted); }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(52,211,153,0.12); border: 1px solid var(--emerald); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: .75rem; font-weight: 700; color: var(--emerald); }
 
-        .content { padding: 1.75rem; flex: 1; }
+        /* ── Topbar ── */
+        .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 1rem 1.75rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; gap: .75rem; }
+        .topbar-left { display: flex; align-items: center; gap: .75rem; }
+        .topbar-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; }
+        .topbar-right { display: flex; align-items: center; gap: .65rem; }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(52,211,153,0.12); border: 1px solid var(--emerald); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: .75rem; font-weight: 700; color: var(--emerald); flex-shrink: 0; }
+        .topbar-username { font-size: .85rem; color: var(--muted); }
+
+        /* Hamburger */
+        .hamburger { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background: var(--card-2); border: 1px solid var(--border); cursor: pointer; flex-shrink: 0; }
+        .hamburger svg { width: 18px; height: 18px; stroke: var(--text); }
+
+        /* Mobile logout */
+        .topbar-logout-mobile { display: none; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; background: rgba(255,77,106,0.08); border: 1px solid rgba(255,77,106,0.2); color: var(--danger); text-decoration: none; flex-shrink: 0; transition: background .15s; }
+        .topbar-logout-mobile:hover { background: rgba(255,77,106,0.18); color: var(--danger); }
+        .topbar-logout-mobile svg { width: 15px; height: 15px; }
+
+        /* Overlay */
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 99; backdrop-filter: blur(2px); }
+        .overlay.open { display: block; }
+
+        /* ── Content ── */
+        .content { padding: 2rem 1.75rem; flex: 1; }
 
         /* Flash */
         .flash-msg { border-radius: 8px; padding: .75rem 1rem; font-size: .85rem; margin-bottom: 1.25rem; border: 1px solid; }
         .flash-msg.error { background: rgba(255,77,106,0.08); border-color: rgba(255,77,106,0.3); color: #FF8099; }
         .flash-msg.success { background: rgba(0,230,118,0.07); border-color: rgba(0,230,118,0.25); color: var(--success); }
 
-        /* Profile banner */
-        .profile-banner {
-            background: linear-gradient(135deg, #141720, #1a1f2e);
+        /* ── Profile card ── */
+        .profile-card {
+            background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 1.5rem 1.75rem;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
             display: flex;
-            align-items: center;
-            gap: 1.25rem;
-            margin-bottom: 1.5rem;
+            align-items: flex-start;
+            gap: 1.75rem;
             position: relative;
             overflow: hidden;
         }
-        .profile-banner::after {
+        .profile-card::before {
             content: '';
             position: absolute;
-            bottom: -30px; right: -30px;
-            width: 160px; height: 160px;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--cyan), var(--emerald));
+        }
+        .profile-card::after {
+            content: '';
+            position: absolute;
+            top: -50px; right: -50px;
+            width: 200px; height: 200px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(52,211,153,0.07), transparent 70%);
+            background: radial-gradient(circle, rgba(52,211,153,0.06), transparent 70%);
             pointer-events: none;
         }
-        .profile-pic {
-            width: 60px; height: 60px;
+        .profile-avatar {
+            width: 80px; height: 80px;
             border-radius: 50%;
             background: rgba(52,211,153,0.12);
             border: 2px solid var(--emerald);
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: flex; align-items: center; justify-content: center;
             font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.4rem;
-            font-weight: 700;
+            font-size: 1.8rem; font-weight: 700;
             color: var(--emerald);
             flex-shrink: 0;
         }
-        .profile-info {}
-        .profile-name { font-family: 'Space Grotesk', sans-serif; font-size: 1.2rem; font-weight: 700; }
-        .profile-meta { font-size: .82rem; color: var(--muted); margin-top: .25rem; display: flex; gap: .85rem; flex-wrap: wrap; }
-        .profile-meta-item { display: flex; align-items: center; gap: .3rem; }
-        .profile-meta-item svg { width: 12px; height: 12px; stroke: var(--muted); }
-        .rfid-badge {
-            margin-left: auto;
-            background: var(--cyan-dim);
-            border: 1px solid rgba(0,212,255,.2);
-            border-radius: 8px;
-            padding: .65rem .9rem;
-            text-align: center;
-            flex-shrink: 0;
+        .profile-body { flex: 1; }
+        .profile-greeting { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: .3rem; }
+        .profile-name { font-family: 'Space Grotesk', sans-serif; font-size: 1.55rem; font-weight: 700; margin-bottom: .85rem; }
+
+        /* Info grid — 2 cols on desktop */
+        .profile-info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .55rem .85rem;
         }
-        .rfid-badge-label { font-size: .67rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
-        .rfid-badge-val { font-family: 'Space Grotesk', sans-serif; font-size: .85rem; font-weight: 600; color: var(--cyan); margin-top: .15rem; letter-spacing: .04em; }
-
-        /* Stats */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-        .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.25rem; position: relative; overflow: hidden; }
-        .stat-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
-        .stat-card.cyan::after   { background: var(--cyan); }
-        .stat-card.green::after  { background: var(--success); }
-        .stat-card.amber::after  { background: var(--warning); }
-        .stat-card.red::after    { background: var(--danger); }
-        .stat-label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: .4rem; }
-        .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.75rem; font-weight: 700; line-height: 1; margin-bottom: .2rem; }
-        .stat-card.cyan .stat-value  { color: var(--cyan); }
-        .stat-card.green .stat-value { color: var(--success); }
-        .stat-card.amber .stat-value { color: var(--warning); }
-        .stat-card.red .stat-value   { color: var(--danger); }
-        .stat-desc { font-size: .76rem; color: var(--muted); }
-
-        /* Section heading */
-        .section-heading { font-family: 'Space Grotesk', sans-serif; font-size: .78rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .85rem; }
-
-        /* Two col layout */
-        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.5rem; }
-        @media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
-
-        /* Attendance table card */
-        .table-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-        .card-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: .6rem; justify-content: space-between; }
-        .card-header-left { display: flex; align-items: center; gap: .6rem; }
-        .card-header-icon { width: 30px; height: 30px; border-radius: 7px; background: var(--cyan-dim); border: 1px solid rgba(0,212,255,.2); display: flex; align-items: center; justify-content: center; }
-        .card-header-icon svg { width: 14px; height: 14px; stroke: var(--cyan); }
-        .card-header-title { font-family: 'Space Grotesk', sans-serif; font-size: .9rem; font-weight: 600; }
-
-        table { width: 100%; border-collapse: collapse; }
-        thead th { padding: .6rem 1.25rem; font-size: .72rem; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--card-2); text-align: left; }
-        tbody tr { border-top: 1px solid var(--border); transition: background .15s; }
-        tbody tr:hover { background: var(--card-2); }
-        tbody td { padding: .8rem 1.25rem; font-size: .875rem; color: var(--text); }
-
-        .badge-present { display: inline-flex; align-items: center; gap: .3rem; background: rgba(0,230,118,0.09); border: 1px solid rgba(0,230,118,0.22); color: var(--success); border-radius: 20px; padding: .18rem .6rem; font-size: .73rem; font-weight: 500; }
-        .badge-absent  { display: inline-flex; align-items: center; gap: .3rem; background: rgba(255,77,106,0.08); border: 1px solid rgba(255,77,106,0.22); color: var(--danger); border-radius: 20px; padding: .18rem .6rem; font-size: .73rem; font-weight: 500; }
-
-        .empty-state { text-align: center; padding: 2rem 1rem; color: var(--muted); }
-        .empty-state svg { width: 30px; height: 30px; margin-bottom: .6rem; opacity: .35; display: block; margin-inline: auto; }
-        .empty-state p { font-size: .85rem; }
-
-        /* Attendance ring / percentage */
-        .ring-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; }
-        .ring-wrap { position: relative; width: 120px; height: 120px; }
-        .ring-wrap svg { transform: rotate(-90deg); }
-        .ring-bg   { fill: none; stroke: var(--border); stroke-width: 10; }
-        .ring-fill { fill: none; stroke: var(--cyan); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset .8s ease; }
-        .ring-fill.warning { stroke: var(--warning); }
-        .ring-fill.danger  { stroke: var(--danger); }
-        .ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .ring-pct { font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--cyan); line-height: 1; }
-        .ring-pct.warning { color: var(--warning); }
-        .ring-pct.danger  { color: var(--danger); }
-        .ring-sub { font-size: .7rem; color: var(--muted); margin-top: .15rem; }
-        .ring-title { font-family: 'Space Grotesk', sans-serif; font-size: .9rem; font-weight: 600; text-align: center; }
-        .ring-desc  { font-size: .78rem; color: var(--muted); text-align: center; line-height: 1.4; }
-        .ring-warn-pill { background: rgba(255,179,0,0.1); border: 1px solid rgba(255,179,0,0.25); color: var(--warning); border-radius: 20px; padding: .25rem .75rem; font-size: .75rem; font-weight: 500; }
-        .ring-ok-pill   { background: rgba(0,230,118,0.08); border: 1px solid rgba(0,230,118,0.22); color: var(--success); border-radius: 20px; padding: .25rem .75rem; font-size: .75rem; font-weight: 500; }
-
-        /* Enrolled courses */
-        .courses-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-        .course-item { display: flex; align-items: center; gap: .9rem; padding: .9rem 1.25rem; border-top: 1px solid var(--border); transition: background .15s; }
-        .course-item:first-of-type { border-top: none; }
-        .course-item:hover { background: var(--card-2); }
-        .course-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-        .course-info { flex: 1; }
-        .course-code { font-family: 'Space Grotesk', sans-serif; font-size: .875rem; font-weight: 600; }
-        .course-name { font-size: .78rem; color: var(--muted); margin-top: .1rem; }
-        .course-pct  { font-family: 'Space Grotesk', sans-serif; font-size: .85rem; font-weight: 600; }
-            .content { padding: 1rem; }
-            .profile-banner { flex-direction: column; align-items: flex-start; }
-            .rfid-badge { margin-left: 0; }
-        }
-
-        /* ── Mobile sidebar toggle ── */
-        .hamburger {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            width: 36px; height: 36px;
-            border-radius: 8px;
+        .info-item {
+            display: flex; align-items: center; gap: .5rem;
             background: var(--card-2);
             border: 1px solid var(--border);
-            cursor: pointer;
-            flex-shrink: 0;
+            border-radius: 8px;
+            padding: .5rem .75rem;
         }
-        .hamburger svg { width: 18px; height: 18px; stroke: var(--text); }
-        .overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.55);
-            z-index: 99;
-            backdrop-filter: blur(2px);
+        .info-item svg { width: 13px; height: 13px; stroke: var(--cyan); flex-shrink: 0; }
+        .info-label { font-size: .7rem; color: var(--muted); white-space: nowrap; }
+        .info-value { font-size: .82rem; font-weight: 500; color: var(--text); margin-left: auto; text-align: right; }
+
+        /* RFID chip look */
+        .rfid-chip {
+            display: inline-flex; align-items: center; gap: .4rem;
+            background: var(--cyan-dim);
+            border: 1px solid rgba(0,212,255,.25);
+            border-radius: 8px;
+            padding: .5rem .75rem;
+            font-family: 'Space Grotesk', monospace;
+            font-size: .8rem; font-weight: 600;
+            color: var(--cyan);
+            letter-spacing: .05em;
         }
-        .overlay.open { display: block; }
-        @media (max-width: 768px) {
-            .hamburger { display: none; }
-            .sidebar { transform: translateX(-100%); transition: transform .25s ease; }
-            .sidebar.open { transform: translateX(0); }
-            .main { margin-left: 0; }
-            .topbar { padding: 1rem; }
-            .content { padding: 1rem; }
+        .rfid-chip svg { width: 13px; height: 13px; stroke: var(--cyan); }
+        .rfid-pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); animation: rfid-blink 2.5s ease-in-out infinite; }
+        @keyframes rfid-blink { 0%,100%{opacity:1;box-shadow:0 0 6px var(--cyan);} 50%{opacity:.3;box-shadow:none;} }
+
+        /* ── Section heading ── */
+        .section-heading {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: .78rem; font-weight: 600;
+            letter-spacing: .1em; text-transform: uppercase;
+            color: var(--muted); margin-bottom: 1.25rem;
+            display: flex; align-items: center; gap: .6rem;
+        }
+        .section-heading::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        /* ── Course cards grid ── */
+        .courses-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.25rem;
         }
 
-        /* ── Topbar mobile logout button ── */
-        .topbar-logout-mobile {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            width: 34px; height: 34px;
-            border-radius: 8px;
-            background: rgba(255,77,106,0.08);
-            border: 1px solid rgba(255,77,106,0.2);
-            color: var(--danger);
+        .course-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
             text-decoration: none;
-            flex-shrink: 0;
-            transition: background .15s;
+            display: block;
+            color: var(--text);
+            transition: border-color .2s, transform .2s, box-shadow .2s;
         }
-        .topbar-logout-mobile:hover { background: rgba(255,77,106,0.18); color: var(--danger); }
-        .topbar-logout-mobile svg { width: 15px; height: 15px; }
+        .course-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            width: 4px;
+            border-radius: 14px 0 0 14px;
+        }
+        .course-card:hover {
+            color: var(--text);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+        }
+        .course-card:nth-child(4n+1)::before { background: var(--cyan); }
+        .course-card:nth-child(4n+1):hover    { border-color: var(--cyan); }
+        .course-card:nth-child(4n+2)::before  { background: var(--success); }
+        .course-card:nth-child(4n+2):hover    { border-color: var(--success); }
+        .course-card:nth-child(4n+3)::before  { background: var(--warning); }
+        .course-card:nth-child(4n+3):hover    { border-color: var(--warning); }
+        .course-card:nth-child(4n+0)::before  { background: var(--purple, #A78BFA); }
+        .course-card:nth-child(4n+0):hover    { border-color: var(--purple, #A78BFA); }
+
+        .course-badge {
+            display: inline-block;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: .72rem; font-weight: 600; letter-spacing: .06em;
+            border-radius: 6px; padding: .25rem .6rem; margin-bottom: .85rem;
+        }
+        .course-card:nth-child(4n+1) .course-badge { background: rgba(0,212,255,0.12);   color: var(--cyan);    border: 1px solid rgba(0,212,255,0.25); }
+        .course-card:nth-child(4n+2) .course-badge { background: rgba(0,230,118,0.10);   color: var(--success); border: 1px solid rgba(0,230,118,0.22); }
+        .course-card:nth-child(4n+3) .course-badge { background: rgba(255,179,0,0.10);   color: var(--warning); border: 1px solid rgba(255,179,0,0.22); }
+        .course-card:nth-child(4n+0) .course-badge { background: rgba(167,139,250,0.10); color: #A78BFA;        border: 1px solid rgba(167,139,250,0.22); }
+
+        .course-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.05rem; font-weight: 600; color: var(--text); margin-bottom: .4rem; }
+        .course-desc  { font-size: .82rem; color: var(--muted); line-height: 1.5; margin-bottom: 1.1rem; }
+
+        .course-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            padding-top: 1rem; border-top: 1px solid var(--border);
+        }
+
+        /* Attendance pill on each course card */
+        .attendance-pill {
+            display: inline-flex; align-items: center; gap: .3rem;
+            border-radius: 20px; padding: .22rem .65rem;
+            font-size: .73rem; font-weight: 600;
+        }
+        .attendance-pill.good    { background: rgba(0,230,118,0.09); border: 1px solid rgba(0,230,118,0.22); color: var(--success); }
+        .attendance-pill.warning { background: rgba(255,179,0,0.09); border: 1px solid rgba(255,179,0,0.22); color: var(--warning); }
+        .attendance-pill.danger  { background: rgba(255,77,106,0.09); border: 1px solid rgba(255,77,106,0.22); color: var(--danger); }
+        .attendance-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+        .course-open {
+            display: inline-flex; align-items: center; gap: .35rem;
+            font-size: .78rem; font-weight: 600; color: var(--cyan);
+        }
+        .course-open svg { width: 13px; height: 13px; stroke: var(--cyan); }
+
+        /* Empty state */
+        .empty-courses { text-align: center; padding: 3.5rem 1rem; color: var(--muted); }
+        .empty-courses svg { width: 40px; height: 40px; margin: 0 auto 1rem; display: block; opacity: .3; }
+        .empty-courses p { font-size: .9rem; }
+
+        /* ── Responsive ── */
         @media (max-width: 768px) {
             .hamburger { display: flex !important; }
             .topbar-logout-mobile { display: flex; }
+            .topbar-username { display: none; }
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+            .topbar { padding: 1rem; }
+            .content { padding: 1.25rem 1rem; }
+            .profile-card { flex-direction: column; gap: 1.25rem; }
+            .profile-info-grid { grid-template-columns: 1fr; }
+            .courses-grid { grid-template-columns: 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .rfid-pulse { animation: none; }
+            .course-card { transition: none; }
         }
     </style>
 </head>
@@ -248,7 +272,8 @@
 
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
 
-    <aside class="sidebar">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
             <div class="brand-badge">
                 <div class="brand-icon">
@@ -271,10 +296,6 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                 My Courses
             </a>
-            <a href="#" class="nav-link">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                Attendance History
-            </a>
         </nav>
         <div class="sidebar-footer">
             <a href="{{ url_for('auth.logout') }}" class="btn-logout">
@@ -284,19 +305,20 @@
         </div>
     </aside>
 
+    <!-- ── Main ── -->
     <div class="main">
         <header class="topbar">
-            <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Toggle menu">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="3" y1="6" x2="21" y2="6"/>
-                    <line x1="3" y1="12" x2="21" y2="12"/>
-                    <line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
-            </button>
-            <div class="topbar-title">Student Dashboard</div>
-            <div class="topbar-user">
+            <div class="topbar-left">
+                <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Toggle menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                <div class="topbar-title">My Dashboard</div>
+            </div>
+            <div class="topbar-right">
                 <div class="user-avatar">{{ session['username'][0]|upper }}</div>
-                <span>{{ session['username'] }}</span>
+                <span class="topbar-username">{{ session['username'] }}</span>
                 <a href="{{ url_for('auth.logout') }}" class="topbar-logout-mobile" title="Sign out">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 </a>
@@ -309,236 +331,121 @@
                 <div class="flash-msg {{ category }}">{{ message }}</div>
             {% endfor %}
 
-            <!-- Profile banner -->
-            <div class="profile-banner">
-                <div class="profile-pic" id="avatarPic">—</div>
-                <div class="profile-info">
-                    <div class="profile-name" id="profileName">{{ session['username'] }}</div>
-                    <div class="profile-meta">
-                        <div class="profile-meta-item">
+            <!-- ── Profile card ── -->
+            <div class="profile-card">
+                <div class="profile-avatar" id="studentAvatar">—</div>
+                <div class="profile-body">
+                    <div class="profile-greeting">Student</div>
+                    <div class="profile-name" id="studentName">{{ session['username'] }}</div>
+
+                    <div class="profile-info-grid">
+                        <div class="info-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                            <span class="info-label">Matric No.</span>
+                            <span class="info-value" id="studentMatric">{{ session['username'] }}</span>
+                        </div>
+                        <div class="info-item">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-                            <span id="profileDept">—</span>
+                            <span class="info-label">Faculty</span>
+                            <span class="info-value" id="studentFaculty">—</span>
                         </div>
-                        <div class="profile-meta-item">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            <span id="profileLevel">—</span>
+                        <div class="info-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                            <span class="info-label">Department</span>
+                            <span class="info-value" id="studentDept">—</span>
                         </div>
-                        <div class="profile-meta-item">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                            <span>{{ session['username'] }}</span>
+                        <div class="info-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                            <span class="info-label">Level</span>
+                            <span class="info-value" id="studentLevel">—</span>
                         </div>
-                    </div>
-                </div>
-                <div class="rfid-badge">
-                    <div class="rfid-badge-label">RFID Tag</div>
-                    <div class="rfid-badge-val" id="rfidDisplay">Linked ✓</div>
-                </div>
-            </div>
-
-            <!-- Stats -->
-            <div class="stats-grid">
-                <div class="stat-card cyan">
-                    <div class="stat-label">Courses Enrolled</div>
-                    <div class="stat-value" id="statCourses">—</div>
-                    <div class="stat-desc">This semester</div>
-                </div>
-                <div class="stat-card green">
-                    <div class="stat-label">Sessions Attended</div>
-                    <div class="stat-value" id="statAttended">—</div>
-                    <div class="stat-desc">Total check-ins</div>
-                </div>
-                <div class="stat-card amber">
-                    <div class="stat-label">Attendance Rate</div>
-                    <div class="stat-value" id="statRate">—</div>
-                    <div class="stat-desc">Overall percentage</div>
-                </div>
-                <div class="stat-card red">
-                    <div class="stat-label">At-Risk Courses</div>
-                    <div class="stat-value" id="statRisk">—</div>
-                    <div class="stat-desc">Below 75%</div>
-                </div>
-            </div>
-
-            <!-- Attendance ring + courses -->
-            <div class="two-col" style="margin-bottom:1.5rem;">
-                <!-- Overall ring -->
-                <div class="ring-card">
-                    <div class="ring-wrap">
-                        <svg width="120" height="120" viewBox="0 0 120 120">
-                            <circle class="ring-bg"   cx="60" cy="60" r="50"/>
-                            <circle class="ring-fill" cx="60" cy="60" r="50" id="ringFill"
-                                stroke-dasharray="314.16"
-                                stroke-dashoffset="314.16"/>
-                        </svg>
-                        <div class="ring-label">
-                            <div class="ring-pct" id="ringPct">—%</div>
-                            <div class="ring-sub">overall</div>
-                        </div>
-                    </div>
-                    <div class="ring-title">Attendance Overview</div>
-                    <div class="ring-desc">Your attendance across all enrolled courses this semester.</div>
-                    <div id="ringPill" class="ring-ok-pill">Good standing</div>
-                </div>
-
-                <!-- Per-course breakdown -->
-                <div class="courses-card">
-                    <div class="card-header">
-                        <div class="card-header-left">
-                            <div class="card-header-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                            </div>
-                            <div class="card-header-title">Course Breakdown</div>
-                        </div>
-                    </div>
-                    <div id="courseList">
-                        <div class="empty-state">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                            <p>No courses enrolled yet</p>
+                        <!-- RFID chip spans full width on its own row -->
+                        <div class="info-item" style="grid-column: 1 / -1;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>
+                            <span class="info-label">RFID UID</span>
+                            <span class="info-value" style="margin-left:auto;">
+                                <span class="rfid-chip">
+                                    <div class="rfid-pulse"></div>
+                                    <span id="studentRfid">— — — —</span>
+                                </span>
+                            </span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Recent attendance history -->
-            <div class="section-heading">Recent Attendance History</div>
-            <div class="table-card">
-                <div class="card-header">
-                    <div class="card-header-left">
-                        <div class="card-header-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                        </div>
-                        <div class="card-header-title">Attendance Log</div>
+            <!-- ── My Courses ── -->
+            <div class="section-heading">My Courses</div>
+
+            <div class="courses-grid">
+                <!-- DEMO — replace with Jinja2 {% for course in courses %} block once backend ready -->
+                <a href="#" class="course-card">
+                    <div class="course-badge">MCT 401</div>
+                    <div class="course-title">Control Engineering</div>
+                    <div class="course-desc">Open the course workspace to view your attendance record and session history.</div>
+                    <div class="course-footer">
+                        <div class="attendance-pill good"><div class="attendance-dot"></div> 90% attended</div>
+                        <div class="course-open">Open <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
                     </div>
-                </div>
-                <div style="overflow-x:auto;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Course</th>
-                                <th>Date</th>
-                                <th>Time</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="attendanceLog">
-                            <tr>
-                                <td colspan="4">
-                                    <div class="empty-state">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                                        <p>No attendance records found</p>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                </a>
+
+                <a href="#" class="course-card">
+                    <div class="course-badge">MCT 403</div>
+                    <div class="course-title">Heat and Mass Transfer</div>
+                    <div class="course-desc">Open the course workspace to view your attendance record and session history.</div>
+                    <div class="course-footer">
+                        <div class="attendance-pill warning"><div class="attendance-dot"></div> 72% attended</div>
+                        <div class="course-open">Open <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    </div>
+                </a>
+
+                <a href="#" class="course-card">
+                    <div class="course-badge">MCT 405</div>
+                    <div class="course-title">Engineering Mathematics</div>
+                    <div class="course-desc">Open the course workspace to view your attendance record and session history.</div>
+                    <div class="course-footer">
+                        <div class="attendance-pill good"><div class="attendance-dot"></div> 85% attended</div>
+                        <div class="course-open">Open <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    </div>
+                </a>
+
+                <a href="#" class="course-card">
+                    <div class="course-badge">MCT 407</div>
+                    <div class="course-title">Industrial Management</div>
+                    <div class="course-desc">Open the course workspace to view your attendance record and session history.</div>
+                    <div class="course-footer">
+                        <div class="attendance-pill danger"><div class="attendance-dot"></div> 58% attended</div>
+                        <div class="course-open">Open <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    </div>
+                </a>
             </div>
+            <!-- END DEMO — real Jinja block:
+            {% if courses %}
+                {% for course in courses %}
+                <a href="{{ url_for('student.course_workspace', course_id=course.id) }}" class="course-card">
+                    <div class="course-badge">{{ course.code }}</div>
+                    <div class="course-title">{{ course.name }}</div>
+                    <div class="course-desc">Open the course workspace to view your attendance record and session history.</div>
+                    <div class="course-footer">
+                        <div class="attendance-pill {{ 'good' if course.attendance_pct >= 75 else 'warning' if course.attendance_pct >= 60 else 'danger' }}">
+                            <div class="attendance-dot"></div> {{ course.attendance_pct }}% attended
+                        </div>
+                        <div class="course-open">Open →</div>
+                    </div>
+                </a>
+                {% endfor %}
+            {% else %}
+                <div class="empty-courses">
+                    <svg>...</svg>
+                    <p>No courses enrolled yet.</p>
+                </div>
+            {% endif %}
+            -->
 
         </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-    <script>
-        // ── Attendance ring renderer ──
-        function renderRing(pct) {
-            const circumference = 314.16;
-            const offset = circumference - (pct / 100) * circumference;
-            const fill = document.getElementById('ringFill');
-            const pctEl = document.getElementById('ringPct');
-            const pill  = document.getElementById('ringPill');
-
-            fill.style.strokeDashoffset = offset;
-            pctEl.textContent = pct + '%';
-
-            if (pct < 60) {
-                fill.classList.add('danger');
-                pctEl.classList.add('danger');
-                pill.className = 'ring-warn-pill';
-                pill.textContent = 'Critical — below 60%';
-            } else if (pct < 75) {
-                fill.classList.add('warning');
-                pctEl.classList.add('warning');
-                pill.className = 'ring-warn-pill';
-                pill.textContent = 'At risk — below 75%';
-            } else {
-                pill.className = 'ring-ok-pill';
-                pill.textContent = 'Good standing ✓';
-            }
-
-            document.getElementById('statRate').textContent = pct + '%';
-        }
-
-        // ── Course breakdown renderer ──
-        const COURSE_COLOURS = ['#00D4FF','#00E676','#FFB300','#A78BFA','#FF4D6A','#34D399'];
-        function renderCourses(courses) {
-            const list   = document.getElementById('courseList');
-            const riskEl = document.getElementById('statRisk');
-            let atRisk   = 0;
-
-            if (!courses || courses.length === 0) return;
-
-            list.innerHTML = courses.map((c, i) => {
-                const colour = COURSE_COLOURS[i % COURSE_COLOURS.length];
-                if (c.pct < 75) atRisk++;
-                return `
-                    <div class="course-item">
-                        <div class="course-dot" style="background:${colour};"></div>
-                        <div class="course-info">
-                            <div class="course-code">${c.code}</div>
-                            <div class="course-name">${c.name}</div>
-                        </div>
-                        <div class="course-pct" style="color:${c.pct < 75 ? 'var(--warning)' : 'var(--success)'};">
-                            ${c.pct}%
-                        </div>
-                    </div>
-                `;
-            }).join('');
-
-            riskEl.textContent = atRisk;
-            document.getElementById('statCourses').textContent = courses.length;
-        }
-
-        // ── Attendance log renderer ──
-        function renderLog(records) {
-            const tbody = document.getElementById('attendanceLog');
-            if (!records || records.length === 0) return;
-            tbody.innerHTML = records.map(r => `
-                <tr>
-                    <td>${r.course}</td>
-                    <td>${r.date}</td>
-                    <td>${r.time}</td>
-                    <td>
-                        ${r.present
-                            ? `<span class="badge-present">✓ Present</span>`
-                            : `<span class="badge-absent">✗ Absent</span>`}
-                    </td>
-                </tr>
-            `).join('');
-            document.getElementById('statAttended').textContent = records.filter(r => r.present).length;
-        }
-
-        // ── Profile population ──
-        // These will be filled by backend context variables when the student blueprint
-        // passes student data to the template. Placeholders shown until that endpoint is built.
-        const username = "{{ session['username'] }}";
-        document.getElementById('avatarPic').textContent =
-            username.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || username[0].toUpperCase();
-
-        // Demo data — remove once backend student.dashboard route passes real context
-        renderRing(82);
-        renderCourses([
-            { code: 'CSC401', name: 'Artificial Intelligence',   pct: 90 },
-            { code: 'CSC403', name: 'Computer Networks',          pct: 82 },
-            { code: 'CSC405', name: 'Software Engineering',       pct: 75 },
-            { code: 'MTH401', name: 'Numerical Methods',          pct: 68 },
-        ]);
-        renderLog([
-            { course: 'CSC401', date: '23 Jun 2025', time: '08:00', present: true  },
-            { course: 'MTH401', date: '22 Jun 2025', time: '10:00', present: true  },
-            { course: 'CSC403', date: '21 Jun 2025', time: '14:00', present: false },
-            { course: 'CSC405', date: '20 Jun 2025', time: '09:00', present: true  },
-        ]);
-    </script>
     <script>
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
@@ -548,6 +455,21 @@
             document.getElementById('sidebar').classList.remove('open');
             document.getElementById('overlay').classList.remove('open');
         }
+
+        // Populate avatar initials
+        // Once backend passes `student.full_name`, replace the session username with that value
+        const nameEl   = document.getElementById('studentName');
+        const avatarEl = document.getElementById('studentAvatar');
+        const name = nameEl.textContent.trim();
+        avatarEl.textContent = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || name[0].toUpperCase();
+
+        // Populate profile fields from backend context when available
+        // e.g. document.getElementById('studentFaculty').textContent = "{{ student.faculty }}";
+        //      document.getElementById('studentDept').textContent    = "{{ student.department }}";
+        //      document.getElementById('studentLevel').textContent   = "{{ student.level }} Level";
+        //      document.getElementById('studentRfid').textContent    = "{{ student.rfid_uid }}";
+        //      document.getElementById('studentMatric').textContent  = "{{ student.matric_number }}";
+        //      document.getElementById('studentName').textContent    = "{{ student.full_name }}";
     </script>
 </body>
 </html>
