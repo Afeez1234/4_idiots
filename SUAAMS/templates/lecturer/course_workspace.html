@@ -36,7 +36,7 @@
                 <p class="text-muted mb-0">Start or stop attendance tracking for this course.</p>
               </div>
               {% if active_session %}
-                <form method="POST" action="{{ url_for('lecturer.end_session', course_id=course[0]) }}">
+                <form method="POST" action="{{ url_for('lecturer.end_session_r', course_id=course[0]) }}">
                   <button type="submit" class="btn btn-danger">End Session</button>
                 </form>
               {% else %}

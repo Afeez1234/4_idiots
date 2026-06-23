@@ -1,6 +1,6 @@
 from flask import Blueprint,flash,render_template,redirect,request,session,url_for
 from utils import login_required,connect_to_database,get_active_session_by_course_id
-
+from datetime import date
 lecturer_bp = Blueprint('lecturer', __name__)
 
 #reminder:: the fuction below will create a new session for the course,i'm still wondering if i shoud keep it here or put it in the endpoint
@@ -63,3 +63,39 @@ def course_workspace(course_id):
     cursor.close()
     connection.close()
     return render_template('lecturer/course_workspace.html', course=course, active_session=sesh, attendance_records=attendance_records)
+
+@lecturer_bp.route('/lecturer/course/<int:course_id>/start-session', methods=['POST'])
+@login_required('lecturer')
+def start_session(course_id):
+    
+    connection = connect_to_database()
+    cursor = connection.cursor()
+    sesh = get_active_session_by_course_id(cursor, course_id)
+    if sesh:
+        flash('A session is already active for this course.', 'error')
+        cursor.close()
+        connection.close()
+        return redirect(url_for('lecturer.course_workspace', course_id=course_id))
+    create_session(cursor, connection, course_id,None, None, date.today())
+    flash('Session started successfully.', 'success')
+    cursor.close()
+    connection.close()
+    return redirect(url_for('lecturer.course_workspace', course_id=course_id))
+    
+@lecturer_bp.route('/lecturer/course/<int:course_id>/end-session', methods=['POST'])
+@login_required('lecturer')
+def end_session_r(course_id):
+    connection = connect_to_database()
+    cursor = connection.cursor()
+    sesh = get_active_session_by_course_id(cursor, course_id)
+    if not sesh:
+        flash('No active session found for this course.', 'error')
+        cursor.close()
+        connection.close()
+        return redirect(url_for('lecturer.course_workspace', course_id=course_id))
+    session_id, _, start_time, stop_time, session_date = sesh
+    end_session(cursor, connection, session_id)
+    flash('Session ended successfully.', 'success')
+    cursor.close()
+    connection.close()
+    return redirect(url_for('lecturer.course_workspace', course_id=course_id))
