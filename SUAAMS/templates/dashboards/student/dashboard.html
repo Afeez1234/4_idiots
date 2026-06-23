@@ -57,6 +57,7 @@
         .topbar-right { display: flex; align-items: center; gap: .65rem; }
         .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(52,211,153,0.12); border: 1px solid var(--emerald); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: .75rem; font-weight: 700; color: var(--emerald); flex-shrink: 0; }
         .topbar-username { font-size: .85rem; color: var(--muted); }
+        .topbar-clock { font-size: .85rem; color: var(--text); font-weight: 600; background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2); border-radius: 10px; padding: .45rem .8rem; }
 
         /* Hamburger */
         .hamburger { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background: var(--card-2); border: 1px solid var(--border); cursor: pointer; flex-shrink: 0; }
@@ -319,6 +320,7 @@
             <div class="topbar-right">
                 <div class="user-avatar">{{ session['username'][0]|upper }}</div>
                 <span class="topbar-username">{{ session['username'] }}</span>
+                <span class="topbar-clock" id="topbarClock">--:--:--</span>
                 <a href="{{ url_for('auth.logout') }}" class="topbar-logout-mobile" title="Sign out">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 </a>
@@ -470,6 +472,18 @@
         //      document.getElementById('studentRfid').textContent    = "{{ student.rfid_uid }}";
         //      document.getElementById('studentMatric').textContent  = "{{ student.matric_number }}";
         //      document.getElementById('studentName').textContent    = "{{ student.full_name }}";
+
+        function updateClock() {
+            const clockEl = document.getElementById('topbarClock');
+            if (!clockEl) return;
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            clockEl.textContent = `${hours}:${minutes}:${seconds}`;
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
     </script>
 </body>
 </html>
