@@ -198,12 +198,33 @@
         }
         .overlay.open { display: block; }
         @media (max-width: 768px) {
-            .hamburger { display: flex; }
+            .hamburger { display: none; }
             .sidebar { transform: translateX(-100%); transition: transform .25s ease; }
             .sidebar.open { transform: translateX(0); }
             .main { margin-left: 0; }
             .topbar { padding: 1rem; }
             .content { padding: 1rem; }
+        }
+
+        /* ── Topbar mobile logout button ── */
+        .topbar-logout-mobile {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 34px; height: 34px;
+            border-radius: 8px;
+            background: rgba(255,77,106,0.08);
+            border: 1px solid rgba(255,77,106,0.2);
+            color: var(--danger);
+            text-decoration: none;
+            flex-shrink: 0;
+            transition: background .15s;
+        }
+        .topbar-logout-mobile:hover { background: rgba(255,77,106,0.18); color: var(--danger); }
+        .topbar-logout-mobile svg { width: 15px; height: 15px; }
+        @media (max-width: 768px) {
+            .hamburger { display: flex !important; }
+            .topbar-logout-mobile { display: flex; }
         }
     </style>
 </head>
@@ -260,6 +281,9 @@
             <div class="topbar-user">
                 <div class="user-avatar">{{ session['username'][0]|upper }}</div>
                 <span>{{ session['username'] }}</span>
+                <a href="{{ url_for('auth.logout') }}" class="topbar-logout-mobile" title="Sign out">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </a>
             </div>
         </header>
 
