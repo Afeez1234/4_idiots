@@ -28,7 +28,7 @@
         body { background: var(--bg); font-family: 'Inter', sans-serif; color: var(--text); min-height: 100vh; display: flex; }
 
         /* ── Sidebar ── */
-        .sidebar { width: var(--sidebar-w); background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; }
+        .sidebar { width: var(--sidebar-w); background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; z-index: 100; transition: transform .25s ease; }
         .sidebar-brand { padding: 1.5rem 1.25rem 1rem; border-bottom: 1px solid var(--border); }
         .brand-badge { display: flex; align-items: center; gap: .6rem; }
         .brand-icon { width: 34px; height: 34px; border-radius: 8px; background: var(--cyan-dim); border: 1px solid var(--cyan); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 12px var(--cyan-glow); flex-shrink: 0; }
@@ -49,182 +49,195 @@
 
         /* ── Main ── */
         .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-        .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 1rem 1.75rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
-        .topbar-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; }
-        .topbar-user { display: flex; align-items: center; gap: .6rem; font-size: .85rem; color: var(--muted); }
-        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(167,139,250,0.15); border: 1px solid var(--purple); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: .75rem; font-weight: 700; color: var(--purple); }
-        .content { padding: 1.75rem; flex: 1; }
 
-        /* Flash */
+        /* ── Topbar ── */
+        .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 1rem 1.75rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; gap: .75rem; }
+        .topbar-left { display: flex; align-items: center; gap: .75rem; }
+        .topbar-title { font-family: 'Space Grotesk', sans-serif; font-size: 1rem; font-weight: 600; }
+        .topbar-right { display: flex; align-items: center; gap: .65rem; }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; background: rgba(167,139,250,0.15); border: 1px solid var(--purple); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: .75rem; font-weight: 700; color: var(--purple); flex-shrink: 0; }
+        .topbar-username { font-size: .85rem; color: var(--muted); }
+
+        /* Hamburger — hidden on desktop */
+        .hamburger { display: none; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background: var(--card-2); border: 1px solid var(--border); cursor: pointer; flex-shrink: 0; }
+        .hamburger svg { width: 18px; height: 18px; stroke: var(--text); }
+
+        /* Mobile logout icon in topbar */
+        .topbar-logout-mobile { display: none; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; background: rgba(255,77,106,0.08); border: 1px solid rgba(255,77,106,0.2); color: var(--danger); text-decoration: none; flex-shrink: 0; transition: background .15s; }
+        .topbar-logout-mobile:hover { background: rgba(255,77,106,0.18); color: var(--danger); }
+        .topbar-logout-mobile svg { width: 15px; height: 15px; }
+
+        /* Overlay */
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 99; backdrop-filter: blur(2px); }
+        .overlay.open { display: block; }
+
+        /* ── Content ── */
+        .content { padding: 2rem 1.75rem; flex: 1; }
+
+        /* Flash messages */
         .flash-msg { border-radius: 8px; padding: .75rem 1rem; font-size: .85rem; margin-bottom: 1.25rem; border: 1px solid; }
         .flash-msg.error { background: rgba(255,77,106,0.08); border-color: rgba(255,77,106,0.3); color: #FF8099; }
         .flash-msg.success { background: rgba(0,230,118,0.07); border-color: rgba(0,230,118,0.25); color: var(--success); }
 
-        /* Greeting banner */
-        .greeting-banner {
-            background: linear-gradient(135deg, #141720 0%, #1a1f2e 100%);
+        /* ── Profile card ── */
+        .profile-card {
+            background: var(--card);
             border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 1.5rem 1.75rem;
-            margin-bottom: 1.5rem;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 1rem;
+            gap: 1.5rem;
             position: relative;
             overflow: hidden;
         }
-        .greeting-banner::before {
+        .profile-card::before {
             content: '';
             position: absolute;
-            top: 0; right: 0;
-            width: 200px; height: 200px;
-            background: radial-gradient(ellipse, rgba(0,212,255,0.07) 0%, transparent 70%);
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--cyan), var(--purple));
+        }
+        .profile-card::after {
+            content: '';
+            position: absolute;
+            top: -60px; right: -60px;
+            width: 220px; height: 220px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,212,255,0.06), transparent 70%);
             pointer-events: none;
         }
-        .greeting-text {}
-        .greeting-sup { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .3rem; }
-        .greeting-name { font-family: 'Space Grotesk', sans-serif; font-size: 1.4rem; font-weight: 700; }
-        .greeting-name span { color: var(--cyan); }
-        .greeting-date { font-size: .82rem; color: var(--muted); margin-top: .2rem; }
-        .greeting-badge {
-            background: var(--cyan-dim);
-            border: 1px solid rgba(0,212,255,.2);
-            border-radius: 10px;
-            padding: .75rem 1.1rem;
-            text-align: center;
-            flex-shrink: 0;
-        }
-        .greeting-badge-label { font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
-        .greeting-badge-val { font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 700; color: var(--cyan); line-height: 1.1; }
-
-        /* Stats row */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-        .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.25rem; position: relative; overflow: hidden; }
-        .stat-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
-        .stat-card.cyan::after  { background: var(--cyan); }
-        .stat-card.green::after { background: var(--success); }
-        .stat-card.amber::after { background: var(--warning); }
-        .stat-card.purple::after{ background: var(--purple); }
-        .stat-label { font-size: .72rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: .4rem; }
-        .stat-value { font-family: 'Space Grotesk', sans-serif; font-size: 1.75rem; font-weight: 700; line-height: 1; margin-bottom: .2rem; }
-        .stat-card.cyan .stat-value  { color: var(--cyan); }
-        .stat-card.green .stat-value { color: var(--success); }
-        .stat-card.amber .stat-value { color: var(--warning); }
-        .stat-card.purple .stat-value{ color: var(--purple); }
-        .stat-desc { font-size: .76rem; color: var(--muted); }
-
-        /* Two-col layout */
-        .two-col { display: grid; grid-template-columns: 1fr 1.4fr; gap: 1.25rem; margin-bottom: 1.5rem; }
-        @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
-
-        /* Start session card */
-        .session-form-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; height: 100%; }
-        .card-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: .6rem; }
-        .card-header-icon { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; }
-        .card-header-icon.cyan { background: var(--cyan-dim); border: 1px solid rgba(0,212,255,.2); }
-        .card-header-icon svg { width: 14px; height: 14px; stroke: var(--cyan); }
-        .card-header-title { font-family: 'Space Grotesk', sans-serif; font-size: .9rem; font-weight: 600; }
-        .card-body { padding: 1.25rem; }
-
-        .form-group { margin-bottom: 1.1rem; }
-        .form-label { display: block; font-size: .75rem; font-weight: 500; color: var(--muted); margin-bottom: .4rem; letter-spacing: .05em; text-transform: uppercase; }
-        .form-control { width: 100%; background: var(--card-2); border: 1px solid var(--border); border-radius: 8px; padding: .65rem .9rem; color: var(--text); font-family: 'Inter', sans-serif; font-size: .88rem; transition: border-color .2s, box-shadow .2s; outline: none; }
-        .form-control::placeholder { color: var(--muted); opacity: .5; }
-        .form-control:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-dim); }
-        .time-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-        .btn-start { width: 100%; margin-top: .25rem; background: var(--cyan); color: #0D0F14; border: none; border-radius: 8px; padding: .7rem; font-family: 'Space Grotesk', sans-serif; font-size: .9rem; font-weight: 600; cursor: pointer; transition: opacity .2s, box-shadow .2s, transform .1s; }
-        .btn-start:hover { opacity: .88; box-shadow: 0 0 16px var(--cyan-glow); transform: translateY(-1px); }
-        .btn-start:active { transform: translateY(0); }
-        .btn-stop { width: 100%; margin-top: .6rem; background: transparent; color: var(--danger); border: 1px solid rgba(255,77,106,0.35); border-radius: 8px; padding: .65rem; font-family: 'Space Grotesk', sans-serif; font-size: .88rem; font-weight: 600; cursor: pointer; transition: background .2s; display: none; }
-        .btn-stop:hover { background: rgba(255,77,106,0.08); }
-        .btn-stop.visible { display: block; }
-
-        /* Session status pill */
-        .session-status { display: flex; align-items: center; gap: .5rem; margin-top: .85rem; padding: .6rem .85rem; border-radius: 8px; font-size: .82rem; font-weight: 500; }
-        .session-status.idle { background: var(--card-2); color: var(--muted); border: 1px solid var(--border); }
-        .session-status.live { background: rgba(0,230,118,0.08); color: var(--success); border: 1px solid rgba(0,230,118,0.2); }
-        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-        .live .status-dot { animation: pulse 1.8s ease-in-out infinite; }
-        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.3; } }
-
-        /* Attendance live feed */
-        .feed-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-        .feed-list { max-height: 340px; overflow-y: auto; }
-        .feed-list::-webkit-scrollbar { width: 4px; }
-        .feed-list::-webkit-scrollbar-track { background: transparent; }
-        .feed-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-        .feed-item { display: flex; align-items: center; gap: .85rem; padding: .85rem 1.25rem; border-top: 1px solid var(--border); transition: background .15s; }
-        .feed-item:first-child { border-top: none; }
-        .feed-item:hover { background: var(--card-2); }
-        .feed-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--cyan-dim); border: 1px solid rgba(0,212,255,.2); display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: .75rem; font-weight: 700; color: var(--cyan); flex-shrink: 0; }
-        .feed-info { flex: 1; min-width: 0; }
-        .feed-name { font-size: .875rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .feed-meta { font-size: .75rem; color: var(--muted); margin-top: .1rem; }
-        .feed-time { font-size: .75rem; color: var(--muted); flex-shrink: 0; }
-        .feed-empty { text-align: center; padding: 2.5rem 1rem; color: var(--muted); }
-        .feed-empty svg { width: 32px; height: 32px; margin-bottom: .65rem; opacity: .35; display: block; margin-inline: auto; }
-        .feed-empty p { font-size: .85rem; }
-
-        /* Section heading */
-        .section-heading { font-family: 'Space Grotesk', sans-serif; font-size: .78rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: .85rem; }
-            .content { padding: 1rem; }
-            .greeting-banner { flex-direction: column; align-items: flex-start; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-            .live .status-dot { animation: none; }
-        }
-
-        /* ── Mobile sidebar toggle ── */
-        .hamburger {
-            display: none;
+        .profile-left { display: flex; align-items: center; gap: 1.5rem; }
+        .profile-avatar {
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            background: rgba(167,139,250,0.12);
+            border: 2px solid var(--purple);
+            display: flex;
             align-items: center;
             justify-content: center;
-            width: 36px; height: 36px;
-            border-radius: 8px;
-            background: var(--card-2);
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--purple);
+            flex-shrink: 0;
+        }
+        .profile-info {}
+        .profile-greeting { font-size: .8rem; color: var(--muted); margin-bottom: .3rem; text-transform: uppercase; letter-spacing: .07em; }
+        .profile-name { font-family: 'Space Grotesk', sans-serif; font-size: 1.5rem; font-weight: 700; margin-bottom: .6rem; }
+        .profile-tags { display: flex; flex-wrap: wrap; gap: .5rem; }
+        .profile-tag {
+            display: inline-flex; align-items: center; gap: .35rem;
+            background: var(--card-2); border: 1px solid var(--border);
+            border-radius: 20px; padding: .25rem .75rem;
+            font-size: .77rem; color: var(--muted);
+        }
+        .profile-tag svg { width: 11px; height: 11px; stroke: var(--cyan); }
+        .profile-tag strong { color: var(--text); font-weight: 500; }
+
+        /* ── Section heading ── */
+        .section-heading {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: .78rem; font-weight: 600;
+            letter-spacing: .1em; text-transform: uppercase;
+            color: var(--muted); margin-bottom: 1.25rem;
+            display: flex; align-items: center; gap: .6rem;
+        }
+        .section-heading::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        /* ── Course cards grid ── */
+        .courses-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.25rem;
+        }
+
+        /* Accent colours cycling for left border */
+        .course-card {
+            background: var(--card);
             border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
             cursor: pointer;
-            flex-shrink: 0;
-        }
-        .hamburger svg { width: 18px; height: 18px; stroke: var(--text); }
-        .overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.55);
-            z-index: 99;
-            backdrop-filter: blur(2px);
-        }
-        .overlay.open { display: block; }
-        @media (max-width: 768px) {
-            .hamburger { display: none; }
-            .sidebar { transform: translateX(-100%); transition: transform .25s ease; }
-            .sidebar.open { transform: translateX(0); }
-            .main { margin-left: 0; }
-            .topbar { padding: 1rem; }
-            .content { padding: 1rem; }
-        }
-
-        /* ── Topbar mobile logout button ── */
-        .topbar-logout-mobile {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            width: 34px; height: 34px;
-            border-radius: 8px;
-            background: rgba(255,77,106,0.08);
-            border: 1px solid rgba(255,77,106,0.2);
-            color: var(--danger);
             text-decoration: none;
-            flex-shrink: 0;
-            transition: background .15s;
+            display: block;
+            transition: border-color .2s, transform .2s, box-shadow .2s;
         }
-        .topbar-logout-mobile:hover { background: rgba(255,77,106,0.18); color: var(--danger); }
-        .topbar-logout-mobile svg { width: 15px; height: 15px; }
+        .course-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; bottom: 0;
+            width: 4px;
+            border-radius: 14px 0 0 14px;
+        }
+        .course-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+        }
+        /* Accent per card index — applied via inline style or nth-child */
+        .course-card:nth-child(4n+1)::before { background: var(--cyan); }
+        .course-card:nth-child(4n+1):hover    { border-color: var(--cyan); }
+        .course-card:nth-child(4n+2)::before  { background: var(--success); }
+        .course-card:nth-child(4n+2):hover    { border-color: var(--success); }
+        .course-card:nth-child(4n+3)::before  { background: var(--warning); }
+        .course-card:nth-child(4n+3):hover    { border-color: var(--warning); }
+        .course-card:nth-child(4n+0)::before  { background: var(--purple); }
+        .course-card:nth-child(4n+0):hover    { border-color: var(--purple); }
+
+        .course-badge {
+            display: inline-block;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: .72rem; font-weight: 600;
+            letter-spacing: .06em;
+            border-radius: 6px;
+            padding: .25rem .6rem;
+            margin-bottom: .85rem;
+        }
+        .course-card:nth-child(4n+1) .course-badge { background: rgba(0,212,255,0.12);   color: var(--cyan);    border: 1px solid rgba(0,212,255,0.25); }
+        .course-card:nth-child(4n+2) .course-badge { background: rgba(0,230,118,0.10);   color: var(--success); border: 1px solid rgba(0,230,118,0.22); }
+        .course-card:nth-child(4n+3) .course-badge { background: rgba(255,179,0,0.10);   color: var(--warning); border: 1px solid rgba(255,179,0,0.22); }
+        .course-card:nth-child(4n+0) .course-badge { background: rgba(167,139,250,0.10); color: var(--purple);  border: 1px solid rgba(167,139,250,0.22); }
+
+        .course-title { font-family: 'Space Grotesk', sans-serif; font-size: 1.05rem; font-weight: 600; color: var(--text); margin-bottom: .4rem; }
+        .course-desc  { font-size: .82rem; color: var(--muted); line-height: 1.5; margin-bottom: 1.1rem; }
+
+        .course-footer {
+            display: flex; align-items: center; justify-content: space-between;
+            padding-top: 1rem; border-top: 1px solid var(--border);
+        }
+        .course-meta { font-size: .75rem; color: var(--muted); display: flex; align-items: center; gap: .35rem; }
+        .course-meta svg { width: 12px; height: 12px; stroke: var(--muted); }
+        .course-open {
+            display: inline-flex; align-items: center; gap: .35rem;
+            font-size: .78rem; font-weight: 600; color: var(--cyan);
+        }
+        .course-open svg { width: 13px; height: 13px; stroke: var(--cyan); }
+
+        /* Empty state */
+        .empty-courses { text-align: center; padding: 3.5rem 1rem; color: var(--muted); }
+        .empty-courses svg { width: 40px; height: 40px; margin: 0 auto 1rem; display: block; opacity: .3; }
+        .empty-courses p { font-size: .9rem; }
+
+        /* ── Responsive ── */
         @media (max-width: 768px) {
             .hamburger { display: flex !important; }
             .topbar-logout-mobile { display: flex; }
+            .topbar-username { display: none; }
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main { margin-left: 0; }
+            .topbar { padding: 1rem; }
+            .content { padding: 1.25rem 1rem; }
+            .profile-card { flex-direction: column; align-items: flex-start; }
+            .profile-left { flex-direction: column; align-items: flex-start; gap: 1rem; }
+            .courses-grid { grid-template-columns: 1fr; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .course-card { transition: none; }
         }
     </style>
 </head>
@@ -232,7 +245,8 @@
 
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
 
-    <aside class="sidebar">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
             <div class="brand-badge">
                 <div class="brand-icon">
@@ -250,14 +264,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
                 Dashboard
             </a>
-            <div class="nav-section-label">Sessions</div>
+            <div class="nav-section-label">Courses</div>
             <a href="#" class="nav-link">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                My Sessions
-            </a>
-            <a href="#" class="nav-link">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                Attendance Records
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                My Courses
             </a>
         </nav>
         <div class="sidebar-footer">
@@ -268,19 +278,20 @@
         </div>
     </aside>
 
+    <!-- ── Main ── -->
     <div class="main">
         <header class="topbar">
-            <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Toggle menu">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="3" y1="6" x2="21" y2="6"/>
-                    <line x1="3" y1="12" x2="21" y2="12"/>
-                    <line x1="3" y1="18" x2="21" y2="18"/>
-                </svg>
-            </button>
-            <div class="topbar-title">Lecturer Dashboard</div>
-            <div class="topbar-user">
+            <div class="topbar-left">
+                <button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Toggle menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+                    </svg>
+                </button>
+                <div class="topbar-title">My Dashboard</div>
+            </div>
+            <div class="topbar-right">
                 <div class="user-avatar">{{ session['username'][0]|upper }}</div>
-                <span>{{ session['username'] }}</span>
+                <span class="topbar-username">{{ session['username'] }}</span>
                 <a href="{{ url_for('auth.logout') }}" class="topbar-logout-mobile" title="Sign out">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                 </a>
@@ -293,229 +304,103 @@
                 <div class="flash-msg {{ category }}">{{ message }}</div>
             {% endfor %}
 
-            <!-- Greeting banner -->
-            <div class="greeting-banner">
-                <div class="greeting-text">
-                    <div class="greeting-sup">Welcome back</div>
-                    <div class="greeting-name">{{ session['username'] }} <span>·</span></div>
-                    <div class="greeting-date" id="currentDate">—</div>
-                </div>
-                <div class="greeting-badge">
-                    <div class="greeting-badge-label">Today</div>
-                    <div class="greeting-badge-val" id="clockDisplay">—</div>
-                </div>
-            </div>
-
-            <!-- Stats -->
-            <div class="stats-grid">
-                <div class="stat-card cyan">
-                    <div class="stat-label">Total Sessions</div>
-                    <div class="stat-value" id="statSessions">—</div>
-                    <div class="stat-desc">This semester</div>
-                </div>
-                <div class="stat-card green">
-                    <div class="stat-label">Today's Check-ins</div>
-                    <div class="stat-value" id="statCheckins">—</div>
-                    <div class="stat-desc">Students scanned in</div>
-                </div>
-                <div class="stat-card amber">
-                    <div class="stat-label">Session Status</div>
-                    <div class="stat-value" id="statStatus">—</div>
-                    <div class="stat-desc">Current state</div>
-                </div>
-            </div>
-
-            <!-- Start Session + Live Feed -->
-            <div class="two-col">
-                <!-- Start session form -->
-                <div class="session-form-card">
-                    <div class="card-header">
-                        <div class="card-header-icon cyan">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        </div>
-                        <div class="card-header-title">Start Attendance Session</div>
-                    </div>
-                    <div class="card-body">
-                        <div class="form-group">
-                            <label class="form-label" for="course_id">Course ID</label>
-                            <input type="text" id="course_id" class="form-control" placeholder="e.g. CSC401">
-                        </div>
-                        <div class="time-row">
-                            <div class="form-group">
-                                <label class="form-label" for="start_time">Start Time</label>
-                                <input type="time" id="start_time" class="form-control">
+            <!-- ── Profile card ── -->
+            <div class="profile-card">
+                <div class="profile-left">
+                    <div class="profile-avatar" id="lecturerAvatar">—</div>
+                    <div class="profile-info">
+                        <div class="profile-greeting">Lecturer</div>
+                        <div class="profile-name" id="lecturerName">{{ session['username'] }}</div>
+                        <div class="profile-tags">
+                            <div class="profile-tag">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                                Staff ID: <strong id="lecturerStaffId">{{ session['username'] }}</strong>
                             </div>
-                            <div class="form-group">
-                                <label class="form-label" for="stop_time">End Time</label>
-                                <input type="time" id="stop_time" class="form-control">
+                            <div class="profile-tag">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>
+                                RFID: <strong id="lecturerRfid">—</strong>
                             </div>
-                        </div>
-
-                        <button class="btn-start" id="btnStart" onclick="startSession()">
-                            Start Session
-                        </button>
-                        <button class="btn-stop" id="btnStop" onclick="stopSession()">
-                            ✕ &nbsp; End Session
-                        </button>
-
-                        <div class="session-status idle" id="sessionStatus">
-                            <div class="status-dot"></div>
-                            <span>No active session</span>
+                            <div class="profile-tag">
+                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                                Faculty: <strong id="lecturerFaculty">—</strong>
+                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Live attendance feed -->
-                <div class="feed-card">
-                    <div class="card-header">
-                        <div class="card-header-icon cyan">
+            <!-- ── My Courses ── -->
+            <div class="section-heading">My Courses</div>
+
+            <div class="courses-grid" id="coursesGrid">
+                <!-- Populated by Jinja2 when backend passes courses list -->
+                <!-- DEMO PLACEHOLDER — replace with {% for course in courses %} block -->
+                <a href="#" class="course-card">
+                    <div class="course-badge">MCT 401</div>
+                    <div class="course-title">Control Engineering</div>
+                    <div class="course-desc">Open the course workspace to manage attendance and view enrolled students.</div>
+                    <div class="course-footer">
+                        <div class="course-meta">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                            32 students
                         </div>
-                        <div class="card-header-title">Live Attendance Feed</div>
+                        <div class="course-open">Open workspace <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
                     </div>
-                    <div class="feed-list" id="feedList">
-                        <div class="feed-empty">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                            <p>Check-ins will appear here once a session is active</p>
+                </a>
+
+                <a href="#" class="course-card">
+                    <div class="course-badge">MCT 403</div>
+                    <div class="course-title">Heat and Mass Transfer</div>
+                    <div class="course-desc">Open the course workspace to manage attendance and view enrolled students.</div>
+                    <div class="course-footer">
+                        <div class="course-meta">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                            28 students
                         </div>
+                        <div class="course-open">Open workspace <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
                     </div>
-                </div>
+                </a>
+
+                <a href="#" class="course-card">
+                    <div class="course-badge">MCT 405</div>
+                    <div class="course-title">Engineering Mathematics</div>
+                    <div class="course-desc">Open the course workspace to manage attendance and view enrolled students.</div>
+                    <div class="course-footer">
+                        <div class="course-meta">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                            41 students
+                        </div>
+                        <div class="course-open">Open workspace <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
+                    </div>
+                </a>
             </div>
+            <!-- END DEMO — real Jinja block:
+            {% if courses %}
+                {% for course in courses %}
+                <a href="{{ url_for('lecturer.course_workspace', course_id=course.id) }}" class="course-card">
+                    <div class="course-badge">{{ course.code }}</div>
+                    <div class="course-title">{{ course.name }}</div>
+                    <div class="course-desc">Open the course workspace to manage attendance and view enrolled students.</div>
+                    <div class="course-footer">
+                        <div class="course-meta">
+                            ... {{ course.student_count }} students
+                        </div>
+                        <div class="course-open">Open workspace →</div>
+                    </div>
+                </a>
+                {% endfor %}
+            {% else %}
+                <div class="empty-courses">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    <p>No courses assigned yet.</p>
+                </div>
+            {% endif %}
+            -->
 
         </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-    <script>
-        // ── Clock & date ──
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('clockDisplay').textContent =
-                now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-            document.getElementById('currentDate').textContent =
-                now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-        }
-        updateClock();
-        setInterval(updateClock, 1000);
-
-        // ── Session state ──
-        let activeSessionId   = null;
-        let activeCourseId    = null;
-        let feedPollInterval  = null;
-        let checkinCount      = 0;
-        const renderedStudents = new Set();
-
-        function setStatusLive(courseId) {
-            const el = document.getElementById('sessionStatus');
-            el.className = 'session-status live';
-            el.innerHTML = `<div class="status-dot"></div><span>Live — Course&nbsp;<strong>${courseId}</strong></span>`;
-            document.getElementById('btnStop').classList.add('visible');
-            document.getElementById('statStatus').textContent = 'Live';
-        }
-        function setStatusIdle() {
-            const el = document.getElementById('sessionStatus');
-            el.className = 'session-status idle';
-            el.innerHTML = `<div class="status-dot"></div><span>No active session</span>`;
-            document.getElementById('btnStop').classList.remove('visible');
-            document.getElementById('statStatus').textContent = 'Idle';
-        }
-
-        // ── Start session ──
-        async function startSession() {
-            const courseId   = document.getElementById('course_id').value.trim();
-            const startTime  = document.getElementById('start_time').value;
-            const stopTime   = document.getElementById('stop_time').value;
-
-            if (!courseId || !startTime || !stopTime) {
-                alert('Please fill in Course ID, Start Time, and End Time.');
-                return;
-            }
-
-            try {
-                const res = await fetch('/sessions/start', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ course_id: courseId, start_time: startTime, stop_time: stopTime })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    activeCourseId = courseId;
-                    setStatusLive(courseId);
-                    document.getElementById('statSessions').textContent =
-                        (parseInt(document.getElementById('statSessions').textContent) || 0) + 1;
-                    checkinCount = 0;
-                    renderedStudents.clear();
-                    document.getElementById('feedList').innerHTML = '<div class="feed-empty"><p>Waiting for first scan…</p></div>';
-                    startFeedPolling();
-                } else {
-                    alert(data.error || 'Failed to start session.');
-                }
-            } catch (e) {
-                alert('Could not reach the server. Please try again.');
-            }
-        }
-
-        // ── Stop session (UI only — backend stops via session expiry) ──
-        function stopSession() {
-            if (!confirm('End this session? No more attendance will be accepted.')) return;
-            clearInterval(feedPollInterval);
-            activeSessionId = null;
-            activeCourseId  = null;
-            setStatusIdle();
-            document.getElementById('statCheckins').textContent = checkinCount;
-        }
-
-        // ── Poll for new check-ins ──
-        function startFeedPolling() {
-            if (feedPollInterval) clearInterval(feedPollInterval);
-            feedPollInterval = setInterval(pollAttendance, 5000);
-        }
-
-        async function pollAttendance() {
-            if (!activeCourseId) return;
-            try {
-                const res  = await fetch(`/sessions/active/${activeCourseId}`);
-                const data = await res.json();
-                if (!data.success || !data.session) return;
-                // session exists — we don't have a per-session attendance list endpoint yet,
-                // so we just keep the feed primed and update the check-in count from local state.
-                // When the student portal / ESP32 posts to /attendance, we reflect that here.
-            } catch (_) {}
-        }
-
-        // ── Expose a function so the ESP/test endpoint can push a check-in into the feed ──
-        function pushCheckin(student) {
-            if (renderedStudents.has(student.id)) return;
-            renderedStudents.add(student.id);
-            checkinCount++;
-            document.getElementById('statCheckins').textContent = checkinCount;
-
-            const feedList = document.getElementById('feedList');
-            // Remove empty state
-            const empty = feedList.querySelector('.feed-empty');
-            if (empty) empty.remove();
-
-            const initials = student.full_name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-            const now      = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-            const item = document.createElement('div');
-            item.className = 'feed-item';
-            item.innerHTML = `
-                <div class="feed-avatar">${initials}</div>
-                <div class="feed-info">
-                    <div class="feed-name">${student.full_name}</div>
-                    <div class="feed-meta">${student.department} · Level ${student.level}</div>
-                </div>
-                <div class="feed-time">${now}</div>
-            `;
-            feedList.prepend(item);
-        }
-
-        // Initialise stat defaults
-        document.getElementById('statSessions').textContent  = '0';
-        document.getElementById('statCheckins').textContent  = '0';
-        document.getElementById('statStatus').textContent    = 'Idle';
-    </script>
     <script>
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
@@ -525,6 +410,14 @@
             document.getElementById('sidebar').classList.remove('open');
             document.getElementById('overlay').classList.remove('open');
         }
+
+        // Populate avatar initials from name
+        // Replace "{{ session['username'] }}" with the actual lecturer full name once
+        // the backend passes `lecturer.full_name` to the template context.
+        const nameEl = document.getElementById('lecturerName');
+        const avatarEl = document.getElementById('lecturerAvatar');
+        const name = nameEl.textContent.trim();
+        avatarEl.textContent = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || name[0].toUpperCase();
     </script>
 </body>
 </html>
