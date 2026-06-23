@@ -5,11 +5,13 @@ from config import SECRET_KEY
 from blueprints.auth import auth_bp 
 from blueprints.admin import admin_bp
 from blueprints.lecturer import lecturer_bp
+from blueprints.student import student_bp
 from utils import get_active_session_by_course_id
 app = Flask(__name__)
 app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(lecturer_bp)
+app.register_blueprint(student_bp)
 app.secret_key = SECRET_KEY
 
 

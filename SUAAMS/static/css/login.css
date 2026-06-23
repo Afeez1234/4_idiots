@@ -1,0 +1,218 @@
+        :root {
+            --bg:        #0D0F14;
+            --card:      #141720;
+            --card-2:    #1A1F2E;
+            --border:    #252C3F;
+            --cyan:      #00D4FF;
+            --cyan-dim:  rgba(0,212,255,0.12);
+            --cyan-glow: rgba(0,212,255,0.35);
+            --text:      #E8EAF0;
+            --muted:     #8892A4;
+            --success:   #00E676;
+            --danger:    #FF4D6A;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            font-family: 'Inter', sans-serif;
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Ambient grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Radial glow behind card */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(ellipse, rgba(0,212,255,0.07) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .login-wrap {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 440px;
+            padding: 1.5rem;
+        }
+
+        /* Logo / wordmark */
+        .brand {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .brand-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .6rem;
+            margin-bottom: .75rem;
+        }
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--cyan-dim);
+            border: 1px solid var(--cyan);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 16px var(--cyan-glow);
+        }
+        .brand-icon svg { width: 20px; height: 20px; }
+        .brand-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -.02em;
+            color: var(--text);
+        }
+        .brand-name span { color: var(--cyan); }
+        .brand-sub {
+            font-size: .75rem;
+            color: var(--muted);
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        /* Card */
+        .login-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+        /* Cyan scan line signature element */
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+            animation: scan-line 3s ease-in-out infinite;
+        }
+        @keyframes scan-line {
+            0%   { opacity: 0; transform: translateX(-100%); }
+            20%  { opacity: 1; }
+            80%  { opacity: 1; }
+            100% { opacity: 0; transform: translateX(100%); }
+        }
+
+        .card-heading {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: .25rem;
+        }
+        .card-sub {
+            font-size: .85rem;
+            color: var(--muted);
+            margin-bottom: 1.75rem;
+        }
+
+        /* Alerts */
+        .alert-custom {
+            border-radius: 8px;
+            padding: .75rem 1rem;
+            font-size: .85rem;
+            margin-bottom: 1.25rem;
+            border: 1px solid;
+        }
+        .alert-custom.error {
+            background: rgba(255,77,106,0.1);
+            border-color: rgba(255,77,106,0.35);
+            color: #FF8099;
+        }
+        .alert-custom.success {
+            background: rgba(0,230,118,0.08);
+            border-color: rgba(0,230,118,0.3);
+            color: var(--success);
+        }
+
+        /* Form */
+        .form-group { margin-bottom: 1.25rem; }
+        .form-label {
+            display: block;
+            font-size: .8rem;
+            font-weight: 500;
+            color: var(--muted);
+            margin-bottom: .5rem;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+        .form-control {
+            width: 100%;
+            background: var(--card-2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: .75rem 1rem;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: .9rem;
+            transition: border-color .2s, box-shadow .2s;
+            outline: none;
+        }
+        .form-control::placeholder { color: var(--muted); opacity: .6; }
+        .form-control:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 3px var(--cyan-dim);
+        }
+
+        .btn-signin {
+            width: 100%;
+            background: var(--cyan);
+            color: #0D0F14;
+            border: none;
+            border-radius: 8px;
+            padding: .8rem;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: .95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .2s, box-shadow .2s, transform .1s;
+            margin-top: .5rem;
+            letter-spacing: .01em;
+        }
+        .btn-signin:hover {
+            opacity: .9;
+            box-shadow: 0 0 20px var(--cyan-glow);
+            transform: translateY(-1px);
+        }
+        .btn-signin:active { transform: translateY(0); }
+
+        .login-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: .8rem;
+            color: var(--muted);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .login-card::before { animation: none; }
+        }
