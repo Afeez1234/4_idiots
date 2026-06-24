@@ -88,7 +88,7 @@ body { background: var(--bg); font-family: 'Inter', sans-serif; color: var(--tex
     color: var(--emerald);
     flex-shrink: 0;
 }
-.profile-info {}
+
 .profile-name { font-family: 'Space Grotesk', sans-serif; font-size: 1.2rem; font-weight: 700; }
 .profile-meta { font-size: .82rem; color: var(--muted); margin-top: .25rem; display: flex; gap: .85rem; flex-wrap: wrap; }
 .profile-meta-item { display: flex; align-items: center; gap: .3rem; }

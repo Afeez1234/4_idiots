@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SUAAMS — Lecturer Dashboard</title>
+  <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet" />
+  <link href="{{ url_for('static', filename='css/1.css') }}" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon">SU</div>
+      <div>
+        <div class="brand-text">SUAAMS</div>
+        <div class="brand-sub">Lecturer Portal</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">Main</div>
+    <a href="{{ url_for('lecturer.dashboard') }}" class="sidebar-link active">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      Dashboard
+    </a>
+
+    <div class="sidebar-section">Sessions</div>
+    <a href="#" class="sidebar-link">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      My Sessions
+    </a>
+    <a href="#" class="sidebar-link">
+      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      Attendance Records
+    </a>
+
+    <div class="sidebar-footer">
+      <a href="{{ url_for('auth.logout') }}" class="signout-btn">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sign Out
+      </a>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <div class="topbar">
+      <span class="topbar-title">Lecturer Dashboard</span>
+      <div class="avatar">{{ session['username'][0]|upper }}</div>
+    </div>
+
+    <!-- Flash messages -->
+    <div class="flash-area">
+      {% for category, message in get_flashed_messages(with_categories=True) %}
+        <div class="flash-msg flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+
+    <!-- Welcome banner -->
+    <div class="welcome-banner">
+      <div>
+        <p style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:0.3rem;">Welcome back</p>
+        <h2>{{ session['username'] }} <span style="color:var(--accent-cyan);">·</span></h2>
+        <p id="today-date"></p>
+      </div>
+      <div class="live-clock">
+        TODAY
+        <span id="live-clock">--:--</span>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Total Courses</div>
+        <div class="stat-value" style="color:var(--accent-cyan);">{{ courses|length }}</div>
+        <div class="stat-sub">Assigned this semester</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Today's Check-ins</div>
+        <div class="stat-value" style="color:var(--accent-green);">{{ today_checkins }}</div>
+        <div class="stat-sub">Students scanned in</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Session Status</div>
+        <div class="stat-value" style="font-size:1.3rem; color:{% if active_session_count > 0 %}var(--accent-green){% else %}var(--text-muted){% endif %};">
+          {% if active_session_count > 0 %}Active{% else %}Idle{% endif %}
+        </div>
+        <div class="stat-sub">Current state</div>
+      </div>
+    </div>
+
+    <!-- Courses -->
+    <div class="section-header">Your Courses</div>
+
+    {% set accents = ['accent-cyan', 'accent-green', 'accent-amber', 'accent-red', 'accent-purple'] %}
+
+    {% if courses %}
+      <div class="courses-grid">
+        {% for course in courses %}
+          {% set accent = accents[loop.index0 % accents|length] %}
+          <a href="{{ url_for('lecturer.course_workspace', course_id=course[0]) }}" class="course-card {{ accent }}">
+            <div class="course-badge">{{ course[2] }}</div>
+            <div class="course-title">{{ course[1] }}</div>
+            <div class="course-desc">Open the course workspace to manage sessions and view attendance.</div>
+          </a>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">No courses assigned yet. Contact your administrator.</div>
+    {% endif %}
+
+  </main>
+
+  <script>
+    function pad(n) { return String(n).padStart(2, '0'); }
+
+    function tick() {
+      const now = new Date();
+      document.getElementById('live-clock').textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    }
+
+    function setDate() {
+      const now = new Date();
+      document.getElementById('today-date').textContent = now.toLocaleDateString('en-GB', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+    }
+
+    tick(); setDate();
+    setInterval(tick, 30000);
+  </script>
+
+  <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+</body>
+</html>
