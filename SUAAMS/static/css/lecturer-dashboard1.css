@@ -73,7 +73,7 @@ body { background: var(--bg); font-family: 'Inter', sans-serif; color: var(--tex
     background: radial-gradient(ellipse, rgba(0,212,255,0.07) 0%, transparent 70%);
     pointer-events: none;
 }
-.greeting-text {}
+
 .greeting-sup { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .3rem; }
 .greeting-name { font-family: 'Space Grotesk', sans-serif; font-size: 1.4rem; font-weight: 700; }
 .greeting-name span { color: var(--cyan); }

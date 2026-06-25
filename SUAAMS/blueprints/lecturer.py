@@ -25,6 +25,7 @@ def get_attendance_history(cursor, course_id):
     SELECT
         sessions.id,
         sessions.session_date,
+        sessions.start_time,
         COUNT(attendance.id) as present_count
     FROM sessions
     LEFT JOIN attendance ON attendance.session_id = sessions.id
@@ -96,13 +97,14 @@ def course_workspace(course_id):
 
     history_sessions = []
     for row in history:
-        session_id, session_date, present_count = row
+        session_id, session_date,start_time, present_count = row
         absent_count = enrolled_count - present_count
         history_sessions.append({
-            'label': f'Session {session_id}',
+            'label': f'{session_date.strftime('%d %b %Y')} {start_time}',
             'date': session_date,
             'present_count': present_count,
-            'absent_count': absent_count
+            'absent_count': absent_count,
+            'session_id': session_id,
         })
     cursor.close()
     connection.close()
@@ -143,3 +145,29 @@ def end_session_r(course_id):
     cursor.close()
     connection.close()
     return redirect(url_for('lecturer.course_workspace', course_id=course_id))
+
+
+@lecturer_bp.route('/lecturer/course/<int:course_id>/session/<int:session_id>')
+@login_required('lecturer')
+def session_detail(course_id,session_id):
+    user_id = session.get('user_id')
+    connection = connect_to_database()
+    cursor = connection.cursor()
+    cursor.execute('SELECT id FROM lecturers WHERE user_id = %s', (user_id,))
+    lecturer = cursor.fetchone()
+    if not lecturer:
+        flash('Lecturer profile not found.', 'error')
+        return redirect(url_for('auth.login'))
+    lecturer_id, = lecturer
+    cursor.execute('SELECT id, course_title, course_code FROM courses WHERE id = %s AND lecturer_id = %s', (course_id, lecturer_id))
+    course = cursor.fetchone()
+    if not course:
+        flash('Course not found or access denied.', 'error')
+        return redirect(url_for('lecturer.dashboard'))
+    cursor.execute('SELECT id, start_time, stop_time, session_date FROM sessions WHERE id = %s AND course_id = %s', (session_id, course_id))
+    sessi0n = cursor.fetchone()
+    if not sessi0n:
+        flash('Session not found')
+        return redirect(url_for('lecturer.course_workspace',course_id=course_id))   
+    get_attendance_by_session_id()
+    return render_template('lecturer/session_detail.html',course=course)

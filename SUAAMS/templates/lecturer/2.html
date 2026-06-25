@@ -160,7 +160,7 @@
         <tbody>
           {% if history_sessions is defined and history_sessions %}
             {% for s in history_sessions %}
-            <tr>
+            <tr style="cursor:pointer" onclick="window.location='{{ url_for('lecturer.session_detail', course_id=course[0], session_id=s.session_id) }}'">
               <td>{{ s.date }}</td>
               <td>{{ s.label }}</td>
               <td>{{ s.present_count }}</td>
