@@ -22,9 +22,9 @@ def find_student_by_rfid(cursor, RFID_UID):
     return cursor.fetchone()
 
 #reminder:: the function below will help record attendance in the database 
-def record_attendance(cursor, connection, student_id,RFID_UID,session_id):
-    query = "INSERT INTO attendance (student_id, RFID_UID,session_id) VALUES (%s, %s, %s)"
-    cursor.execute(query, (student_id, RFID_UID,session_id))
+def record_attendance(cursor, connection, student_id,session_id):
+    query = "INSERT INTO attendance (student_id,session_id) VALUES (%s, %s)"
+    cursor.execute(query, (student_id,session_id))
     connection.commit()
 
 
@@ -178,7 +178,7 @@ def attendance():
             "message":"Attendance already marked"
         }), 200
     
-    record_attendance(cursor, connection, student_id,RFID_UID ,session_id)
+    record_attendance(cursor, connection, student_id,session_id)
     cursor.close()
     connection.close()
 
