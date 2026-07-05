@@ -6,23 +6,26 @@
 #define RST_PIN 22
 #define SS_PIN 5
 
-MFRC522 rfid(SS_PIN, RST_PIN); // Create MFRC522 instance.
+MFRC522 rfid(SS_PIN, RST_PIN);
 
-//Wifi credentials
 const char* ssid = "Airtel_4G_SMARTBOX_A9DE";
 const char* password = "6A1A68D5";
+//const char* serverName = "http://192.168.1.198:5000/attendance";
+const char* serverName = "https://suaams.onrender.com/attendance";
 
-const char* serverName = "http://192.168.1.198:5000/attendance"; 
+const int DEBOUNCE_DELAY = 3000; // Milliseconds before same card can scan again
+
+String lastUID = "";
+unsigned long lastScanTime = 0;
 
 void setup() {
-  // put your setup code here, to run once:
   Serial.begin(9600);
-  delay(1000); // Wait for serial money to initialize
+  delay(1000);
   Serial.println("Initializing RFID reader...");
-  SPI.begin(); 
-  rfid.PCD_Init(); // Initialize MFRC522
 
-  // Connect to Wi-Fi
+  SPI.begin();
+  rfid.PCD_Init();
+
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
@@ -33,43 +36,46 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  // Check if a card is present
-  if (!rfid.PICC_IsNewCardPresent()) {
-    return;
-  }
-  
-  // Read the card
-  if (!rfid.PICC_ReadCardSerial()) {
-    return;
-  }
-  
+  if (!rfid.PICC_IsNewCardPresent()) return;
+  if (!rfid.PICC_ReadCardSerial()) return;
+
+  // Build UID string with consistent padding
   String uid = "";
   for (byte i = 0; i < rfid.uid.size; i++) {
+    if (rfid.uid.uidByte[i] < 0x10) uid += "0";
     uid += String(rfid.uid.uidByte[i], HEX);
   }
-
   uid.toUpperCase();
+
+  // Halt card and stop encryption before doing anything else
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+
+  // Debounce — ignore same card within DEBOUNCE_DELAY
+  if (uid == lastUID && millis() - lastScanTime < DEBOUNCE_DELAY) {
+    Serial.println("Duplicate scan ignored: " + uid);
+    return;
+  }
+  lastUID = uid;
+  lastScanTime = millis();
 
   Serial.println("Card UID: " + uid);
 
-  // Send UID to server
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
     http.begin(serverName);
     http.addHeader("Content-Type", "application/json");
-    
+
     String jsonPayload = "{\"RFID_UID\":\"" + uid + "\"}";
-    
+
     int httpResponseCode = http.POST(jsonPayload);
-    
     String response = http.getString();
+
     Serial.println("HTTP Response code: " + String(httpResponseCode));
     Serial.println("Response: " + response);
-    
+
     http.end();
   } else {
     Serial.println("WiFi not connected");
   }
-  delay(500); // Delay to avoid multiple reads of the same card
 }
