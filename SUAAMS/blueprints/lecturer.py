@@ -78,7 +78,7 @@ def dashboard():
 
     cursor.close()
     connection.close()
-    return render_template('lecturer/1.html', courses=courses, active_session_count=active_session_count, today_checkins=today_checkins)
+    return render_template('lecturer/dashboard.html', courses=courses, active_session_count=active_session_count, today_checkins=today_checkins)
 
 
 @lecturer_bp.route('/lecturer/course/<int:course_id>')
@@ -161,7 +161,7 @@ def course_workspace(course_id):
     cursor.close()
     connection.close()
     return render_template(
-        'lecturer/2.html',
+        'lecturer/course_workspace.html',
         course=course,
         active_session=sesh,
         attendance_records=attendance_records,
