@@ -1,1 +1,3 @@
-insert INTO enrollments (student_id,course_id) values (9,1)
+ALTER TABLE sessions 
+ADD COLUMN planned_start TIME NULL,
+ADD COLUMN planned_end TIME NULL;

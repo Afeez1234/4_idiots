@@ -4,14 +4,14 @@ from datetime import date, datetime
 lecturer_bp = Blueprint('lecturer', __name__)
 
 #reminder:: the fuction below will create a new session for the course,i'm still wondering if i shoud keep it here or put it in the endpoint
-def create_session(cursor,connection,course_id,start_time,stop_time,session_date):
-    query = "INSERT INTO sessions (course_id,start_time,stop_time,session_date,is_active) VALUES(%s,%s,%s,%s,1)"
-    cursor.execute(query, (course_id,start_time,stop_time,session_date))
+def create_session(cursor,connection,course_id,start_time,stop_time,session_date,planned_start,planned_end):
+    query = "INSERT INTO sessions (course_id,start_time,stop_time,session_date,is_active,planned_start,planned_end) VALUES(%s,%s,%s,%s,1,%s,%s)"
+    cursor.execute(query, (course_id,start_time,stop_time,session_date,planned_start,planned_end))
     connection.commit()
 
 def end_session(cursor,connection,session_id):
-    query = "UPDATE sessions SET is_active = 0 WHERE id = %s"
-    cursor.execute(query, (session_id,))
+    query = "UPDATE sessions SET is_active = 0,stop_time =%s WHERE id = %s"
+    cursor.execute(query, (datetime.now().time(), session_id))
     connection.commit()
     
 def get_attendance_by_session_id(cursor, session_id):
@@ -181,7 +181,11 @@ def start_session(course_id):
         cursor.close()
         connection.close()
         return redirect(url_for('lecturer.course_workspace', course_id=course_id))
-    create_session(cursor, connection, course_id,datetime.now(), datetime.now(), date.today())
+    
+    planned_start = request.form.get('planned_start') or None
+    planned_end = request.form.get('planned_end') or None
+    
+    create_session(cursor, connection, course_id,datetime.now(), datetime.now(), date.today(), planned_start, planned_end)
     flash('Session started successfully.', 'success')
     cursor.close()
     connection.close()

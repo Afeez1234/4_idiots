@@ -4,7 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <!-- Refresh the page every 5 seconds so the summary cards and live attendee list stay current. -->
-  <meta http-equiv="refresh" content="5">
+  {% if active_session %}
+    <meta http-equiv="refresh" content="5">
+  {% endif %}
   <title>SUAAMS — {{ course[1] }}</title>
   <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet" />
   <link href="{{ url_for('static', filename='css/2.css') }}" rel="stylesheet" />
@@ -131,7 +133,17 @@
               <span class="pill-dot"></span> No Active Session
             </div>
             <form method="POST" action="{{ url_for('lecturer.start_session', course_id=course[0]) }}">
-              <button type="submit" class="btn-start-session">Start Session</button>
+              <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                <div>
+                  <label style="font-size:0.75rem; color:var(--text-muted);">Planned Start (optional)</label>
+                  <input type="time" name="planned_start" class="date-input" />
+                </div>
+                <div>
+                  <label style="font-size:0.75rem; color:var(--text-muted);">Planned End (optional)</label>
+                  <input type="time" name="planned_end" class="date-input" />
+                </div>
+                <button type="submit" class="btn-start-session">Start Session</button>
+              </div>
             </form>
           {% endif %}
         </div>
