@@ -174,6 +174,45 @@ body {
     margin-bottom: 1.25rem;
 }
 
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.stat-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    min-height: 120px;
+}
+
+.stat-card.cyan { border-left: 3px solid var(--accent-cyan); }
+.stat-card.green { border-left: 3px solid var(--accent-green); }
+.stat-card.amber { border-left: 3px solid var(--accent-amber); }
+.stat-card.red { border-left: 3px solid var(--accent-red); }
+
+.stat-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.45rem;
+}
+
+.stat-value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.3rem;
+}
+
+.stat-desc {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
 .card-header-row {
     display: flex;
     align-items: center;

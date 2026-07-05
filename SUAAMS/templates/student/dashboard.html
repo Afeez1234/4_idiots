@@ -50,8 +50,8 @@
         <header class="topbar">
             <div class="topbar-title">Student Dashboard</div>
             <div class="topbar-user">
-                <div class="user-avatar">{{ session['username'][0]|upper }}</div>
-                <span>{{ session['username'] }}</span>
+                <div class="user-avatar">{{ (student_profile.full_name or session['username'])[0]|upper }}</div>
+                <span>{{ student_profile.full_name or session['username'] }}</span>
             </div>
         </header>
 
@@ -65,25 +65,29 @@
             <div class="profile-banner">
                 <div class="profile-pic" id="avatarPic">—</div>
                 <div class="profile-info">
-                    <div class="profile-name" id="profileName">{{ session['username'] }}</div>
+                    <div class="profile-name" id="profileName">{{ student_profile.full_name or session['username'] }}</div>
                     <div class="profile-meta">
                         <div class="profile-meta-item">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-                            <span id="profileDept">—</span>
+                            <span id="profileDept">{{ student_profile.department or '—' }}</span>
                         </div>
                         <div class="profile-meta-item">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            <span id="profileLevel">—</span>
+                            <span id="profileLevel">{{ student_profile.level or '—' }}</span>
                         </div>
                         <div class="profile-meta-item">
                             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                            <span>{{ session['username'] }}</span>
+                            <span>{{ student_profile.full_name or session['username'] }}</span>
+                        </div>
+                        <div class="profile-meta-item">
+                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M7 3h10"/><rect x="4" y="7" width="16" height="13" rx="2"/></svg>
+                            <span id="profileMatric">{{ student_profile.matric_number or '—' }}</span>
                         </div>
                     </div>
                 </div>
                 <div class="rfid-badge">
                     <div class="rfid-badge-label">RFID Tag</div>
-                    <div class="rfid-badge-val" id="rfidDisplay">Linked ✓</div>
+                    <div class="rfid-badge-val" id="rfidDisplay">{{ 'Linked ✓' if student_profile.rfid_uid else 'Not linked' }}</div>
                 </div>
             </div>
 
@@ -91,22 +95,22 @@
             <div class="stats-grid">
                 <div class="stat-card cyan">
                     <div class="stat-label">Courses Enrolled</div>
-                    <div class="stat-value" id="statCourses">—</div>
+                    <div class="stat-value" >{{ enrollment_count }}</div>
                     <div class="stat-desc">This semester</div>
                 </div>
                 <div class="stat-card green">
                     <div class="stat-label">Sessions Attended</div>
-                    <div class="stat-value" id="statAttended">—</div>
+                    <div class="stat-value" id="statAttended">{{ attendance_count }}</div>
                     <div class="stat-desc">Total check-ins</div>
                 </div>
                 <div class="stat-card amber">
                     <div class="stat-label">Attendance Rate</div>
-                    <div class="stat-value" id="statRate">—</div>
+                    <div class="stat-value" id="statRate">{{ overall_rate }}%</div>
                     <div class="stat-desc">Overall percentage</div>
                 </div>
                 <div class="stat-card red">
                     <div class="stat-label">At-Risk Courses</div>
-                    <div class="stat-value" id="statRisk">—</div>
+                    <div class="stat-value" id="statRisk">{{ at_risk_count }}</div>
                     <div class="stat-desc">Below 75%</div>
                 </div>
             </div>
@@ -142,12 +146,7 @@
                             <div class="card-header-title">Course Breakdown</div>
                         </div>
                     </div>
-                    <div id="courseList">
-                        <div class="empty-state">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                            <p>No courses enrolled yet</p>
-                        </div>
-                    </div>
+                    <div id="courseList"></div>
                 </div>
             </div>
 
@@ -189,6 +188,11 @@
         </div>
     </div>
 
+    <script>
+        // Send the Flask-built dashboard data to JavaScript.
+        // This is the reusable pattern: create data in Python/Flask, expose it in HTML, then read it in JS.
+        window.dashboardData = {{ dashboard_data|tojson }};
+    </script>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/student_dashboard.js') }}"></script>
 </body>

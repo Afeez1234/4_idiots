@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Refresh the page every 5 seconds so the summary cards and live attendee list stay current. -->
   <meta http-equiv="refresh" content="5">
   <title>SUAAMS — {{ course[1] }}</title>
   <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet" />
@@ -74,8 +75,44 @@
       {% endfor %}
     </div>
 
-    <!-- Session Controls -->
+    <!-- Summary Stat Cards -->
     <section id="overview" class="workspace-card">
+      <div class="card-header-row">
+        <div>
+          <div class="card-title">Course Summary</div>
+          <div class="card-subtitle">Key attendance metrics for this semester.</div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card cyan">
+          <div class="stat-label">Students Enrolled</div>
+          <div class="stat-value">{{ stats.total_enrolled_students }}</div>
+          <div class="stat-desc">Registered for this course</div>
+        </div>
+
+        <div class="stat-card green">
+          <div class="stat-label">Sessions This Semester</div>
+          <div class="stat-value">{{ stats.total_sessions_this_semester }}</div>
+          <div class="stat-desc">Attendance sessions run</div>
+        </div>
+
+        <div class="stat-card amber">
+          <div class="stat-label">Average Attendance</div>
+          <div class="stat-value">{{ stats.average_attendance }}%</div>
+          <div class="stat-desc">Across completed sessions</div>
+        </div>
+
+        <div class="stat-card red">
+          <div class="stat-label">Present in Current Session</div>
+          <div class="stat-value">{{ stats.present_in_current_session }}</div>
+          <div class="stat-desc">Students checked in now</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Session Controls -->
+    <section class="workspace-card">
       <div class="card-header-row">
         <div>
           <div class="card-title">Session Controls</div>

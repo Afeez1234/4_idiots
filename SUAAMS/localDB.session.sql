@@ -1,1 +1,1 @@
-select * from attendance
+insert INTO enrollments (student_id,course_id) values (9,1)

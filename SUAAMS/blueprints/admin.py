@@ -4,6 +4,11 @@ from utils import connect_to_database
 import bcrypt
 admin_bp = Blueprint('admin', __name__)
 
+def get_all_active_sessions(cursor):
+    query = "SELECT id, course_id, start_time, stop_time, session_date FROM sessions WHERE is_active = 1"
+    cursor.execute(query)
+    return cursor.fetchall()
+
 @admin_bp.route('/admin/dashboard')
 @login_required('admin')
 def dashboard():
@@ -21,10 +26,11 @@ def dashboard():
     cursor.execute("SELECT COUNT(*) FROM attendance WHERE time_in >= CURDATE()")
     today_scans = cursor.fetchone()[0]
     
+    sessions = get_all_active_sessions(cursor)
     cursor.close()
     connection.close()
 
-    return render_template('admin1/dashboard.html', lecturer_count=lecturer_count, student_count=student_count, active_sessions=active_sessions, today_scans=today_scans)
+    return render_template('admin1/dashboard.html', lecturer_count=lecturer_count, student_count=student_count, active_sessions=active_sessions, today_scans=today_scans,sessions=sessions)
 
 
 @admin_bp.route('/admin/create-lecturer', methods=['GET', 'POST'])
