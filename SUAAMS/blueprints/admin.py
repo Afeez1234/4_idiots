@@ -63,7 +63,7 @@ def create_lecturer():
         password_bytes = password.encode('utf-8')
         hashed_password = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
         try:
-            cursor.execute("INSERT INTO users (username, passwordhash, role, is_active) VALUES (%s, %s, %s, %s)", 
+            cursor.execute("INSERT INTO users (username, password_hash, role, is_active) VALUES (%s, %s, %s, %s)", 
                         (staff_id, hashed_password, 'lecturer', 1))
             user_id = cursor.lastrowid
             cursor.execute("INSERT INTO lecturers (user_id, full_name, staff_id) VALUES (%s, %s, %s)", 
@@ -113,7 +113,7 @@ def create_student():
         password_bytes = password.encode('utf-8')
         hashed_password = bcrypt.hashpw(password_bytes, bcrypt.gensalt())
         try:
-            cursor.execute("INSERT INTO users (username, passwordhash, role, is_active) VALUES (%s, %s, %s, %s)", 
+            cursor.execute("INSERT INTO users (username, password_hash, role, is_active) VALUES (%s, %s, %s, %s)", 
                         (matric_number, hashed_password, 'student', 1))
             user_id = cursor.lastrowid
             cursor.execute("INSERT INTO students (user_id, FULL_NAME, MATRIC_NUMBER, DEPARTMENT, LEVEL, RFID_UID) VALUES (%s, %s, %s, %s, %s, %s)", 
