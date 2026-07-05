@@ -1,0 +1,4 @@
+flask
+bcrypt
+mysql-connector-python
+gunicorn
