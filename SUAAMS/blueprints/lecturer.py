@@ -121,27 +121,33 @@ def course_workspace(course_id):
         })
 
     # Calculate a few reusable summary stats for the course dashboard.
-    semester_start, semester_end = get_current_semester_bounds()
+    # semester_start, semester_end = get_current_semester_bounds()
 
-    cursor.execute(
-        '''
-        SELECT s.id, COUNT(a.id) AS present_count
-        FROM sessions s
-        LEFT JOIN attendance a ON a.session_id = s.id
-        WHERE s.course_id = %s AND s.session_date BETWEEN %s AND %s
-        GROUP BY s.id
-        ''',
-        (course_id, semester_start, semester_end)
-    )
-    semester_session_rows = cursor.fetchall()
+    # cursor.execute(
+    #     '''
+    #     SELECT s.id, COUNT(a.id) AS present_count
+    #     FROM sessions s
+    #     LEFT JOIN attendance a ON a.session_id = s.id
+    #     WHERE s.course_id = %s AND s.session_date BETWEEN %s AND %s
+    #     GROUP BY s.id
+    #     ''',
+    #     (course_id, semester_start, semester_end)
+    # )
+    # semester_session_rows = cursor.fetchall()
 
-    total_sessions_this_semester = len(semester_session_rows)
-    total_present_this_semester = sum(row[1] or 0 for row in semester_session_rows)
-    average_attendance = round(
-        (total_present_this_semester / (total_sessions_this_semester * enrolled_count) * 100)
-        if total_sessions_this_semester and enrolled_count else 0,
-        1
-    )
+    cursor.execute('SELECT COUNT(*) FROM sessions WHERE course_id = %s', (course_id,))
+    total_sessions_this_semester = cursor.fetchone()[0]
+    
+    cursor.execute('''SELECT COUNT(*) FROM attendance a 
+    JOIN sessions s ON a.session_id = s.id 
+    WHERE s.course_id = %s''', (course_id,))
+    average_attendance = round((cursor.fetchone()[0] / (total_sessions_this_semester * enrolled_count) * 100) if total_sessions_this_semester and enrolled_count else 0, 1)
+    # total_present_this_semester = sum(row[1] or 0 for row in semester_session_rows)
+    # average_attendance = round(
+    #     (total_present_this_semester / (total_sessions_this_semester * enrolled_count) * 100)
+    #     if total_sessions_this_semester and enrolled_count else 0,
+    #     1
+    # )
 
     present_in_current_session = len(attendance_records)
 
