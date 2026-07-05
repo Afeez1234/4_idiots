@@ -19,14 +19,15 @@ def login():
         
         connection = connect_to_database()
         cursor = connection.cursor()
-        
-        cursor.execute("select id ,username, password_hash,role,is_active from users where username =%s", (username,))
-        user = cursor.fetchone()
-        
-        print  
-        
-        cursor.close()
-        connection.close()
+        try:
+            cursor.execute("select id ,username, password_hash,role,is_active from users where username =%s", (username,))
+            user = cursor.fetchone()
+        except Exception as e:
+            flash('Error occurred while fetching user data','error')
+            return render_template('auth/login.html')
+        finally:
+            cursor.close()
+            connection.close()
         
         if not user:
             flash('Invalid username or password','error')
