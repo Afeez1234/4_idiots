@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect, url_for
 from datetime import date
 from utils import connect_to_database
 from blueprints.auth import auth_bp 
@@ -59,7 +59,7 @@ def attendance_already_recorded(cursor,session_id,student_id):
 
 @app.route('/')
 def home():
-    return "Welcome to the SUAAMS API"
+    return redirect(url_for('auth.login'))
 
 # reminder:: the sessionstart endpoint gets the info from the dashboard that i'll create later
 
