@@ -20,7 +20,7 @@ def seed_admin():
     if existing:
         print('Admin User already exists. skipping')
     else:
-        query = "insert into users(username,passwordhash,role,is_active) values (%s,%s,%s,%s)"
+        query = "insert into users(username,password_hash,role,is_active) values (%s,%s,%s,%s)"
         cursor.execute(query, ('admin',hashed_password,'admin',1))
         connection.commit()
         print('Admin user created successfully')
