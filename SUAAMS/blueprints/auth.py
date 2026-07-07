@@ -18,7 +18,7 @@ def login():
             return render_template('auth/login.html')
         
         connection = connect_to_database()
-        cursor = connection.cursor()
+        cursor = connection.cursor(buffered=True)
         try:
             cursor.execute("select id ,username, password_hash,role,is_active from users where username =%s", (username,))
             user = cursor.fetchone()

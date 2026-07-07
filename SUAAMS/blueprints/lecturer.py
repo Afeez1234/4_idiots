@@ -58,7 +58,7 @@ def get_current_semester_bounds(today=None):
 def dashboard():
     user_id = session.get('user_id')
     connection = connect_to_database()
-    cursor = connection.cursor()
+    cursor = connection.cursor(buffered=True)
     try:
         cursor.execute('SELECT id FROM lecturers WHERE user_id = %s', (user_id,))
         lecturer = cursor.fetchone()
@@ -90,7 +90,7 @@ def dashboard():
 def course_workspace(course_id):
     user_id = session.get('user_id')
     connection = connect_to_database()
-    cursor = connection.cursor()
+    cursor = connection.cursor(buffered=True)
     try:
         cursor.execute('SELECT id FROM lecturers WHERE user_id = %s', (user_id,))
         lecturer = cursor.fetchone()
@@ -180,7 +180,7 @@ def course_workspace(course_id):
 def start_session(course_id):
     
     connection = connect_to_database()
-    cursor = connection.cursor()
+    cursor = connection.cursor(buffered=True)
     try:
         sesh = get_active_session_by_course_id(cursor, course_id)
         if sesh:
@@ -203,7 +203,7 @@ def start_session(course_id):
 @login_required('lecturer')
 def end_session_r(course_id):
     connection = connect_to_database()
-    cursor = connection.cursor()
+    cursor = connection.cursor(buffered=True)
     sesh = get_active_session_by_course_id(cursor, course_id)
     if not sesh:
         flash('No active session found for this course.', 'error')
@@ -223,7 +223,7 @@ def end_session_r(course_id):
 def session_detail(course_id, session_id):
     user_id = session.get('user_id')
     connection = connect_to_database()
-    cursor = connection.cursor()
+    cursor = connection.cursor(buffered=True)
     try:
         cursor.execute('SELECT id FROM lecturers WHERE user_id = %s', (user_id,))
         lecturer = cursor.fetchone()
