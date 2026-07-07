@@ -101,9 +101,7 @@ def course_workspace(course_id):
     except Exception as e:
         flash('An error occurred while fetching lecturer data.', 'error')
         return redirect(url_for('auth.login'))
-    finally:
-        cursor.close()
-        connection.close()
+
     cursor.execute('SELECT id, course_title, course_code FROM courses WHERE id = %s AND lecturer_id = %s', (course_id, lecturer_id))
     course = cursor.fetchone()
     if not course:
