@@ -8,8 +8,8 @@
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 
-const char* ssid = "Airtel_4G_SMARTBOX_A9DE";
-const char* password = "6A1A68D5";
+const char* ssid = "3RR0R";
+const char* password = "samsun225";
 //const char* serverName = "http://192.168.1.198:5000/attendance";
 const char* serverName = "https://suaams.onrender.com/attendance";
 
