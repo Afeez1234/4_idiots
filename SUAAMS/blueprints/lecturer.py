@@ -98,77 +98,74 @@ def course_workspace(course_id):
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
         lecturer_id, = lecturer
-    except Exception as e:
-        flash('An error occurred while fetching lecturer data.', 'error')
-        return redirect(url_for('auth.login'))
+        cursor.execute('SELECT id, course_title, course_code FROM courses WHERE id = %s AND lecturer_id = %s', (course_id, lecturer_id))
+        course = cursor.fetchone()
+        if not course:
+            flash('Course not found or access denied.', 'error')
+            return redirect(url_for('lecturer.dashboard'))
+        attendance_records = []
+        sesh = get_active_session_by_course_id(cursor, course_id)
+        if sesh:
+            session_id, _, start_time, stop_time, session_date = sesh
+            attendance_records = get_attendance_by_session_id(cursor, session_id)
+            
+        history = get_attendance_history(cursor, course_id)
+        enrolled_count = get_enrolled_students_count(cursor, course_id)
 
-    cursor.execute('SELECT id, course_title, course_code FROM courses WHERE id = %s AND lecturer_id = %s', (course_id, lecturer_id))
-    course = cursor.fetchone()
-    if not course:
-        flash('Course not found or access denied.', 'error')
-        return redirect(url_for('lecturer.dashboard'))
-    attendance_records = []
-    sesh = get_active_session_by_course_id(cursor, course_id)
-    if sesh:
-        session_id, _, start_time, stop_time, session_date = sesh
-        attendance_records = get_attendance_by_session_id(cursor, session_id)
+        # Build the history list for the table.
+        history_sessions = []
+        for row in history:
+            session_id, session_date, start_time, present_count = row
+            absent_count = enrolled_count - present_count
+            history_sessions.append({
+                'label': f"{session_date.strftime('%d %b %Y')} {start_time}",
+                'date': session_date,
+                'present_count': present_count,
+                'absent_count': absent_count,
+                'session_id': session_id,
+            })
+
+        # Calculate a few reusable summary stats for the course dashboard.
+        # semester_start, semester_end = get_current_semester_bounds()
+
+        # cursor.execute(
+        #     '''
+        #     SELECT s.id, COUNT(a.id) AS present_count
+        #     FROM sessions s
+        #     LEFT JOIN attendance a ON a.session_id = s.id
+        #     WHERE s.course_id = %s AND s.session_date BETWEEN %s AND %s
+        #     GROUP BY s.id
+        #     ''',
+        #     (course_id, semester_start, semester_end)
+        # )
+        # semester_session_rows = cursor.fetchall()
+
+        cursor.execute('SELECT COUNT(*) FROM sessions WHERE course_id = %s', (course_id,))
+        total_sessions_this_semester = cursor.fetchone()[0]
         
-    history = get_attendance_history(cursor, course_id)
-    enrolled_count = get_enrolled_students_count(cursor, course_id)
+        cursor.execute('''SELECT COUNT(*) FROM attendance a 
+        JOIN sessions s ON a.session_id = s.id 
+        WHERE s.course_id = %s''', (course_id,))
+        average_attendance = round((cursor.fetchone()[0] / (total_sessions_this_semester * enrolled_count) * 100) if total_sessions_this_semester and enrolled_count else 0, 1)
+        # total_present_this_semester = sum(row[1] or 0 for row in semester_session_rows)
+        # average_attendance = round(
+        #     (total_present_this_semester / (total_sessions_this_semester * enrolled_count) * 100)
+        #     if total_sessions_this_semester and enrolled_count else 0,
+        #     1
+        # )
 
-    # Build the history list for the table.
-    history_sessions = []
-    for row in history:
-        session_id, session_date, start_time, present_count = row
-        absent_count = enrolled_count - present_count
-        history_sessions.append({
-            'label': f"{session_date.strftime('%d %b %Y')} {start_time}",
-            'date': session_date,
-            'present_count': present_count,
-            'absent_count': absent_count,
-            'session_id': session_id,
-        })
+        present_in_current_session = len(attendance_records)
 
-    # Calculate a few reusable summary stats for the course dashboard.
-    # semester_start, semester_end = get_current_semester_bounds()
-
-    # cursor.execute(
-    #     '''
-    #     SELECT s.id, COUNT(a.id) AS present_count
-    #     FROM sessions s
-    #     LEFT JOIN attendance a ON a.session_id = s.id
-    #     WHERE s.course_id = %s AND s.session_date BETWEEN %s AND %s
-    #     GROUP BY s.id
-    #     ''',
-    #     (course_id, semester_start, semester_end)
-    # )
-    # semester_session_rows = cursor.fetchall()
-
-    cursor.execute('SELECT COUNT(*) FROM sessions WHERE course_id = %s', (course_id,))
-    total_sessions_this_semester = cursor.fetchone()[0]
-    
-    cursor.execute('''SELECT COUNT(*) FROM attendance a 
-    JOIN sessions s ON a.session_id = s.id 
-    WHERE s.course_id = %s''', (course_id,))
-    average_attendance = round((cursor.fetchone()[0] / (total_sessions_this_semester * enrolled_count) * 100) if total_sessions_this_semester and enrolled_count else 0, 1)
-    # total_present_this_semester = sum(row[1] or 0 for row in semester_session_rows)
-    # average_attendance = round(
-    #     (total_present_this_semester / (total_sessions_this_semester * enrolled_count) * 100)
-    #     if total_sessions_this_semester and enrolled_count else 0,
-    #     1
-    # )
-
-    present_in_current_session = len(attendance_records)
-
-    stats = {
-        'total_enrolled_students': enrolled_count,
-        'total_sessions_this_semester': total_sessions_this_semester,
-        'average_attendance': average_attendance,
-        'present_in_current_session': present_in_current_session,
-    }
-
-    cursor.close()
-    connection.close()
+        stats = {
+            'total_enrolled_students': enrolled_count,
+            'total_sessions_this_semester': total_sessions_this_semester,
+            'average_attendance': average_attendance,
+            'present_in_current_session': present_in_current_session,
+        }
+        
+    finally:    
+        cursor.close()
+        connection.close()
     return render_template(
         'lecturer/course_workspace.html',
         course=course,
