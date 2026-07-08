@@ -5,11 +5,22 @@ from utils import connect_to_database
 auth_bp = Blueprint('auth',__name__)
 
 
+def manage_session():
+    if session.get('user_id'):
+        session.clear()
+        flash('An active session already exists. Please enter your credentials again.', 'error')
+        return True
+    return False
+
+
 @auth_bp.route('/login', methods = ['POST','GET'])
 def login():
     if request.method == 'GET':
+        manage_session()
         return render_template('auth/login.html')
     if request.method == 'POST':
+        if manage_session():
+            return render_template('auth/login.html')
         username = request.form.get('username')
         password = request.form.get('password')
         
@@ -47,6 +58,8 @@ def login():
         session['user_id'] = user_id
         session['username'] = db_username
         session['role'] = role
+        
+        
         
         if role == 'admin':
             return redirect(url_for('admin.dashboard'))
