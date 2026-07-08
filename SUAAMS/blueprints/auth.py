@@ -5,22 +5,27 @@ from utils import connect_to_database
 auth_bp = Blueprint('auth',__name__)
 
 
-def manage_session():
-    if session.get('user_id'):
-        session.clear()
-        flash('An active session already exists. Please enter your credentials again.', 'error')
-        return True
-    return False
+def redirect_to_dashboard():
+    role = session.get('role')
+    if role == 'admin':
+        return redirect(url_for('admin.dashboard'))
+    if role == 'lecturer':
+        return redirect(url_for('lecturer.dashboard'))
+    if role == 'student':
+        return redirect(url_for('student.dashboard'))
+    session.clear()
+    return redirect(url_for('auth.login'))
 
 
 @auth_bp.route('/login', methods = ['POST','GET'])
 def login():
+    if session.get('user_id'):
+        flash('You are already logged in. Redirecting to your dashboard.', 'info')
+        return redirect_to_dashboard()
+
     if request.method == 'GET':
-        manage_session()
         return render_template('auth/login.html')
     if request.method == 'POST':
-        if manage_session():
-            return render_template('auth/login.html')
         username = request.form.get('username')
         password = request.form.get('password')
         
