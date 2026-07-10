@@ -1,14 +1,19 @@
-import 'package:flutter/material.dart';
-import '../../../shared/widgets/primary_button.dart';
+//This file is the login screen for the SUAAMS app. It provides a form for users to enter their credentials and handles the login process using Riverpod for state management and GoRouter for navigation.
 
-class LoginScreen extends StatefulWidget {
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../shared/widgets/primary_button.dart';
+import '../providers/auth_provider.dart';
+
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   // Controllers capture the raw text inputs from the form fields
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -17,31 +22,56 @@ class _LoginScreenState extends State<LoginScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   
   bool _isPasswordVisible = false;
-  bool _isLoading = false;
+
 
   @override
   void dispose() {
     // Always clean up controllers when the widget is destroyed to prevent memory leaks
     _idController.dispose();
     _passwordController.dispose();
-    super.overrideWidgetdispose();
+    super.dispose();
   }
 
-  void _handleSignIn() {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+  void _handleSignIn() async {
+      if (_formKey.currentState!.validate()) {
+        
+        // Call the Riverpod Network logic
+        final success = await ref.read(authProvider.notifier).login(
+          _idController.text.trim(), 
+          _passwordController.text
+        );
 
-      // TODO: Connect Riverpod auth provider here for Flask API call
-      // Future deployment step: ref.read(authProvider.notifier).login(...)
+        if (mounted) {
+          if (success) {
+            // Success! Grab the user object to check their role
+            final user = ref.read(authProvider).user;
+            
+            if (user?.role == 'student') {context.go('/student');}
+            else if (user?.role == 'lecturer') {context.go('/lecturer');}
+            else if (user?.role == 'admin') {context.go('/admin');}
+            
+          } else {
+            // Failed! Read the error message from Flask and show it in a red SnackBar
+            final error = ref.read(authProvider).errorMessage;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(error ?? 'Login failed'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      }
     }
-  }
 
   @override
   Widget build(BuildContext context) {
     // Mediaquery ensures the layout adapts gracefully to varying screen heights
     final screenHeight = MediaQuery.of(context).size.height;
+
+    // Watch the AuthProvider to dynamically update the UI (like showing the loading spinner)
+    final authState = ref.watch(authProvider);    
 
     return Scaffold(
       body: SafeArea(
@@ -66,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Smart Universal Automated Attendance Management System',
+                  'Welcome Back! \nPlease sign in to continue.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[400],
                       ),
@@ -80,8 +110,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _idController,
                   keyboardType: TextInputType.text,
                   decoration: InputDecoration(
-                    labelText: 'User ID / Email',
-                    hintText: 'Enter your unique identification',
+                    labelText: 'User ID ',
+                    hintText: 'e.g U123456 or SS123456',
                     prefixIcon: const Icon(Icons.person_outline),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -89,7 +119,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your User ID or Email';
+                      return 'Please enter your User ID ';
                     }
                     return null;
                   },
@@ -134,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Reusable Primary Button Component
                 PrimaryButton(
                   text: 'Sign In',
-                  isLoading: _isLoading,
+                  isLoading: authState.isLoading,
                   onPressed: _handleSignIn,
                 ),
               ],

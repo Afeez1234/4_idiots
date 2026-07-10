@@ -7,9 +7,11 @@ from blueprints.lecturer import lecturer_bp
 from blueprints.student import student_bp
 from utils import get_active_session_by_course_id
 import os
+from flask_jwt_extended import JWTManager
+from api.auth import api_auth_bp
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'suaams_secret_key_2025')
-
+JWT_SECRET = os.environ.get('JWT_SECRET_KEY','super_secret_jwt_key_for_mobile_2026')
 
 app = Flask(__name__)
 app.register_blueprint(auth_bp)
@@ -18,6 +20,10 @@ app.register_blueprint(lecturer_bp)
 app.register_blueprint(student_bp)
 app.secret_key = SECRET_KEY
 
+app.config['JWT_SECRET_KEY'] = JWT_SECRET
+jwt = JWTManager(app)
+
+app.register_blueprint(api_auth_bp)
 
 
 

@@ -2,3 +2,4 @@ flask
 bcrypt
 mysql-connector-python
 gunicorn
+flask_jwt_extended

@@ -4,10 +4,10 @@ import mysql.connector
 import os
 
 DB_CONFIG = {
-    'host': os.environ.get('DB_HOST', 'bikxczmqtdlkynudsfrp-mysql.services.clever-cloud.com'),
+    'host': os.environ.get('DB_HOST', 'bikxczmqtd1kynudsfrp-mysql.services.clever-cloud.com'),
     'user': os.environ.get('DB_USER', 'uo5woagbfvcducyy'),
     'password': os.environ.get('DB_PASSWORD', 'edVtI3biNQmhQrfJwRe8'),
-    'database': os.environ.get('DB_NAME', 'bikxczmqtdlkynudsfrp'),
+    'database': os.environ.get('DB_NAME', 'bikxczmqtd1kynudsfrp'),
     'port': int(os.environ.get('DB_PORT', 3306))
 }
 

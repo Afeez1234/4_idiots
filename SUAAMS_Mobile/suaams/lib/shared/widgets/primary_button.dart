@@ -1,3 +1,5 @@
+//This file defines a reusable primary button widget for the SUAAMS app. It provides a customizable button with loading state support, adapting to the parent container's width and applying consistent styling based on the app's theme.
+
 import 'package:flutter/material.dart';
 
 class PrimaryButton extends StatelessWidget {
