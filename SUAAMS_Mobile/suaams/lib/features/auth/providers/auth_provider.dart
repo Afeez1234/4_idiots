@@ -65,8 +65,10 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
         token: token,
       );
       state = state.copyWith(isLoading: false, user: restoredUser);
+      notifyListeners();
     } else {
       state = state.copyWith(isLoading: false);
+      notifyListeners();
     }
   }
 
@@ -93,6 +95,7 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
         isLoading: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
       );
+      notifyListeners();
       return false;
     }
   }
@@ -101,5 +104,6 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
   Future<void> logout() async {
     await _authService.logout();
     state = AuthState(); // Reset state completely
+    notifyListeners();
   }
 }

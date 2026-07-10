@@ -38,6 +38,7 @@ class AuthService {
         // Save the token securely to the phone's hardware storage
         await _secureStorage.write(key: 'jwt_token', value: token);
         await _secureStorage.write(key: 'user_role', value: userData['role']);
+        await _secureStorage.write(key: 'username', value: userData['username']);
 
         // Return the structured Dart object
         return AuthUser.fromJson(userData, token);

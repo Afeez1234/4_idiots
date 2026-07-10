@@ -24,6 +24,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   Future<void> _checkAuthenticationState() async {
     // 1. Give the UI a moment to render the branding (min 2 seconds)
     await Future.delayed(const Duration(seconds: 2));
+    // SAFETY CHECK: If the screen was destroyed during the 2 seconds, stop here.
+    if (!mounted) return;
 
     // 2. Call our Riverpod provider to check the hardware vault for a JWT
     await ref.read(authProvider.notifier).checkExistingAuth();

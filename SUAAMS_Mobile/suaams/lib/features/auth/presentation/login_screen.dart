@@ -33,37 +33,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _handleSignIn() async {
-      if (_formKey.currentState!.validate()) {
-        
-        // Call the Riverpod Network logic
-        final success = await ref.read(authProvider.notifier).login(
-          _idController.text.trim(), 
-          _passwordController.text
-        );
+    if (_formKey.currentState!.validate()) {
+      final success = await ref.read(authProvider.notifier).login(
+        _idController.text.trim(),
+        _passwordController.text,
+      );
 
-        if (mounted) {
-          if (success) {
-            // Success! Grab the user object to check their role
-            final user = ref.read(authProvider).user;
-            
-            if (user?.role == 'student') {context.go('/student');}
-            else if (user?.role == 'lecturer') {context.go('/lecturer');}
-            else if (user?.role == 'admin') {context.go('/admin');}
-            
-          } else {
-            // Failed! Read the error message from Flask and show it in a red SnackBar
-            final error = ref.read(authProvider).errorMessage;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(error ?? 'Login failed'),
-                backgroundColor: Theme.of(context).colorScheme.error,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        }
+      if (mounted && !success) {
+        final error = ref.read(authProvider).errorMessage;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error ?? 'Login failed'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
+  }
 
   @override
   Widget build(BuildContext context) {
