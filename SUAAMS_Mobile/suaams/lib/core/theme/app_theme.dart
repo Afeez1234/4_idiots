@@ -1,65 +1,87 @@
-//This file alraedy says it from the name :)
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // We only define a dark theme since the app is explicitly dark-mode first
+  static const Color primaryAction = Color(0xFF000000);
+  static const Color surfaceLight = Color(0xFFF4F4F5);
+  static const Color surfaceDark = Color(0xFF0F0F0F);
+
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
-      
-      // The Scaffold background is the absolute bottom layer of the app
-      scaffoldBackgroundColor: const Color(0xFF121212), 
-      
-      // ColorScheme dictates the primary accents across all Material widgets
+      scaffoldBackgroundColor: surfaceDark,
+      primaryColor: Colors.white,
+      textTheme: GoogleFonts.plusJakartaSansTextTheme(
+        ThemeData(brightness: Brightness.dark).textTheme,
+      ),
+      cardTheme: const CardThemeData(color: Color(0xFF1C1C1C), elevation: 0),
       colorScheme: const ColorScheme.dark(
-        primary: Color(0xFF5B7BFF), // The specific SUAAMS blue accent
-        onPrimary: Colors.white,
-        surface: Color(0xFF1E1E1E), // Slightly lighter gray for cards/elevated elements
+        primary: Colors.white,
+        surface: surfaceDark,
+        surfaceContainer: Color(0xFF1C1C1C),
+        onPrimary: Colors.black,
         onSurface: Colors.white,
-        error: Color(0xFFFF5252),
+        outline: Color(0xFF2A2A2A),
       ),
-
-      // Global Typography: Applies the Inter font to all text in the app
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
-        headlineLarge: const TextStyle(
-          fontWeight: FontWeight.bold, 
-          color: Colors.white,
-        ),
-        bodyMedium: const TextStyle(
-          color: Colors.white70,
-        ),
-      ),
-
-      // Global Input Styling: This makes all your TextFields look exactly 
-      // like your Figma design without styling them individually on every screen.
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFF1E1E1E), // Dark grey text box background
+        fillColor: const Color(0xFF1C1C1C),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        
-        // Default unselected state (no border)
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
-        
-        // Active selected state (blue border)
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF5B7BFF), width: 1.5),
+          borderSide: const BorderSide(color: Colors.white, width: 1),
         ),
-        
-        // Error state (red border, like when a password is too short)
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFFFF5252), width: 1.5),
         ),
-        
-        labelStyle: const TextStyle(color: Colors.grey),
-        hintStyle: const TextStyle(color: Colors.grey),
+        labelStyle: const TextStyle(color: Color(0xFF666666)),
+        hintStyle: const TextStyle(color: Color(0xFF444444)),
+      ),
+    );
+  }
+
+  static ThemeData get lightTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: surfaceLight,
+      primaryColor: primaryAction,
+      textTheme: GoogleFonts.plusJakartaSansTextTheme(
+        ThemeData(brightness: Brightness.light).textTheme,
+      ),
+      cardTheme: const CardThemeData(color: Colors.white, elevation: 0),
+      colorScheme: const ColorScheme.light(
+        primary: primaryAction,
+        surface: surfaceLight,
+        surfaceContainer: Colors.white,
+        onPrimary: Colors.white,
+        onSurface: Color(0xFF1A1A1A),
+        outline: Color(0xFFDDDDDD),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF000000), width: 1),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFFF5252), width: 1.5),
+        ),
+        labelStyle: const TextStyle(color: Color(0xFF888888)),
+        hintStyle: const TextStyle(color: Color(0xFF888888)),
       ),
     );
   }

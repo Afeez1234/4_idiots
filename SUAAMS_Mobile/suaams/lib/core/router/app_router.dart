@@ -3,21 +3,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
+import '../../features/student/presentation/student_dashboard_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // Removed ref.watch() from here so the router doesn't rebuild continuously.
-  final authNotifier = ref.read(authProvider.notifier);
+  // 1. Create a simple ValueNotifier bridge for GoRouter
+  final routerListener = ValueNotifier<bool>(false);
+
+  // 2. Listen to the authProvider. Whenever it changes, trigger the routerListener!
+  ref.listen(authProvider, (previous, next) {
+    routerListener.value = !routerListener.value;
+  });
   return GoRouter(
     initialLocation: '/splash',
-    refreshListenable: authNotifier, // This allows the router to listen for changes in the auth state
+    //3. Pass the bridge to GoRouter so it can listen for changes in the auth state
+    refreshListenable:
+        routerListener, // This allows the router to listen for changes in the auth state
     redirect: (context, state) {
       // 1. We READ the state only when a navigation event actually happens
       final authState = ref.read(authProvider);
-      
+
       final isLoggingIn = state.matchedLocation == '/login';
       final isSplash = state.matchedLocation == '/splash';
       final user = authState.user;
@@ -36,43 +43,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       return null;
     },
-    
+
     routes: [
       GoRoute(
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
       ),
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/admin',
-        builder: (context, state) => const Scaffold(body: Center(child: Text('Admin Dashboard'))),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Admin Dashboard'))),
       ),
       GoRoute(
         path: '/lecturer',
-        builder: (context, state) => const Scaffold(body: Center(child: Text('Lecturer Dashboard'))),
+        builder: (context, state) =>
+            const Scaffold(body: Center(child: Text('Lecturer Dashboard'))),
       ),
       GoRoute(
         path: '/student',
-        builder: (context, state) => Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Student Dashboard'),
-                const SizedBox(height: 20),
-                Consumer(
-                  builder: (context, ref, _) => ElevatedButton(
-                    onPressed: () => ref.read(authProvider.notifier).logout(),
-                    child: const Text('Logout'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        builder: (context, state) => const StudentDashboardScreen(),
       ),
     ],
   );

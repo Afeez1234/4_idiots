@@ -1,10 +1,8 @@
-//This file is the login screen for the SUAAMS app. It provides a form for users to enter their credentials and handles the login process using Riverpod for state management and GoRouter for navigation.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-// import 'package:go_router/go_router.dart';
-import '../../../shared/widgets/primary_button.dart';
 import '../providers/auth_provider.dart';
+import '../../../shared/utils/grid_overlay_painter.dart';
+import '../../../shared/widgets/suaams_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -14,19 +12,14 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  // Controllers capture the raw text inputs from the form fields
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
-  // A GlobalKey uniquely identifies this specific form to handle input validation
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  
-  bool _isPasswordVisible = false;
 
+  bool _isPasswordVisible = false;
 
   @override
   void dispose() {
-    // Always clean up controllers when the widget is destroyed to prevent memory leaks
     _idController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -34,18 +27,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _handleSignIn() async {
     if (_formKey.currentState!.validate()) {
-      final success = await ref.read(authProvider.notifier).login(
-        _idController.text.trim(),
-        _passwordController.text,
-      );
+      FocusScope.of(context).unfocus(); // Dismiss keyboard
+
+      final success = await ref
+          .read(authProvider.notifier)
+          .login(_idController.text.trim(), _passwordController.text);
 
       if (mounted && !success) {
         final error = ref.read(authProvider).errorMessage;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(error ?? 'Login failed'),
+            content: Text(
+              error ?? 'ACCESS DENIED',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
         );
       }
@@ -54,111 +57,240 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Mediaquery ensures the layout adapts gracefully to varying screen heights
     final screenHeight = MediaQuery.of(context).size.height;
-
-    // Watch the AuthProvider to dynamically update the UI (like showing the loading spinner)
-    final authState = ref.watch(authProvider);    
+    final authState = ref.watch(authProvider);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(height: screenHeight * 0.12),
-                
-                // Branding / Header Section
-                Text(
-                  'SUAAMS',
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                        letterSpacing: 1.5,
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Welcome Back! \nPlease sign in to continue.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[400],
-                      ),
-                  textAlign: TextAlign.center,
-                ),
-                
-                SizedBox(height: screenHeight * 0.08),
+      backgroundColor: colorScheme.surface,
+      body: Stack(
+        children: [
+          // 1. The Stealth Terminal Background
+          _LoginBackground(isDarkMode: isDarkMode, colorScheme: colorScheme),
 
-                // Input Field: Identification
-                TextFormField(
-                  controller: _idController,
-                  keyboardType: TextInputType.text,
-                  decoration: InputDecoration(
-                    labelText: 'User ID ',
-                    hintText: 'e.g U123456 or SS123456',
-                    prefixIcon: const Icon(Icons.person_outline),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+          // 2. The Login Form
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Header Section
+                      Center(
+                        child: SuaamsLogoFull(
+                        size: 64, 
+                        color: colorScheme.primary),
+                      ),
+                    
+                      SizedBox(height: screenHeight * 0.05),
+
+                      // Input Fields
+                      _buildInputLabel('USERNAME', colorScheme),
+                      const SizedBox(height: 8),
+                      _buildTextField(
+                        controller: _idController,
+                        hintText: 'Enter username',
+                        icon: Icons.badge_rounded,
+                        colorScheme: colorScheme,
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty)
+                            ? 'USERNAME REQUIRED'
+                            : null,
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      _buildInputLabel('AUTHORIZATION CODE', colorScheme),
+                      const SizedBox(height: 8),
+                      _buildTextField(
+                        controller: _passwordController,
+                        hintText: 'Enter password',
+                        icon: Icons.lock_outline_rounded,
+                        isPassword: true,
+                        colorScheme: colorScheme,
+                        validator: (value) => (value == null || value.isEmpty)
+                            ? 'PASSWORD REQUIRED'
+                            : null,
+                      ),
+
+                      const SizedBox(height: 40),
+
+                      // Terminal-style Submit Button
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.surface,
+                          minimumSize: const Size(double.infinity, 56),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: authState.isLoading ? null : _handleSignIn,
+                        child: authState.isLoading
+                            ? SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  color: colorScheme.surface,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : const Text(
+                                'AUTHENTICATE',
+                                style: TextStyle(
+                                  letterSpacing: 3,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                      ),
+                    ],
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter your User ID ';
-                    }
-                    return null;
-                  },
                 ),
-                const SizedBox(height: 20),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                // Input Field: Password
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: !_isPasswordVisible,
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    hintText: 'Enter your password',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                      ),
-                      onPressed: () {
-                        setState(() {
-                          _isPasswordVisible = !_isPasswordVisible;
-                        });
-                      },
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter your password';
-                    }
-                    if (value.length < 6) {
-                      return 'Password must be at least 6 characters';
-                    }
-                    return null;
-                  },
-                ),
-                
-                const SizedBox(height: 32),
+  Widget _buildInputLabel(String text, ColorScheme colorScheme) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.5,
+        color: colorScheme.onSurface.withValues(alpha: 0.6),
+      ),
+    );
+  }
 
-                // Reusable Primary Button Component
-                PrimaryButton(
-                  text: 'Sign In',
-                  isLoading: authState.isLoading,
-                  onPressed: _handleSignIn,
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+    required ColorScheme colorScheme,
+    required String? Function(String?) validator,
+    bool isPassword = false,
+  }) {
+    final borderStyle = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(
+        color: colorScheme.outline.withValues(alpha: 0.15),
+      ),
+    );
+
+    return TextFormField(
+      controller: controller,
+      obscureText: isPassword && !_isPasswordVisible,
+      style: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: colorScheme.onSurface,
+      ),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: colorScheme.surfaceContainer,
+        hintText: hintText,
+        hintStyle: TextStyle(
+          color: colorScheme.onSurface.withValues(alpha: 0.3),
+          fontWeight: FontWeight.normal,
+        ),
+        prefixIcon: Icon(
+          icon,
+          color: colorScheme.onSurface.withValues(alpha: 0.5),
+          size: 20,
+        ),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  _isPasswordVisible
+                      ? Icons.visibility_rounded
+                      : Icons.visibility_off_rounded,
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  size: 20,
                 ),
-              ],
+                onPressed: () =>
+                    setState(() => _isPasswordVisible = !_isPasswordVisible),
+              )
+            : null,
+        border: borderStyle,
+        enabledBorder: borderStyle,
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colorScheme.primary, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: colorScheme.error, width: 1.5),
+        ),
+      ),
+      validator: validator,
+    );
+  }
+}
+
+// Background mirroring the Dashboard for a seamless transition
+class _LoginBackground extends StatelessWidget {
+  final bool isDarkMode;
+  final ColorScheme colorScheme;
+
+  const _LoginBackground({required this.isDarkMode, required this.colorScheme});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(color: colorScheme.surface),
+          ),
+        ),
+        Positioned(
+          top: -100,
+          right: -50,
+          child: Container(
+            width: 250,
+            height: 250,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isDarkMode
+                  ? const Color(0xFF0A0A14).withValues(alpha: 0.6)
+                  : const Color(0xFFE0E7FF).withValues(alpha: 0.75),
             ),
           ),
         ),
-      ),
+        Positioned(
+          bottom: -80,
+          left: -60,
+          child: Container(
+            width: 200,
+            height: 200,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isDarkMode
+                  ? const Color(0xFF080810).withValues(alpha: 0.65)
+                  : const Color(0xFFFEF3C7).withValues(alpha: 0.55),
+            ),
+          ),
+        ),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: GridOverlayPainter(
+                color: isDarkMode ? Colors.white : Colors.black,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

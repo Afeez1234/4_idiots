@@ -12,45 +12,42 @@ class AuthService {
 
   // The login function (returns an AuthUser if successful, throws an Exception if it fails)
   Future<AuthUser> login(String username, String password) async {
-    try {
-      // 1. Prepare the JSON payload exactly like we did in Postman
-      final Map<String, String> payload = {
-        'username': username,
-        'password': password,
-      };
+    // 1. Prepare the JSON payload exactly like we did in Postman
+    final Map<String, String> payload = {
+      'username': username,
+      'password': password,
+    };
 
-      // 2. Fire the HTTP POST request to Flask
-      final response = await http.post(
-        Uri.parse(ApiConstants.loginEndpoint),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      );
+    // 2. Fire the HTTP POST request to Flask
+    final response = await http.post(
+      Uri.parse(ApiConstants.loginEndpoint),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    );
 
-      // 3. Decode the raw JSON string into a Dart Map
-      final Map<String, dynamic> responseData = jsonDecode(response.body);
+    // 3. Decode the raw JSON string into a Dart Map
+    final Map<String, dynamic> responseData = jsonDecode(response.body);
 
-      // 4. Check the status code
-      if (response.statusCode == 200 && responseData['success'] == true) {
-        // Extract the token and the user object
-        final String token = responseData['token'];
-        final Map<String, dynamic> userData = responseData['user'];
+    // 4. Check the status code
+    if (response.statusCode == 200 && responseData['success'] == true) {
+      // Extract the token and the user object
+      final String token = responseData['token'];
+      final Map<String, dynamic> userData = responseData['user'];
 
-        // Save the token securely to the phone's hardware storage
-        await _secureStorage.write(key: 'jwt_token', value: token);
-        await _secureStorage.write(key: 'user_role', value: userData['role']);
-        await _secureStorage.write(key: 'username', value: userData['username']);
+      // Save the token securely to the phone's hardware storage
+      await _secureStorage.write(key: 'jwt_token', value: token);
+      await _secureStorage.write(key: 'user_role', value: userData['role']);
+      await _secureStorage.write(key: 'username', value: userData['username']);
 
         // Return the structured Dart object
-        return AuthUser.fromJson(userData, token);
-      } else {
-        // If Flask returned 401, 403, or 404, throw the exact error message
-        throw Exception(responseData['error'] ?? 'Login failed');
-      }
-    } catch (e) {
-      // Catch network errors (like if the server is down or Wi-Fi is off)
-      throw Exception('Network error: ${e.toString()}');
+      return AuthUser.fromJson(userData, token);
+    } else {
+      // If Flask returned 401, 403, or 404, throw the exact error message
+      throw Exception(responseData['error'] ?? 'Login failed');
     }
+  
   }
+
 
   // A helper function to log the user out by wiping the vault
   Future<void> logout() async {
@@ -73,6 +70,6 @@ class AuthService {
   //a helper function to save the username to secure storage
   Future<void> saveUsername(String username) async {
     await _secureStorage.write(key: 'username', value: username);
-  }
+  } 
 
 }
