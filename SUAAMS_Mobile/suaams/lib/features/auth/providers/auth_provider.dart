@@ -1,8 +1,12 @@
+// This file is the brain of the auth feature. It holds the current auth state,
+// exposes login, logout, changePassword, and session restoration actions,
+// and notifies the router when auth state changes so navigation happens automatically.
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/auth_service.dart';
 import '../models/auth_user.dart';
 
-// 1. The State Class: Holds the current status of the user
 class AuthState {
   final bool isLoading;
   final AuthUser? user;
@@ -10,27 +14,20 @@ class AuthState {
 
   AuthState({this.isLoading = false, this.user, this.errorMessage});
 
-  // A helper method to easily update specific parts of the state
   AuthState copyWith({bool? isLoading, AuthUser? user, String? errorMessage}) {
     return AuthState(
       isLoading: isLoading ?? this.isLoading,
       user: user ?? this.user,
-      errorMessage:
-          errorMessage, // We don't use ?? here so we can clear errors by passing null
+      errorMessage: errorMessage,
     );
   }
 }
 
-// 2. Provide the AuthService so the Notifier can use it
 final authServiceProvider = Provider<AuthService>((ref) => AuthService());
 
-// 3. Provide the AuthNotifier globally
-final authProvider = NotifierProvider<AuthNotifier, AuthState>(
-  AuthNotifier.new,
-);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
 
-// 4. The Brain: Controls the logic and updates the UI
-class AuthNotifier extends Notifier<AuthState> {
+class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
   AuthService get _authService => ref.read(authServiceProvider);
 
   @override
@@ -38,52 +35,86 @@ class AuthNotifier extends Notifier<AuthState> {
     return AuthState();
   }
 
-  // Function called by the Splash Screen to check if a user is already logged in
   Future<void> checkExistingAuth() async {
     state = state.copyWith(isLoading: true);
+    notifyListeners();
 
     final token = await _authService.getToken();
     final role = await _authService.getUserRole();
     final username = await _authService.getUsername();
 
     if (token != null && role != null && username != null) {
-      // Rebuild the user object from the vault
-      final restoredUser = AuthUser(
-        id: 0, 
-        username: username,
-        role: role,
-        token: token,
+      state = state.copyWith(
+        isLoading: false,
+        user: AuthUser(
+          id: 0,
+          username: username,
+          role: role,
+          token: token,
+          requiresPasswordChange: false,
+        ),
       );
-      // This automatically notifies listeners!
-      state = state.copyWith(isLoading: false, user: restoredUser);
     } else {
       state = state.copyWith(isLoading: false);
     }
+    notifyListeners();
   }
 
-  // Function called by the Login Screen when the button is tapped
   Future<bool> login(String username, String password) async {
-    state = state.copyWith(isLoading: true, errorMessage: null); 
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    notifyListeners();
 
     try {
       final user = await _authService.login(username, password);
-      await _authService.saveUsername(username);
-
-      // This automatically notifies listeners!
+      await _authService.saveUsername(user.username);
       state = state.copyWith(isLoading: false, user: user);
+      notifyListeners();
       return true;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         errorMessage: e.toString().replaceAll('Exception: ', ''),
       );
+      notifyListeners();
       return false;
     }
   }
 
-  // Function called by the Logout button
+  Future<bool> changePassword(String newPassword) async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    notifyListeners();
+
+    try {
+      final user = state.user;
+      if (user == null) throw Exception('Session corrupted. Please log in again.');
+
+      await _authService.changePassword(newPassword, user.token);
+
+      state = state.copyWith(
+        isLoading: false,
+        user: AuthUser(
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          token: user.token,
+          requiresPasswordChange: false,
+        ),
+      );
+      notifyListeners();
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
+      );
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<void> logout() async {
     await _authService.logout();
-    state = AuthState(); // Reset state completely (notifies listeners automatically)
+    state = AuthState();
+    notifyListeners();
   }
 }

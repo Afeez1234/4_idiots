@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token,jwt_required,get_jwt_identity
 import bcrypt
 from utils import connect_to_database
 
@@ -60,3 +60,36 @@ def mobile_login():
         
     else:
         return jsonify({"error": "Invalid password"}), 401
+    
+    
+@api_auth_bp.route('/change-password', methods=['POST'])
+@jwt_required()
+def mobile_change_password():
+    data = request.get_json()
+    new_password = data.get('new_password')
+    
+    if not new_password:
+        return jsonify({"error": "New password is required"}), 400
+        
+    current_user_id = get_jwt_identity()
+    
+    # Hash the new password securely
+    hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    connection = connect_to_database()
+    cursor = connection.cursor()
+    
+    try:
+        # Update the password and clear the flag
+        cursor.execute(
+            "UPDATE users SET password_hash = %s, requires_password_change = FALSE WHERE id = %s",
+            (hashed_password, current_user_id)
+        )
+        connection.commit()
+        return jsonify({"success": True, "message": "Authorization code updated"}), 200
+    except Exception as e:
+        connection.rollback()
+        return jsonify({"error": "Failed to update authorization code", "details": str(e)}), 500
+    finally:
+        cursor.close()
+        connection.close()

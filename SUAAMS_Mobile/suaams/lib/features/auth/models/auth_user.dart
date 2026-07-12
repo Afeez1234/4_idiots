@@ -1,16 +1,16 @@
-//This file converts the JSON response from Postman/Flask into a Dart object for easier handling in the app.Note 1-AleshMoney
-
 class AuthUser {
   final int id;
   final String role;
   final String username;
   final String token;
+  final bool requiresPasswordChange;
 
   AuthUser({
     required this.id,
     required this.role,
     required this.username,
     required this.token,
+    this.requiresPasswordChange = false,
   });
 
   // This factory constructor takes the raw JSON map from Postman/Flask
@@ -21,6 +21,7 @@ class AuthUser {
       role: json['role'] as String,
       username: json['username'] as String,
       token: token,
+      requiresPasswordChange: json['requires_password_change'] as bool? ?? false,
     );
   }
 }

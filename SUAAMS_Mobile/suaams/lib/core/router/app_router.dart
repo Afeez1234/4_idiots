@@ -7,6 +7,7 @@ import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/student/presentation/student_dashboard_screen.dart';
+import '../../features/auth/presentation/change_password_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // 1. Create a simple ValueNotifier bridge for GoRouter
@@ -22,20 +23,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable:
         routerListener, // This allows the router to listen for changes in the auth state
     redirect: (context, state) {
-      // 1. We READ the state only when a navigation event actually happens
       final authState = ref.read(authProvider);
-
       final isLoggingIn = state.matchedLocation == '/login';
       final isSplash = state.matchedLocation == '/splash';
+      final isChangingPassword = state.matchedLocation == '/change-password';
       final user = authState.user;
 
       if (isSplash) return null;
 
-      if (user == null && !isLoggingIn) {
-        return '/login';
+      if (user == null && !isLoggingIn) return '/login';
+
+      if (user != null && user.requiresPasswordChange && !isChangingPassword) {
+        return '/change-password';
       }
 
-      if (user != null && isLoggingIn) {
+      if (user != null && (isLoggingIn || isSplash)) {
         if (user.role == 'admin') return '/admin';
         if (user.role == 'lecturer') return '/lecturer';
         if (user.role == 'student') return '/student';
@@ -63,6 +65,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/student',
         builder: (context, state) => const StudentDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordScreen(),
       ),
     ],
   );

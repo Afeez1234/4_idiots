@@ -54,6 +54,7 @@ class RecordsView extends ConsumerWidget {
               ),
             )
           else
+            // Map through our records using the new bulletproof widget
             ...records.map((record) => _buildLogEntry(record, colorScheme, isDarkMode)),
             
           const SizedBox(height: 120), // Padding for bottom nav
@@ -68,84 +69,123 @@ class RecordsView extends ConsumerWidget {
     final statusColor = isPresent ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     final statusText = isPresent ? 'VERIFIED' : 'MISSED';
 
+    // Safe fallbacks in case the backend sends empty strings
+    final courseName = record.course.isEmpty ? 'UNKNOWN MODULE' : record.course;
+    final dateText = record.date.isEmpty ? '--/--/----' : record.date.toUpperCase();
+    final timeText = record.time.isEmpty ? '--:--' : record.time;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      clipBehavior: Clip.antiAlias, // Ensures the hardcoded border stays rounded
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          left: BorderSide(color: statusColor, width: 3),
-          top: BorderSide(color: colorScheme.outline.withValues(alpha: 0.05)),
-          right: BorderSide(color: colorScheme.outline.withValues(alpha: 0.05)),
-          bottom: BorderSide(color: colorScheme.outline.withValues(alpha: 0.05)),
-        ),
+        // We use a uniform border all around to prevent Skia rendering bugs
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.15)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  record.course,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    letterSpacing: 1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Physical Left Border Accent (Guaranteed to render)
+            Container(
+              width: 4,
+              color: statusColor,
+            ),
+            
+            // 2. The Content Payload
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Icon(Icons.calendar_today_rounded, size: 12, color: colorScheme.onSurface.withValues(alpha: 0.4)),
-                    const SizedBox(width: 4),
-                    Text(
-                      record.date.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontFamily: 'JetBrains Mono',
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            courseName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              letterSpacing: 1,
+                              // EXPLICIT COLOR: Fixes the invisible text bug
+                              color: colorScheme.onSurface, 
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // Wrap prevents horizontal overflow if the date string is unusually long
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.calendar_today_rounded, size: 12, color: colorScheme.onSurface.withValues(alpha: 0.4)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    dateText,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontFamily: 'JetBrains Mono',
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.access_time_rounded, size: 12, color: colorScheme.onSurface.withValues(alpha: 0.4)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    timeText,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontFamily: 'JetBrains Mono',
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.access_time_rounded, size: 12, color: colorScheme.onSurface.withValues(alpha: 0.4)),
-                    const SizedBox(width: 4),
-                    Text(
-                      record.time,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontFamily: 'JetBrains Mono',
-                        fontWeight: FontWeight.bold,
-                        color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    
+                    // 3. The Status Pill
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                          color: statusColor, // Explicitly enforce the Emerald/Crimson color
+                        ),
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: statusColor.withValues(alpha: 0.3)),
-            ),
-            child: Text(
-              statusText,
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1,
-                color: statusColor,
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
-

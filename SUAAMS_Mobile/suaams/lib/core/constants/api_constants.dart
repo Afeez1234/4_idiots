@@ -11,5 +11,5 @@ abstract final class ApiConstants {
   static const String attendanceEndpoint = '$baseUrl/attendance';
   static const String studentCoursesEndpoint = '$baseUrl/student/courses';
   static const String notificationsEndpoint = '$baseUrl/student/notifications';
-
+  static const String changePasswordEndpoint = '$baseUrl/auth/change-password';
 }
