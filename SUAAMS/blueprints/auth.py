@@ -73,7 +73,7 @@ def web_change_password():
     if not session.get('user_id'):
         return redirect(url_for('auth.login'))
 
-    user = User.query.get(session['user_id'])
+    user = db.session.get(User, session['user_id'])
 
     # If they somehow navigate here but don't need a change, kick them to dashboard
     if not user.requires_password_change:

@@ -143,7 +143,7 @@ def start_session(course_id):
         new_session = SessionModel(
             course_id=course_id,
             start_time=datetime.now(timezone.utc).time(),
-            stop_time=datetime.now(timezone.utc).time(),
+            stop_time=None,
             session_date=datetime.now(timezone.utc).date(),
             is_active=True,
             planned_start=planned_start,

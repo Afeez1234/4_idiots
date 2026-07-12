@@ -11,7 +11,7 @@ api_student_bp = Blueprint('api_student', __name__, url_prefix='/api/v1/student'
 @jwt_required()
 def get_student_dashboard():
     # 1) Get the user ID and claims from the JWT token
-    current_user_id = get_jwt_identity()
+    current_user_id =int(get_jwt_identity())
     claims = get_jwt()
     
     # Security Check: Ensure only students can access this endpoint
