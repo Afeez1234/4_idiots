@@ -26,7 +26,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (mounted) {
       final user = ref.read(authProvider).user;
       if (user != null) {
-        if (user.role == 'student') {
+        // Token exists! Route them based on password status and role
+        if (user.requiresPasswordChange) {
+          context.go('/change-password');
+        } else if (user.role == 'student') {
           context.go('/student');
         } else if (user.role == 'lecturer') {
           context.go('/lecturer');

@@ -1,3 +1,7 @@
+// This file is the login screen for the SUAAMS app.
+// It provides a form for users to enter their credentials and handles
+// the login process using Riverpod for state management.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
@@ -27,11 +31,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   void _handleSignIn() async {
     if (_formKey.currentState!.validate()) {
-      FocusScope.of(context).unfocus(); // Dismiss keyboard
+      FocusScope.of(context).unfocus();
 
-      final success = await ref
-          .read(authProvider.notifier)
-          .login(_idController.text.trim(), _passwordController.text);
+      final success = await ref.read(authProvider.notifier).login(
+            _idController.text.trim(),
+            _passwordController.text,
+          );
 
       if (mounted && !success) {
         final error = ref.read(authProvider).errorMessage;
@@ -66,10 +71,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       backgroundColor: colorScheme.surface,
       body: Stack(
         children: [
-          // 1. The Stealth Terminal Background
           _LoginBackground(isDarkMode: isDarkMode, colorScheme: colorScheme),
-
-          // 2. The Login Form
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -80,27 +82,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Header Section
                       Center(
                         child: SuaamsLogoFull(
-                        size: 64, 
-                        color: colorScheme.primary),
+                          size: 64,
+                          color: colorScheme.primary,
+                        ),
                       ),
-                    
+
                       SizedBox(height: screenHeight * 0.05),
 
-                      // Input Fields
                       _buildInputLabel('USERNAME', colorScheme),
                       const SizedBox(height: 8),
                       _buildTextField(
                         controller: _idController,
-                        hintText: 'Enter username',
+                        hintText: 'Enter your username',
                         icon: Icons.badge_rounded,
                         colorScheme: colorScheme,
                         validator: (value) =>
                             (value == null || value.trim().isEmpty)
-                            ? 'USERNAME REQUIRED'
-                            : null,
+                                ? 'USERNAME REQUIRED'
+                                : null,
                       ),
 
                       const SizedBox(height: 24),
@@ -113,14 +114,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         icon: Icons.lock_outline_rounded,
                         isPassword: true,
                         colorScheme: colorScheme,
-                        validator: (value) => (value == null || value.isEmpty)
-                            ? 'PASSWORD REQUIRED'
-                            : null,
+                        validator: (value) =>
+                            (value == null || value.isEmpty)
+                                ? 'PASSWORD REQUIRED'
+                                : null,
                       ),
 
                       const SizedBox(height: 40),
 
-                      // Terminal-style Submit Button
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colorScheme.primary,
@@ -237,12 +238,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-// Background mirroring the Dashboard for a seamless transition
 class _LoginBackground extends StatelessWidget {
   final bool isDarkMode;
   final ColorScheme colorScheme;
 
-  const _LoginBackground({required this.isDarkMode, required this.colorScheme});
+  const _LoginBackground({
+    required this.isDarkMode,
+    required this.colorScheme,
+  });
 
   @override
   Widget build(BuildContext context) {
