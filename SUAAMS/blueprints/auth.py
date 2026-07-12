@@ -1,8 +1,8 @@
-from flask import Blueprint,flash,render_template,redirect,request,session,url_for
+from flask import Blueprint, flash, render_template, redirect, request, session, url_for
 import bcrypt
-from utils import connect_to_database
+from models import db, User  # Imported 'db' to allow committing password changes
 
-auth_bp = Blueprint('auth',__name__)
+auth_bp = Blueprint('auth', __name__)
 
 
 def redirect_to_dashboard():
@@ -17,7 +17,7 @@ def redirect_to_dashboard():
     return redirect(url_for('auth.login'))
 
 
-@auth_bp.route('/login', methods = ['POST','GET'])
+@auth_bp.route('/login', methods=['POST', 'GET'])
 def login():
     if session.get('user_id'):
         flash('You are already logged in. Redirecting to your dashboard.', 'info')
@@ -25,63 +25,92 @@ def login():
 
     if request.method == 'GET':
         return render_template('auth/login.html')
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
+
         if not username or not password:
-            flash('Username and password are required','error')
+            flash('Username and password are required', 'error')
             return render_template('auth/login.html')
-        
-        connection = connect_to_database()
-        cursor = connection.cursor(buffered=True)
-        try:
-            cursor.execute("select id ,username, password_hash,role,is_active from users where username =%s", (username,))
-            user = cursor.fetchone()
-        except Exception as e:
-            flash('Error occurred while fetching user data','error')
-            return render_template('auth/login.html')
-        finally:
-            cursor.close()
-            connection.close()
-        
+
+        # SQLAlchemy query — no cursor, no connection management needed
+        user = User.query.filter_by(username=username).first()
+
         if not user:
-            flash('Invalid username or password','error')
+            flash('Invalid username or password', 'error')
             return render_template('auth/login.html')
-        
-        user_id,db_username,password_hash,role,is_active = user
-        
-        if not is_active:
-            flash('User profile is deactivated','error')
+
+        if not user.is_active:
+            flash('User profile is deactivated', 'error')
             return render_template('auth/login.html')
-        
+
         password_bytes = password.encode('utf-8')
-        if not bcrypt.checkpw(password_bytes, password_hash.encode('utf-8')):
-            flash('Invalid username or password','error')
+        if not bcrypt.checkpw(
+            password_bytes,
+            user.password_hash.encode('utf-8')
+        ):
+            flash('Invalid username or password', 'error')
             return render_template('auth/login.html')
+
+        # Set session variables
+        session['user_id'] = user.id
+        session['username'] = user.username
+        session['role'] = user.role
+
+        # SECURITY CHECK: Force password change on first login
+        if user.requires_password_change:
+            flash('Security Alert: Please update your default authorization code.', 'warning')
+            return redirect(url_for('auth.web_change_password'))
+
+        # If everything is clear, route them to their respective dashboard
+        return redirect_to_dashboard()
+
+
+@auth_bp.route('/change-password', methods=['GET', 'POST'])
+def web_change_password():
+    # Ensure only logged-in users can hit this page
+    if not session.get('user_id'):
+        return redirect(url_for('auth.login'))
+
+    user = User.query.get(session['user_id'])
+
+    # If they somehow navigate here but don't need a change, kick them to dashboard
+    if not user.requires_password_change:
+        return redirect_to_dashboard()
+
+    if request.method == 'GET':
+        return render_template('auth/change_password.html')
+
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if not new_password or not confirm_password:
+            flash('Both password fields are required.', 'error')
+            return render_template('auth/change_password.html')
+
+        if new_password != confirm_password:
+            flash('Passwords do not match.', 'error')
+            return render_template('auth/change_password.html')
+
+        if len(new_password) < 6:
+            flash('Password must be at least 6 characters long.', 'error')
+            return render_template('auth/change_password.html')
+
+        # Hash new password and clear the flag using ORM
+        hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         
-        session['user_id'] = user_id
-        session['username'] = db_username
-        session['role'] = role
-        
-        
-        
-        if role == 'admin':
-            return redirect(url_for('admin.dashboard'))
-        elif role == 'lecturer':
-            return redirect(url_for('lecturer.dashboard'))
-        elif role == 'student':
-            return redirect(url_for('student.dashboard'))
-        else:
-            flash('Invalid user role','error')
-            return render_template('auth/login.html')
-                
-     
-    
-    
+        user.password_hash = hashed_password
+        user.requires_password_change = False
+        db.session.commit()
+
+        flash('Authorization code updated successfully! Welcome to SUAAMS.', 'success')
+        return redirect_to_dashboard()
+
+
 @auth_bp.route('/logout')
 def logout():
     session.clear()
-    flash('you have been ejected','success')
+    flash('You have been ejected', 'success')
     return redirect(url_for('auth.login'))
-    

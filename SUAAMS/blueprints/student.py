@@ -1,95 +1,73 @@
-from flask import Blueprint,flash,render_template,redirect,request,session,url_for
-from utils import login_required,connect_to_database
+from flask import Blueprint, flash, render_template, redirect, session, url_for
+from utils import login_required
+from models import db, Student, Course, Session as SessionModel, Attendance
 
 student_bp = Blueprint('student', __name__)
-
 
 @student_bp.route('/student/dashboard')
 @login_required('student')
 def dashboard():
-    # 1) Get the logged-in student from the session.
+    # 1) Get the logged-in student from the session
     user_id = session.get('user_id')
-    connection = connect_to_database()
-    cursor = connection.cursor()
 
     try:
-        # 2) Fetch the student record from the database.
-        cursor.execute(
-            'SELECT id, FULL_NAME, LEVEL, DEPARTMENT, RFID_UID, MATRIC_NUMBER FROM students WHERE user_id = %s',
-            (user_id,)
-        )
-        student = cursor.fetchone()
+        # 2) Fetch the student record using ORM
+        student = Student.query.filter_by(user_id=user_id).first()
         if not student:
             flash('Student profile not found.', 'error')
             return redirect(url_for('auth.login'))
 
-        # 3) Unpack the student fields for easy use below.
-        student_id, full_name, level, department, rfid_uid, matric_number = student
+        # 3) Use the new Many-to-Many relationship to effortlessly count enrollments
+        enrollment_count = len(student.courses)
 
-        # 4) Count how many courses the student is enrolled in.
-        cursor.execute('SELECT COUNT(*) FROM enrollments WHERE student_id = %s', (student_id,))
-        enrollment_count = cursor.fetchone()[0]
-
-        # 5) Get the list of courses the student is enrolled in.
-        cursor.execute(
-            'SELECT c.id, c.course_title, c.course_code FROM courses c JOIN enrollments e ON c.id = e.course_id WHERE e.student_id = %s',
-            (student_id,)
-        )
-        enrolled_courses = cursor.fetchall()
-
-        # 6) Build the course breakdown data for the UI.
-        #    Each course gets its attendance percentage, which the template/JS can display.
         course_breakdown = []
         attended_sessions_count = 0
         total_sessions_count = 0
 
-        for course_id, course_title, course_code in enrolled_courses:
-            # Count all sessions for this course.
-            cursor.execute('SELECT COUNT(*) FROM sessions WHERE course_id = %s', (course_id,))
-            total_sessions = cursor.fetchone()[0]
+        # 4) Iterate through the enrolled courses using the direct relationship
+        for course in student.courses:
+            # Count all sessions for this course
+            total_sessions = SessionModel.query.filter_by(course_id=course.id).count()
 
-            # Count how many sessions the student attended for this course.
-            cursor.execute(
-                'SELECT COUNT(*) FROM attendance a JOIN sessions s ON a.session_id = s.id WHERE s.course_id = %s AND a.student_id = %s',
-                (course_id, student_id)
-            )
-            attended_sessions = cursor.fetchone()[0]
+            # Count attended sessions using a simple ORM join
+            attended_sessions = Attendance.query.join(SessionModel).filter(
+                SessionModel.course_id == course.id,
+                Attendance.student_id == student.id
+            ).count()
 
             total_sessions_count += total_sessions
             attended_sessions_count += attended_sessions
 
-            # Calculate the percentage safely. If there are no sessions, show 0 instead of dividing by zero.
+            # Calculate the percentage safely
             pct = round((attended_sessions / total_sessions * 100) if total_sessions else 0, 1)
             course_breakdown.append({
-                'id': course_id,
-                'name': course_title,
-                'code': course_code,
+                'id': course.id,
+                'name': course.course_title,
+                'code': course.course_code,
                 'pct': pct,
                 'attended': attended_sessions,
                 'total': total_sessions,
             })
 
-        # 7) Calculate the overall attendance rate across all courses.
+        # 5) Calculate overall stats
         overall_rate = round((attended_sessions_count / total_sessions_count * 100) if total_sessions_count else 0, 1)
         at_risk_count = sum(1 for course in course_breakdown if course['pct'] < 75)
 
-        # 8) Get the recent attendance history for the table.
-        cursor.execute(
-            '''
-            SELECT c.course_code, s.session_date, s.start_time
-            FROM attendance a
-            JOIN sessions s ON a.session_id = s.id
-            JOIN courses c ON s.course_id = c.id
-            WHERE a.student_id = %s
-            ORDER BY s.session_date DESC, s.start_time DESC
-            LIMIT 10
-            ''',
-            (student_id,)
-        )
-        attendance_rows = cursor.fetchall()
+        # 6) Get the recent attendance history elegantly sorting via ORM
+        recent_records = db.session.query(
+            Course.course_code, SessionModel.session_date, SessionModel.start_time
+        ).select_from(Attendance).join(
+            SessionModel, Attendance.session_id == SessionModel.id
+        ).join(
+            Course, SessionModel.course_id == Course.id
+        ).filter(
+            Attendance.student_id == student.id
+        ).order_by(
+            SessionModel.session_date.desc(), SessionModel.start_time.desc()
+        ).limit(10).all()
 
         recent_attendance = []
-        for course_code, session_date, start_time in attendance_rows:
+        for course_code, session_date, start_time in recent_records:
             recent_attendance.append({
                 'course': course_code,
                 'date': session_date.strftime('%d %b %Y') if hasattr(session_date, 'strftime') else str(session_date),
@@ -97,16 +75,16 @@ def dashboard():
                 'present': True,
             })
 
-        # 9) Prepare a student profile dictionary for the template.
+        # 7) Prepare the student profile dictionary
         student_profile = {
-            'full_name': full_name or session.get('username'),
-            'department': department,
-            'level': level,
-            'rfid_uid': rfid_uid,
-            'matric_number': matric_number,
+            'full_name': student.full_name or session.get('username'),
+            'department': student.department,
+            'level': student.level,
+            'rfid_uid': student.rfid_uid,
+            'matric_number': student.matric_number,
         }
 
-        # 10) Bundle everything into one object to pass to the HTML and JavaScript.
+        # 8) Bundle everything into one object
         dashboard_data = {
             'student': student_profile,
             'overall_rate': overall_rate,
@@ -116,18 +94,19 @@ def dashboard():
             'recent_attendance': recent_attendance,
         }
 
-        # 11) Render the template and pass both simple values and the full dashboard data object.
-        return render_template(
-            'student/dashboard.html',
-            enrollment_count=enrollment_count,
-            attendance_count=attended_sessions_count,
-            overall_rate=overall_rate,
-            at_risk_count=at_risk_count,
-            courses=course_breakdown,
-            student_profile=student_profile,
-            dashboard_data=dashboard_data,
-        )
-    finally:
-        # Always close the DB resources, even if something goes wrong.
-        cursor.close()
-        connection.close()
+    except Exception as e:
+        print(f"Student Dashboard Error: {e}")
+        flash('An error occurred loading the dashboard.', 'error')
+        return redirect(url_for('auth.login'))
+
+    # 9) Render the template exactly as before
+    return render_template(
+        'student/dashboard.html',
+        enrollment_count=enrollment_count,
+        attendance_count=attended_sessions_count,
+        overall_rate=overall_rate,
+        at_risk_count=at_risk_count,
+        courses=course_breakdown,
+        student_profile=student_profile,
+        dashboard_data=dashboard_data,
+    )

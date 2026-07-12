@@ -1,121 +1,94 @@
-from flask import Blueprint,flash,render_template,redirect,request,session,url_for
-from utils import login_required,connect_to_database,get_active_session_by_course_id
-from datetime import date, datetime
+from flask import Blueprint, flash, render_template, redirect, request, session, url_for
+from datetime import date, datetime, timezone
+from utils import login_required
+from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment
+
 lecturer_bp = Blueprint('lecturer', __name__)
-
-#reminder:: the fuction below will create a new session for the course,i'm still wondering if i shoud keep it here or put it in the endpoint
-def create_session(cursor,connection,course_id,start_time,stop_time,session_date,planned_start,planned_end):
-    query = "INSERT INTO sessions (course_id,start_time,stop_time,session_date,is_active,planned_start,planned_end) VALUES(%s,%s,%s,%s,1,%s,%s)"
-    cursor.execute(query, (course_id,start_time,stop_time,session_date,planned_start,planned_end))
-    connection.commit()
-
-def end_session(cursor,connection,session_id):
-    query = "UPDATE sessions SET is_active = 0,stop_time =%s WHERE id = %s"
-    cursor.execute(query, (datetime.now().time(), session_id))
-    connection.commit()
-    
-def get_attendance_by_session_id(cursor, session_id):
-    query = "SELECT students.FULL_NAME, students.LEVEL, students.DEPARTMENT,students.MATRIC_NUMBER,attendance.status, attendance.TIME_IN FROM attendance JOIN students ON attendance.student_id = students.id WHERE attendance.session_id = %s"
-    cursor.execute(query, (session_id,))
-    return cursor.fetchall()
-
-def get_attendance_history(cursor, course_id):
-
-    query = """
-    SELECT
-        sessions.id,
-        sessions.session_date,
-        sessions.start_time,
-        COUNT(attendance.id) as present_count
-    FROM sessions
-    LEFT JOIN attendance ON attendance.session_id = sessions.id
-    WHERE sessions.course_id = %s AND sessions.is_active = 0
-    GROUP BY sessions.id, sessions.session_date
-    ORDER BY sessions.session_date DESC
-    """
-    cursor.execute(query, (course_id,))
-    return cursor.fetchall()
-
-def get_enrolled_students_count(cursor, course_id):
-    query = "SELECT COUNT(*) FROM enrollments WHERE course_id = %s"
-    cursor.execute(query, (course_id,))
-    return cursor.fetchone()[0]
-
-# remember to come here,i just realised i havent added the function to get the current semester bounds, which is important for calculating attendance rates and other semester-specific metrics.
-def get_current_semester_bounds(today=None):
-    if today is None:
-        today = date.today()
-    if today.month <= 6:
-        start_date = date(today.year, 1, 1)
-        end_date = date(today.year, 6, 30)
-    else:
-        start_date = date(today.year, 7, 1)
-        end_date = date(today.year, 12, 31)
-    return start_date, end_date
 
 @lecturer_bp.route('/lecturer/dashboard')
 @login_required('lecturer')
 def dashboard():
     user_id = session.get('user_id')
-    connection = connect_to_database()
-    cursor = connection.cursor(buffered=True)
+    
     try:
-        cursor.execute('SELECT id FROM lecturers WHERE user_id = %s', (user_id,))
-        lecturer = cursor.fetchone()
+        # 1. Get the lecturer using ORM
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
         if not lecturer:
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
-        lecturer_id, = lecturer
-        cursor.execute('SELECT id, course_title, course_code FROM courses WHERE lecturer_id = %s', (lecturer_id,))
-        courses = cursor.fetchall()
+            
+        # 2. Get their courses
+        courses = Course.query.filter_by(lecturer_id=lecturer.id).all()
         
-        # For active_session_count — count sessions WHERE is_active = 1 AND course_id belongs to this lecturer.
-        cursor.execute('SELECT COUNT(*) FROM sessions WHERE is_active = 1 AND course_id IN (SELECT id FROM courses WHERE lecturer_id = %s)', (lecturer_id,))
-        active_session_count, = cursor.fetchone()
+        # 3. Count active sessions for this lecturer's courses
+        active_session_count = SessionModel.query.join(Course).filter(
+            Course.lecturer_id == lecturer.id,
+            SessionModel.is_active == True
+        ).count()
         
-        # For today_checkins - count attendance records from today across all the lecturer's courses. This requires a JOIN across attendance → sessions → courses WHERE lecturer_id matches and TIME_IN >= CURDATE()
-        cursor.execute('SELECT COUNT(*) FROM attendance a JOIN sessions s ON a.session_id = s.id JOIN courses c ON s.course_id = c.id WHERE c.lecturer_id = %s AND a.TIME_IN >= CURDATE()', (lecturer_id,))
-        today_checkins, = cursor.fetchone()
+        # 4. Count today's check-ins using timezone-aware dates
+        today = datetime.now(timezone.utc).date()
+        today_checkins = Attendance.query.join(SessionModel).join(Course).filter(
+            Course.lecturer_id == lecturer.id,
+            db.func.date(Attendance.time_in) == today
+        ).count()
+        
     except Exception as e:
+        print(f"Dashboard Error: {e}")
         flash('An error occurred while fetching lecturer data.', 'error')
         return redirect(url_for('auth.login'))
-    finally:
-        cursor.close()
-        connection.close()
-    return render_template('lecturer/dashboard.html', courses=courses, active_session_count=active_session_count, today_checkins=today_checkins)
+
+    return render_template(
+        'lecturer/dashboard.html', 
+        courses=courses, 
+        active_session_count=active_session_count, 
+        today_checkins=today_checkins
+    )
 
 
 @lecturer_bp.route('/lecturer/course/<int:course_id>')
 @login_required('lecturer')
 def course_workspace(course_id):
     user_id = session.get('user_id')
-    connection = connect_to_database()
-    cursor = connection.cursor(buffered=True)
+    
     try:
-        cursor.execute('SELECT id FROM lecturers WHERE user_id = %s', (user_id,))
-        lecturer = cursor.fetchone()
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
         if not lecturer:
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
-        lecturer_id, = lecturer
-        cursor.execute('SELECT id, course_title, course_code FROM courses WHERE id = %s AND lecturer_id = %s', (course_id, lecturer_id))
-        course = cursor.fetchone()
+
+        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
         if not course:
             flash('Course not found or access denied.', 'error')
             return redirect(url_for('lecturer.dashboard'))
-        attendance_records = []
-        sesh = get_active_session_by_course_id(cursor, course_id)
-        if sesh:
-            session_id, _, start_time, stop_time, session_date = sesh
-            attendance_records = get_attendance_by_session_id(cursor, session_id)
-            
-        history = get_attendance_history(cursor, course_id)
-        enrolled_count = get_enrolled_students_count(cursor, course_id)
 
-        # Build the history list for the table.
+        # Get active session if it exists
+        active_session = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
+        
+        attendance_records = []
+        if active_session:
+            # Query exactly matching the old raw SQL output to prevent breaking templates
+            attendance_records = db.session.query(
+                Student.full_name, Student.level, Student.department, 
+                Student.matric_number, Attendance.status, Attendance.time_in
+            ).join(Attendance, Attendance.student_id == Student.id)\
+             .filter(Attendance.session_id == active_session.id).all()
+            
+        enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
+
+        # Get session history with attendance counts
+        history = db.session.query(
+            SessionModel.id, 
+            SessionModel.session_date, 
+            SessionModel.start_time, 
+            db.func.count(Attendance.id)
+        ).outerjoin(Attendance, Attendance.session_id == SessionModel.id)\
+         .filter(SessionModel.course_id == course_id, SessionModel.is_active == False)\
+         .group_by(SessionModel.id)\
+         .order_by(SessionModel.session_date.desc()).all()
+
         history_sessions = []
-        for row in history:
-            session_id, session_date, start_time, present_count = row
+        for session_id, session_date, start_time, present_count in history:
             absent_count = enrolled_count - present_count
             history_sessions.append({
                 'label': f"{session_date.strftime('%d %b %Y')} {start_time}",
@@ -125,96 +98,90 @@ def course_workspace(course_id):
                 'session_id': session_id,
             })
 
-        # Calculate a few reusable summary stats for the course dashboard.
-        # semester_start, semester_end = get_current_semester_bounds()
-
-        # cursor.execute(
-        #     '''
-        #     SELECT s.id, COUNT(a.id) AS present_count
-        #     FROM sessions s
-        #     LEFT JOIN attendance a ON a.session_id = s.id
-        #     WHERE s.course_id = %s AND s.session_date BETWEEN %s AND %s
-        #     GROUP BY s.id
-        #     ''',
-        #     (course_id, semester_start, semester_end)
-        # )
-        # semester_session_rows = cursor.fetchall()
-
-        cursor.execute('SELECT COUNT(*) FROM sessions WHERE course_id = %s', (course_id,))
-        total_sessions_this_semester = cursor.fetchone()[0]
+        total_sessions_this_semester = SessionModel.query.filter_by(course_id=course_id).count()
         
-        cursor.execute('''SELECT COUNT(*) FROM attendance a 
-        JOIN sessions s ON a.session_id = s.id 
-        WHERE s.course_id = %s''', (course_id,))
-        average_attendance = round((cursor.fetchone()[0] / (total_sessions_this_semester * enrolled_count) * 100) if total_sessions_this_semester and enrolled_count else 0, 1)
-        # total_present_this_semester = sum(row[1] or 0 for row in semester_session_rows)
-        # average_attendance = round(
-        #     (total_present_this_semester / (total_sessions_this_semester * enrolled_count) * 100)
-        #     if total_sessions_this_semester and enrolled_count else 0,
-        #     1
-        # )
-
-        present_in_current_session = len(attendance_records)
+        total_attendance = Attendance.query.join(SessionModel).filter(SessionModel.course_id == course_id).count()
+        average_attendance = round(
+            (total_attendance / (total_sessions_this_semester * enrolled_count) * 100) 
+            if total_sessions_this_semester and enrolled_count else 0, 1
+        )
 
         stats = {
             'total_enrolled_students': enrolled_count,
             'total_sessions_this_semester': total_sessions_this_semester,
             'average_attendance': average_attendance,
-            'present_in_current_session': present_in_current_session,
+            'present_in_current_session': len(attendance_records),
         }
         
-    finally:    
-        cursor.close()
-        connection.close()
+    except Exception as e:
+        print(f"Workspace Error: {e}")
+        flash('An error occurred loading the workspace.', 'error')
+        return redirect(url_for('lecturer.dashboard'))
+
     return render_template(
         'lecturer/course_workspace.html',
         course=course,
-        active_session=sesh,
+        active_session=active_session,
         attendance_records=attendance_records,
         history_sessions=history_sessions,
         stats=stats,
     )
 
+
 @lecturer_bp.route('/lecturer/course/<int:course_id>/start-session', methods=['POST'])
 @login_required('lecturer')
 def start_session(course_id):
-    
-    connection = connect_to_database()
-    cursor = connection.cursor(buffered=True)
     try:
-        sesh = get_active_session_by_course_id(cursor, course_id)
-        if sesh:
+        active_session = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
+        if active_session:
             flash('A session is already active for this course.', 'error')
-            cursor.close()
-            connection.close()
             return redirect(url_for('lecturer.course_workspace', course_id=course_id))
         
         planned_start = request.form.get('planned_start') or None
         planned_end = request.form.get('planned_end') or None
         
-        create_session(cursor, connection, course_id,datetime.now(), datetime.now(), date.today(), planned_start, planned_end)
+        new_session = SessionModel(
+            course_id=course_id,
+            start_time=datetime.now(timezone.utc).time(),
+            stop_time=datetime.now(timezone.utc).time(),
+            session_date=datetime.now(timezone.utc).date(),
+            is_active=True,
+            planned_start=planned_start,
+            planned_end=planned_end
+        )
+        
+        db.session.add(new_session)
+        db.session.commit()
         flash('Session started successfully.', 'success')
-    finally:
-        cursor.close()
-        connection.close()
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Start Session Error: {e}")
+        flash('Failed to start session.', 'error')
+
     return redirect(url_for('lecturer.course_workspace', course_id=course_id))
     
+
 @lecturer_bp.route('/lecturer/course/<int:course_id>/end-session', methods=['POST'])
 @login_required('lecturer')
 def end_session_r(course_id):
-    connection = connect_to_database()
-    cursor = connection.cursor(buffered=True)
-    sesh = get_active_session_by_course_id(cursor, course_id)
-    if not sesh:
-        flash('No active session found for this course.', 'error')
-        cursor.close()
-        connection.close()
-        return redirect(url_for('lecturer.course_workspace', course_id=course_id))
-    session_id, _, start_time, stop_time, session_date = sesh
-    end_session(cursor, connection, session_id)
-    flash('Session ended successfully.', 'success')
-    cursor.close()
-    connection.close()
+    try:
+        active_session = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
+        if not active_session:
+            flash('No active session found for this course.', 'error')
+            return redirect(url_for('lecturer.course_workspace', course_id=course_id))
+            
+        active_session.is_active = False
+        active_session.stop_time = datetime.now(timezone.utc).time()
+        db.session.commit()
+        
+        flash('Session ended successfully.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"End Session Error: {e}")
+        flash('Failed to end session.', 'error')
+
     return redirect(url_for('lecturer.course_workspace', course_id=course_id))
 
 
@@ -222,34 +189,35 @@ def end_session_r(course_id):
 @login_required('lecturer')
 def session_detail(course_id, session_id):
     user_id = session.get('user_id')
-    connection = connect_to_database()
-    cursor = connection.cursor(buffered=True)
+    
     try:
-        cursor.execute('SELECT id FROM lecturers WHERE user_id = %s', (user_id,))
-        lecturer = cursor.fetchone()
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
         if not lecturer:
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
-        lecturer_id, = lecturer
 
-        cursor.execute('SELECT id, course_title, course_code FROM courses WHERE id = %s AND lecturer_id = %s', (course_id, lecturer_id))
-        course = cursor.fetchone()
+        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
         if not course:
             flash('Course not found or access denied.', 'error')
             return redirect(url_for('lecturer.dashboard'))
 
-        cursor.execute('SELECT id, start_time, stop_time, session_date FROM sessions WHERE id = %s AND course_id = %s', (session_id, course_id))
-        session_info = cursor.fetchone()
+        session_info = SessionModel.query.filter_by(id=session_id, course_id=course_id).first()
         if not session_info:
             flash('Session not found.')
             return redirect(url_for('lecturer.course_workspace', course_id=course_id))
 
-        attendance_records = get_attendance_by_session_id(cursor, session_id)
-        enrolled_count = get_enrolled_students_count(cursor, course_id)
+        attendance_records = db.session.query(
+            Student.full_name, Student.level, Student.department, 
+            Student.matric_number, Attendance.status, Attendance.time_in
+        ).join(Attendance, Attendance.student_id == Student.id)\
+         .filter(Attendance.session_id == session_id).all()
+         
+        enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
 
-    finally:
-        cursor.close()
-        connection.close()
+    except Exception as e:
+        print(f"Session Detail Error: {e}")
+        flash('An error occurred loading session details.', 'error')
+        return redirect(url_for('lecturer.course_workspace', course_id=course_id))
 
     return render_template(
         'lecturer/session_detail.html',

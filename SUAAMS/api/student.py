@@ -1,6 +1,8 @@
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from utils import connect_to_database
+
+# Import db and our elegant SQLAlchemy models
+from models import db, Student, Course, Session as SessionModel, Attendance
 
 # Create the API blueprint for student mobile endpoints
 api_student_bp = Blueprint('api_student', __name__, url_prefix='/api/v1/student')
@@ -8,55 +10,38 @@ api_student_bp = Blueprint('api_student', __name__, url_prefix='/api/v1/student'
 @api_student_bp.route('/dashboard', methods=['GET'])
 @jwt_required()
 def get_student_dashboard():
-    # 1) Get the user ID and claims from the JWT token 
-    current_user_id = int(get_jwt_identity())
+    # 1) Get the user ID and claims from the JWT token
+    current_user_id = get_jwt_identity()
     claims = get_jwt()
     
     # Security Check: Ensure only students can access this endpoint
     if claims.get("role") != "student":
         return jsonify({"error": "Unauthorized access. Students only."}), 403
 
-    connection = connect_to_database()
-    cursor = connection.cursor(buffered=True)  # Use buffered cursor to allow multiple queries
-
     try:
-        # 2) Fetch the student record from the database
-        cursor.execute(
-            'SELECT id, FULL_NAME, LEVEL, DEPARTMENT, RFID_UID, MATRIC_NUMBER FROM students WHERE user_id = %s',
-            (current_user_id,)
-        )
-        student = cursor.fetchone()
+        # 2) Fetch the student record using ORM
+        student = Student.query.filter_by(user_id=current_user_id).first()
         
         if not student:
             return jsonify({"error": "Student profile not found."}), 404
 
-        # Unpack the student fields
-        student_id, full_name, level, department, rfid_uid, matric_number = student
-
-        # 3) Get the list of courses the student is enrolled in
-        cursor.execute(
-            'SELECT c.id, c.course_title, c.course_code FROM courses c JOIN enrollments e ON c.id = e.course_id WHERE e.student_id = %s',
-            (student_id,)
-        )
-        enrolled_courses = cursor.fetchall()
-        enrollment_count = len(enrolled_courses)
+        # 3) Count enrollments using our new direct relationship!
+        enrollment_count = len(student.courses)
 
         course_breakdown = []
         attended_sessions_count = 0
         total_sessions_count = 0
 
-        # 4) Build the course breakdown data
-        for course_id, course_title, course_code in enrolled_courses:
-            # Count all sessions for this course
-            cursor.execute('SELECT COUNT(*) FROM sessions WHERE course_id = %s', (course_id,))
-            total_sessions = cursor.fetchone()[0]
+        # 4) Iterate through the enrolled courses cleanly without raw SQL JOINs
+        for course in student.courses:
+            # Count all active sessions for this course
+            total_sessions = SessionModel.query.filter_by(course_id=course.id).count()
 
-            # Count attended sessions
-            cursor.execute(
-                'SELECT COUNT(*) FROM attendance a JOIN sessions s ON a.session_id = s.id WHERE s.course_id = %s AND a.student_id = %s',
-                (course_id, student_id)
-            )
-            attended_sessions = cursor.fetchone()[0]
+            # Count attended sessions using an ORM join
+            attended_sessions = Attendance.query.join(SessionModel).filter(
+                SessionModel.course_id == course.id,
+                Attendance.student_id == student.id
+            ).count()
 
             total_sessions_count += total_sessions
             attended_sessions_count += attended_sessions
@@ -64,9 +49,9 @@ def get_student_dashboard():
             # Calculate the percentage safely
             pct = round((attended_sessions / total_sessions * 100) if total_sessions else 0, 1)
             course_breakdown.append({
-                'id': course_id,
-                'name': course_title,
-                'code': course_code,
+                'id': course.id,
+                'name': course.course_title,
+                'code': course.course_code,
                 'pct': pct,
                 'attended': attended_sessions,
                 'total': total_sessions,
@@ -76,28 +61,26 @@ def get_student_dashboard():
         overall_rate = round((attended_sessions_count / total_sessions_count * 100) if total_sessions_count else 0, 1)
         at_risk_count = sum(1 for course in course_breakdown if course['pct'] < 75)
 
-        # 6) Get the recent attendance history
-        cursor.execute(
-            '''
-            SELECT c.course_code, s.session_date, s.start_time
-            FROM attendance a
-            JOIN sessions s ON a.session_id = s.id
-            JOIN courses c ON s.course_id = c.id
-            WHERE a.student_id = %s
-            ORDER BY s.session_date DESC, s.start_time DESC
-            LIMIT 10
-            ''',
-            (student_id,)
-        )
-        attendance_rows = cursor.fetchall()
+        # 6) Get the recent attendance history elegantly via ORM
+        recent_records = db.session.query(
+            Course.course_code, SessionModel.session_date, SessionModel.start_time, Attendance.status
+        ).select_from(Attendance).join(
+            SessionModel, Attendance.session_id == SessionModel.id
+        ).join(
+            Course, SessionModel.course_id == Course.id
+        ).filter(
+            Attendance.student_id == student.id
+        ).order_by(
+            SessionModel.session_date.desc(), SessionModel.start_time.desc()
+        ).limit(10).all()
 
         recent_attendance = []
-        for course_code, session_date, start_time in attendance_rows:
+        for course_code, session_date, start_time, status in recent_records:
             recent_attendance.append({
                 'course': course_code,
                 'date': session_date.strftime('%d %b %Y') if hasattr(session_date, 'strftime') else str(session_date),
-                'time': str(start_time),
-                'present': True,
+                'time': start_time.strftime('%H:%M') if hasattr(start_time, 'strftime') else str(start_time),
+                'present': status == 'present', # Map DB status to boolean
             })
 
         # 7) Bundle everything into a clean JSON object for Flutter
@@ -105,11 +88,11 @@ def get_student_dashboard():
             "success": True,
             "data": {
                 "student": {
-                    "full_name": full_name or claims.get("username"),
-                    "department": department,
-                    "level": level,
-                    "rfid_uid": rfid_uid,
-                    "matric_number": matric_number
+                    "full_name": student.full_name or claims.get("username"),
+                    "department": student.department,
+                    "level": student.level,
+                    "rfid_uid": student.rfid_uid,
+                    "matric_number": student.matric_number
                 },
                 "stats": {
                     "overall_rate": overall_rate,
@@ -124,7 +107,5 @@ def get_student_dashboard():
         }), 200
 
     except Exception as e:
+        print(f"Mobile API Error: {e}")
         return jsonify({"error": "Database error occurred", "details": str(e)}), 500
-    finally:
-        cursor.close()
-        connection.close()
