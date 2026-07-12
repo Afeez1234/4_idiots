@@ -6,7 +6,8 @@ import '../providers/student_provider.dart';
 import '../../../shared/utils/grid_overlay_painter.dart';
 import '../models/student_dashboard_model.dart';
 import 'views/profile_view_screen.dart'; 
-import 'views/courses_view.dart'; // <-- Ensure this points to your new file
+import 'views/courses_view.dart';
+import 'views/records_view.dart'; // <-- Add this import
 
 // Bottom tab selection state for the dashboard navigation bar.
 final selectedDashboardTabProvider =
@@ -56,83 +57,72 @@ class StudentDashboardScreen extends ConsumerWidget {
             colorScheme: colorScheme,
           ),
           SafeArea(
-            child: SizedBox.expand(
-              // Using a Builder makes routing between tabs incredibly clean!
-              child: Builder(
-                builder: (context) {
-                  // Tab 1: COURSES
-                  if (selectedTab == 1) {
-                    return const CoursesView();
-                  }
-                  
-                  // Tab 3: PROFILE
-                  if (selectedTab == 3) {
-                    return const ProfileView();
-                  }
+            // Using a Builder makes routing between tabs incredibly clean!
+            child: Builder(
+              builder: (context) {
+                // Tab 1: COURSES
+                if (selectedTab == 1) {
+                  return const CoursesView();
+                }
 
-                  // Tab 2 (RECORDS) is not built yet
-                  if (selectedTab != 0) {
-                    return const Center(
-                      child: Text(
-                        'MODULE UNDER CONSTRUCTION',
-                        textAlign: TextAlign.center,
+                  // Tab 2: RECORDS
+                 if (selectedTab == 2) {
+                  return const RecordsView(); // <-- Add this block
+                }
+                  
+                // Tab 3: PROFILE
+                if (selectedTab == 3) {
+                  return const ProfileView();
+                }
+
+                 // Tab 0: HOME (Default)
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _DashboardHeader(
+                        profile: data.profile,
+                        colorScheme: colorScheme,
+                        isDarkMode: isDarkMode,
+                      ),
+                      const SizedBox(height: 32),
+
+                      _NextSessionCard(
+                        course: data.courses.isNotEmpty
+                            ? data.courses.first
+                            : null,
+                        colorScheme: colorScheme,
+                      ),
+                      const SizedBox(height: 20),
+
+                      _StatsGrid(
+                        stats: data.stats,
+                        colorScheme: colorScheme,
+                      ),
+                      const SizedBox(height: 32),
+
+                      const Text(
+                        'TODAY\'S PROTOCOL',
                         style: TextStyle(
+                          fontSize: 10,
+                          letterSpacing: 1.5,
+                          color: Colors.grey,
                           fontWeight: FontWeight.bold,
-                          letterSpacing: 2,
                         ),
                       ),
-                    );
-                  }
+                      const SizedBox(height: 16),
 
-                  // Tab 0: HOME (Default)
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _DashboardHeader(
-                          profile: data.profile,
-                          colorScheme: colorScheme,
-                          isDarkMode: isDarkMode,
-                        ),
-                        const SizedBox(height: 32),
-
-                        _NextSessionCard(
-                          course: data.courses.isNotEmpty
-                              ? data.courses.first
-                              : null,
-                          colorScheme: colorScheme,
-                        ),
-                        const SizedBox(height: 20),
-
-                        _StatsGrid(
-                          stats: data.stats,
-                          colorScheme: colorScheme,
-                        ),
-                        const SizedBox(height: 32),
-
-                        const Text(
-                          'TODAY\'S PROTOCOL',
-                          style: TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 1.5,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        _ProtocolList(
-                          courses: data.courses,
-                          colorScheme: colorScheme,
-                        ),
-                        const SizedBox(height: 120), // Bottom padding
-                      ],
-                    ),
-                  );
-                },
-              ),
+                      _ProtocolList(
+                        courses: data.courses,
+                        colorScheme: colorScheme,
+                      ),
+                      const SizedBox(height: 32), // Bottom padding
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
