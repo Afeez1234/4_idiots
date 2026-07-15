@@ -50,8 +50,8 @@ def get_student_dashboard():
             pct = round((attended_sessions / total_sessions * 100) if total_sessions else 0, 1)
             course_breakdown.append({
                 'id': course.id,
-                'name': course.course_title,
-                'code': course.course_code,
+                'name': course.title, # FIX: Swapped to .title
+                'code': course.code,  # FIX: Swapped to .code
                 'pct': pct,
                 'attended': attended_sessions,
                 'total': total_sessions,
@@ -63,7 +63,7 @@ def get_student_dashboard():
 
         # 6) Get the recent attendance history elegantly via ORM
         recent_records = db.session.query(
-            Course.course_code, SessionModel.session_date, SessionModel.start_time, Attendance.status
+            Course.code, SessionModel.session_date, SessionModel.planned_start, Attendance.status # FIX: code and planned_start
         ).select_from(Attendance).join(
             SessionModel, Attendance.session_id == SessionModel.id
         ).join(
@@ -71,7 +71,7 @@ def get_student_dashboard():
         ).filter(
             Attendance.student_id == student.id
         ).order_by(
-            SessionModel.session_date.desc(), SessionModel.start_time.desc()
+            SessionModel.session_date.desc(), SessionModel.planned_start.desc() # FIX: order by planned_start
         ).limit(10).all()
 
         recent_attendance = []
@@ -79,7 +79,7 @@ def get_student_dashboard():
             recent_attendance.append({
                 'course': course_code,
                 'date': session_date.strftime('%d %b %Y') if hasattr(session_date, 'strftime') else str(session_date),
-                'time': start_time.strftime('%H:%M') if hasattr(start_time, 'strftime') else str(start_time),
+                'time': start_time.strftime('%H:%M') if start_time else '--:--', # FIX: Safe null fallback
                 'present': status == 'present', # Map DB status to boolean
             })
 
@@ -89,7 +89,7 @@ def get_student_dashboard():
             "data": {
                 "student": {
                     "full_name": student.full_name or claims.get("username"),
-                    "department": student.department,
+                    "department": student.department.name if student.department else "Unknown", # FIX: extract .name string
                     "level": student.level,
                     "rfid_uid": student.rfid_uid,
                     "matric_number": student.matric_number

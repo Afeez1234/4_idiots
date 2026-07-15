@@ -7,11 +7,19 @@ import '../models/auth_user.dart';
 class AuthService {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
-  Future<AuthUser> login(String username, String password) async {
+  Future<AuthUser> login(
+    String username,
+    String password,
+    String deviceId,
+  ) async {
     final response = await http.post(
       Uri.parse(ApiConstants.loginEndpoint),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'username': username, 'password': password}),
+      body: jsonEncode({
+        'username': username,
+        'password': password,
+        'device_id': deviceId,
+      }),
     );
 
     final Map<String, dynamic> responseData = jsonDecode(response.body);
@@ -35,28 +43,44 @@ class AuthService {
   }
 
   Future<bool> changePassword(String newPassword, String token) async {
-    final response = await http.post(
-      Uri.parse(ApiConstants.changePasswordEndpoint),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({'new_password': newPassword}),
-    );
-
-    final Map<String, dynamic> responseData = jsonDecode(response.body);
-
-    if (response.statusCode == 200 && responseData['success'] == true) {
-      await _secureStorage.write(
-        key: 'requires_password_change',
-        value: 'false',
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.changePasswordEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'new_password': newPassword}),
       );
-      return true;
-    } else {
-      throw Exception(
-        responseData['error'] ?? 'Failed to update authorization code',
-      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        await _secureStorage.write(
+          key: 'requires_password_change',
+          value: 'false',
+        );
+        return true;
+      }
+      // If we didn't return true above, something went wrong. Let's try to extract the error.
+      try {
+        final Map<String, dynamic> errorData = jsonDecode(response.body);
+        throw Exception(
+          errorData['error'] ?? errorData['msg'] ?? 'Failed to update code.',
+        );
+      } catch (e) {
+        // If jsonDecode fails here, it means the server crashed and returned HTML
+        throw Exception('Server Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Pass the error back to the provider so it can show the red SnackBar
+      rethrow;
     }
+    // } else {
+    //   throw Exception(
+    //     responseData['error'] ?? 'Failed to update authorization code',
+    //   );
+    // }
   }
 
   Future<void> logout() async {
@@ -77,5 +101,10 @@ class AuthService {
 
   Future<void> saveUsername(String username) async {
     await _secureStorage.write(key: 'username', value: username);
+  }
+
+  Future<bool> getPwdState() async {
+    final value = await _secureStorage.read(key: 'requires_password_change');
+    return value == 'true';
   }
 }

@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/* 1. Define your custom Stealth Terminal theme directly in CSS */
+@theme {
+--font-sans: "Plus Jakarta Sans", sans-serif;
+--font-mono: "JetBrains Mono", monospace;
+
+--color-terminal-base: #0F0F0F;
+--color-terminal-card: #1C1C1C;
+--color-terminal-border: #333333;
+--color-terminal-accent: #10B981;
+--color-terminal-error: #EF4444;
+}
+
+/* 2. Custom Scrollbar */
+@layer utilities {
+.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #0F0F0F; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #333333; border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #10B981; }
+}

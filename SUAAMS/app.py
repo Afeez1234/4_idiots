@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, redirect, url_for
 from datetime import date
+from flask_migrate import Migrate
 import os
 from flask_jwt_extended import JWTManager
 from models import db
@@ -34,9 +35,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_POOL_SIZE'] = 10
 app.config['SQLALCHEMY_POOL_RECYCLE'] = 280  # Recycle connections before MySQL times them out
 app.config['SQLALCHEMY_POOL_TIMEOUT'] = 20
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_recycle': 280,   # Recycle connections before the 300-second cloud timeout
+    'pool_pre_ping': True  # Test the connection to ensure it's alive before querying
+}
 
 # Initialize extensions
 db.init_app(app)
+migrate = Migrate(app,db)
 jwt = JWTManager(app)
 
 # Register blueprints
@@ -88,14 +94,6 @@ def attendance_already_recorded(session_id, student_id):
 @app.route('/')
 def home():
     return redirect(url_for('auth.login'))
-
-@app.route('/sessions/start', methods=['POST'])
-def start_session():
-    data = request.get_json()
-    course_id = data.get('course_id')
-    if not course_id:
-        return jsonify({"error": "course_id is required"}), 400
-    return jsonify({"success": True, "message": "Session started successfully."}), 201
 
 @app.route('/sessions/active', methods=['GET'])
 def get_active_sessions():

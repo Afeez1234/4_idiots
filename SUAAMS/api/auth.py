@@ -13,11 +13,12 @@ def mobile_login():
     data = request.get_json()
     
     # The Flutter app sends "student_id" (which maps to the DB 'username') and "password"
-    username = data.get('student_id') or data.get('username') 
+    username = data.get('username') 
     password = data.get('password')
+    device_id = data.get('device_id')
 
-    if not username or not password:
-        return jsonify({"error": "Missing credentials"}), 400
+    if not username or not password or not device_id:
+        return jsonify({"error": "Missing credentials or device signature"}), 400
 
     # 1. Fetch user gracefully via ORM
     user = User.query.filter_by(username=username).first()
@@ -30,7 +31,22 @@ def mobile_login():
         return jsonify({"error": "Account is disabled"}), 403
 
     # 3. Verify bcrypt password
-    if bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+    if bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')): 
+        if user.role == 'student':
+            student_profile = user.student
+            if not student_profile:
+                return jsonify({"error": "Student profile corrupted"}), 500
+            
+            # 1. First Login (No device bound yet)
+            if student_profile.device_id is None:
+                student_profile.device_id = device_id
+                db.session.commit()
+            
+            # 2. Subsequent Login (Check if hardware matches)
+            elif student_profile.device_id != device_id:
+                return jsonify({
+                    "error": "SECURITY LOCK: Account is bound to another device. Please visit IT Administration to request a hardware unbind."
+                }), 403
         
         # 4. Generate the Access Token using Flask-JWT-Extended
         access_token = create_access_token(
@@ -43,7 +59,7 @@ def mobile_login():
             "token": access_token,
             "user": {
                 "id": user.id,
-                "student_id": user.username,
+                "username": user.username,
                 "role": user.role,
                 "requires_password_change": user.requires_password_change # Flutter relies on this!
             }
@@ -65,8 +81,10 @@ def mobile_change_password():
     current_user_id = get_jwt_identity()
     
     # Fetch the user using their JWT Identity
-    user = User.query.get(current_user_id)
-    
+    try:
+        user = User.query.get(current_user_id)
+    except Exception:
+        user =  User.query.get(int(current_user_id))
     if not user:
         return jsonify({"error": "User not found"}), 404
     
