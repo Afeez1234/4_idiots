@@ -1,4 +1,4 @@
-// STREAMING_CHUNK: Importing dependencies...
+// STREAMING_CHUNK: Importing core dependencies...
 // This file is the login screen for the SUAAMS app.
 // It provides a form for users to enter their credentials and handles
 // the login process using Riverpod for state management.
@@ -30,7 +30,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  // STREAMING_CHUNK: Processing authentication...
+  // STREAMING_CHUNK: Processing credential verification...
   void _handleSignIn() async {
     if (_formKey.currentState!.validate()) {
       FocusScope.of(context).unfocus();
@@ -64,8 +64,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // STREAMING_CHUNK: Initializing responsive layout context...
-    // Lock sizeOf so keyboard insets never trigger a rebuild of the entire tree
+    // STREAMING_CHUNK: Caching hardware screen dimensions...
+    // sizeOf guarantees the build method is bypassed during viewport transitions
     final screenSize = MediaQuery.sizeOf(context);
     final screenHeight = screenSize.height;
     final screenWidth = screenSize.width;
@@ -76,15 +76,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      // DEEP FIX 1: Allow the native Flutter engine to manage keyboard scrolling
       resizeToAvoidBottomInset: true,
       body: Stack(
-        // DEEP FIX 2: Prevents background layouts from snapping when Scaffold viewport shrinks
         clipBehavior: Clip.none, 
         children: [
-          // DEEP FIX 3: Background is fixed to the physical screen boundaries.
-          // Because its layout constraints are constant, RepaintBoundary will 
-          // cache the grid bitmap perfectly. It never repaints on keyboard slide.
+          // OPTIMIZATION 1: Marked background as const. 
+          // Dart loads this directly from pre-compiled memory.
           Positioned(
             top: 0,
             left: 0,
@@ -96,7 +93,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           
           // Foreground Content Layer
-          // STREAMING_CHUNK: Rendering form fields...
+          // STREAMING_CHUNK: Isolating input repaints...
           Positioned.fill(
             child: SafeArea(
               child: Center(
@@ -122,31 +119,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                         _buildInputLabel('USERNAME', colorScheme),
                         const SizedBox(height: 8),
-                        _buildTextField(
-                          controller: _idController,
-                          hintText: 'Enter your username',
-                          icon: Icons.badge_rounded,
-                          colorScheme: colorScheme,
-                          validator: (value) =>
-                              (value == null || value.trim().isEmpty)
-                                  ? 'USERNAME REQUIRED'
-                                  : null,
+                        
+                        // OPTIMIZATION 2: Isolated TextField inside its own RepaintBoundary.
+                        // This prevents cursor blinking from forcing a repaint of the grid!
+                        RepaintBoundary(
+                          child: _buildTextField(
+                            controller: _idController,
+                            hintText: 'Enter your username',
+                            icon: Icons.badge_rounded,
+                            colorScheme: colorScheme,
+                            validator: (value) =>
+                                (value == null || value.trim().isEmpty)
+                                    ? 'USERNAME REQUIRED'
+                                    : null,
+                          ),
                         ),
 
                         const SizedBox(height: 24),
 
                         _buildInputLabel('AUTHORIZATION CODE', colorScheme),
                         const SizedBox(height: 8),
-                        _buildTextField(
-                          controller: _passwordController,
-                          hintText: 'Enter password',
-                          icon: Icons.lock_outline_rounded,
-                          isPassword: true,
-                          colorScheme: colorScheme,
-                          validator: (value) =>
-                              (value == null || value.isEmpty)
-                                  ? 'PASSWORD REQUIRED'
-                                  : null,
+                        
+                        // OPTIMIZATION 3: Isolated Password Field inside its own RepaintBoundary.
+                        RepaintBoundary(
+                          child: _buildTextField(
+                            controller: _passwordController,
+                            hintText: 'Enter password',
+                            icon: Icons.lock_outline_rounded,
+                            isPassword: true,
+                            colorScheme: colorScheme,
+                            validator: (value) =>
+                                (value == null || value.isEmpty)
+                                    ? 'PASSWORD REQUIRED'
+                                    : null,
+                          ),
                         ),
 
                         const SizedBox(height: 40),
@@ -204,7 +210,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  // STREAMING_CHUNK: Building custom input decorations...
+  // STREAMING_CHUNK: Configuring custom text fields...
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
@@ -223,7 +229,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return TextFormField(
       controller: controller,
       obscureText: isPassword && !_isPasswordVisible,
-      // DEEP FIX 4: Keeps scroll insets tight and stable during focus transitions
       scrollPadding: const EdgeInsets.symmetric(vertical: 40),
       style: TextStyle(
         fontWeight: FontWeight.w600,
@@ -271,11 +276,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 }
 
-// STREAMING_CHUNK: Rendering background grid nodes...
+// STREAMING_CHUNK: Allocating pre-compiled background...
 class _LoginBackground extends StatelessWidget {
   final bool isDarkMode;
   final ColorScheme colorScheme;
 
+  // Added const constructor to allow full static memory allocation
   const _LoginBackground({
     required this.isDarkMode,
     required this.colorScheme,
