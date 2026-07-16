@@ -1,9 +1,9 @@
+// STREAMING_CHUNK: Importing dependencies...
 // This file is the login screen for the SUAAMS app.
 // It provides a form for users to enter their credentials and handles
 // the login process using Riverpod for state management.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../../../shared/utils/grid_overlay_painter.dart';
@@ -20,7 +20,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final FocusNode _passwordFocusNode = FocusNode();
 
   bool _isPasswordVisible = false;
 
@@ -28,226 +27,167 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void dispose() {
     _idController.dispose();
     _passwordController.dispose();
-    _passwordFocusNode.dispose();
     super.dispose();
   }
 
-  Future<void> _handleSignIn() async {
-    final formState = _formKey.currentState;
-    if (formState == null || !formState.validate()) {
-      return;
+  // STREAMING_CHUNK: Processing authentication...
+  void _handleSignIn() async {
+    if (_formKey.currentState!.validate()) {
+      FocusScope.of(context).unfocus();
+
+      final success = await ref.read(authProvider.notifier).login(
+            _idController.text.trim(),
+            _passwordController.text,
+          );
+
+      if (mounted && !success) {
+        final error = ref.read(authProvider).errorMessage;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error ?? 'ACCESS DENIED',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1,
+              ),
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        );
+      }
     }
-
-    FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
-    final success = await ref
-        .read(authProvider.notifier)
-        .login(_idController.text.trim(), _passwordController.text);
-
-    if (!mounted) {
-      return;
-    }
-
-    if (success) {
-      TextInput.finishAutofillContext();
-      return;
-    }
-
-    final error = ref.read(authProvider).errorMessage;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(error ?? 'Unable to sign in. Please try again.'),
-        backgroundColor: Theme.of(context).colorScheme.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
+    // STREAMING_CHUNK: Initializing responsive layout context...
+    // Lock sizeOf so keyboard insets never trigger a rebuild of the entire tree
+    final screenSize = MediaQuery.sizeOf(context);
+    final screenHeight = screenSize.height;
+    final screenWidth = screenSize.width;
+
     final authState = ref.watch(authProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      body: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Stack(
-          children: [
-            _LoginBackground(isDarkMode: isDarkMode, colorScheme: colorScheme),
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isCompact = constraints.maxHeight < 680;
-                  final verticalPadding = isCompact ? 16.0 : 32.0;
-                  final availableHeight =
-                      constraints.maxHeight - (verticalPadding * 2);
-
-                  return SingleChildScrollView(
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: EdgeInsets.fromLTRB(
-                      24,
-                      verticalPadding,
-                      24,
-                      verticalPadding,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: availableHeight > 0 ? availableHeight : 0,
-                      ),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 420),
-                          child: AutofillGroup(
-                            child: Form(
-                              key: _formKey,
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Center(
-                                    child: SuaamsLogoFull(
-                                      size: isCompact ? 52 : 64,
-                                      color: colorScheme.primary,
-                                    ),
-                                  ),
-                                  SizedBox(height: isCompact ? 28 : 44),
-                                  Text(
-                                    'Welcome back',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .headlineSmall
-                                        ?.copyWith(
-                                          color: colorScheme.onSurface,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Sign in with your assigned credentials.',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: colorScheme.onSurface
-                                              .withValues(alpha: 0.6),
-                                        ),
-                                  ),
-                                  SizedBox(height: isCompact ? 24 : 32),
-                                  _buildInputLabel('USERNAME', colorScheme),
-                                  const SizedBox(height: 8),
-                                  _buildTextField(
-                                    controller: _idController,
-                                    hintText: 'Enter your username',
-                                    icon: Icons.badge_rounded,
-                                    colorScheme: colorScheme,
-                                    enabled: !authState.isLoading,
-                                    autofillHints: const [
-                                      AutofillHints.username,
-                                    ],
-                                    textInputAction: TextInputAction.next,
-                                    onFieldSubmitted: (_) =>
-                                        _passwordFocusNode.requestFocus(),
-                                    validator: (value) =>
-                                        (value == null || value.trim().isEmpty)
-                                        ? 'Enter your username'
-                                        : null,
-                                  ),
-                                  const SizedBox(height: 20),
-                                  _buildInputLabel(
-                                    'AUTHORIZATION CODE',
-                                    colorScheme,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _buildTextField(
-                                    controller: _passwordController,
-                                    focusNode: _passwordFocusNode,
-                                    hintText: 'Enter your authorization code',
-                                    icon: Icons.lock_outline_rounded,
-                                    isPassword: true,
-                                    colorScheme: colorScheme,
-                                    enabled: !authState.isLoading,
-                                    autofillHints: const [
-                                      AutofillHints.password,
-                                    ],
-                                    textInputAction: TextInputAction.done,
-                                    onFieldSubmitted: (_) {
-                                      if (!authState.isLoading) {
-                                        _handleSignIn();
-                                      }
-                                    },
-                                    validator: (value) =>
-                                        (value == null || value.isEmpty)
-                                        ? 'Enter your authorization code'
-                                        : null,
-                                  ),
-                                  SizedBox(height: isCompact ? 28 : 36),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: colorScheme.primary,
-                                      foregroundColor: colorScheme.onPrimary,
-                                      disabledBackgroundColor: colorScheme
-                                          .primary
-                                          .withValues(alpha: 0.6),
-                                      disabledForegroundColor:
-                                          colorScheme.onPrimary,
-                                      minimumSize: const Size(
-                                        double.infinity,
-                                        56,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      elevation: 0,
-                                    ),
-                                    onPressed: authState.isLoading
-                                        ? null
-                                        : _handleSignIn,
-                                    child: AnimatedSwitcher(
-                                      duration: const Duration(
-                                        milliseconds: 180,
-                                      ),
-                                      child: authState.isLoading
-                                          ? SizedBox(
-                                              key: const ValueKey('loading'),
-                                              height: 24,
-                                              width: 24,
-                                              child: CircularProgressIndicator(
-                                                color: colorScheme.onPrimary,
-                                                strokeWidth: 2.5,
-                                              ),
-                                            )
-                                          : const Text(
-                                              'SIGN IN',
-                                              key: ValueKey('label'),
-                                              style: TextStyle(
-                                                letterSpacing: 2,
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+      // DEEP FIX 1: Allow the native Flutter engine to manage keyboard scrolling
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        // DEEP FIX 2: Prevents background layouts from snapping when Scaffold viewport shrinks
+        clipBehavior: Clip.none, 
+        children: [
+          // DEEP FIX 3: Background is fixed to the physical screen boundaries.
+          // Because its layout constraints are constant, RepaintBoundary will 
+          // cache the grid bitmap perfectly. It never repaints on keyboard slide.
+          Positioned(
+            top: 0,
+            left: 0,
+            width: screenWidth,
+            height: screenHeight,
+            child: RepaintBoundary(
+              child: _LoginBackground(isDarkMode: isDarkMode, colorScheme: colorScheme),
+            ),
+          ),
+          
+          // Foreground Content Layer
+          // STREAMING_CHUNK: Rendering form fields...
+          Positioned.fill(
+            child: SafeArea(
+              child: Center(
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.all(24.0),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(
+                          child: RepaintBoundary(
+                            child: SuaamsLogoFull(
+                              size: 64,
+                              color: colorScheme.primary,
+                            ),                 
+                          )
                         ),
-                      ),
+
+                        SizedBox(height: screenHeight * 0.05),
+
+                        _buildInputLabel('USERNAME', colorScheme),
+                        const SizedBox(height: 8),
+                        _buildTextField(
+                          controller: _idController,
+                          hintText: 'Enter your username',
+                          icon: Icons.badge_rounded,
+                          colorScheme: colorScheme,
+                          validator: (value) =>
+                              (value == null || value.trim().isEmpty)
+                                  ? 'USERNAME REQUIRED'
+                                  : null,
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        _buildInputLabel('AUTHORIZATION CODE', colorScheme),
+                        const SizedBox(height: 8),
+                        _buildTextField(
+                          controller: _passwordController,
+                          hintText: 'Enter password',
+                          icon: Icons.lock_outline_rounded,
+                          isPassword: true,
+                          colorScheme: colorScheme,
+                          validator: (value) =>
+                              (value == null || value.isEmpty)
+                                  ? 'PASSWORD REQUIRED'
+                                  : null,
+                        ),
+
+                        const SizedBox(height: 40),
+
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: colorScheme.surface,
+                            minimumSize: const Size(double.infinity, 56),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          onPressed: authState.isLoading ? null : _handleSignIn,
+                          child: authState.isLoading
+                              ? SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    color: colorScheme.surface,
+                                    strokeWidth: 2.5,
+                                  ),
+                                )
+                              : const Text(
+                                  'AUTHENTICATE',
+                                  style: TextStyle(
+                                    letterSpacing: 3,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                        ),
+                      ],
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -256,25 +196,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Text(
       text,
       style: TextStyle(
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: FontWeight.bold,
-        letterSpacing: 1.2,
+        letterSpacing: 1.5,
         color: colorScheme.onSurface.withValues(alpha: 0.6),
       ),
     );
   }
 
+  // STREAMING_CHUNK: Building custom input decorations...
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
     required IconData icon,
     required ColorScheme colorScheme,
     required String? Function(String?) validator,
-    required bool enabled,
-    required Iterable<String> autofillHints,
-    required TextInputAction textInputAction,
-    required ValueChanged<String> onFieldSubmitted,
-    FocusNode? focusNode,
     bool isPassword = false,
   }) {
     final borderStyle = OutlineInputBorder(
@@ -286,18 +222,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return TextFormField(
       controller: controller,
-      focusNode: focusNode,
-      enabled: enabled,
       obscureText: isPassword && !_isPasswordVisible,
-      autofillHints: autofillHints,
-      textInputAction: textInputAction,
-      textCapitalization: TextCapitalization.none,
-      autocorrect: false,
-      enableSuggestions: false,
-      onFieldSubmitted: onFieldSubmitted,
-      scrollPadding: EdgeInsets.only(
-        bottom: MediaQuery.viewInsetsOf(context).bottom + 24,
-      ),
+      // DEEP FIX 4: Keeps scroll insets tight and stable during focus transitions
+      scrollPadding: const EdgeInsets.symmetric(vertical: 40),
       style: TextStyle(
         fontWeight: FontWeight.w600,
         color: colorScheme.onSurface,
@@ -317,9 +244,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         suffixIcon: isPassword
             ? IconButton(
-                tooltip: _isPasswordVisible
-                    ? 'Hide authorization code'
-                    : 'Show authorization code',
                 icon: Icon(
                   _isPasswordVisible
                       ? Icons.visibility_rounded
@@ -341,22 +265,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: colorScheme.error, width: 1.5),
         ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: colorScheme.error, width: 2),
-        ),
-        errorMaxLines: 2,
       ),
       validator: validator,
     );
   }
 }
 
+// STREAMING_CHUNK: Rendering background grid nodes...
 class _LoginBackground extends StatelessWidget {
   final bool isDarkMode;
   final ColorScheme colorScheme;
 
-  const _LoginBackground({required this.isDarkMode, required this.colorScheme});
+  const _LoginBackground({
+    required this.isDarkMode,
+    required this.colorScheme,
+  });
 
   @override
   Widget build(BuildContext context) {
