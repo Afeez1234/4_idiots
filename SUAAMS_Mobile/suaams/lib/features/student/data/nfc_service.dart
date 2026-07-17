@@ -1,4 +1,11 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+// Was previously missing entirely -- nfc_provider.dart called
+// ref.read(nfcServiceProvider) but nothing declared this provider, which
+// was a compile error. Declaring it here, next to the class it provides,
+// same pattern as authServiceProvider/studentServiceProvider elsewhere.
+final nfcServiceProvider = Provider<NfcService>((ref) => NfcService());
 
 /// This service abstracts the Android Host Card Emulation (HCE) implementation.
 /// In production, this maps directly to the `nfc_host_card_emulation` package.
@@ -7,7 +14,11 @@ class NfcService {
   // without crashing (since emulators lack physical NFC chips).
   final bool _isMockMode = true;
 
-  Future<void> startEmulation(String payload) async {
+  // Renamed from startEmulation -> startHceEmulation (and stopEmulation ->
+  // stopHceEmulation below) to match what nfc_provider.dart actually calls.
+  // The old names and the provider call were out of sync, which was the
+  // other half of the compile error fixed above.
+  Future<void> startHceEmulation(String payload) async {
     try {
       if (_isMockMode) {
         debugPrint('NFC MOCK: Broadcasting APDU Payload -> $payload');
@@ -41,7 +52,7 @@ class NfcService {
     }
   }
 
-  Future<void> stopEmulation() async {
+  Future<void> stopHceEmulation() async {
     try {
       if (_isMockMode) {
         debugPrint('NFC MOCK: HCE Service Terminated.');

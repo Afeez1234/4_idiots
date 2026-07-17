@@ -364,9 +364,11 @@ class _ChangePasswordBackground extends StatelessWidget {
         Positioned.fill(
           child: IgnorePointer(
             child: CustomPaint(
-              painter: GridOverlayPainter(
-                color: isDarkMode ? Colors.white : Colors.black,
-              ),
+              // PERF FIX: const painter instance per branch (see
+              // grid_overlay_painter.dart) instead of allocating a new one.
+              painter: isDarkMode
+                  ? const GridOverlayPainter(color: Colors.white)
+                  : const GridOverlayPainter(color: Colors.black),
             ),
           ),
         ),

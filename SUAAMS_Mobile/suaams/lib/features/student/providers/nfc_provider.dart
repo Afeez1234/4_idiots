@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:suaams/features/student/data/nfc_service.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
+// studentServiceProvider already exists here (used for the dashboard
+// fetch) -- reusing it instead of creating a second StudentService
+// instance/provider just for the beacon mint call.
+import 'package:suaams/features/student/providers/student_provider.dart';
 
 enum NfcCheckInStatus { idle, authenticating, broadcasting, success, error }
 
@@ -75,12 +79,22 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         throw Exception('Identity verification failed.');
       }
 
-      // 3. Begin NFC Emulation Channel
-      final token = ref.read(authProvider).user?.token;
-      if (token == null) throw Exception('Auth Session lost. Re-login.');
+      // 3. Mint a short-lived beacon token, then broadcast THAT over HCE --
+      // not the long-lived session token. Broadcasting the session token
+      // directly would mean anything that captured/relayed the NFC signal
+      // could replay it as a valid API credential indefinitely; the beacon
+      // token backend-mints with a ~5s expiry (see BEACON_TOKEN_TTL_SECONDS
+      // in api/student.py) so a relay only has that narrow window to work
+      // with, matching the 3-second anti-relay requirement in CLAUDE.md.
+      final sessionToken = ref.read(authProvider).user?.token;
+      if (sessionToken == null) throw Exception('Auth Session lost. Re-login.');
+
+      final beaconToken = await ref
+          .read(studentServiceProvider)
+          .mintCheckinBeacon(sessionToken);
 
       state = NfcCheckInState(status: NfcCheckInStatus.broadcasting, secondsRemaining: 3);
-      await ref.read(nfcServiceProvider).startHceEmulation(token);
+      await ref.read(nfcServiceProvider).startHceEmulation(beaconToken);
 
       // 4. Enforce Strict 3-Second Transmit Envelope
       _startSecureCountdown();

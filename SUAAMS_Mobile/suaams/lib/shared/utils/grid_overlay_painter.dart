@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 
 class GridOverlayPainter extends CustomPainter {
   final Color color;
-  GridOverlayPainter({required this.color});
+  // PERF FIX: const constructor -- shouldRepaint always returns false below,
+  // so every call site (login/change-password/splash/dashboard) can now be
+  // built as `const GridOverlayPainter(...)`, letting Flutter reuse a single
+  // compiled instance instead of allocating a new painter each rebuild.
+  const GridOverlayPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {

@@ -22,7 +22,9 @@ class SuaamsLogo extends StatelessWidget {
 class _LogoPainter extends CustomPainter {
   final Color color;
 
-  _LogoPainter({required this.color});
+  // PERF FIX: const constructor -- shouldRepaint is always false below, so
+  // this can be reused instead of allocated fresh on every SuaamsLogo build.
+  const _LogoPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {

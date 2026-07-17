@@ -34,11 +34,16 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
   void initState() {
     super.initState();
     /* STREAMING_CHUNK: Initializing radar animation controller... */
-    // Infinite loop animation driving the neon concentric radar waves
+    // Animation driving the neon concentric radar waves. PERF FIX: no
+    // longer calls ..repeat() here -- previously this ticked continuously
+    // through the `authenticating` state (biometric prompt) too, even
+    // though the radar UI isn't shown until `broadcasting` is reached in
+    // _buildBroadcastingState. It's now started/stopped from the status
+    // listener in build() below, in sync with when it's actually visible.
     _radarController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
-    )..repeat();
+    );
 
     // Automatically trigger biometrics and transmission on mount
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -67,17 +72,29 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
     final nfcState = ref.watch(nfcCheckInProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Monitor status to trigger hardware-synchronized haptic notifications
+    // Monitor status to trigger hardware-synchronized haptic notifications,
+    // and (PERF FIX) to start/stop the radar animation so it only ticks
+    // while the broadcasting UI is actually on screen.
     ref.listen<NfcCheckInState>(nfcCheckInProvider, (previous, next) {
       if (next.status == NfcCheckInStatus.broadcasting) {
         // Continuous light tick simulating active radio transmission
         HapticFeedback.selectionClick();
-      } else if (next.status == NfcCheckInStatus.success) {
-        // Successful check-in verified by ESP32 handshake
-        HapticFeedback.vibrate();
-      } else if (next.status == NfcCheckInStatus.error) {
-        // Security or transmission failure
-        HapticFeedback.heavyImpact();
+        if (!_radarController.isAnimating) {
+          _radarController.repeat();
+        }
+      } else {
+        // Any state other than "broadcasting" doesn't render the radar
+        // widget, so stop the ticker rather than let it spin unseen.
+        if (_radarController.isAnimating) {
+          _radarController.stop();
+        }
+        if (next.status == NfcCheckInStatus.success) {
+          // Successful check-in verified by ESP32 handshake
+          HapticFeedback.vibrate();
+        } else if (next.status == NfcCheckInStatus.error) {
+          // Security or transmission failure
+          HapticFeedback.heavyImpact();
+        }
       }
     });
 
@@ -195,31 +212,45 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         SizedBox(
           width: 140,
           height: 140,
-          child: AnimatedBuilder(
-            animation: _radarController,
-            builder: (context, child) {
-              return CustomPaint(
-                painter: _RadarWavePainter(
-                  progress: _radarController.value,
-                  color: colorScheme.primary,
-                ),
-                child: Center(
-                  child: Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: colorScheme.primary,
-                    ),
-                    child: const Icon(
-                      Icons.contactless_rounded,
-                      color: Colors.white,
-                      size: 28,
-                    ),
+          // PERF FIX: RepaintBoundary isolates this 60fps radar animation
+          // from the countdown text and Cancel button below it, which don't
+          // need to repaint on every animation tick.
+          child: RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _radarController,
+              // PERF FIX: this center icon is static -- it never changes
+              // while broadcasting -- so it's built once here and passed
+              // through as `child` instead of being reconstructed inside
+              // `builder` on every one of the ~60 ticks/sec this
+              // AnimationController fires. AnimatedBuilder's `child` param
+              // exists specifically so builder can reuse a static subtree
+              // instead of rebuilding it every frame; it just wasn't being
+              // used before.
+              child: Center(
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colorScheme.primary,
+                  ),
+                  child: const Icon(
+                    Icons.contactless_rounded,
+                    color: Colors.white,
+                    size: 28,
                   ),
                 ),
-              );
-            },
+              ),
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: _RadarWavePainter(
+                    progress: _radarController.value,
+                    color: colorScheme.primary,
+                  ),
+                  child: child,
+                );
+              },
+            ),
           ),
         ),
         const SizedBox(height: 32),

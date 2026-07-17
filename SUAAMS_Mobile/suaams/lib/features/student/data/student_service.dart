@@ -34,4 +34,34 @@ class StudentService {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
+
+  // Mints the short-lived HCE beacon token used for check-in (see
+  // checkinBeaconEndpoint doc-comment in api_constants.dart, and
+  // BEACON_TOKEN_TTL_SECONDS in api/student.py for why this token is
+  // separate from the long-lived session token passed in here).
+  Future<String> mintCheckinBeacon(String token) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.checkinBeaconEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return responseData['beacon_token'] as String;
+      }
+
+      final errorMsg = responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 }
