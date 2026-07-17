@@ -11,15 +11,26 @@ from blueprints.student import student_bp
 from api.auth import api_auth_bp
 from api.student import api_student_bp
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'suaams_secret_key_2025')
-JWT_SECRET = os.environ.get('JWT_SECRET_KEY', 'super_secret_jwt_key_for_mobile_2026')
+SECRET_KEY = os.environ.get('SECRET_KEY')
+JWT_SECRET = os.environ.get('JWT_SECRET_KEY')
 
 # Database connection string for SQLAlchemy
-DB_HOST = os.environ.get('DB_HOST', 'bikxczmqtd1kynudsfrp-mysql.services.clever-cloud.com')
-DB_USER = os.environ.get('DB_USER', 'uo5woagbfvcducyy')
-DB_PASSWORD = os.environ.get('DB_PASSWORD', 'edVtI3biNQmhQrfJwRe8')
-DB_NAME = os.environ.get('DB_NAME', 'bikxczmqtd1kynudsfrp')
+DB_HOST = os.environ.get('DB_HOST')
+DB_USER = os.environ.get('DB_USER')
+DB_PASSWORD = os.environ.get('DB_PASSWORD')
+DB_NAME = os.environ.get('DB_NAME')
 DB_PORT = os.environ.get('DB_PORT', '3306')
+
+_required = {
+    'SECRET_KEY': SECRET_KEY, 'JWT_SECRET_KEY': JWT_SECRET, 'DB_HOST': DB_HOST,
+    'DB_USER': DB_USER, 'DB_PASSWORD': DB_PASSWORD, 'DB_NAME': DB_NAME,
+}
+_missing = [k for k, v in _required.items() if not v]
+if _missing:
+    raise RuntimeError(
+        f"Missing required environment variables: {', '.join(_missing)}. "
+        "Set them in your environment or a local .env — do not hardcode credentials in source."
+    )
 
 app = Flask(__name__)
 
@@ -103,8 +114,8 @@ def get_active_sessions():
         active_sessions.append({
             "id": s.id,
             "course_id": s.course_id,
-            "start_time": str(s.start_time),
-            "stop_time": str(s.stop_time),
+            "start_time": str(s.planned_start),
+            "stop_time": str(s.planned_end),
             "session_date": str(s.session_date)
         })
     return jsonify({"success": True, "active_sessions": active_sessions}), 200
@@ -125,8 +136,8 @@ def get_active_sessions_by_course_id(course_id):
         "session": {
             "id": session.id,
             "course_id": session.course_id,
-            "start_time": str(session.start_time),
-            "stop_time": str(session.stop_time),
+            "start_time": str(session.planned_start),
+            "stop_time": str(session.planned_end),
             "session_date": str(session.session_date)
         }
     }), 200
@@ -161,7 +172,7 @@ def attendance():
             "id": student.id,
             "full_name": student.full_name,
             "level": student.level,
-            "department": student.department
+            "department": student.department.name if student.department else None
         }
     }), 200
 

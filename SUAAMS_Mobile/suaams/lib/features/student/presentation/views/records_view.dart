@@ -15,6 +15,18 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
   String _selectedFilter = 'All';
   final List<String> _filters = ['All', 'This week', 'This month'];
 
+  // PERF FIX: memoization cache for _getFilteredRecords/_groupRecordsByMonth
+  // below. Both do O(n) work with per-record DateTime string-parsing, and
+  // were previously re-run on every single build() call -- including builds
+  // triggered by unrelated things like a theme toggle (this widget watches
+  // themeProvider) -- even when neither the source records nor the selected
+  // filter had changed. These fields cache the last computed result so the
+  // real work only reruns when one of those two inputs actually changes.
+  List<RecentAttendance>? _cachedSourceRecords;
+  String? _cachedFilter;
+  List<RecentAttendance> _cachedFilteredRecords = const [];
+  Map<String, List<RecentAttendance>> _cachedGroupedRecords = const {};
+
   // --- Helper: Parse Date String ('14 Jul 2026') to DateTime ---
   DateTime? _parseDate(String dateStr) {
     try {
@@ -85,8 +97,18 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
     final data = state.data;
     if (data == null) return const SizedBox.shrink();
 
-    final filteredRecords = _getFilteredRecords(data.recentAttendance);
-    final groupedRecords = _groupRecordsByMonth(filteredRecords);
+    // PERF FIX: only recompute filtering/grouping when the source list or
+    // the selected filter actually changed (see field doc-comments above).
+    if (!identical(_cachedSourceRecords, data.recentAttendance) ||
+        _cachedFilter != _selectedFilter) {
+      _cachedSourceRecords = data.recentAttendance;
+      _cachedFilter = _selectedFilter;
+      _cachedFilteredRecords = _getFilteredRecords(data.recentAttendance);
+      _cachedGroupedRecords = _groupRecordsByMonth(_cachedFilteredRecords);
+    }
+
+    final filteredRecords = _cachedFilteredRecords;
+    final groupedRecords = _cachedGroupedRecords;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),

@@ -42,8 +42,8 @@ def dashboard():
             pct = round((attended_sessions / total_sessions * 100) if total_sessions else 0, 1)
             course_breakdown.append({
                 'id': course.id,
-                'name': course.course_title,
-                'code': course.course_code,
+                'name': course.title,
+                'code': course.code,
                 'pct': pct,
                 'attended': attended_sessions,
                 'total': total_sessions,
@@ -55,7 +55,7 @@ def dashboard():
 
         # 6) Get the recent attendance history elegantly sorting via ORM
         recent_records = db.session.query(
-            Course.course_code, SessionModel.session_date, SessionModel.start_time
+            Course.code, SessionModel.session_date, SessionModel.planned_start
         ).select_from(Attendance).join(
             SessionModel, Attendance.session_id == SessionModel.id
         ).join(
@@ -63,7 +63,7 @@ def dashboard():
         ).filter(
             Attendance.student_id == student.id
         ).order_by(
-            SessionModel.session_date.desc(), SessionModel.start_time.desc()
+            SessionModel.session_date.desc(), SessionModel.planned_start.desc()
         ).limit(10).all()
 
         recent_attendance = []
@@ -78,7 +78,7 @@ def dashboard():
         # 7) Prepare the student profile dictionary
         student_profile = {
             'full_name': student.full_name or session.get('username'),
-            'department': student.department,
+            'department': student.department.name if student.department else None,
             'level': student.level,
             'rfid_uid': student.rfid_uid,
             'matric_number': student.matric_number,

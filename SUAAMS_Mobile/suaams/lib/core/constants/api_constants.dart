@@ -12,4 +12,12 @@ abstract final class ApiConstants {
   static const String studentCoursesEndpoint = '$baseUrl/student/courses';
   static const String notificationsEndpoint = '$baseUrl/student/notifications';
   static const String changePasswordEndpoint = '$baseUrl/auth/change-password';
+
+  // Mints the short-lived HCE "beacon" token (see api/student.py on the
+  // backend). This is a different endpoint from attendanceEndpoint above --
+  // the phone calls this one over its normal authenticated connection to
+  // get a token to broadcast; the ESP32 terminal is the one that later
+  // posts that beacon token to POST /student/checkin (no Dart client for
+  // that second endpoint since only hardware calls it).
+  static const String checkinBeaconEndpoint = '$baseUrl/student/checkin/beacon';
 }

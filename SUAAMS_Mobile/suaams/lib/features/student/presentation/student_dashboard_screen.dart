@@ -32,8 +32,15 @@ class StudentDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // PERF FIX: selectedDashboardTabProvider is deliberately NOT watched
+    // here anymore. Previously it was watched at the top of this build()
+    // alongside studentDashboardProvider, which meant every bottom-nav tab
+    // tap re-ran this entire ~700-line build method -- reconstructing the
+    // background, Scaffold, everything -- to change what amounts to a
+    // single Builder's output and the nav bar's highlighted icon. It's now
+    // watched inside two small Consumer widgets below instead, so a tab
+    // switch only rebuilds those two subtrees.
     final state = ref.watch(studentDashboardProvider);
-    final selectedTab = ref.watch(selectedDashboardTabProvider);
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
@@ -53,14 +60,27 @@ class StudentDashboardScreen extends ConsumerWidget {
       backgroundColor: colorScheme.surface,
       body: Stack(
         children: [
-          _DashboardBackground(
-            isDarkMode: isDarkMode,
-            colorScheme: colorScheme,
+          // PERF FIX: RepaintBoundary isolates this static decorative
+          // background from the tab content painted above it, same pattern
+          // already used for the equivalent backgrounds in login_screen.dart
+          // and change_password_screen.dart. Without it, the background's
+          // CustomPaint grid + gradient circles shared a paint layer with
+          // whatever's rebuilding on top of them.
+          RepaintBoundary(
+            child: _DashboardBackground(
+              isDarkMode: isDarkMode,
+              colorScheme: colorScheme,
+            ),
           ),
           SafeArea(
-            // Using a Builder makes routing between tabs incredibly clean!
-            child: Builder(
-              builder: (context) {
+            // PERF FIX: selectedDashboardTabProvider is watched inside this
+            // Consumer (was previously watched at the top of build() -- see
+            // comment above) so switching tabs only rebuilds this subtree,
+            // not the whole screen.
+            child: Consumer(
+              builder: (context, ref, _) {
+                final selectedTab = ref.watch(selectedDashboardTabProvider);
+
                 // Tab 1: COURSES
                 if (selectedTab == 1) {
                   return const CoursesView();
@@ -125,9 +145,16 @@ class StudentDashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      bottomNavigationBar: _DashboardBottomNav(
-        selectedTab: selectedTab,
-        colorScheme: colorScheme,
+      // PERF FIX: same Consumer scoping as above -- the bottom nav is the
+      // other (and only other) part of the screen that needs selectedTab.
+      bottomNavigationBar: Consumer(
+        builder: (context, ref, _) {
+          final selectedTab = ref.watch(selectedDashboardTabProvider);
+          return _DashboardBottomNav(
+            selectedTab: selectedTab,
+            colorScheme: colorScheme,
+          );
+        },
       ),
     );
   }
@@ -182,9 +209,13 @@ class _DashboardBackground extends StatelessWidget {
         Positioned.fill(
           child: IgnorePointer(
             child: CustomPaint(
-              painter: GridOverlayPainter(
-                color: isDarkMode ? Colors.white : Colors.black,
-              ),
+              // PERF FIX: branch on isDarkMode to pick between two `const`
+              // painter instances instead of building a new GridOverlayPainter
+              // every rebuild -- shouldRepaint is always false, so this const
+              // instance is fully reused.
+              painter: isDarkMode
+                  ? const GridOverlayPainter(color: Colors.white)
+                  : const GridOverlayPainter(color: Colors.black),
             ),
           ),
         ),

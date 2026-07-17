@@ -78,9 +78,9 @@ def course_workspace(course_id):
 
         # Get session history with attendance counts
         history = db.session.query(
-            SessionModel.id, 
-            SessionModel.session_date, 
-            SessionModel.start_time, 
+            SessionModel.id,
+            SessionModel.session_date,
+            SessionModel.planned_start,
             db.func.count(Attendance.id)
         ).outerjoin(Attendance, Attendance.session_id == SessionModel.id)\
          .filter(SessionModel.course_id == course_id, SessionModel.is_active == False)\
@@ -142,8 +142,6 @@ def start_session(course_id):
         
         new_session = SessionModel(
             course_id=course_id,
-            start_time=datetime.now(timezone.utc).time(),
-            stop_time=None,
             session_date=datetime.now(timezone.utc).date(),
             is_active=True,
             planned_start=planned_start,
@@ -172,7 +170,6 @@ def end_session_r(course_id):
             return redirect(url_for('lecturer.course_workspace', course_id=course_id))
             
         active_session.is_active = False
-        active_session.stop_time = datetime.now(timezone.utc).time()
         db.session.commit()
         
         flash('Session ended successfully.', 'success')
