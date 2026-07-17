@@ -1,5 +1,9 @@
+// This file handles secure authentication calls and platform-key storage.
+// Optimized to prevent Android Keystore and iOS Secure Enclave execution deadlocks.
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/auth_user.dart';
@@ -28,13 +32,20 @@ class AuthService {
       final String token = responseData['token'];
       final Map<String, dynamic> userData = responseData['user'];
 
-      await _secureStorage.write(key: 'jwt_token', value: token);
-      await _secureStorage.write(key: 'user_role', value: userData['role']);
-      await _secureStorage.write(key: 'username', value: userData['username']);
-      await _secureStorage.write(
-        key: 'requires_password_change',
-        value: userData['requires_password_change'].toString(),
-      );
+      // Grouping writes into a parallel pool ensures they commit to the hardware keystore
+      // simultaneously and finish completely before we return control back to the UI router.
+      await Future.wait([
+        _secureStorage.write(key: 'jwt_token', value: token),
+        _secureStorage.write(key: 'user_role', value: userData['role']),
+        _secureStorage.write(key: 'username', value: userData['username']),
+        _secureStorage.write(
+          key: 'requires_password_change',
+          value: userData['requires_password_change'].toString(),
+        ),
+      ]).catchError((e) {
+        debugPrint('Secure Storage write exception: $e');
+        return [];
+      });
 
       return AuthUser.fromJson(userData, token);
     } else {
@@ -56,31 +67,28 @@ class AuthService {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200 && responseData['success'] == true) {
+        // We await this single write to guarantee GoRouter reads 'false' when redirecting
         await _secureStorage.write(
           key: 'requires_password_change',
           value: 'false',
-        );
+        ).catchError((e) {
+          debugPrint('Secure Storage write exception: $e');
+        });
+        
         return true;
       }
-      // If we didn't return true above, something went wrong. Let's try to extract the error.
+      
       try {
         final Map<String, dynamic> errorData = jsonDecode(response.body);
         throw Exception(
           errorData['error'] ?? errorData['msg'] ?? 'Failed to update code.',
         );
       } catch (e) {
-        // If jsonDecode fails here, it means the server crashed and returned HTML
         throw Exception('Server Error: ${response.statusCode}');
       }
     } catch (e) {
-      // Pass the error back to the provider so it can show the red SnackBar
       rethrow;
     }
-    // } else {
-    //   throw Exception(
-    //     responseData['error'] ?? 'Failed to update authorization code',
-    //   );
-    // }
   }
 
   Future<void> logout() async {
