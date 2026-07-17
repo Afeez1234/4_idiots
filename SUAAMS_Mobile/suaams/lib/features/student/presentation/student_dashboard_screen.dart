@@ -5,9 +5,10 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/student_provider.dart';
 import '../../../shared/utils/grid_overlay_painter.dart';
 import '../models/student_dashboard_model.dart';
-import 'views/profile_view_screen.dart'; 
+import 'views/profile_view_screen.dart';
 import 'views/courses_view.dart';
-import 'views/records_view.dart'; // <-- Add this import
+import 'views/records_view.dart';
+import 'views/nfc_broadcast_sheet.dart'; // <-- Add this import
 
 // Bottom tab selection state for the dashboard navigation bar.
 final selectedDashboardTabProvider =
@@ -65,17 +66,17 @@ class StudentDashboardScreen extends ConsumerWidget {
                   return const CoursesView();
                 }
 
-                  // Tab 2: RECORDS
-                 if (selectedTab == 2) {
+                // Tab 2: RECORDS
+                if (selectedTab == 2) {
                   return const RecordsView(); // <-- Add this block
                 }
-                  
+
                 // Tab 3: PROFILE
                 if (selectedTab == 3) {
                   return const ProfileView();
                 }
 
-                 // Tab 0: HOME (Default)
+                // Tab 0: HOME (Default)
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
                   child: Column(
@@ -97,10 +98,7 @@ class StudentDashboardScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 20),
 
-                      _StatsGrid(
-                        stats: data.stats,
-                        colorScheme: colorScheme,
-                      ),
+                      _StatsGrid(stats: data.stats, colorScheme: colorScheme),
                       const SizedBox(height: 32),
 
                       const Text(
@@ -376,7 +374,8 @@ class _NextSessionCard extends StatelessWidget {
               ),
               elevation: 0,
             ),
-            onPressed: () {},
+
+            onPressed: () => NfcBroadcastSheet.show(context),
             child: const Text(
               'INITIATE SCAN',
               style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold),

@@ -1,118 +1,124 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/nfc_service.dart';
-import '../../auth/providers/auth_provider.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:suaams/features/student/data/nfc_service.dart';
+import 'package:suaams/features/auth/providers/auth_provider.dart';
 
-enum NfcStatus { idle, broadcasting, success, error }
+enum NfcCheckInStatus { idle, authenticating, broadcasting, success, error }
 
-class NfcState {
-  final NfcStatus status;
+class NfcCheckInState {
+  final NfcCheckInStatus status;
+  final int secondsRemaining; // Countdown for the 3-second security envelope
   final String? errorMessage;
 
-  NfcState({this.status = NfcStatus.idle, this.errorMessage});
+  NfcCheckInState({
+    this.status = NfcCheckInStatus.idle,
+    this.secondsRemaining = 0,
+    this.errorMessage,
+  });
 
-  NfcState copyWith({NfcStatus? status, String? errorMessage}) {
-    return NfcState(
+  NfcCheckInState copyWith({
+    NfcCheckInStatus? status,
+    int? secondsRemaining,
+    String? errorMessage,
+  }) {
+    return NfcCheckInState(
       status: status ?? this.status,
+      secondsRemaining: secondsRemaining ?? this.secondsRemaining,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 }
 
-// Provide the hardware service
-final nfcServiceProvider = Provider<NfcService>((ref) => NfcService());
-
-// The state notifier that your Dashboard UI will listen to
-final nfcProvider = NotifierProvider.autoDispose<NfcNotifier, NfcState>(
-  NfcNotifier.new,
+// OPTIMIZATION: Leveraged absolute type inference to prevent generic bound mismatch on Riverpod 3.x
+final nfcCheckInProvider = NotifierProvider.autoDispose(
+  NfcCheckInNotifier.new,
 );
 
-class NfcNotifier extends Notifier<NfcState> {
-  bool _isTransmissionRunning = false;
+class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
+  late final LocalAuthentication _localAuth;
+  Timer? _countdownTimer;
 
   @override
-  NfcState build() => NfcState();
+  NfcCheckInState build() {
+    _localAuth = LocalAuthentication();
 
-  Future<void> startTransmission() async {
-    if (_isTransmissionRunning) {
-      return;
-    }
+    // Register auto-cleanup to prevent memory leaks when sheet is closed
+    ref.onDispose(() {
+      _countdownTimer?.cancel();
+      ref.read(nfcServiceProvider).stopHceEmulation();
+    });
 
-    _isTransmissionRunning = true;
-    final service = ref.read(nfcServiceProvider);
+    return NfcCheckInState();
+  }
 
-    // 1. Alert the UI to open the Radar Modal
-    state = NfcState(status: NfcStatus.broadcasting);
+  // Enforces biometric check-in and starts 3-second transmission window
+  Future<void> initiateCheckInProtocol() async {
+    state = NfcCheckInState(status: NfcCheckInStatus.authenticating);
 
     try {
-      final user = ref.read(authProvider).user;
-      if (user == null) {
-        throw Exception("Session corrupted. Please log in again.");
+      // 1. Check OS hardware capability
+      final canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
+      final isDeviceSupported = await _localAuth.isDeviceSupported();
+
+      if (!canAuthenticateWithBiometrics || !isDeviceSupported) {
+        throw Exception('Hardware security mismatch: Biometrics are disabled or unsupported.');
       }
 
-      // 2. Generate the secure APDU Payload (Student ID + Active Session Token)
-      final payload = "${user.id}:${user.token}";
-
-      await service.startEmulation(payload);
-
-      // 3. Keep the HCE channel open. In a full production app, your ESP32
-      // would scan this, hit your Flask backend, and the backend would push
-      // a WebSocket event to the app to confirm.
-      // For now, we simulate the 3-second physical tap window.
-      await Future.delayed(const Duration(seconds: 3));
-
-      if (!ref.mounted) {
-        await service.stopEmulation();
-        return;
-      }
-
-      // 4. Teardown the channel and trigger the Success UI
-      await service.stopEmulation();
-      if (!ref.mounted) {
-        return;
-      }
-
-      state = NfcState(status: NfcStatus.success);
-
-      // Hold the success screen for 2 seconds before automatically closing
-      await Future.delayed(const Duration(seconds: 2));
-      if (!ref.mounted) {
-        return;
-      }
-
-      state = NfcState(status: NfcStatus.idle);
-    } catch (e) {
-      await service.stopEmulation();
-      if (!ref.mounted) {
-        return;
-      }
-
-      state = NfcState(
-        status: NfcStatus.error,
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
+      // 2. Cross-Version Safe Biometric Call
+      // This call is structurally supported on all versions of local_auth to prevent compile crashes
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Verify identity to activate attendance beacon',
       );
 
-      // Hold the error screen for 3 seconds before closing
-      await Future.delayed(const Duration(seconds: 3));
-      if (!ref.mounted) {
-        return;
+      if (!authenticated) {
+        throw Exception('Identity verification failed.');
       }
 
-      state = NfcState(status: NfcStatus.idle);
-    } finally {
-      _isTransmissionRunning = false;
+      // 3. Begin NFC Emulation Channel
+      final token = ref.read(authProvider).user?.token;
+      if (token == null) throw Exception('Auth Session lost. Re-login.');
+
+      state = NfcCheckInState(status: NfcCheckInStatus.broadcasting, secondsRemaining: 3);
+      await ref.read(nfcServiceProvider).startHceEmulation(token);
+
+      // 4. Enforce Strict 3-Second Transmit Envelope
+      _startSecureCountdown();
+
+    } catch (e) {
+      if (ref.mounted) {
+        state = NfcCheckInState(
+          status: NfcCheckInStatus.error,
+          errorMessage: e.toString().replaceAll('Exception: ', ''),
+        );
+      }
+      ref.read(nfcServiceProvider).stopHceEmulation();
     }
   }
 
-  // Allows the user to manually abort the scan from the UI
-  Future<void> cancelTransmission() async {
-    _isTransmissionRunning = false;
-    final service = ref.read(nfcServiceProvider);
-    await service.stopEmulation();
-
-    if (!ref.mounted) {
-      return;
-    }
-
-    state = NfcState(status: NfcStatus.idle);
+  void _startSecureCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+      if (state.secondsRemaining <= 1) {
+        // Window expired. Self-destruct emulation payload!
+        _countdownTimer?.cancel();
+        await ref.read(nfcServiceProvider).stopHceEmulation();
+        
+        if (ref.mounted) {
+          state = NfcCheckInState(status: NfcCheckInStatus.success);
+        }
+        
+        // Auto-close check-in card UI after brief delay
+        Future.delayed(const Duration(seconds: 2), () {
+          if (ref.mounted) {
+            state = NfcCheckInState(status: NfcCheckInStatus.idle);
+          }
+        });
+      } else {
+        if (ref.mounted) {
+          state = state.copyWith(secondsRemaining: state.secondsRemaining - 1);
+        }
+      }
+    });
   }
 }
