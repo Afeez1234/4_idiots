@@ -1,10 +1,6 @@
-# SUAAMS — Smart Universal Automated Attendance Management System
+# SUAAMS — Smart University Attendance and Administrative Management System
 
 > **High-performance, security-hardened IoT hybrid system for university attendance tracking**
-
-[![Language Composition](https://img.shields.io/badge/Flutter-31.2%25-blue?logo=flutter)](#)
-[![Language Composition](https://img.shields.io/badge/Python-20.2%25-green?logo=python)](#)
-[![Language Composition](https://img.shields.io/badge/HTML-35.6%25-orange?logo=html5)](#)
 
 ## 📋 Overview
 
@@ -195,20 +191,3 @@ When modifying API response shapes (backend) or models (frontend), always update
 - This prevents silent field-mismatch bugs at runtime
 
 ---
-
-## 🤝 Contributing
-
-This is a **solo-led capstone project**. Teammates handle documentation and landing page only.
-
-For bugs or feature requests, please create an issue or contact the maintainer.
-
----
-
-## 📄 License
-
-[Add your license here — MIT/Apache/etc.]
-
----
-
-**Last Updated**: July 2026  
-**Maintainer**: [@Abdullah-temi](https://github.com/Abdullah-temi)
