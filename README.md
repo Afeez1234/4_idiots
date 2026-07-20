@@ -1,6 +1,6 @@
 # SUAAMS — Smart University Attendance and Administrative Management System
 
-> **High-performance, security-hardened IoT hybrid system for university attendance tracking**
+> **High-performance, security-hardened IoT hybrid system for university attendance tracking and administrative management**
 
 ## 📋 Overview
 
