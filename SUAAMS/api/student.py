@@ -3,22 +3,26 @@ from flask_jwt_extended import (
     jwt_required, get_jwt_identity, get_jwt,
     create_access_token, decode_token,
 )
-from datetime import timedelta
+from datetime import timedelta, date
 
 # Import db and our elegant SQLAlchemy models
-# (added Enrollment here -- needed by the new check-in endpoints below)
-from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment
+# (added Enrollment here for the check-in endpoints, Timetable for the
+# today's-schedule endpoint below)
+from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable
+from extensions import limiter, jwt_identity_or_ip, api_error_response
 
 # Create the API blueprint for student mobile endpoints
 api_student_bp = Blueprint('api_student', __name__, url_prefix='/api/v1/student')
 
 # How long a minted HCE "beacon" token stays valid. Deliberately short --
 # this is NOT the student's login session JWT, which lives for the whole
-# session. CLAUDE.md's threat model requires HCE/BLE proximity tokens to
-# carry short-lived signed timestamps so a relayed/captured broadcast can't
-# be replayed outside a ~3-second window; reusing the long-lived session
-# token here would defeat that anti-relay requirement entirely.
-BEACON_TOKEN_TTL_SECONDS = 5
+# session. CLAUDE.md's threat model calls 3 seconds the canonical, strict
+# handshake-acceptance window for HCE/BLE proximity tokens; this constant
+# must stay at 3 to match (previously set to 5, which allowed a longer
+# replay window than the documented threat model permits). Reusing the
+# long-lived session token here instead of a short-lived one would defeat
+# the anti-relay requirement entirely.
+BEACON_TOKEN_TTL_SECONDS = 3
 
 @api_student_bp.route('/dashboard', methods=['GET'])
 @jwt_required()
@@ -119,12 +123,22 @@ def get_student_dashboard():
             }
         }), 200
 
-    except Exception as e:
-        print(f"Mobile API Error: {e}")
-        return jsonify({"error": "Database error occurred", "details": str(e)}), 500
+    except Exception:
+        # SECURITY FIX: was printing str(e) to the server console (fine)
+        # AND returning it to the client as "details" (not fine -- can leak
+        # DB schema/table/column names or query fragments to whoever calls
+        # this API). api_error_response logs the full exception + traceback
+        # server-side via the "suaams" logger and returns only a generic
+        # message to the caller.
+        return api_error_response("Mobile API Error", "Database error occurred")
 
 
+# Keyed by user id -- a real check-in only needs one beacon per attendance
+# tap, so 10/minute comfortably covers retries (e.g. student re-opens the
+# sheet after a failed read) while still capping a compromised/malicious
+# client from spamming token minting.
 @api_student_bp.route('/checkin/beacon', methods=['POST'])
+@limiter.limit("10 per minute", key_func=jwt_identity_or_ip)
 @jwt_required()
 def mint_checkin_beacon():
     """
@@ -159,7 +173,12 @@ def mint_checkin_beacon():
     }), 200
 
 
+# No JWT here to key by (see docstring below), so this falls back to
+# per-IP limiting. 30/minute is generous for one ESP32 terminal handling a
+# stream of students tapping in, while still capping brute-force/DoS
+# attempts against an unauthenticated endpoint.
 @api_student_bp.route('/checkin', methods=['POST'])
+@limiter.limit("30 per minute")
 def submit_checkin_beacon():
     """
     Step 2 of the HCE check-in flow. Called by the ESP32 terminal (not the
@@ -223,3 +242,105 @@ def submit_checkin_beacon():
             "full_name": student.full_name,
         }
     }), 200
+
+
+@api_student_bp.route('/schedule/today', methods=['GET'])
+@jwt_required()
+def get_today_schedule():
+    """
+    Returns the student's enrolled courses that are scheduled (per the
+    recurring Timetable) for today's weekday, each with a live status --
+    this replaces the hardcoded mock times/status that used to live in
+    student_dashboard_screen.dart's "TODAY'S PROTOCOL" list. Deliberately a
+    separate endpoint from /dashboard: dashboard stats are historical and
+    barely change, but a course's status here changes live as a lecturer
+    starts/ends a session and students check in, so it has its own refresh
+    cadence.
+
+    Status per course:
+    - PENDING: no Session row for today yet (lecturer hasn't started
+      class), OR a Session exists, is still active, and this student
+      hasn't checked in yet.
+    - PRESENT: a Session exists for today and Attendance was recorded for
+      this student.
+    - ABSENT: a Session existed for today, is no longer active, and no
+      Attendance was recorded.
+
+    Courses with no Timetable entry for today's weekday are omitted
+    entirely -- this list is "what's on today", not every enrolled course.
+    """
+    current_user_id = int(get_jwt_identity())
+    claims = get_jwt()
+
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    try:
+        student = Student.query.filter_by(user_id=current_user_id).first()
+        if not student:
+            return jsonify({"error": "Student profile not found."}), 404
+
+        today = date.today()
+        # Python's date.weekday(): Monday=0 .. Sunday=6 -- same convention
+        # models.py documents for Timetable.day_of_week, so no conversion
+        # needed here.
+        today_weekday = today.weekday()
+
+        # Reuse the Course objects already loaded via student.courses
+        # instead of re-querying Course per timetable row below.
+        courses_by_id = {course.id: course for course in student.courses}
+        if not courses_by_id:
+            return jsonify({"success": True, "today_protocol": []}), 200
+
+        timetable_entries = Timetable.query.filter(
+            Timetable.day_of_week == today_weekday,
+            Timetable.course_id.in_(courses_by_id.keys()),
+        ).order_by(Timetable.start_time.asc()).all()
+
+        today_protocol = []
+        for entry in timetable_entries:
+            course = courses_by_id.get(entry.course_id)
+            if course is None:
+                continue
+
+            session_today = SessionModel.query.filter_by(
+                course_id=entry.course_id, session_date=today
+            ).order_by(SessionModel.id.desc()).first()
+
+            status = 'PENDING'
+            # Default to the recurring Timetable slot; overridden below by
+            # the actual Session's own planned_start/planned_end if one
+            # exists for today (a lecturer may have adjusted the time when
+            # starting the session).
+            start_time = entry.start_time
+            end_time = entry.end_time
+
+            if session_today:
+                start_time = session_today.planned_start or entry.start_time
+                end_time = session_today.planned_end or entry.end_time
+
+                attended = Attendance.query.filter_by(
+                    session_id=session_today.id, student_id=student.id
+                ).first()
+
+                if attended:
+                    status = 'PRESENT'
+                elif not session_today.is_active:
+                    status = 'ABSENT'
+                # else: session is live and student hasn't checked in yet
+                # -- status stays 'PENDING'.
+
+            today_protocol.append({
+                'course_id': course.id,
+                'course_name': course.title,
+                'course_code': course.code,
+                'status': status,
+                'start_time': start_time.strftime('%H:%M') if start_time else None,
+                'end_time': end_time.strftime('%H:%M') if end_time else None,
+                'room': entry.room,
+            })
+
+        return jsonify({"success": True, "today_protocol": today_protocol}), 200
+
+    except Exception:
+        return api_error_response("Today Schedule Error", "Failed to load today's schedule")

@@ -5,3 +5,4 @@ gunicorn
 flask_jwt_extended
 flask-sqlalchemy
 flask-migrate
+flask-limiter

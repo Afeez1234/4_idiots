@@ -1,15 +1,28 @@
 from flask import Flask, request, jsonify, redirect, url_for
-from datetime import date
+from datetime import date, timedelta
 from flask_migrate import Migrate
 import os
+import logging
 from flask_jwt_extended import JWTManager
 from models import db
+from extensions import limiter
 from blueprints.auth import auth_bp
 from blueprints.admin import admin_bp
 from blueprints.lecturer import lecturer_bp
 from blueprints.student import student_bp
 from api.auth import api_auth_bp
 from api.student import api_student_bp
+
+# Gives the "suaams" logger (see extensions.py's log_exception/
+# api_error_response) an actual handler + format. Without this, exceptions
+# logged via logger.exception() still surface (Python's logging module logs
+# WARNING+ to stderr by default even unconfigured), but without timestamps
+# or a named source -- this makes server-side logs actually readable when
+# debugging a reported issue, instead of just a bare traceback.
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
+)
 
 SECRET_KEY = os.environ.get('SECRET_KEY')
 JWT_SECRET = os.environ.get('JWT_SECRET_KEY')
@@ -38,6 +51,14 @@ app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config['JWT_SECRET_KEY'] = JWT_SECRET
 
+# Explicit JWT lifetimes -- previously unset, which silently rode on
+# Flask-JWT-Extended's built-in 15-minute access-token default with no
+# refresh token at all. Now explicit and paired with a real refresh flow
+# (see api/auth.py's /refresh endpoint and User.current_refresh_jti in
+# models.py for the rotation/revocation mechanics).
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(minutes=30)
+app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=14)
+
 # SQLAlchemy config
 app.config['SQLALCHEMY_DATABASE_URI'] = (
     f'mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
@@ -55,6 +76,8 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 db.init_app(app)
 migrate = Migrate(app,db)
 jwt = JWTManager(app)
+# See extensions.py for the in-memory-vs-Redis storage tradeoff note.
+limiter.init_app(app)
 
 # Register blueprints
 app.register_blueprint(auth_bp)
@@ -142,7 +165,12 @@ def get_active_sessions_by_course_id(course_id):
         }
     }), 200
 
+# Same reasoning as /api/v1/student/checkin in api/student.py: this is an
+# unauthenticated, ESP32-facing endpoint (no JWT to key by), so it's rate
+# limited per-IP. One reader posting a stream of card taps stays well under
+# 30/minute; this mainly caps abuse/DoS against an endpoint anyone can hit.
 @app.route('/attendance', methods=['POST'])
+@limiter.limit("30 per minute")
 def attendance():
     data = request.get_json()
     RFID_UID = data.get('RFID_UID')

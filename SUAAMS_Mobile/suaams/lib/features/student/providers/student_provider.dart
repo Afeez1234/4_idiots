@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/student_service.dart';
 import '../models/student_dashboard_model.dart';
-import '../../auth/providers/auth_provider.dart';
+import '../../../core/network/auth_retry.dart';
 
 class StudentDashboardState {
   final bool isLoading;
@@ -49,28 +49,22 @@ class StudentDashboardNotifier extends Notifier<StudentDashboardState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final user = ref.read(authProvider).user;
-      final token = user?.token;
-
-      if (token == null) {
-        throw Exception('Authentication token missing');
-      }
-
       final studentService = ref.read(studentServiceProvider);
-      final dashboardData = await studentService.fetchDashboardData(token);
-      
+      // withAuthRetry replaces the old manual token-read + expired/
+      // unauthorized string-match + logout() dance -- it now silently
+      // attempts a token refresh on a 401 and retries once before giving up
+      // (see lib/core/network/auth_retry.dart), instead of immediately
+      // forcing a logout the moment the access token expires.
+      final dashboardData = await withAuthRetry(
+        ref,
+        (token) => studentService.fetchDashboardData(token),
+      );
+
       state = state.copyWith(isLoading: false, data: dashboardData);
     } catch (e) {
-      final errorMsg = e.toString().replaceAll('Exception: ', '');
-
-      // LINE BELOW: We check the string for "expired" or "unauthorized" from the Flask-JWT-Extended error response.
-      if (errorMsg.toLowerCase().contains('expired') || errorMsg.toLowerCase().contains('unauthorized')) {
-        ref.read(authProvider.notifier).logout();
-      }
-
       state = state.copyWith(
         isLoading: false,
-        errorMessage: errorMsg,
+        errorMessage: e.toString().replaceAll('Exception: ', ''),
       );
     }
   }

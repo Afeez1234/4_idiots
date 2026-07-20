@@ -107,19 +107,50 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
     notifyListeners();
 
     try {
-      final user = state.user;
-      if (user == null) {
+      if (state.user == null) {
         throw Exception('Session corrupted. Please log in again.');
       }
-      await _authService.changePassword(newPassword, user.token);
 
+      // FIX: this previously had NO expiry handling at all -- an expired
+      // access token here just surfaced a raw error, same gap
+      // today_schedule_provider.dart had before withAuthRetry
+      // (lib/core/network/auth_retry.dart) was introduced. Not using
+      // withAuthRetry itself here, though: it needs `Ref` to reach
+      // authProvider.notifier from outside, but changePassword already IS
+      // a method on that notifier -- so it calls refreshSession()/logout()
+      // directly on itself instead, which also avoids a circular import
+      // (auth_retry.dart already imports this file for `authProvider`).
+      Future<String> attempt() =>
+          _authService.changePassword(newPassword, state.user!.token);
+
+      // The backend rotates the session on a successful password change
+      // (see mobile_change_password in api/auth.py), so `attempt()`
+      // returns a NEW access token that must be used below -- not
+      // whatever was in state.user.token before this call.
+      String newAccessToken;
+      try {
+        newAccessToken = await attempt();
+      } catch (e) {
+        final msg = e.toString().toLowerCase();
+        final looksExpired = msg.contains('expired') || msg.contains('unauthorized');
+        if (!looksExpired) rethrow;
+
+        final refreshed = await refreshSession();
+        if (!refreshed) {
+          await logout();
+          rethrow;
+        }
+        newAccessToken = await attempt(); // retry once with the now-refreshed token
+      }
+
+      final currentUser = state.user!;
       state = state.copyWith(
         isLoading: false,
         user: AuthUser(
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          token: user.token,
+          id: currentUser.id,
+          username: currentUser.username,
+          role: currentUser.role,
+          token: newAccessToken,
           requiresPasswordChange: false,
         ),
       );
@@ -139,5 +170,35 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
     await _authService.logout();
     state = AuthState();
     notifyListeners();
+  }
+
+  // Attempts to exchange the stored refresh token for a new access token,
+  // updating in-memory state (and, via AuthService.refreshAccessToken,
+  // secure storage) on success. Called by withAuthRetry
+  // (lib/core/network/auth_retry.dart) whenever an authenticated API call
+  // gets a 401 -- this is the "silent refresh" half of that flow. Returns
+  // false (rather than throwing) on any failure -- expired/revoked refresh
+  // token, no user in state, network error -- so the caller can decide to
+  // force a logout without needing to unwrap an exception.
+  Future<bool> refreshSession() async {
+    final currentUser = state.user;
+    if (currentUser == null) return false;
+
+    try {
+      final newAccessToken = await _authService.refreshAccessToken();
+      state = state.copyWith(
+        user: AuthUser(
+          id: currentUser.id,
+          username: currentUser.username,
+          role: currentUser.role,
+          token: newAccessToken,
+          requiresPasswordChange: currentUser.requiresPasswordChange,
+        ),
+      );
+      notifyListeners();
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 }

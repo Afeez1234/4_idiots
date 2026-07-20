@@ -2,11 +2,11 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:suaams/features/student/data/nfc_service.dart';
-import 'package:suaams/features/auth/providers/auth_provider.dart';
 // studentServiceProvider already exists here (used for the dashboard
 // fetch) -- reusing it instead of creating a second StudentService
 // instance/provider just for the beacon mint call.
 import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 enum NfcCheckInStatus { idle, authenticating, broadcasting, success, error }
 
@@ -83,15 +83,18 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       // not the long-lived session token. Broadcasting the session token
       // directly would mean anything that captured/relayed the NFC signal
       // could replay it as a valid API credential indefinitely; the beacon
-      // token backend-mints with a ~5s expiry (see BEACON_TOKEN_TTL_SECONDS
-      // in api/student.py) so a relay only has that narrow window to work
-      // with, matching the 3-second anti-relay requirement in CLAUDE.md.
-      final sessionToken = ref.read(authProvider).user?.token;
-      if (sessionToken == null) throw Exception('Auth Session lost. Re-login.');
-
-      final beaconToken = await ref
-          .read(studentServiceProvider)
-          .mintCheckinBeacon(sessionToken);
+      // token backend-mints with a 3s expiry (BEACON_TOKEN_TTL_SECONDS in
+      // api/student.py), matching the strict 3-second anti-relay window
+      // CLAUDE.md documents as canonical.
+      //
+      // Routed through withAuthRetry so a session token that happens to
+      // expire right as the student taps "check in" gets silently
+      // refreshed and retried, instead of failing this whole attempt and
+      // forcing them to back out and try again manually.
+      final beaconToken = await withAuthRetry(
+        ref,
+        (token) => ref.read(studentServiceProvider).mintCheckinBeacon(token),
+      );
 
       state = NfcCheckInState(status: NfcCheckInStatus.broadcasting, secondsRemaining: 3);
       await ref.read(nfcServiceProvider).startHceEmulation(beaconToken);

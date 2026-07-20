@@ -1,6 +1,7 @@
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for
 import bcrypt
 from models import db, User  # Imported 'db' to allow committing password changes
+from extensions import limiter
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -17,7 +18,10 @@ def redirect_to_dashboard():
     return redirect(url_for('auth.login'))
 
 
+# methods=['POST'] scopes the limit to actual login submissions -- GET
+# (just rendering the form) isn't rate limited, only credential attempts.
 @auth_bp.route('/login', methods=['POST', 'GET'])
+@limiter.limit("5 per minute", methods=['POST'])
 def login():
     if session.get('user_id'):
         flash('You are already logged in. Redirecting to your dashboard.', 'info')

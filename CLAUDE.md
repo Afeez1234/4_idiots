@@ -85,19 +85,55 @@ around ESP32 + RFID attendance capture.
 Verify new code and flows against these anti-spoofing vectors:
 - **Buddy punching**: biometric (FaceID/fingerprint) or device PIN/passcode
   verification is mandatory in-app immediately before any NFC/BLE transaction.
+  The app only broadcasts a token after the OS returns a success boolean.
 - **Device binding**: accounts are locked to the primary phone's hardware ID
-  (`device_id`) at first login. Resetting requires an admin manually nulling
-  the value via the Admin Web Dashboard.
+  (`device_id`) at first login. Logging in from a different device is an
+  instant lockout. Resetting requires an admin manually nulling the value via
+  the Admin Web Dashboard (student presents physical school ID to request it).
 - **Biometric invalidation**: biometric keys bind to the OS's current
-  biometric set. Adding/deleting a fingerprint in system settings must
-  instantly invalidate the key, forcing a master passcode check.
+  biometric set (`invalidateByBiometricEnrollment: true` on Android,
+  `kSecAccessControlBiometryCurrentSet` on iOS). Adding/deleting a fingerprint
+  in system settings must instantly invalidate the key, forcing a master
+  passcode check — defends against the "add a classmate's print, let them
+  check in, then delete it" exploit.
 - **Relay attacks**: HCE and BLE proximity tokens carry short-lived,
-  cryptographically signed timestamps. ESP32 and backend reject any handshake
-  exceeding a 3-second window.
+  cryptographically signed timestamps. **3 seconds is the canonical, strict
+  server-side acceptance window** — ESP32 and backend reject any handshake
+  older than that, regardless of how long the phone kept broadcasting.
+  (`BEACON_TOKEN_TTL_SECONDS` in `api/student.py` must stay at 3 to match.)
+  The mobile app itself may keep the payload broadcasting a couple seconds
+  longer as a UX/hardware buffer before wiping its buffers — those late reads
+  are expected to fail server-side validation once the token has expired;
+  that's intentional fail-safe behavior, not a bug.
+- **Rooted/jailbroken devices**: on startup, run integrity-checking (e.g.
+  `freerasp`) and refuse to generate transaction payloads if the OS is
+  compromised — closes the runtime-injection bypass of the biometric check.
 
 ## Core differentiator (production vision)
 Smart ID via Android NFC HCE, with PN532 replacing MFRC522 as reader hardware.
 Treat this as first-class whenever touching attendance/ID-related code.
+
+Why phone NFC/BLE instead of door-mounted fingerprint scanners: a physical
+scanner takes ~2s/student, so a 200-student lecture hall needs ~6.7 minutes
+of queuing; an NFC/BLE handshake (<0.5s) drops that to under 2 minutes.
+Physical readers also cap out at a few hundred to ~1000 local fingerprint
+templates and don't sync reliably across door terminals at scale — using the
+phone's own secure enclave for biometric storage means the ESP32 reader only
+ever handles a 32-byte JWT, so the system scales to any enrollment size
+without hardware/template-sync limits.
+
+## Roadmap (planned, not yet built)
+- **Timetable automation**: soft version first — web dashboard compares
+  current time to the `Timetable` table and shows an "Open Terminal" banner
+  when a class is due. Later, a fully autonomous version (Flask-APScheduler
+  background worker) auto-starts/stops sessions at scheduled times and
+  computes absentees hands-free. ESP32 caches each day's timetable each
+  morning so it can log scans offline and push the backlog once
+  connectivity returns. (This is why `Session.planned_start`/`planned_end`
+  exist as fields distinct from actual check-in timestamps.)
+- **Enrollment at scale**: self-service course registration in the Flutter
+  app, plus an admin-side bulk CSV uploader (parses registration numbers,
+  links to courses, generates default authorization codes).
 
 ## File structure reference
 - `lib/core/constants/api_constants.dart` — endpoint constants

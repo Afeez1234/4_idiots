@@ -352,6 +352,7 @@ import io
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 import bcrypt
 from models import db, Faculty, Department, User, Student, Lecturer, Course, Enrollment
+from extensions import log_exception, logger
 
 # Define the Blueprint for the Admin portal
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -409,8 +410,8 @@ def dashboard():
             departments=departments,
             students=students
         )
-    except Exception as e:
-        print(f"Admin Dashboard Error: {e}")
+    except Exception:
+        log_exception("Admin Dashboard Error")
         flash("An error occurred while loading administrative dashboard metrics.", "error")
         return redirect(url_for('auth.login'))
 
@@ -431,10 +432,10 @@ def create_faculty():
         db.session.add(faculty)
         db.session.commit()
         flash(f"Faculty '{name}' added successfully.", 'success')
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         flash('Faculty name must be unique.', 'error')
-        print(f"Faculty Create Error: {e}")
+        log_exception("Faculty Create Error")
         
     return redirect(url_for('admin.dashboard'))
 
@@ -457,10 +458,10 @@ def create_department():
         db.session.add(department)
         db.session.commit()
         flash(f"Department '{name}' added successfully.", 'success')
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         flash('Failed to create department. Verify connections.', 'error')
-        print(f"Department Create Error: {e}")
+        log_exception("Department Create Error")
         
     return redirect(url_for('admin.dashboard'))
 
@@ -517,10 +518,10 @@ def create_student():
         db.session.commit()
         
         flash(f"Student profile created successfully for {full_name}.", 'success')
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         flash('Database error occurred. Matric Number or RFID UID might already exist.', 'error')
-        print(f"Student single creation error: {e}")
+        log_exception("Student Single Creation Error")
 
     return redirect(url_for('admin.dashboard'))
 
@@ -618,24 +619,32 @@ def bulk_enroll_students():
                 db.session.add(student)
                 success_count += 1
             except Exception as row_error:
+                # NOTE: skipped_records itself (which does include the raw
+                # exception text) is never flashed or rendered to the admin
+                # -- only the count is shown in the UI, the full list only
+                # ever reaches logs below. Keeping that content as-is since
+                # it's genuinely useful for an admin diagnosing a bad CSV
+                # row; only the print() -> logger swap changes here. Still
+                # need `as row_error` bound here (unlike the other sites in
+                # this file) since skipped_records.append below uses it.
                 db.session.rollback()
                 error_count += 1
-                skipped_records.append(f"{name} (System exception: {str(row_error)})")
-                print(f"Row enrollment error: {row_error}")
+                skipped_records.append(f"{name} (System exception: {row_error})")
+                log_exception("Row Enrollment Error")
 
         # Finalize successful records
         db.session.commit()
-        
+
         if success_count > 0:
             flash(f"Successfully enrolled {success_count} students in bulk. Default credentials set.", 'success')
         if error_count > 0:
             flash(f"Skipped {error_count} records due to validation issues. View logs.", 'warning')
-            print(f"Skipped rows: {skipped_records}")
+            logger.warning(f"Skipped rows: {skipped_records}")
 
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         flash('Failed to process bulk CSV enrollment. Check data formatting.', 'error')
-        print(f"Bulk CSV execution error: {e}")
+        log_exception("Bulk CSV Execution Error")
 
     return redirect(url_for('admin.dashboard'))
 
@@ -687,10 +696,10 @@ def create_lecturer():
         db.session.commit()
         
         flash(f"Lecturer account created successfully for {full_name}.", 'success')
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         flash('Failed to create lecturer account. Verify values.', 'error')
-        print(f"Lecturer Account Error: {e}")
+        log_exception("Lecturer Account Error")
 
     return redirect(url_for('admin.dashboard'))
 
@@ -721,10 +730,10 @@ def create_course():
         db.session.add(course)
         db.session.commit()
         flash(f"Course '{code}' assigned and registered successfully.", 'success')
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         flash('Course Code must be unique.', 'error')
-        print(f"Course Registration Error: {e}")
+        log_exception("Course Registration Error")
 
     return redirect(url_for('admin.dashboard'))
 
@@ -739,11 +748,22 @@ def reset_student_binding(student_id):
     try:
         student = Student.query.get_or_404(student_id)
         student.device_id = None
+        # SECURITY FIX: unbinding a device used to only clear device_id,
+        # which blocks a *future* login from the old device but does
+        # nothing to a refresh token that device already holds -- it could
+        # keep silently refreshing itself for up to JWT_REFRESH_TOKEN_EXPIRES
+        # (14 days) after being "unbound". Clearing current_refresh_jti here
+        # makes the old device's next /api/v1/auth/refresh call fail
+        # immediately (see mobile_refresh in api/auth.py), bounding its
+        # remaining access to whatever's left of its current short-lived
+        # access token (<=30 min).
+        if student.user:
+            student.user.current_refresh_jti = None
         db.session.commit()
         flash(f"Successfully cleared hardware device binding for {student.full_name}.", 'success')
-    except Exception as e:
+    except Exception:
         db.session.rollback()
         flash('Failed to unbind device. System database exception.', 'error')
-        print(f"Device unbind critical exception: {e}")
+        log_exception("Device Unbind Critical Exception")
 
     return redirect(url_for('admin.dashboard'))
