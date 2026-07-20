@@ -156,7 +156,12 @@ class AuthService {
     throw Exception(errorMsg);
   }
 
-  Future<void> logout() async {
+  // notifyServer: false skips the backend call entirely -- used when the
+  // caller already knows the refresh token is dead (e.g.
+  // AuthNotifier.checkExistingAuth() after a failed restore-time refresh),
+  // so there's no point spending a network round trip just to have it
+  // rejected. Defaults to true for every normal "sign out" call.
+  Future<void> logout({bool notifyServer = true}) async {
     // Best-effort: tell the backend to invalidate the refresh token
     // server-side (see mobile_logout in api/auth.py) before wiping local
     // storage. Wrapped so a network drop never blocks the user from
@@ -164,16 +169,18 @@ class AuthService {
     // server-side until it naturally expires (<=14 days) or gets revoked
     // some other way (e.g. device unbind), but the device itself no longer
     // has it once deleteAll() runs below.
-    try {
-      final refreshToken = await getRefreshToken();
-      if (refreshToken != null) {
-        await http.post(
-          Uri.parse(ApiConstants.logoutEndpoint),
-          headers: {'Authorization': 'Bearer $refreshToken'},
-        );
+    if (notifyServer) {
+      try {
+        final refreshToken = await getRefreshToken();
+        if (refreshToken != null) {
+          await http.post(
+            Uri.parse(ApiConstants.logoutEndpoint),
+            headers: {'Authorization': 'Bearer $refreshToken'},
+          );
+        }
+      } catch (e) {
+        debugPrint('Logout backend call failed (continuing with local logout): $e');
       }
-    } catch (e) {
-      debugPrint('Logout backend call failed (continuing with local logout): $e');
     }
 
     await _secureStorage.deleteAll();

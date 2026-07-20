@@ -5,7 +5,7 @@ import os
 import logging
 from flask_jwt_extended import JWTManager
 from models import db
-from extensions import limiter
+from extensions import limiter, csrf
 from blueprints.auth import auth_bp
 from blueprints.admin import admin_bp
 from blueprints.lecturer import lecturer_bp
@@ -78,6 +78,7 @@ migrate = Migrate(app,db)
 jwt = JWTManager(app)
 # See extensions.py for the in-memory-vs-Redis storage tradeoff note.
 limiter.init_app(app)
+csrf.init_app(app)
 
 # Register blueprints
 app.register_blueprint(auth_bp)
@@ -86,6 +87,17 @@ app.register_blueprint(lecturer_bp)
 app.register_blueprint(student_bp)
 app.register_blueprint(api_auth_bp)
 app.register_blueprint(api_student_bp)
+
+# CSRFProtect covers the whole app by default -- exempt the mobile JSON
+# API blueprints here rather than relying on per-route decorators, since
+# every route in these two blueprints is JWT-header-authenticated, not
+# cookie-authenticated (see extensions.py's csrf comment for why that
+# means they aren't CSRF-vulnerable in the first place). Without this,
+# every mobile login/dashboard/checkin request would start failing with a
+# CSRF error the moment CSRFProtect went live, since the Flutter app has
+# no csrf_token to send.
+csrf.exempt(api_auth_bp)
+csrf.exempt(api_student_bp)
 
 
 # ── Helper functions (still using raw SQL for now — will migrate blueprint by blueprint) ──
@@ -169,8 +181,16 @@ def get_active_sessions_by_course_id(course_id):
 # unauthenticated, ESP32-facing endpoint (no JWT to key by), so it's rate
 # limited per-IP. One reader posting a stream of card taps stays well under
 # 30/minute; this mainly caps abuse/DoS against an endpoint anyone can hit.
+#
+# @csrf.exempt: this route lives directly on `app`, not inside a blueprint,
+# so it isn't covered by the csrf.exempt(api_auth_bp)/(api_student_bp)
+# calls above -- needs its own exemption. The ESP32 firmware posts here
+# with no cookies and no JWT at all; without this, CSRFProtect would
+# reject every attendance scan the moment it went live, breaking the
+# physical hardware integration.
 @app.route('/attendance', methods=['POST'])
 @limiter.limit("30 per minute")
+@csrf.exempt
 def attendance():
     data = request.get_json()
     RFID_UID = data.get('RFID_UID')

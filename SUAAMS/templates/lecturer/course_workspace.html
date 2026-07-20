@@ -126,6 +126,7 @@
               <span class="pill-dot"></span> Session Active
             </div>
             <form method="POST" action="{{ url_for('lecturer.end_session_r', course_id=course[0]) }}">
+              {% include '_csrf_field.html' %}
               <button type="submit" class="btn-end-session">End Session</button>
             </form>
           {% else %}
@@ -133,6 +134,7 @@
               <span class="pill-dot"></span> No Active Session
             </div>
             <form method="POST" action="{{ url_for('lecturer.start_session', course_id=course[0]) }}">
+              {% include '_csrf_field.html' %}
               <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
                 <div>
                   <label style="font-size:0.75rem; color:var(--text-muted);">Planned Start (optional)</label>

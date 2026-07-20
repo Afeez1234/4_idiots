@@ -251,6 +251,7 @@
                                 <p class="text-[11px] text-gray-500 mb-6">Process institutional student rosters from Excel/Google Sheets exported to .csv. Auto-generates encrypted password flags.</p>
 
                                 <form action="{{ url_for('admin.bulk_enroll_students') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                                    {% include '_csrf_field.html' %}
                                     <div class="flex items-center justify-center w-full">
                                         <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-terminal-border rounded-xl cursor-pointer hover:border-terminal-accent bg-terminal-inner transition-colors duration-200">
                                             <div class="flex flex-col items-center justify-center pt-5 pb-6">
@@ -274,6 +275,7 @@
                                 </h3>
 
                                 <form action="{{ url_for('admin.create_student') }}" method="POST" class="space-y-4">
+                                    {% include '_csrf_field.html' %}
                                     <div>
                                         <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Full Name</label>
                                         <input type="text" name="full_name" required placeholder="e.g. John Doe" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
@@ -324,6 +326,7 @@
                             </h3>
 
                             <form action="{{ url_for('admin.create_lecturer') }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                {% include '_csrf_field.html' %}
                                 <div class="md:col-span-1">
                                     <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Full Name</label>
                                     <input type="text" name="full_name" required placeholder="e.g. Dr. Jane Smith" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
@@ -360,6 +363,7 @@
                                 </h3>
 
                                 <form action="{{ url_for('admin.create_faculty') }}" method="POST" class="space-y-4">
+                                    {% include '_csrf_field.html' %}
                                     <div>
                                         <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Faculty Title</label>
                                         <input type="text" name="name" required placeholder="e.g. Faculty of Engineering" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
@@ -378,6 +382,7 @@
                                 </h3>
 
                                 <form action="{{ url_for('admin.create_department') }}" method="POST" class="space-y-4">
+                                    {% include '_csrf_field.html' %}
                                     <div>
                                         <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Department Name</label>
                                         <input type="text" name="name" required placeholder="e.g. Computer Engineering" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
@@ -405,6 +410,7 @@
                             </h3>
 
                             <form action="{{ url_for('admin.create_course') }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                {% include '_csrf_field.html' %}
                                 <div class="md:col-span-1">
                                     <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Course Title</label>
                                     <input type="text" name="title" required placeholder="e.g. Microprocessors" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
@@ -481,6 +487,7 @@
                                                 <td class="py-3.5 text-right">
                                                     {% if student.device_id %}
                                                         <form action="{{ url_for('admin.reset_student_binding', student_id=student.id) }}" method="POST" onsubmit="return confirm('Execute absolute hardware reset? The student must verify identity to re-bind.');">
+                                                            {% include '_csrf_field.html' %}
                                                             <button type="submit" class="bg-terminal-alert/15 border border-terminal-alert/30 text-terminal-alert hover:bg-terminal-alert hover:text-white transition-all duration-150 text-[10px] font-bold px-3 py-1 rounded-md uppercase tracking-wider">
                                                                 Reset Handset
                                                             </button>
