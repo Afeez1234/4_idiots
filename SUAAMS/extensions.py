@@ -7,6 +7,7 @@ from flask import jsonify
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from flask_wtf import CSRFProtect
 
 # Single named logger for the whole backend. Using Python's logging module
 # instead of bare print() gives us: (1) full stack traces via
@@ -27,6 +28,17 @@ logger = logging.getLogger("suaams")
 # add-on or Upstash) here -- none of the @limiter.limit(...) call sites
 # elsewhere in the codebase need to change.
 limiter = Limiter(key_func=get_remote_address)
+
+# CSRF protection for the session-cookie-authenticated web dashboards
+# (blueprints/auth.py, admin.py, lecturer.py). Applies to the whole app by
+# default once initialized, which is why the mobile API blueprints and the
+# bare ESP32-facing /attendance route in app.py are explicitly exempted --
+# both are authenticated via an Authorization header (JWT) or not
+# authenticated via cookies at all, never via a browser-managed session
+# cookie, so they aren't CSRF-vulnerable the way the web forms are, and a
+# non-browser client (Flutter's http package, the ESP32's HTTPClient) has
+# no CSRF token to send in the first place.
+csrf = CSRFProtect()
 
 
 def jwt_identity_or_ip():

@@ -44,7 +44,8 @@
 
         <!-- Login Form -->
         <form method="POST" class="space-y-6">
-            
+            {% include '_csrf_field.html' %}
+
             <!-- Username Input -->
             <div>
                 <label for="username" class="block text-[10px] font-bold tracking-[0.15em] text-gray-500 mb-2 uppercase">Username / ID</label>
