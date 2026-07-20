@@ -37,7 +37,17 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.Enum('admin', 'lecturer', 'student'), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    requires_password_change = db.Column(db.Boolean, default=True) 
+    requires_password_change = db.Column(db.Boolean, default=True)
+
+    # Tracks the JTI (JWT ID) of the current valid refresh token for this
+    # user. Enables rotation (a refresh call must present the JTI stored
+    # here, and immediately overwrites it with the new one) and revocation
+    # (nulling this -- e.g. from reset_student_binding on device unbind --
+    # makes the next refresh attempt fail, without needing a full token
+    # blocklist). Deliberately a single value, not a list/table: mirrors
+    # Student.device_id's existing one-device-at-a-time design rather than
+    # supporting multiple concurrent sessions per account.
+    current_refresh_jti = db.Column(db.String(64), nullable=True)
 
     # Clean cascading links to profiles
     student = db.relationship('Student', backref='user', uselist=False, cascade="all, delete-orphan")

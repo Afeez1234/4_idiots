@@ -13,6 +13,17 @@ abstract final class ApiConstants {
   static const String notificationsEndpoint = '$baseUrl/student/notifications';
   static const String changePasswordEndpoint = '$baseUrl/auth/change-password';
 
+  // Exchanges a refresh token (sent as the Authorization bearer) for a new
+  // access+refresh pair -- see mobile_refresh in api/auth.py. Rotates on
+  // every call: the old refresh token stops working the moment a new one
+  // is issued.
+  static const String refreshEndpoint = '$baseUrl/auth/refresh';
+
+  // Invalidates the current refresh token server-side (also sent as the
+  // Authorization bearer, not the access token -- see mobile_logout in
+  // api/auth.py for why).
+  static const String logoutEndpoint = '$baseUrl/auth/logout';
+
   // Mints the short-lived HCE "beacon" token (see api/student.py on the
   // backend). This is a different endpoint from attendanceEndpoint above --
   // the phone calls this one over its normal authenticated connection to
@@ -20,4 +31,11 @@ abstract final class ApiConstants {
   // posts that beacon token to POST /student/checkin (no Dart client for
   // that second endpoint since only hardware calls it).
   static const String checkinBeaconEndpoint = '$baseUrl/student/checkin/beacon';
+
+  // Backs the "TODAY'S PROTOCOL" list on the student dashboard home tab.
+  // Deliberately separate from studentDashboardEndpoint above -- dashboard
+  // stats barely change, but a course's status here changes live as a
+  // lecturer starts/ends a session and the student checks in, so it has
+  // its own refresh cadence (see today_schedule_provider.dart).
+  static const String todayScheduleEndpoint = '$baseUrl/student/schedule/today';
 }

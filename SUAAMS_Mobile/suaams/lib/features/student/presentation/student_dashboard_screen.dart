@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/student_provider.dart';
+import '../providers/today_schedule_provider.dart';
 import '../../../shared/utils/grid_overlay_painter.dart';
 import '../models/student_dashboard_model.dart';
+import '../models/today_protocol_entry.dart';
 import 'views/profile_view_screen.dart';
 import 'views/courses_view.dart';
 import 'views/records_view.dart';
@@ -110,12 +112,7 @@ class StudentDashboardScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 32),
 
-                      _NextSessionCard(
-                        course: data.courses.isNotEmpty
-                            ? data.courses.first
-                            : null,
-                        colorScheme: colorScheme,
-                      ),
+                      _NextSessionCard(colorScheme: colorScheme),
                       const SizedBox(height: 20),
 
                       _StatsGrid(stats: data.stats, colorScheme: colorScheme),
@@ -132,10 +129,7 @@ class StudentDashboardScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 16),
 
-                      _ProtocolList(
-                        courses: data.courses,
-                        colorScheme: colorScheme,
-                      ),
+                      _ProtocolList(colorScheme: colorScheme),
                       const SizedBox(height: 32), // Bottom padding
                     ],
                   ),
@@ -361,14 +355,46 @@ class _DashboardHeader extends ConsumerWidget {
   }
 }
 
-class _NextSessionCard extends StatelessWidget {
-  final CourseBreakdown? course;
+// FEATURE FIX: was a StatelessWidget taking an arbitrary CourseBreakdown
+// (data.courses.first -- not actually "next", just whichever course
+// happened to be first in the enrollment list) and always showing the
+// hardcoded string 'NEXT SESSION IN 15 MIN' regardless of reality. Now a
+// ConsumerWidget reading todayScheduleProvider (same data _ProtocolList
+// uses) and showing the earliest still-PENDING entry -- entries already
+// arrive ordered by start_time ascending from the backend query in
+// api/student.py, so the first PENDING one found IS the next session.
+class _NextSessionCard extends ConsumerWidget {
   final ColorScheme colorScheme;
 
-  const _NextSessionCard({this.course, required this.colorScheme});
+  const _NextSessionCard({required this.colorScheme});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheduleState = ref.watch(todayScheduleProvider);
+
+    TodayProtocolEntry? nextSession;
+    for (final entry in scheduleState.entries) {
+      if (entry.status == 'PENDING') {
+        nextSession = entry;
+        break;
+      }
+    }
+
+    final subtitle = scheduleState.isLoading
+        ? 'LOADING TODAY\'S SCHEDULE...'
+        : nextSession != null
+            ? 'NEXT SESSION TODAY'
+            : 'NO UPCOMING SESSIONS';
+
+    final title = nextSession?.courseName ?? 'No Upcoming Sessions';
+
+    final hasTimeRange =
+        nextSession?.startTime != null && nextSession?.endTime != null;
+    final timeRange = hasTimeRange
+        ? '${nextSession!.startTime} - ${nextSession.endTime}'
+            '${nextSession.room != null ? ' · ${nextSession.room}' : ''}'
+        : null;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -380,9 +406,9 @@ class _NextSessionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'NEXT SESSION IN 15 MIN',
-            style: TextStyle(
+          Text(
+            subtitle,
+            style: const TextStyle(
               fontSize: 10,
               letterSpacing: 1.5,
               color: Colors.grey,
@@ -391,9 +417,20 @@ class _NextSessionCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            course?.name ?? 'No Upcoming Sessions',
+            title,
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
+          if (timeRange != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              timeRange,
+              style: TextStyle(
+                fontSize: 11,
+                fontFamily: 'JetBrains Mono',
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -508,15 +545,40 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-class _ProtocolList extends StatelessWidget {
-  final List<CourseBreakdown> courses;
+// PERF/FEATURE: now a ConsumerWidget backed by todayScheduleProvider instead
+// of taking a `courses` list and faking status/time per-index. See
+// api/student.py's get_today_schedule for how PENDING/PRESENT/ABSENT are
+// actually derived from Timetable + Session + Attendance.
+class _ProtocolList extends ConsumerWidget {
   final ColorScheme colorScheme;
 
-  const _ProtocolList({required this.courses, required this.colorScheme});
+  const _ProtocolList({required this.colorScheme});
 
   @override
-  Widget build(BuildContext context) {
-    if (courses.isEmpty) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheduleState = ref.watch(todayScheduleProvider);
+
+    if (scheduleState.isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (scheduleState.errorMessage != null) {
+      return Text(
+        'Could not load today\'s schedule.',
+        style: TextStyle(color: colorScheme.error, fontSize: 12),
+      );
+    }
+
+    if (scheduleState.entries.isEmpty) {
       return const Text(
         'No protocols scheduled for today.',
         style: TextStyle(color: Colors.grey),
@@ -524,18 +586,15 @@ class _ProtocolList extends StatelessWidget {
     }
 
     return Column(
-      children: courses.asMap().entries.map((entry) {
-        final index = entry.key;
-        final course = entry.value;
-        // Mocking dynamic status for the UI preview
-        final status = index == 0 ? 'PENDING' : 'PRESENT';
-        // TODO: Replace with real session times from today's schedule API
-        final time = index == 0 ? '10:00 AM - 12:00 PM' : '08:00 AM - 09:30 AM';
+      children: scheduleState.entries.map((entry) {
+        final timeRange = (entry.startTime != null && entry.endTime != null)
+            ? '${entry.startTime} - ${entry.endTime}'
+            : '--:-- - --:--';
 
         return _ProtocolCard(
-          title: course.name,
-          time: time,
-          status: status,
+          title: entry.courseName,
+          time: timeRange,
+          status: entry.status,
           colorScheme: colorScheme,
         );
       }).toList(),
@@ -559,16 +618,27 @@ class _ProtocolCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPresent = status == 'PRESENT';
+    final isAbsent = status == 'ABSENT';
 
-    final statusColor = isPresent
-        ? const Color(0xFF10B981)
-        : colorScheme.onSurface.withValues(alpha: 0.5);
-    final bgColor = isPresent
-        ? const Color(0xFF10B981).withValues(alpha: 0.1)
-        : colorScheme.surface.withValues(alpha: 0.45);
-    final borderColor = isPresent
-        ? const Color(0xFF10B981).withValues(alpha: 0.3)
-        : colorScheme.outline.withValues(alpha: 0.1);
+    // PRESENT: green (unchanged). ABSENT: red, matching the same color used
+    // for absent entries in records_view.dart. PENDING (or anything else):
+    // the original neutral grey styling.
+    final Color statusColor;
+    final Color bgColor;
+    final Color borderColor;
+    if (isPresent) {
+      statusColor = const Color(0xFF10B981);
+      bgColor = const Color(0xFF10B981).withValues(alpha: 0.1);
+      borderColor = const Color(0xFF10B981).withValues(alpha: 0.3);
+    } else if (isAbsent) {
+      statusColor = const Color(0xFFEF4444);
+      bgColor = const Color(0xFFEF4444).withValues(alpha: 0.1);
+      borderColor = const Color(0xFFEF4444).withValues(alpha: 0.3);
+    } else {
+      statusColor = colorScheme.onSurface.withValues(alpha: 0.5);
+      bgColor = colorScheme.surface.withValues(alpha: 0.45);
+      borderColor = colorScheme.outline.withValues(alpha: 0.1);
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -611,7 +681,9 @@ class _ProtocolCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (isPresent) ...[
+                // Dot indicator for resolved states (PRESENT/ABSENT); not
+                // shown for PENDING, matching the original present-only dot.
+                if (isPresent || isAbsent) ...[
                   Container(
                     width: 6,
                     height: 6,

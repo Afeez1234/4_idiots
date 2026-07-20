@@ -1,6 +1,7 @@
 from flask import Blueprint, flash, render_template, redirect, session, url_for
 from utils import login_required
 from models import db, Student, Course, Session as SessionModel, Attendance
+from extensions import log_exception
 
 student_bp = Blueprint('student', __name__)
 
@@ -94,8 +95,11 @@ def dashboard():
             'recent_attendance': recent_attendance,
         }
 
-    except Exception as e:
-        print(f"Student Dashboard Error: {e}")
+    except Exception:
+        # LOGGING FIX: was print(f"...: {e}") -- only ever captured the
+        # exception's message, no stack trace. log_exception uses
+        # logger.exception() which logs the full traceback automatically.
+        log_exception("Student Dashboard Error")
         flash('An error occurred loading the dashboard.', 'error')
         return redirect(url_for('auth.login'))
 

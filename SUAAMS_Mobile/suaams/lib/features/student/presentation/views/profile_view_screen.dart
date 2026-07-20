@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../../core/providers/theme_provider.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../providers/student_provider.dart';
@@ -107,7 +108,15 @@ class ProfileView extends ConsumerWidget {
             title: 'Account Security',
             subtitle: 'Update authorization code',
             colorScheme: colorScheme,
-            onTap: () {}, // Mock for now
+            // FEATURE FIX: was `onTap: () {} // Mock for now`. Reuses the
+            // existing ChangePasswordScreen (already fully working -- it's
+            // also used for the forced first-login flow at app_router.dart).
+            // Uses push (not go) deliberately: go replaces the whole nav
+            // stack, which is right for the forced-login case but would
+            // leave a voluntary visit here with no way back if the student
+            // changes their mind. push keeps this screen underneath, so the
+            // OS back gesture/button returns to Profile.
+            onTap: () => context.push('/change-password'),
           ),
           const SizedBox(height: 12),
           _buildPreferenceTile(

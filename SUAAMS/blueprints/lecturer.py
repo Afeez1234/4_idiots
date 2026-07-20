@@ -2,6 +2,7 @@ from flask import Blueprint, flash, render_template, redirect, request, session,
 from datetime import date, datetime, timezone
 from utils import login_required
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment
+from extensions import log_exception
 
 lecturer_bp = Blueprint('lecturer', __name__)
 
@@ -33,8 +34,8 @@ def dashboard():
             db.func.date(Attendance.time_in) == today
         ).count()
         
-    except Exception as e:
-        print(f"Dashboard Error: {e}")
+    except Exception:
+        log_exception("Lecturer Dashboard Error")
         flash('An error occurred while fetching lecturer data.', 'error')
         return redirect(url_for('auth.login'))
 
@@ -113,8 +114,8 @@ def course_workspace(course_id):
             'present_in_current_session': len(attendance_records),
         }
         
-    except Exception as e:
-        print(f"Workspace Error: {e}")
+    except Exception:
+        log_exception("Workspace Error")
         flash('An error occurred loading the workspace.', 'error')
         return redirect(url_for('lecturer.dashboard'))
 
@@ -152,9 +153,9 @@ def start_session(course_id):
         db.session.commit()
         flash('Session started successfully.', 'success')
         
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        print(f"Start Session Error: {e}")
+        log_exception("Start Session Error")
         flash('Failed to start session.', 'error')
 
     return redirect(url_for('lecturer.course_workspace', course_id=course_id))
@@ -174,9 +175,9 @@ def end_session_r(course_id):
         
         flash('Session ended successfully.', 'success')
         
-    except Exception as e:
+    except Exception:
         db.session.rollback()
-        print(f"End Session Error: {e}")
+        log_exception("End Session Error")
         flash('Failed to end session.', 'error')
 
     return redirect(url_for('lecturer.course_workspace', course_id=course_id))
@@ -211,8 +212,8 @@ def session_detail(course_id, session_id):
          
         enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
 
-    except Exception as e:
-        print(f"Session Detail Error: {e}")
+    except Exception:
+        log_exception("Session Detail Error")
         flash('An error occurred loading session details.', 'error')
         return redirect(url_for('lecturer.course_workspace', course_id=course_id))
 
