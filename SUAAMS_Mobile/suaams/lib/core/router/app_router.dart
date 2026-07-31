@@ -8,6 +8,8 @@ import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/student/presentation/student_dashboard_screen.dart';
 import '../../features/auth/presentation/change_password_screen.dart';
+import '../../features/lecturer/presentation/lecturer_dashboard_screen.dart';
+import '../../features/lecturer/presentation/views/course_workspace_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // 1. Create a simple ValueNotifier bridge for GoRouter
@@ -59,8 +61,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/lecturer',
-        builder: (context, state) =>
-            const Scaffold(body: Center(child: Text('Lecturer Dashboard'))),
+        builder: (context, state) => const LecturerDashboardScreen(),
+      ),
+      GoRoute(
+        path: '/lecturer/course/:courseId',
+        builder: (context, state) => CourseWorkspaceScreen(
+          courseId: int.parse(state.pathParameters['courseId']!),
+        ),
       ),
       GoRoute(
         path: '/student',

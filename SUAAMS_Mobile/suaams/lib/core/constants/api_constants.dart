@@ -38,4 +38,19 @@ abstract final class ApiConstants {
   // lecturer starts/ends a session and the student checks in, so it has
   // its own refresh cadence (see today_schedule_provider.dart).
   static const String todayScheduleEndpoint = '$baseUrl/student/schedule/today';
+
+  // Lecturer mobile endpoints (see api/lecturer.py). courseWorkspaceEndpoint/
+  // startSessionEndpoint/endSessionEndpoint take the course id as a path
+  // segment, so they're functions rather than plain consts like the ones
+  // above.
+  static const String lecturerDashboardEndpoint = '$baseUrl/lecturer/dashboard';
+
+  static String courseWorkspaceEndpoint(int courseId) =>
+      '$baseUrl/lecturer/course/$courseId';
+
+  static String startSessionEndpoint(int courseId) =>
+      '$baseUrl/lecturer/course/$courseId/start-session';
+
+  static String endSessionEndpoint(int courseId) =>
+      '$baseUrl/lecturer/course/$courseId/end-session';
 }
