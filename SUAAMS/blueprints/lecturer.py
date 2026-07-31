@@ -1,7 +1,7 @@
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for
 from datetime import date, datetime, timezone
 from utils import login_required
-from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment
+from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department
 from extensions import log_exception
 
 lecturer_bp = Blueprint('lecturer', __name__)
@@ -68,11 +68,21 @@ def course_workspace(course_id):
         
         attendance_records = []
         if active_session:
-            # Query exactly matching the old raw SQL output to prevent breaking templates
+            # BUG FIX: Student.department is a relationship, not a column --
+            # selecting it directly here doesn't error, it silently returns
+            # True (a meaningless boolean) for every row instead of the
+            # actual department, since it can't resolve as a scalar column
+            # without an explicit join. Confirmed by testing this exact
+            # query shape against a real DB. Joining Department explicitly
+            # and selecting Department.name instead -- same fix already
+            # applied to api/lecturer.py's equivalent queries. Column order
+            # unchanged, so template indices (record[0], [3], [4], [5])
+            # relying on this tuple's position still line up correctly.
             attendance_records = db.session.query(
-                Student.full_name, Student.level, Student.department, 
+                Student.full_name, Student.level, Department.name,
                 Student.matric_number, Attendance.status, Attendance.time_in
             ).join(Attendance, Attendance.student_id == Student.id)\
+             .join(Department, Student.department_id == Department.id)\
              .filter(Attendance.session_id == active_session.id).all()
             
         enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
@@ -138,9 +148,21 @@ def start_session(course_id):
             flash('A session is already active for this course.', 'error')
             return redirect(url_for('lecturer.course_workspace', course_id=course_id))
         
-        planned_start = request.form.get('planned_start') or None
-        planned_end = request.form.get('planned_end') or None
-        
+        # BUG FIX: request.form.get() returns "HH:MM" strings (from the
+        # <input type="time"> in course_workspace.html), but
+        # Session.planned_start/planned_end are db.Time columns expecting
+        # actual datetime.time objects. Passing the raw string through (as
+        # this used to) works on some DB drivers but not others -- confirmed
+        # to raise a hard TypeError against SQLite; same bug existed in
+        # api/lecturer.py's version of this endpoint, already fixed there.
+        # A parse failure here falls through to the except block below
+        # (flash + log), which is fine since <input type="time"> is
+        # browser-validated -- only a forged request would hit it.
+        planned_start_raw = request.form.get('planned_start') or None
+        planned_end_raw = request.form.get('planned_end') or None
+        planned_start = datetime.strptime(planned_start_raw, '%H:%M').time() if planned_start_raw else None
+        planned_end = datetime.strptime(planned_end_raw, '%H:%M').time() if planned_end_raw else None
+
         new_session = SessionModel(
             course_id=course_id,
             session_date=datetime.now(timezone.utc).date(),

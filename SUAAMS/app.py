@@ -12,6 +12,7 @@ from blueprints.lecturer import lecturer_bp
 from blueprints.student import student_bp
 from api.auth import api_auth_bp
 from api.student import api_student_bp
+from api.lecturer import api_lecturer_bp
 from api.hardware import api_hardware_bp
 
 # Gives the "suaams" logger (see extensions.py's log_exception/
@@ -88,19 +89,21 @@ app.register_blueprint(lecturer_bp)
 app.register_blueprint(student_bp)
 app.register_blueprint(api_auth_bp)
 app.register_blueprint(api_student_bp)
+app.register_blueprint(api_lecturer_bp)
 app.register_blueprint(api_hardware_bp)
 
 # CSRFProtect covers the whole app by default -- exempt the JSON API
 # blueprints here rather than relying on per-route decorators, since every
-# route in these three blueprints is either JWT-header-authenticated (the
-# two mobile ones) or has no session/auth at all (api_hardware_bp, hit by
-# the ESP32 firmware) -- never cookie-authenticated (see extensions.py's
-# csrf comment for why that means they aren't CSRF-vulnerable in the first
-# place). Without this, every mobile request would fail with a CSRF error
-# the moment CSRFProtect went live, since neither the Flutter app nor the
+# route in these blueprints is either JWT-header-authenticated (the mobile
+# ones) or has no session/auth at all (api_hardware_bp, hit by the ESP32
+# firmware) -- never cookie-authenticated (see extensions.py's csrf comment
+# for why that means they aren't CSRF-vulnerable in the first place).
+# Without this, every mobile request would fail with a CSRF error the
+# moment CSRFProtect went live, since neither the Flutter app nor the
 # ESP32 firmware has a csrf_token to send.
 csrf.exempt(api_auth_bp)
 csrf.exempt(api_student_bp)
+csrf.exempt(api_lecturer_bp)
 csrf.exempt(api_hardware_bp)
 
 

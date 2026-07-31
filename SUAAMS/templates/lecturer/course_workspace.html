@@ -7,7 +7,7 @@
   {% if active_session %}
     <meta http-equiv="refresh" content="5">
   {% endif %}
-  <title>SUAAMS — {{ course[1] }}</title>
+  <title>SUAAMS — {{ course.title }}</title>
   <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet" />
   <link href="{{ url_for('static', filename='css/course_workspace.css') }}" rel="stylesheet" />
 </head>
@@ -25,8 +25,8 @@
 
     <div class="course-info">
       <div class="course-info-label">Course</div>
-      <div class="course-info-title">{{ course[1] }}</div>
-      <div class="course-info-code">{{ course[2] }}</div>
+      <div class="course-info-title">{{ course.title }}</div>
+      <div class="course-info-code">{{ course.code }}</div>
     </div>
 
     <div class="sidebar-section">Workspace</div>
@@ -64,7 +64,7 @@
 
     <div class="topbar">
       <div>
-        <div class="topbar-title">{{ course[1] }}</div>
+        <div class="topbar-title">{{ course.title }}</div>
         <div class="topbar-sub">Course Workspace</div>
       </div>
       <div class="avatar">{{ session['username'][0]|upper }}</div>
@@ -125,7 +125,7 @@
             <div class="session-status-pill pill-active">
               <span class="pill-dot"></span> Session Active
             </div>
-            <form method="POST" action="{{ url_for('lecturer.end_session_r', course_id=course[0]) }}">
+            <form method="POST" action="{{ url_for('lecturer.end_session_r', course_id=course.id) }}">
               {% include '_csrf_field.html' %}
               <button type="submit" class="btn-end-session">End Session</button>
             </form>
@@ -133,7 +133,7 @@
             <div class="session-status-pill pill-idle">
               <span class="pill-dot"></span> No Active Session
             </div>
-            <form method="POST" action="{{ url_for('lecturer.start_session', course_id=course[0]) }}">
+            <form method="POST" action="{{ url_for('lecturer.start_session', course_id=course.id) }}">
               {% include '_csrf_field.html' %}
               <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
                 <div>
@@ -211,7 +211,7 @@
         <tbody>
           {% if history_sessions is defined and history_sessions %}
             {% for s in history_sessions %}
-            <tr style="cursor:pointer" onclick="window.location='{{ url_for('lecturer.session_detail', course_id=course[0], session_id=s.session_id) }}'">
+            <tr style="cursor:pointer" onclick="window.location='{{ url_for('lecturer.session_detail', course_id=course.id, session_id=s.session_id) }}'">
               <td>{{ s.date }}</td>
               <td>{{ s.label }}</td>
               <td>{{ s.present_count }}</td>
