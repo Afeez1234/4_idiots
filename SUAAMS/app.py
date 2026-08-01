@@ -25,15 +25,26 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
 )
+DB_CONFIG = {
+    'host': os.environ.get('DB_HOST', 'bikxczmqtd1kynudsfrp-mysql.services.clever-cloud.com'),
+    'user': os.environ.get('DB_USER', 'uo5woagbfvcducyy'),
+    'password': os.environ.get('DB_PASSWORD', 'edVtI3biNQmhQrfJwRe8'),
+    'database': os.environ.get('DB_NAME', 'bikxczmqtd1kynudsfrp'),
+    'port': int(os.environ.get('DB_PORT', 3306))
+}
 
-SECRET_KEY = os.environ.get('SECRET_KEY')
-JWT_SECRET = os.environ.get('JWT_SECRET_KEY')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'suaams_secret_key_2025')
+
+
+
+SECRET_KEY = os.environ.get('SECRET_KEY', 'suaams_secret_key_2025')
+JWT_SECRET = os.environ.get('JWT_SECRET_KEY', 'suaams_jwt_secret_key_2025')
 
 # Database connection string for SQLAlchemy
-DB_HOST = os.environ.get('DB_HOST')
-DB_USER = os.environ.get('DB_USER')
-DB_PASSWORD = os.environ.get('DB_PASSWORD')
-DB_NAME = os.environ.get('DB_NAME')
+DB_HOST = os.environ.get('DB_HOST', 'bikxczmqtd1kynudsfrp-mysql.services.clever-cloud.com')
+DB_USER = os.environ.get('DB_USER', 'uo5woagbfvcducyy')
+DB_PASSWORD = os.environ.get('DB_PASSWORD', 'edVtI3biNQmhQrfJwRe8')
+DB_NAME = os.environ.get('DB_NAME', 'bikxczmqtd1kynudsfrp')
 DB_PORT = os.environ.get('DB_PORT', '3306')
 
 _required = {

@@ -7,7 +7,8 @@
   {% if active_session %}
     <meta http-equiv="refresh" content="5">
   {% endif %}
-  <title>SUAAMS — {{ course.title }}</title>
+  <!-- SCHEMA UPDATE: course.title/course.code -> course.course_title/course.course_code -->
+  <title>SUAAMS — {{ course.course_title }}</title>
   <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet" />
   <link href="{{ url_for('static', filename='css/course_workspace.css') }}" rel="stylesheet" />
 </head>
@@ -25,8 +26,8 @@
 
     <div class="course-info">
       <div class="course-info-label">Course</div>
-      <div class="course-info-title">{{ course.title }}</div>
-      <div class="course-info-code">{{ course.code }}</div>
+      <div class="course-info-title">{{ course.course_title }}</div>
+      <div class="course-info-code">{{ course.course_code }}</div>
     </div>
 
     <div class="sidebar-section">Workspace</div>
@@ -64,7 +65,7 @@
 
     <div class="topbar">
       <div>
-        <div class="topbar-title">{{ course.title }}</div>
+        <div class="topbar-title">{{ course.course_title }}</div>
         <div class="topbar-sub">Course Workspace</div>
       </div>
       <div class="avatar">{{ session['username'][0]|upper }}</div>
