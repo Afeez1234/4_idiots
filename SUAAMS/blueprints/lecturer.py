@@ -226,10 +226,21 @@ def session_detail(course_id, session_id):
             flash('Session not found.')
             return redirect(url_for('lecturer.course_workspace', course_id=course_id))
 
+        # SCHEMA FIX: Student.department is a relationship (to the
+        # Department object), not a plain column -- selecting it directly
+        # in a tuple query silently produced a cartesian product against
+        # the departments table (a boolean per department row, one output
+        # row per department, instead of one row per student). Join
+        # Department explicitly and select Department.name, matching the
+        # pattern already used in api/student.py, blueprints/student.py,
+        # api/lecturer.py, and api/hardware.py. Column position kept the
+        # same (index 2) since session_detail.html indexes this tuple by
+        # position (record[2]).
         attendance_records = db.session.query(
-            Student.full_name, Student.level, Student.department, 
+            Student.full_name, Student.level, Department.name,
             Student.matric_number, Attendance.status, Attendance.time_in
         ).join(Attendance, Attendance.student_id == Student.id)\
+         .join(Department, Student.department_id == Department.id)\
          .filter(Attendance.session_id == session_id).all()
          
         enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
