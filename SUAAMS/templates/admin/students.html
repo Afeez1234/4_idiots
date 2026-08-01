@@ -10,49 +10,75 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-        <!-- Add Student -->
-        <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Student</h2>
+        <!-- Add Student + Bulk Enroll share one sticky column -- wrapping
+             them together (rather than each being its own top-level grid
+             child) keeps Directory's lg:col-span-2 lining up against a
+             single column 1, and avoids two independently-sticky elements
+             both pinning to top-0 and overlapping each other. -->
+        <div class="space-y-6 lg:sticky lg:top-0">
+            <div class="bg-card border border-border rounded-2xl p-6">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Student</h2>
 
-            <form action="{{ url_for('admin.students_page') }}" method="POST" class="space-y-4">
-                {% include '_csrf_field.html' %}
+                <form action="{{ url_for('admin.students_page') }}" method="POST" class="space-y-4">
+                    {% include '_csrf_field.html' %}
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Full Name</label>
-                    <input type="text" name="full_name" required placeholder="e.g. Aisha Bello" class="form-input">
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Full Name</label>
+                        <input type="text" name="full_name" required placeholder="e.g. Aisha Bello" class="form-input">
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Matric Number</label>
-                    <input type="text" name="matric_number" required placeholder="e.g. CPE/20/1123" class="form-input">
-                    <p class="mt-1.5 text-[11px] text-muted">Also used as the login username; default password is the same as the Matric Number.</p>
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Matric Number</label>
+                        <input type="text" name="matric_number" required placeholder="e.g. CPE/20/1123" class="form-input">
+                        <p class="mt-1.5 text-[11px] text-muted">Also used as the login username; default password is the same as the Matric Number.</p>
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Level</label>
-                    <input type="text" name="level" required placeholder="e.g. 400L" class="form-input">
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Level</label>
+                        <input type="text" name="level" required placeholder="e.g. 400L" class="form-input">
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Department</label>
-                    <select name="department_id" required class="form-select">
-                        <option value="" disabled selected>Select department</option>
-                        {% for dept in departments %}
-                            <option value="{{ dept.id }}">{{ dept.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Department</label>
+                        <select name="department_id" required class="form-select">
+                            <option value="" disabled selected>Select department</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">RFID UID <span class="text-muted font-normal normal-case">(optional)</span></label>
-                    <input type="text" name="rfid_uid" placeholder="Leave blank if not yet issued" class="form-input">
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">RFID UID <span class="text-muted font-normal normal-case">(optional)</span></label>
+                        <input type="text" name="rfid_uid" placeholder="Leave blank if not yet issued" class="form-input">
+                    </div>
 
-                <button type="submit"
-                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
-                    Create Student
-                </button>
-            </form>
+                    <button type="submit"
+                            class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
+                        Create Student
+                    </button>
+                </form>
+            </div>
+
+            <div class="bg-card border border-border rounded-2xl p-6">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Bulk Enroll (CSV)</h2>
+
+                <form action="{{ url_for('admin.bulk_enroll_students') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                    {% include '_csrf_field.html' %}
+
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">CSV File</label>
+                        <input type="file" name="file" accept=".csv" required
+                               class="w-full text-sm text-secondary file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-accent file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-accent/90">
+                        <p class="mt-1.5 text-[11px] text-muted">Required columns: matric_number, full_name, level, department_name. Optional: rfid_uid. Default password for every row is its own matric number.</p>
+                    </div>
+
+                    <button type="submit"
+                            class="w-full bg-card border border-border hover:border-accent hover:text-accent text-sm font-semibold rounded-lg py-2.5 transition-colors">
+                        Upload &amp; Enroll
+                    </button>
+                </form>
+            </div>
         </div>
 
         <!-- Directory -->
@@ -90,7 +116,16 @@
                                 <td class="px-6 py-3.5 text-secondary">{{ student.department.name if student.department else '—' }}</td>
                                 <td class="px-6 py-3.5">
                                     {% if student.device_id %}
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success">Bound</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success">Bound</span>
+                                            <form action="{{ url_for('admin.reset_student_binding', student_id=student.id) }}" method="POST"
+                                                  class="unbind-form" data-student-name="{{ student.full_name }}">
+                                                {% include '_csrf_field.html' %}
+                                                <button type="submit" class="text-[11px] font-semibold text-muted hover:text-error transition-colors underline decoration-dotted underline-offset-2">
+                                                    Unbind
+                                                </button>
+                                            </form>
+                                        </div>
                                     {% else %}
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-muted/10 text-muted">Not Bound</span>
                                     {% endif %}
@@ -114,4 +149,27 @@
         </div>
     </div>
 
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Reading the student's name from data-student-name (plain text,
+    // decoded once by the browser) rather than building the confirm()
+    // call as an inline onsubmit="..." attribute string. An inline
+    // handler re-parses its decoded attribute value AS JavaScript source
+    // -- a name containing an apostrophe (e.g. "O'Brien") would close the
+    // JS string literal early and silently break the whole handler with
+    // no visible error, meaning the confirmation prompt just wouldn't
+    // appear. Reading it as a data attribute and interpolating it into a
+    // JS template literal here avoids that: it's a real string value at
+    // that point, never re-parsed as code.
+    document.querySelectorAll('.unbind-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            const name = form.dataset.studentName;
+            if (!confirm(`Unbind ${name}'s device? They'll be able to pair a new one on next login.`)) {
+                e.preventDefault();
+            }
+        });
+    });
+</script>
 {% endblock %}
