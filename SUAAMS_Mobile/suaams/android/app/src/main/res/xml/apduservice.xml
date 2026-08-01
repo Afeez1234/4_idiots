@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- category="other" (not "payment"): this AID doesn't need Google Pay
+     default-handler registration, it's an internal/proprietary attendance
+     credential. AID F0394148148100 starts with F0, the ISO 7816-5 range
+     reserved for national/proprietary use, so it doesn't need to be
+     registered with any external authority. -->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/hce_service_desc"
+    android:requireDeviceUnlock="false">
+    <aid-group android:description="@string/hce_aid_group_desc" android:category="other">
+        <aid-filter android:name="F0394148148100"/>
+    </aid-group>
+</host-apdu-service>

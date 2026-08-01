@@ -1,71 +1,39 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-// Was previously missing entirely -- nfc_provider.dart called
-// ref.read(nfcServiceProvider) but nothing declared this provider, which
-// was a compile error. Declaring it here, next to the class it provides,
-// same pattern as authServiceProvider/studentServiceProvider elsewhere.
 final nfcServiceProvider = Provider<NfcService>((ref) => NfcService());
 
-/// This service abstracts the Android Host Card Emulation (HCE) implementation.
-/// In production, this maps directly to the `nfc_host_card_emulation` package.
+/// Bridges to SuaamsHceService, the custom native HostApduService
+/// (android/app/src/main/kotlin/com/example/suaams/SuaamsHceService.kt)
+/// that actually broadcasts the beacon token over NFC HCE. No third-party
+/// HCE package involved -- nfc_host_card_emulation was evaluated and ruled
+/// out (its AndroidHceService.kt only supports one fixed response per AID
+/// match, no 61xx/GET RESPONSE chaining, and the beacon JWT needs
+/// multi-exchange chunking to transmit).
 class NfcService {
-  // We default to true here so you can test the UI on an Android Emulator
-  // without crashing (since emulators lack physical NFC chips).
-  final bool _isMockMode = true;
+  static const MethodChannel _channel = MethodChannel('suaams/hce');
 
-  // Renamed from startEmulation -> startHceEmulation (and stopEmulation ->
-  // stopHceEmulation below) to match what nfc_provider.dart actually calls.
-  // The old names and the provider call were out of sync, which was the
-  // other half of the compile error fixed above.
+  /// Hands the freshly-minted beacon token to the native HCE service.
+  /// Called right after mint_checkin_beacon succeeds (see
+  /// nfc_provider.dart) -- native code holds this in memory only, it never
+  /// fetches or refreshes a token itself.
   Future<void> startHceEmulation(String payload) async {
     try {
-      if (_isMockMode) {
-        debugPrint('NFC MOCK: Broadcasting APDU Payload -> $payload');
-        await Future.delayed(const Duration(milliseconds: 500));
-        return;
-      }
-
-      /* 
-      // REAL IMPLEMENTATION (Requires nfc_host_card_emulation package):
-      final nfcState = await NfcHce.checkDeviceNfcState();
-      if (nfcState != NfcState.enabled) {
-        throw Exception('NFC is disabled or unsupported.');
-      }
-
-      if (!_isInitialized) {
-        await NfcHce.init(
-          // This AID must match the aid_list.xml in your AndroidManifest
-          aid: Uint8List.fromList([0xF0, 0x39, 0x41, 0x48, 0x14, 0x81, 0x00]),
-          permanentApduResponses: true,
-          listenOnlyConfiguredPorts: false,
-        );
-        _isInitialized = true;
-      }
-
-      // Encode the auth payload into bytes and attach it to APDU Port 0
-      final bytes = utf8.encode(payload);
-      await NfcHce.addApduResponse(0, bytes);
-      */
-    } catch (e) {
-      throw Exception('Hardware failure: $e');
+      await _channel.invokeMethod('setBeaconToken', {'token': payload});
+    } on PlatformException catch (e) {
+      throw Exception('Hardware failure: ${e.message ?? e.code}');
     }
   }
 
+  /// Clears the token held natively. Called when the 3-second broadcast
+  /// window closes (or on any error before it starts) -- defense in depth
+  /// on top of the token's own short expiry, so a tap arriving after this
+  /// point gets a clean "no token" response instead of a stale one.
   Future<void> stopHceEmulation() async {
     try {
-      if (_isMockMode) {
-        debugPrint('NFC MOCK: HCE Service Terminated.');
-        await Future.delayed(const Duration(milliseconds: 500));
-        return;
-      }
-
-      /*
-      // REAL IMPLEMENTATION:
-      await NfcHce.removeApduResponse(0);
-      */
-    } catch (e) {
-      throw Exception('Failed to stop HCE: $e');
+      await _channel.invokeMethod('clearBeaconToken');
+    } on PlatformException catch (e) {
+      throw Exception('Failed to stop HCE: ${e.message ?? e.code}');
     }
   }
 }

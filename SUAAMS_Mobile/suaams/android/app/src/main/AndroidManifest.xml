@@ -1,5 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
+    <uses-permission android:name="android.permission.NFC"/>
+    <!-- required="false": MIFARE cards remain a valid check-in path, so an
+         HCE-incapable device shouldn't be blocked from installing the app
+         entirely, it just won't be able to use the phone-tap flow. -->
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="false"/>
     <application
         android:label="suaams"
         android:name="${applicationName}"
@@ -26,7 +31,25 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        
+
+        <!-- Custom HCE service (SuaamsHceService.kt): broadcasts the
+             beacon token (see api/student.py's mint_checkin_beacon) over
+             NFC to the ESP32/PN532 terminal. exported="true" is required
+             for HOST_APDU_SERVICE (the system NFC stack, not another app,
+             is what binds to it); BIND_NFC_SERVICE restricts binding to
+             that system service specifically. -->
+        <service
+            android:name=".SuaamsHceService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/apduservice"/>
+        </service>
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
