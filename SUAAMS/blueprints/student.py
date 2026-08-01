@@ -43,8 +43,10 @@ def dashboard():
             pct = round((attended_sessions / total_sessions * 100) if total_sessions else 0, 1)
             course_breakdown.append({
                 'id': course.id,
-                'name': course.title,
-                'code': course.code,
+                # SCHEMA UPDATE: course_title/course_code (v2 schema
+                # redesign; JSON key names 'name'/'code' unchanged).
+                'name': course.course_title,
+                'code': course.course_code,
                 'pct': pct,
                 'attended': attended_sessions,
                 'total': total_sessions,
@@ -56,7 +58,7 @@ def dashboard():
 
         # 6) Get the recent attendance history elegantly sorting via ORM
         recent_records = db.session.query(
-            Course.code, SessionModel.session_date, SessionModel.planned_start
+            Course.course_code, SessionModel.session_date, SessionModel.planned_start  # SCHEMA UPDATE: code -> course_code
         ).select_from(Attendance).join(
             SessionModel, Attendance.session_id == SessionModel.id
         ).join(

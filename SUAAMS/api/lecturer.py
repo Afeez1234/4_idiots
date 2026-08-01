@@ -62,12 +62,13 @@ def get_lecturer_dashboard():
 
             course_list.append({
                 'id': course.id,
-                # SCHEMA FIX: Course has `title`/`code`, not `course_title`/
-                # `course_code` -- these would have raised AttributeError on
-                # every request (same bug class already fixed this session
-                # in blueprints/lecturer.py and blueprints/student.py).
-                'title': course.title,
-                'code': course.code,
+                # SCHEMA UPDATE: Course columns renamed title/code ->
+                # course_title/course_code in the v2 schema redesign. JSON
+                # key names ('title'/'code') stay as-is -- only the ORM
+                # attribute read changes -- so the Flutter side needs no
+                # changes for this rename.
+                'title': course.course_title,
+                'code': course.course_code,
                 'enrolled_count': enrolled_count,
                 'total_sessions': total_sessions,
                 'avg_attendance': avg_attendance,
@@ -171,8 +172,10 @@ def get_course_workspace(course_id):
             "data": {
                 "course": {
                     "id": course.id,
-                    "title": course.title,
-                    "code": course.code,
+                    # SCHEMA UPDATE: course_title/course_code (see comment
+                    # in get_dashboard_data above).
+                    "title": course.course_title,
+                    "code": course.course_code,
                 },
                 "stats": {
                     "enrolled_count": enrolled_count,
@@ -437,8 +440,8 @@ def get_session_history(course_id):
             "data": {
                 "course": {
                     "id": course.id,
-                    "title": course.title,
-                    "code": course.code,
+                    "title": course.course_title,
+                    "code": course.course_code,
                 },
                 "sessions": sessions,
             }
@@ -503,8 +506,8 @@ def get_session_detail(course_id, session_id):
             "data": {
                 "course": {
                     "id": course.id,
-                    "title": course.title,
-                    "code": course.code,
+                    "title": course.course_title,
+                    "code": course.course_code,
                 },
                 "session": {
                     "id": session.id,

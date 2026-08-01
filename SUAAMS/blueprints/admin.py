@@ -721,9 +721,13 @@ def create_course():
         return redirect(url_for('admin.dashboard'))
 
     try:
+        # SCHEMA UPDATE: Course.title/Course.code renamed to
+        # course_title/course_code in the v2 schema redesign; the request
+        # form field names ('title'/'code') don't need to change, only the
+        # ORM constructor kwargs.
         course = Course(
-            title=title.strip(),
-            code=code.strip().upper(),
+            course_title=title.strip(),
+            course_code=code.strip().upper(),
             department_id=int(department_id),
             lecturer_id=int(lecturer_id)
         )

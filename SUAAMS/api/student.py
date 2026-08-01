@@ -67,8 +67,11 @@ def get_student_dashboard():
             pct = round((attended_sessions / total_sessions * 100) if total_sessions else 0, 1)
             course_breakdown.append({
                 'id': course.id,
-                'name': course.title, # FIX: Swapped to .title
-                'code': course.code,  # FIX: Swapped to .code
+                # SCHEMA UPDATE: course_title/course_code (v2 schema
+                # redesign renamed title/code -> course_title/course_code;
+                # JSON key names 'name'/'code' are unchanged).
+                'name': course.course_title,
+                'code': course.course_code,
                 'pct': pct,
                 'attended': attended_sessions,
                 'total': total_sessions,
@@ -80,7 +83,7 @@ def get_student_dashboard():
 
         # 6) Get the recent attendance history elegantly via ORM
         recent_records = db.session.query(
-            Course.code, SessionModel.session_date, SessionModel.planned_start, Attendance.status # FIX: code and planned_start
+            Course.course_code, SessionModel.session_date, SessionModel.planned_start, Attendance.status # SCHEMA UPDATE: code -> course_code
         ).select_from(Attendance).join(
             SessionModel, Attendance.session_id == SessionModel.id
         ).join(
@@ -332,8 +335,9 @@ def get_today_schedule():
 
             today_protocol.append({
                 'course_id': course.id,
-                'course_name': course.title,
-                'course_code': course.code,
+                # SCHEMA UPDATE: course_title/course_code.
+                'course_name': course.course_title,
+                'course_code': course.course_code,
                 'status': status,
                 'start_time': start_time.strftime('%H:%M') if start_time else None,
                 'end_time': end_time.strftime('%H:%M') if end_time else None,
