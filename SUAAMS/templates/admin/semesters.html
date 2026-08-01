@@ -1,0 +1,83 @@
+{% extends "base_admin.html" %}
+
+{% block title %}Semesters | SUAAMS Admin{% endblock %}
+{% block page_title %}Semesters{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">Academic semester calendar</p>
+{% endblock %}
+
+{% block content %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+        <!-- Add Semester -->
+        <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Semester</h2>
+
+            <form action="{{ url_for('admin.semesters_page') }}" method="POST" class="space-y-4">
+                {% include '_csrf_field.html' %}
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Semester Name</label>
+                    <input type="text" name="name" required placeholder="e.g. 2025/2026 First Semester" class="form-input">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Start Date</label>
+                    <input type="date" name="start_date" required class="form-input">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">End Date</label>
+                    <input type="date" name="end_date" required class="form-input">
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
+                    Create Semester
+                </button>
+                <p class="text-[11px] text-muted">New semesters start inactive. Use "Set Active" in the list once you're ready to switch to it.</p>
+            </form>
+        </div>
+
+        <!-- Directory -->
+        <div class="lg:col-span-2 bg-card border border-border rounded-2xl overflow-hidden">
+            <div class="px-6 pt-6 pb-4 flex items-center justify-between">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Semesters</h2>
+                <span class="text-xs text-muted">{{ semesters|length }} total</span>
+            </div>
+
+            <div class="divide-y divide-border border-t border-border">
+                {% for semester in semesters %}
+                    <div class="flex items-center justify-between px-6 py-4">
+                        <div>
+                            <p class="text-sm font-medium">{{ semester.name }}</p>
+                            <p class="text-[11px] text-muted mt-0.5">
+                                {{ semester.start_date.strftime('%d %b %Y') }} &ndash; {{ semester.end_date.strftime('%d %b %Y') }}
+                            </p>
+                        </div>
+                        {% if semester.is_active %}
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success shrink-0 ml-3">
+                                <span class="material-symbols-rounded text-[14px]">check_circle</span>
+                                Active
+                            </span>
+                        {% else %}
+                            <form action="{{ url_for('admin.semesters_page') }}" method="POST" class="shrink-0 ml-3">
+                                {% include '_csrf_field.html' %}
+                                <input type="hidden" name="action" value="activate">
+                                <input type="hidden" name="semester_id" value="{{ semester.id }}">
+                                <button type="submit"
+                                        class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-secondary hover:border-accent hover:text-accent transition-colors">
+                                    Set Active
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <p class="px-6 py-8 text-sm text-muted text-center">No semesters yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

@@ -1,40 +1,38 @@
 {% extends "base_admin.html" %}
 
-{% block title %}Lecturers | SUAAMS Admin{% endblock %}
-{% block page_title %}Lecturers{% endblock %}
+{% block title %}HODs | SUAAMS Admin{% endblock %}
+{% block page_title %}HODs{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Teaching staff directory</p>
+    <p class="text-xs text-secondary">Heads of Department</p>
 {% endblock %}
 
 {% block content %}
 
-    <!-- This page isn't wired to a route yet. It needs:
-         - a GET route (e.g. admin.lecturers_page) supplying `lecturers`
-           (Lecturer.query.all(), same as dashboard()'s lecturers_list) and
-           `departments` (Department.query.all(), already fetched in
-           dashboard())
-         - create_lecturer() in blueprints/admin.py currently redirects to
-           admin.dashboard() after a successful/failed submit; once this
-           page is live that should point back here instead so the new
-           lecturer shows up in the list the admin is looking at. -->
+    <!-- GAP still worth knowing about: the department dropdown below lists
+         every department, including ones that already have an HOD --
+         admin.hods_page rejects the submit server-side if the chosen
+         department already has one assigned (HOD.department_id has no
+         unique constraint at the schema level, so this is an
+         application-layer check, not a DB one), but the form doesn't
+         filter the options list to only show departments without one yet. -->
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-        <!-- Add Lecturer -->
+        <!-- Assign HOD -->
         <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Lecturer</h2>
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Assign HOD</h2>
 
-            <form action="{{ url_for('admin.lecturers_page') }}" method="POST" class="space-y-4">
+            <form action="{{ url_for('admin.hods_page') }}" method="POST" class="space-y-4">
                 {% include '_csrf_field.html' %}
 
                 <div>
                     <label class="block text-xs font-medium text-secondary mb-1.5">Full Name</label>
-                    <input type="text" name="full_name" required placeholder="e.g. Dr. Jane Doe" class="form-input">
+                    <input type="text" name="full_name" required placeholder="e.g. Prof. Adaeze Nwosu" class="form-input">
                 </div>
 
                 <div>
                     <label class="block text-xs font-medium text-secondary mb-1.5">Staff ID</label>
-                    <input type="text" name="staff_id" required placeholder="e.g. LECT-1002" class="form-input">
+                    <input type="text" name="staff_id" required placeholder="e.g. HOD-2001" class="form-input">
                     <p class="mt-1.5 text-[11px] text-muted">Also used as the login username; default password is the same as the Staff ID.</p>
                 </div>
 
@@ -50,7 +48,7 @@
 
                 <button type="submit"
                         class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
-                    Create Lecturer
+                    Assign HOD
                 </button>
             </form>
         </div>
@@ -58,37 +56,35 @@
         <!-- Directory -->
         <div class="lg:col-span-2 bg-card border border-border rounded-2xl overflow-hidden">
             <div class="px-6 pt-6 pb-4 flex items-center justify-between">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Directory</h2>
-                <span class="text-xs text-muted">{{ lecturers|length }} lecturer{{ '' if lecturers|length == 1 else 's' }}</span>
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Heads of Department</h2>
+                <span class="text-xs text-muted">{{ hods|length }} assigned</span>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-t border-border text-left">
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Lecturer</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">HOD</th>
                             <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Staff ID</th>
                             <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Department</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Courses</th>
                             <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Status</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for lecturer in lecturers %}
+                        {% for hod in hods %}
                             <tr class="border-t border-border hover:bg-surface/60 transition-colors">
                                 <td class="px-6 py-3.5">
                                     <div class="flex items-center gap-3">
                                         <div class="w-8 h-8 shrink-0 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent font-bold text-xs">
-                                            {{ lecturer.full_name[0]|upper }}
+                                            {{ hod.full_name[0]|upper }}
                                         </div>
-                                        <span class="font-medium">{{ lecturer.full_name }}</span>
+                                        <span class="font-medium">{{ hod.full_name }}</span>
                                     </div>
                                 </td>
-                                <td class="px-6 py-3.5 text-secondary">{{ lecturer.staff_id }}</td>
-                                <td class="px-6 py-3.5 text-secondary">{{ lecturer.department.name if lecturer.department else '—' }}</td>
-                                <td class="px-6 py-3.5 text-secondary">{{ lecturer.courses|length }}</td>
+                                <td class="px-6 py-3.5 text-secondary">{{ hod.staff_id }}</td>
+                                <td class="px-6 py-3.5 text-secondary">{{ hod.department.name if hod.department else '—' }}</td>
                                 <td class="px-6 py-3.5">
-                                    {% if lecturer.user and lecturer.user.requires_password_change %}
+                                    {% if hod.user and hod.user.requires_password_change %}
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-warning/10 text-warning">Pending Setup</span>
                                     {% else %}
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success">Active</span>
@@ -97,7 +93,7 @@
                             </tr>
                         {% else %}
                             <tr class="border-t border-border">
-                                <td colspan="5" class="px-6 py-10 text-center text-sm text-muted">No lecturers registered yet.</td>
+                                <td colspan="4" class="px-6 py-10 text-center text-sm text-muted">No HODs assigned yet.</td>
                             </tr>
                         {% endfor %}
                     </tbody>

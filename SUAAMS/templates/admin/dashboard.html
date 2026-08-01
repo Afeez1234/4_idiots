@@ -1,558 +1,131 @@
-<!DOCTYPE html>
-<html lang="en" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SUAAMS Command Portal | Admin Control Console</title>
-    
-    <!-- Premium Fonts and Tailwind Integration -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
-    
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
-                        mono: ['"JetBrains Mono"', 'monospace'],
-                    },
-                    colors: {
-                        terminal: {
-                            base: '#0B0B0C',       // Outer void space
-                            surface: '#121214',    // Card surfaces
-                            inner: '#18181C',      // Dropdowns/Inputs
-                            border: '#232329',     // Hardware borders
-                            accent: '#10B981',     // Emerald Check
-                            alert: '#EF4444',      // Crimson Override
-                            warning: '#F59E0B'     // Amber Hold
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        /* Custom scrollbar matching terminal aesthetic */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0B0B0C;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #232329;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #10B981;
-        }
-    </style>
-</head>
-<body class="bg-terminal-base text-gray-200 font-sans selection:bg-terminal-accent selection:text-black">
+{% extends "base_admin.html" %}
 
-    <!-- Tech Grid Background -->
-    <div class="fixed inset-0 pointer-events-none opacity-[0.03] z-0">
-        <svg width="100%" height="100%">
-            <defs>
-                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#FFFFFF" stroke-width="1"/>
-                </pattern>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#grid)"/>
-        </svg>
-    </div>
-    
-    <!-- Ambient Blur Effects -->
-    <div class="fixed top-[-10%] right-[-10%] w-[500px] h-[500px] bg-terminal-accent/10 rounded-full blur-[140px] pointer-events-none z-0"></div>
-    <div class="fixed bottom-[-10%] left-[-10%] w-[400px] h-[500px] bg-blue-500/5 rounded-full blur-[120px] pointer-events-none z-0"></div>
+{% block title %}Dashboard | SUAAMS Admin{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">System-wide overview</p>
+{% endblock %}
 
-    <div class="relative z-10 min-h-screen flex flex-col">
-        
-        <!-- Top Command Bar -->
-            <!-- Top Command Bar -->
-        <header class="border-b border-terminal-border bg-terminal-surface/90 backdrop-blur-md px-6 py-4 flex flex-wrap justify-between items-center gap-4">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 rounded-xl bg-terminal-accent/10 border border-terminal-accent/30 flex items-center justify-center">
-                    <span class="material-symbols-rounded text-terminal-accent">settings_input_hdmi</span>
-                </div>
-                <div>
-                    <h1 class="text-lg font-extrabold tracking-widest text-white font-mono uppercase">SUAAMS // CMD</h1>
-                    <p class="text-[10px] text-terminal-accent font-mono tracking-widest uppercase">Secured Administrative Workspace</p>
-                </div>
+{% block content %}
+
+    <!-- Stat cards: Faculties, Lecturers, Students, Live Sessions. -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Faculties</span>
+                <span class="material-symbols-rounded text-accent">domain</span>
             </div>
-            
-            <div class="flex items-center space-x-4">
-                <div class="flex items-center space-x-2 bg-terminal-inner px-3 py-1.5 rounded-lg border border-terminal-border">
-                    <span class="w-2 h-2 rounded-full bg-terminal-accent animate-pulse"></span>
-                    <span class="text-xs font-mono text-gray-400">SERVER ONLINE</span>
-                </div>
-                <a href="{{ url_for('auth.logout') }}" class="flex items-center space-x-2 bg-terminal-alert/15 border border-terminal-alert/30 px-4 py-1.5 rounded-lg hover:bg-terminal-alert hover:text-white transition-all duration-150 text-xs font-mono text-terminal-alert">
-                    <span class="material-symbols-rounded text-sm">power_settings_new</span>
-                    <span>LOGOUT</span>
-                </a>
+            <p class="mt-4 text-3xl font-extrabold">{{ total_faculties }}</p>
+            <p class="mt-1 text-xs text-muted">Across the university</p>
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Lecturers</span>
+                <span class="material-symbols-rounded text-accent">school</span>
             </div>
-        </header>
+            <p class="mt-4 text-3xl font-extrabold">{{ total_lecturers }}</p>
+            <p class="mt-1 text-xs text-muted">Active teaching staff</p>
+        </div>
 
-        <!-- Main Dashboard Layout -->
-        <main class="flex-1 p-6 max-w-[1600px] mx-full w-full mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
-
-            <!-- Flash Message Banner -->
-            <div class="lg:col-span-4">
-                {% with messages = get_flashed_messages(with_categories=true) %}
-                    {% if messages %}
-                        <div class="space-y-3">
-                            {% for category, message in messages %}
-                                {% set border_color = 'border-terminal-accent/30 bg-terminal-accent/10 text-terminal-accent' if category == 'success' else 'border-terminal-alert/30 bg-terminal-alert/10 text-terminal-alert' %}
-                                <div class="px-4 py-3 border rounded-xl flex items-center space-x-3 text-sm font-mono {{ border_color }}">
-                                    <span class="material-symbols-rounded text-base">{% if category == 'success' %}check_circle{% else %}report_problem{% endif %}</span>
-                                    <span>> {{ message }}</span>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                {% endwith %}
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Students</span>
+                <span class="material-symbols-rounded text-accent">group</span>
             </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ total_students }}</p>
+            <p class="mt-1 text-xs text-muted">Currently enrolled</p>
+        </div>
 
-            <!-- High Level Metrics Overview -->
-            <div class="lg:col-span-4 grid grid-cols-2 md:grid-cols-5 gap-4">
-                <div class="bg-terminal-surface border border-terminal-border p-5 rounded-2xl flex flex-col justify-between shadow-sm">
-                    <div class="flex justify-between items-start text-gray-500 mb-2">
-                        <span class="text-[10px] font-bold tracking-widest uppercase">Total Students</span>
-                        <span class="material-symbols-rounded text-terminal-accent">group</span>
-                    </div>
-                    <div class="text-3xl font-extrabold text-white font-mono">{{ total_students }}</div>
-                </div>
-                <div class="bg-terminal-surface border border-terminal-border p-5 rounded-2xl flex flex-col justify-between shadow-sm">
-                    <div class="flex justify-between items-start text-gray-500 mb-2">
-                        <span class="text-[10px] font-bold tracking-widest uppercase">Lecturers</span>
-                        <span class="material-symbols-rounded text-blue-500">school</span>
-                    </div>
-                    <div class="text-3xl font-extrabold text-white font-mono">{{ total_lecturers }}</div>
-                </div>
-                <div class="bg-terminal-surface border border-terminal-border p-5 rounded-2xl flex flex-col justify-between shadow-sm">
-                    <div class="flex justify-between items-start text-gray-500 mb-2">
-                        <span class="text-[10px] font-bold tracking-widest uppercase">Courses Listed</span>
-                        <span class="material-symbols-rounded text-purple-500">book</span>
-                    </div>
-                    <div class="text-3xl font-extrabold text-white font-mono">{{ total_courses }}</div>
-                </div>
-                <div class="bg-terminal-surface border border-terminal-border p-5 rounded-2xl flex flex-col justify-between shadow-sm">
-                    <div class="flex justify-between items-start text-gray-500 mb-2">
-                        <span class="text-[10px] font-bold tracking-widest uppercase">Departments</span>
-                        <span class="material-symbols-rounded text-yellow-500">lan</span>
-                    </div>
-                    <div class="text-3xl font-extrabold text-white font-mono">{{ total_departments }}</div>
-                </div>
-                <div class="bg-terminal-surface border border-terminal-border p-5 rounded-2xl flex flex-col justify-between shadow-sm">
-                    <div class="flex justify-between items-start text-gray-500 mb-2">
-                        <span class="text-[10px] font-bold tracking-widest uppercase">Faculties</span>
-                        <span class="material-symbols-rounded text-teal-500">domain</span>
-                    </div>
-                    <div class="text-3xl font-extrabold text-white font-mono">{{ total_faculties }}</div>
-                </div>
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Live Sessions</span>
+                <span class="relative flex h-2.5 w-2.5 mt-1">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-success"></span>
+                </span>
             </div>
-
-            <!-- LIVE TELEMETRY COMMAND MONITOR (Left Sidebar) -->
-            <div class="lg:col-span-1 space-y-6">
-                <div class="bg-terminal-surface border border-terminal-border p-5 rounded-2xl flex flex-col h-full shadow-sm">
-                    <div class="flex items-center space-x-2 border-b border-terminal-border pb-4 mb-4">
-                        <span class="material-symbols-rounded text-terminal-accent animate-pulse">radar</span>
-                        <h2 class="text-xs font-extrabold tracking-widest uppercase text-white font-mono">Terminal Telemetry</h2>
-                    </div>
-
-                    <div class="space-y-5 flex-1">
-                        <!-- Active Class Beacons -->
-                        <div>
-                            <span class="block text-[10px] font-bold text-gray-500 tracking-wider uppercase mb-3">Live Campus Beacons</span>
-                            <div class="space-y-3" id="beacon-monitor">
-                                <!-- Dynamic Beacon Entry -->
-                                <div class="bg-terminal-inner p-3 rounded-xl border border-terminal-border flex justify-between items-center">
-                                    <div class="min-w-0 flex-1 pr-2">
-                                        <div class="flex items-center space-x-2">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-terminal-accent"></span>
-                                            <span class="font-mono text-xs font-bold text-white truncate">MTH101</span>
-                                        </div>
-                                        <p class="text-[10px] text-gray-500 truncate mt-1">Hall 3A - Dr. John Doe</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <span class="font-mono text-xs font-bold text-terminal-accent">42 IN</span>
-                                        <p class="text-[9px] text-gray-500">Active</p>
-                                    </div>
-                                </div>
-                                <div class="bg-terminal-inner p-3 rounded-xl border border-terminal-border flex justify-between items-center">
-                                    <div class="min-w-0 flex-1 pr-2">
-                                        <div class="flex items-center space-x-2">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-terminal-accent"></span>
-                                            <span class="font-mono text-xs font-bold text-white truncate">CPE401</span>
-                                        </div>
-                                        <p class="text-[10px] text-gray-500 truncate mt-1">Room 104 - Prof. Ade</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <span class="font-mono text-xs font-bold text-terminal-accent">19 IN</span>
-                                        <p class="text-[9px] text-gray-500">Active</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Active System Warnings -->
-                        <div class="border-t border-terminal-border/50 pt-4">
-                            <span class="block text-[10px] font-bold text-gray-500 tracking-wider uppercase mb-3">System Warnings</span>
-                            <div class="space-y-3">
-                                <div class="bg-terminal-inner p-3 rounded-xl border border-terminal-alert/20 flex items-start space-x-3 text-xs">
-                                    <span class="material-symbols-rounded text-terminal-alert mt-0.5 text-sm">phonelink_lock</span>
-                                    <div>
-                                        <p class="font-mono font-bold text-white mb-0.5">Device Swapped</p>
-                                        <p class="text-[10px] text-gray-500">Student 2021/CE/045 swapped verification token.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ADMIN COMMAND PANELS (Main 3-Column Area) -->
-            <div class="lg:col-span-3 space-y-6">
-
-                <!-- Navigation Tabs -->
-                <div class="bg-terminal-surface p-2 border border-terminal-border rounded-xl flex flex-wrap gap-2">
-                    <button onclick="switchTab('enrollment')" id="btn-enrollment" class="tab-btn px-4 py-2 text-xs font-bold font-mono tracking-widest uppercase rounded-lg transition-all duration-150 bg-terminal-accent text-black shadow-sm">
-                        Identity Registry
-                    </button>
-                    <button onclick="switchTab('architecture')" id="btn-architecture" class="tab-btn px-4 py-2 text-xs font-bold font-mono tracking-widest uppercase rounded-lg transition-all duration-150 text-gray-400 hover:text-white">
-                        Academic Structure
-                    </button>
-                    <button onclick="switchTab('timetable')" id="btn-timetable" class="tab-btn px-4 py-2 text-xs font-bold font-mono tracking-widest uppercase rounded-lg transition-all duration-150 text-gray-400 hover:text-white">
-                        Hardware & Devices
-                    </button>
-                </div>
-
-                <!-- TABS CONTAINER -->
-                <div class="space-y-6">
-
-                   <!-- TAB 1: IDENTITY REGISTRY -->
-                    <div id="tab-enrollment" class="tab-pane space-y-6">
-                        
-                        <!-- Enrollment Options Grid -->
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            
-                            <!-- Bulk CSV Enrollment -->
-                            <div class="bg-terminal-surface border border-terminal-border p-6 rounded-2xl relative overflow-hidden">
-                                <div class="absolute top-0 right-0 w-32 h-32 bg-terminal-accent/5 rounded-full blur-2xl pointer-events-none"></div>
-                                <h3 class="text-xs font-extrabold tracking-widest uppercase text-white font-mono mb-2 flex items-center space-x-2">
-                                    <span class="material-symbols-rounded text-terminal-accent">cloud_upload</span>
-                                    <span>Bulk Student Enrollment</span>
-                                </h3>
-                                <p class="text-[11px] text-gray-500 mb-6">Process institutional student rosters from Excel/Google Sheets exported to .csv. Auto-generates encrypted password flags.</p>
-
-                                <form action="{{ url_for('admin.bulk_enroll_students') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
-                                    {% include '_csrf_field.html' %}
-                                    <div class="flex items-center justify-center w-full">
-                                        <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-terminal-border rounded-xl cursor-pointer hover:border-terminal-accent bg-terminal-inner transition-colors duration-200">
-                                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                                <span class="material-symbols-rounded text-terminal-accent mb-2">insert_drive_file</span>
-                                                <p class="text-xs font-mono text-gray-400" id="file-label">SELECT STUDENT ROSTER (.csv)</p>
-                                            </div>
-                                            <input type="file" name="file" class="hidden" required onchange="updateFileLabel(this)" />
-                                        </label>
-                                    </div>
-                                    <button type="submit" class="w-full bg-white text-black font-extrabold text-xs tracking-widest py-3.5 rounded-xl hover:bg-gray-200 active:scale-[0.98] transition-all duration-150 uppercase shadow-lg shadow-white/5">
-                                        Upload & Execute
-                                    </button>
-                                </form>
-                            </div>
-
-                            <!-- Single Profile Registration -->
-                            <div class="bg-terminal-surface border border-terminal-border p-6 rounded-2xl">
-                                <h3 class="text-xs font-extrabold tracking-widest uppercase text-white font-mono mb-4 flex items-center space-x-2">
-                                    <span class="material-symbols-rounded text-blue-500">person_add</span>
-                                    <span>Single Student profile</span>
-                                </h3>
-
-                                <form action="{{ url_for('admin.create_student') }}" method="POST" class="space-y-4">
-                                    {% include '_csrf_field.html' %}
-                                    <div>
-                                        <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Full Name</label>
-                                        <input type="text" name="full_name" required placeholder="e.g. John Doe" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Matric Number</label>
-                                            <input type="text" name="matric_number" required placeholder="e.g. 2021/CE/045" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors font-mono">
-                                        </div>
-                                        <div>
-                                            <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Level</label>
-                                            <select name="level" required class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                                <option value="100">100 Level</option>
-                                                <option value="200">200 Level</option>
-                                                <option value="300">300 Level</option>
-                                                <option value="400">400 Level</option>
-                                                <option value="500">500 Level</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Department Assignment</label>
-                                            <select name="department_id" required class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                                {% for dept in departments %}
-                                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">RFID / NFC Card UID (Optional)</label>
-                                            <input type="text" name="rfid_uid" placeholder="e.g. AB:CD:12:34" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors font-mono">
-                                        </div>
-                                    </div>
-                                    <button type="submit" class="w-full bg-terminal-accent text-black font-extrabold text-xs tracking-widest py-3.5 rounded-xl hover:bg-emerald-400 active:scale-[0.98] transition-all duration-150 uppercase shadow-lg">
-                                        Register Student
-                                    </button>
-                                </form>
-                            </div>
-
-                        </div>
-
-                        <!-- Lecturer Registration -->
-                        <div class="bg-terminal-surface border border-terminal-border p-6 rounded-2xl">
-                            <h3 class="text-xs font-extrabold tracking-widest uppercase text-white font-mono mb-4 flex items-center space-x-2">
-                                <span class="material-symbols-rounded text-purple-500">assignment_ind</span>
-                                <span>Lecturer Account Setup</span>
-                            </h3>
-
-                            <form action="{{ url_for('admin.create_lecturer') }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                                {% include '_csrf_field.html' %}
-                                <div class="md:col-span-1">
-                                    <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Full Name</label>
-                                    <input type="text" name="full_name" required placeholder="e.g. Dr. Jane Smith" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                </div>
-                                <div class="md:col-span-1">
-                                    <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Staff Identifier</label>
-                                    <input type="text" name="staff_id" required placeholder="e.g. STF-903" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors font-mono">
-                                </div>
-                                <div class="md:col-span-1">
-                                    <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Department</label>
-                                    <select name="department_id" required class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                        {% for dept in departments %}
-                                            <option value="{{ dept.id }}">{{ dept.name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <button type="submit" class="w-full bg-terminal-inner hover:bg-terminal-border border border-terminal-border text-white font-extrabold text-xs tracking-widest py-3.5 rounded-xl active:scale-[0.98] transition-all duration-150 uppercase">
-                                    Generate Login
-                                </button>
-                            </form>
-                        </div>
-
-                    </div>
-
-                    <!-- TAB 2: ACADEMIC STRUCTURE -->
-                    <div id="tab-architecture" class="tab-pane hidden space-y-6">
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <!-- Create Faculty -->
-                            <div class="bg-terminal-surface border border-terminal-border p-6 rounded-2xl">
-                                <h3 class="text-xs font-extrabold tracking-widest uppercase text-white font-mono mb-4 flex items-center space-x-2">
-                                    <span class="material-symbols-rounded text-teal-500">grid_view</span>
-                                    <span>Define Faculty Unit</span>
-                                </h3>
-
-                                <form action="{{ url_for('admin.create_faculty') }}" method="POST" class="space-y-4">
-                                    {% include '_csrf_field.html' %}
-                                    <div>
-                                        <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Faculty Title</label>
-                                        <input type="text" name="name" required placeholder="e.g. Faculty of Engineering" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                    </div>
-                                    <button type="submit" class="w-full bg-terminal-accent text-black font-extrabold text-xs tracking-widest py-3.5 rounded-xl hover:bg-emerald-400 active:scale-[0.98] transition-all duration-150 uppercase shadow-lg">
-                                        Commit Faculty
-                                    </button>
-                                </form>
-                            </div>
-
-                            <!-- Create Department -->
-                            <div class="bg-terminal-surface border border-terminal-border p-6 rounded-2xl">
-                                <h3 class="text-xs font-extrabold tracking-widest uppercase text-white font-mono mb-4 flex items-center space-x-2">
-                                    <span class="material-symbols-rounded text-yellow-500">lan</span>
-                                    <span>Define Departmental Node</span>
-                                </h3>
-
-                                <form action="{{ url_for('admin.create_department') }}" method="POST" class="space-y-4">
-                                    {% include '_csrf_field.html' %}
-                                    <div>
-                                        <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Department Name</label>
-                                        <input type="text" name="name" required placeholder="e.g. Computer Engineering" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                    </div>
-                                    <div>
-                                        <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Linked Parent Faculty</label>
-                                        <select name="faculty_id" required class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                            {% for faculty in faculties %}
-                                                <option value="{{ faculty.id }}">{{ faculty.name }}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <button type="submit" class="w-full bg-terminal-accent text-black font-extrabold text-xs tracking-widest py-3.5 rounded-xl hover:bg-emerald-400 active:scale-[0.98] transition-all duration-150 uppercase shadow-lg">
-                                        Commit Department
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-
-                        <!-- Add Course Integration -->
-                        <div class="bg-terminal-surface border border-terminal-border p-6 rounded-2xl">
-                            <h3 class="text-xs font-extrabold tracking-widest uppercase text-white font-mono mb-4 flex items-center space-x-2">
-                                <span class="material-symbols-rounded text-blue-500">add_task</span>
-                                <span>Define Academic Course</span>
-                            </h3>
-
-                            <form action="{{ url_for('admin.create_course') }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                                {% include '_csrf_field.html' %}
-                                <div class="md:col-span-1">
-                                    <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Course Title</label>
-                                    <input type="text" name="title" required placeholder="e.g. Microprocessors" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                </div>
-                                <div class="md:col-span-1">
-                                    <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Course Code</label>
-                                    <input type="text" name="code" required placeholder="e.g. CPE401" class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors font-mono">
-                                </div>
-                                <div class="md:col-span-1">
-                                    <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Academic Department</label>
-                                    <select name="department_id" required class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                        {% for dept in departments %}
-                                            <option value="{{ dept.id }}">{{ dept.name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <div class="md:col-span-1">
-                                    <label class="block text-[9px] font-bold text-gray-500 tracking-wider uppercase mb-1.5">Assigned Lecturer</label>
-                                    <select name="lecturer_id" required class="w-full bg-terminal-inner border border-terminal-border rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-terminal-accent transition-colors">
-                                        {% for lecturer in lecturers_list or [] %}
-                                            <option value="{{ lecturer.id }}">{{ lecturer.full_name }}</option>
-                                        {% endfor %}
-                                    </select>
-                                </div>
-                                <button type="submit" class="md:col-span-4 bg-terminal-accent text-black font-extrabold text-xs tracking-widest py-3.5 rounded-xl hover:bg-emerald-400 active:scale-[0.98] transition-all duration-150 uppercase shadow-lg">
-                                    Bind & Register Course
-                                </button>
-                            </form>
-                        </div>
-
-                    </div>
-                    <!-- TAB 3: HARDWARE & DEVICES -->
-                    <div id="tab-timetable" class="tab-pane hidden space-y-6">
-                        
-                        <!-- Hardware Roster and Unbinding Console -->
-                        <div class="bg-terminal-surface border border-terminal-border p-6 rounded-2xl">
-                            <div class="flex justify-between items-center mb-6">
-                                <div>
-                                    <h3 class="text-xs font-extrabold tracking-widest uppercase text-white font-mono">Hardware Security Roster</h3>
-                                    <p class="text-[10px] text-gray-500 mt-1">Direct unbinding console to handle lost phones or device upgrade validations.</p>
-                                </div>
-                                <span class="bg-terminal-inner border border-terminal-border text-[9px] font-mono font-bold tracking-wider text-terminal-accent px-3 py-1 rounded-md">
-                                    {{ students|length }} Active Handsets
-                                </span>
-                            </div>
-
-                            <div class="overflow-x-auto">
-                                <table class="w-full text-left text-xs font-mono">
-                                    <thead>
-                                        <tr class="border-b border-terminal-border text-gray-500 tracking-wider text-[10px]">
-                                            <th class="pb-3 uppercase">Student Profile</th>
-                                            <th class="pb-3 uppercase">Matriculation Code</th>
-                                            <th class="pb-3 uppercase">Hardware Binding (ID)</th>
-                                            <th class="pb-3 uppercase text-right">Reset Lock</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-terminal-border/40">
-                                        {% for student in students %}
-                                            <tr class="hover:bg-terminal-inner/30 transition-colors">
-                                                <td class="py-3.5 pr-4 text-white font-bold">{{ student.full_name }}</td>
-                                                <td class="py-3.5 pr-4 text-gray-400 font-bold">{{ student.matric_number }}</td>
-                                                <td class="py-3.5 pr-4">
-                                                    {% if student.device_id %}
-                                                        <span class="inline-flex items-center space-x-1 bg-terminal-accent/10 border border-terminal-accent/30 text-terminal-accent px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide">
-                                                            <span class="w-1.5 h-1.5 rounded-full bg-terminal-accent"></span>
-                                                            <span>{{ student.device_id[:16] }}...</span>
-                                                        </span>
-                                                    {% else %}
-                                                        <span class="inline-flex items-center space-x-1 bg-gray-500/10 border border-gray-500/30 text-gray-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide">
-                                                            <span>UNBOUND</span>
-                                                        </span>
-                                                    {% endif %}
-                                                </td>
-                                                <td class="py-3.5 text-right">
-                                                    {% if student.device_id %}
-                                                        <form action="{{ url_for('admin.reset_student_binding', student_id=student.id) }}" method="POST" onsubmit="return confirm('Execute absolute hardware reset? The student must verify identity to re-bind.');">
-                                                            {% include '_csrf_field.html' %}
-                                                            <button type="submit" class="bg-terminal-alert/15 border border-terminal-alert/30 text-terminal-alert hover:bg-terminal-alert hover:text-white transition-all duration-150 text-[10px] font-bold px-3 py-1 rounded-md uppercase tracking-wider">
-                                                                Reset Handset
-                                                            </button>
-                                                        </form>
-                                                    {% else %}
-                                                        <button class="opacity-30 cursor-not-allowed bg-terminal-border text-gray-500 text-[10px] font-bold px-3 py-1 rounded-md uppercase tracking-wider" disabled>
-                                                            Reset Handset
-                                                        </button>
-                                                    {% endif %}
-                                                </td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </main>
-        
-        <!-- Footer Information Block -->
-        <footer class="border-t border-terminal-border bg-terminal-surface/30 py-6 px-8 text-center mt-auto z-10">
-            <p class="text-[10px] font-mono tracking-widest text-gray-500">SUAAMS SECURITY ENGINE // SEC-LEVEL: HIGH // v1.02-REL</p>
-        </footer>
+            <p class="mt-4 text-3xl font-extrabold">{{ live_sessions }}</p>
+            <p class="mt-1 text-xs text-muted">In progress right now</p>
+        </div>
     </div>
 
-    <!-- Active Tab switching JavaScript -->
-    <script>
-        function switchTab(tabId) {
-            // Hide all tab panes
-            const panes = document.querySelectorAll('.tab-pane');
-            panes.forEach(pane => pane.classList.add('hidden'));
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            // Show active pane
-            document.getElementById('tab-' + tabId).classList.remove('hidden');
+        <!-- Department attendance. Thresholds below (>=75 green, >=50
+             amber, else red) are a starting default, easy to change. -->
+        <div class="lg:col-span-2 bg-card border border-border rounded-2xl p-6">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Department Attendance</h2>
 
-            // Toggle active style on all buttons
-            const buttons = document.querySelectorAll('.tab-btn');
-            buttons.forEach(btn => {
-                btn.classList.remove('bg-terminal-accent', 'text-black', 'shadow-sm');
-                btn.classList.add('text-gray-400', 'hover:text-white');
-            });
+            <div class="space-y-4">
+                {% for dept in department_attendance %}
+                    {% set pct = dept.percentage %}
+                    {% set bar_color = 'bg-success' if pct >= 75 else ('bg-warning' if pct >= 50 else 'bg-error') %}
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <span class="text-sm font-medium">{{ dept.name }}</span>
+                            <span class="text-sm font-semibold">{{ pct }}%</span>
+                        </div>
+                        <div class="h-1 rounded-full bg-muted/20 overflow-hidden">
+                            <div class="h-full rounded-full {{ bar_color }}" style="width: {{ pct }}%"></div>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="text-sm text-muted">No department attendance data yet.</p>
+                {% endfor %}
+            </div>
+        </div>
 
-            // Set active class on target button
-            const activeBtn = document.getElementById('btn-' + tabId);
-            activeBtn.classList.add('bg-terminal-accent', 'text-black', 'shadow-sm');
-            activeBtn.classList.remove('text-gray-400', 'hover:text-white');
-        }
+        <!-- Recent activity feed: most recent attendance check-ins. -->
+        <div class="bg-card border border-border rounded-2xl p-6">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Recent Activity</h2>
 
-        // Live file loader UI helper
-        function updateFileLabel(input) {
-            const label = document.getElementById('file-label');
-            if (input.files && input.files[0]) {
-                label.innerText = "> READY: " + input.files[0].name.toUpperCase();
-                label.classList.add('text-terminal-accent');
-            } else {
-                label.innerText = "SELECT STUDENT ROSTER (.csv)";
-                label.classList.remove('text-terminal-accent');
-            }
-        }
-    </script>
-</body>
-</html>
+            {#- Explicit class lookup, not dynamic string interpolation of
+                the item's color into a class name -- every possible class
+                name appears as a literal token in this file this way.
+                Tailwind's build-time scanner greps source files for exact
+                class strings; it can't resolve a name assembled at
+                render time, so a dynamic version here would silently
+                compile to nothing.
+
+                IMPORTANT: this note has to live inside a real Jinja
+                comment block, not a plain HTML comment. An HTML comment
+                does not stop Jinja from evaluating template expressions
+                written inside it -- an earlier version of this exact note
+                was an HTML comment that, as illustrative text, mentioned
+                reading the current loop item's color attribute directly,
+                and Jinja tried to evaluate that for real and crashed
+                ("'item' is undefined", since the loop below hadn't started
+                yet). Caught by an actual render test, not by template
+                parse-checking, which only validates syntax -- worth
+                remembering when writing comments-about-syntax in Jinja
+                specifically: don't spell out the literal delimiters even
+                inside a real comment block, nesting them prematurely
+                closes it. -#}
+            {% set badge_classes = {
+                'success': 'bg-success/10 text-success',
+                'warning': 'bg-warning/10 text-warning',
+                'error': 'bg-error/10 text-error',
+                'accent': 'bg-accent/10 text-accent',
+            } %}
+            <div class="space-y-4">
+                {% for item in recent_activity %}
+                    {% set badge = badge_classes.get(item.color, badge_classes['accent']) %}
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 shrink-0 rounded-full {{ badge }} flex items-center justify-center">
+                            <span class="material-symbols-rounded text-[16px]">{{ item.icon }}</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm text-white/90 leading-snug">{{ item.message }}</p>
+                            <p class="text-[11px] text-muted mt-0.5">{{ item.time }}</p>
+                        </div>
+                    </div>
+                {% else %}
+                    <p class="text-sm text-muted">No recent activity.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

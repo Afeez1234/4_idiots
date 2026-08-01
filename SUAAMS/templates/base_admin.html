@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SUAAMS Admin{% endblock %}</title>
+
+    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-surface text-white font-sans antialiased">
+
+    <!-- fixed inset-0 (not h-screen) -- h-screen sets a height but doesn't
+         stop the document itself from being taller than the viewport and
+         scrolling as a whole, which drags the sidebar's top (brand, active
+         semester pill, and the first nav link) out of view along with it.
+         fixed inset-0 pins the whole shell to the viewport outright, so
+         only .nav and <main> (the elements with their own overflow-y-auto)
+         can ever scroll. -->
+    <div class="fixed inset-0 flex overflow-hidden">
+
+        <!-- Mobile backdrop: only shown while the sidebar is open on small screens -->
+        <div id="sidebar-backdrop" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden"></div>
+
+        <!-- ============ SIDEBAR ============ -->
+        <aside id="sidebar"
+               class="fixed lg:static inset-y-0 left-0 z-40 w-64 shrink-0 bg-sidebar border-r border-border
+                      flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-200">
+
+            <!-- Brand. The shield mark is a 1:1 port of SuaamsLogo's
+                 CustomPainter geometry from the Flutter app
+                 (SUAAMS_Mobile/suaams/lib/shared/widgets/suaams_logo.dart)
+                 -- same shield outline + NFC-wave arcs flanking a center
+                 dot, redrawn as an SVG path/arc on the same 48x48 grid so
+                 the mark stays identical between mobile and web. -->
+            <div class="h-16 flex items-center gap-3 px-5 border-b border-border shrink-0">
+                <svg viewBox="0 0 48 48" class="w-8 h-8 text-accent shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M24 6 L10 12 L10 24 C10 31.73 16.27 38.92 24 41 C31.73 38.92 38 31.73 38 24 L38 12 Z"/>
+                    <path d="M20.5 27.5 A5 5 0 0 1 20.5 20.5"/>
+                    <path d="M17.6 30.4 A9 9 0 0 1 17.6 17.6" stroke-opacity=".5"/>
+                    <path d="M27.5 27.5 A5 5 0 0 0 27.5 20.5"/>
+                    <path d="M30.4 30.4 A9 9 0 0 0 30.4 17.6" stroke-opacity=".5"/>
+                    <circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/>
+                </svg>
+                <div class="leading-tight">
+                    <p class="text-sm font-bold tracking-wide">SUAAMS</p>
+                    <p class="text-[10px] text-muted uppercase tracking-widest">Admin Portal</p>
+                </div>
+            </div>
+
+            <!-- Active semester pill. active_semester isn't supplied by any
+                 route yet -- since this layout is shared by every admin
+                 page, the clean way to provide it is an
+                 @admin_bp.context_processor in blueprints/admin.py (one
+                 query, available on every admin template) rather than
+                 passing it from each route individually. Not added yet --
+                 flagging for when this gets wired up. -->
+            <div class="px-5 py-3 border-b border-border shrink-0">
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/20 text-[11px] font-semibold text-accent">
+                    <span class="material-symbols-rounded text-[14px]">event_available</span>
+                    {{ active_semester.name if active_semester else 'No active semester' }}
+                </div>
+            </div>
+
+            <!-- Nav -->
+            <nav class="flex-1 overflow-y-auto px-3 py-5 space-y-6">
+
+                <div>
+                    <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Overview</p>
+                    <div class="space-y-1">
+                        {% set icon = 'dashboard' %}
+                        <a href="{{ url_for('admin.dashboard') }}"
+                           class="nav-link {{ 'nav-link-active' if active_page == 'dashboard' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">dashboard</span>
+                            <span>Dashboard</span>
+                        </a>
+                        <!-- TODO: no admin.analytics route/template yet. -->
+                        <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'analytics' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">monitoring</span>
+                            <span>Analytics</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">People</p>
+                    <div class="space-y-1">
+                        <a href="{{ url_for('admin.lecturers_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'lecturers' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">school</span>
+                            <span>Lecturers</span>
+                        </a>
+                        <a href="{{ url_for('admin.students_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'students' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">group</span>
+                            <span>Students</span>
+                        </a>
+                        <a href="{{ url_for('admin.hods_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'hods' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">badge</span>
+                            <span>HODs</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Academic</p>
+                    <div class="space-y-1">
+                        <a href="{{ url_for('admin.courses_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'courses' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">book</span>
+                            <span>Courses</span>
+                        </a>
+                        <!-- TODO: no admin.timetable route/template yet. -->
+                        <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'timetable' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">calendar_month</span>
+                            <span>Timetable</span>
+                        </a>
+                        <a href="{{ url_for('admin.organization_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'organization' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">account_tree</span>
+                            <span>Organization</span>
+                        </a>
+                        <a href="{{ url_for('admin.semesters_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'semesters' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">date_range</span>
+                            <span>Semesters</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Communication</p>
+                    <div class="space-y-1">
+                        <a href="{{ url_for('admin.announcements_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">campaign</span>
+                            <span>Announcements</span>
+                        </a>
+                        <!-- TODO: no admin.reports route/template yet. -->
+                        <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'reports' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">summarize</span>
+                            <span>Reports</span>
+                        </a>
+                    </div>
+                </div>
+
+            </nav>
+
+            <!-- Sidebar footer: signed-in user + logout -->
+            <div class="border-t border-border p-4 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-bold text-sm">
+                        {{ session.get('username', 'A')[0]|upper }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold truncate">{{ session.get('username', 'Admin') }}</p>
+                        <p class="text-[11px] text-muted capitalize">{{ session.get('role', 'admin') }}</p>
+                    </div>
+                    <a href="{{ url_for('auth.logout') }}" title="Sign out"
+                       class="text-muted hover:text-error transition-colors">
+                        <span class="material-symbols-rounded text-[20px]">logout</span>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============ MAIN COLUMN (topbar + content) ============ -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+            <!-- ============ TOPBAR ============ -->
+            <header class="h-16 shrink-0 flex items-center justify-between gap-4 px-4 lg:px-8 border-b border-border bg-surface/95 backdrop-blur">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button id="sidebar-toggle" class="lg:hidden text-secondary hover:text-white">
+                        <span class="material-symbols-rounded">menu</span>
+                    </button>
+                    <div class="min-w-0">
+                        <h1 class="text-lg font-bold truncate">{% block page_title %}Dashboard{% endblock %}</h1>
+                        {% block page_subtitle %}{% endblock %}
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 text-xs text-secondary shrink-0">
+                    <span class="w-2 h-2 rounded-full bg-success"></span>
+                    <span class="hidden sm:inline">System Online</span>
+                </div>
+            </header>
+
+            <!-- ============ MAIN CONTENT ============ -->
+            <main class="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6">
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="space-y-2">
+                            {% for category, message in messages %}
+                                {% set is_success = category == 'success' %}
+                                <div class="px-4 py-3 rounded-xl border text-sm flex items-center gap-2
+                                            {{ 'border-success/30 bg-success/10 text-success' if is_success else 'border-error/30 bg-error/10 text-error' }}">
+                                    <span class="material-symbols-rounded text-base">{{ 'check_circle' if is_success else 'report_problem' }}</span>
+                                    <span>{{ message }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Minimal mobile sidebar toggle -- no build step / framework needed for this.
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        const toggleBtn = document.getElementById('sidebar-toggle');
+
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            backdrop.classList.remove('hidden');
+        }
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            backdrop.classList.add('hidden');
+        }
+        toggleBtn.addEventListener('click', openSidebar);
+        backdrop.addEventListener('click', closeSidebar);
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

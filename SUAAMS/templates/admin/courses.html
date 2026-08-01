@@ -1,0 +1,113 @@
+{% extends "base_admin.html" %}
+
+{% block title %}Courses | SUAAMS Admin{% endblock %}
+{% block page_title %}Courses{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">Course catalog and lecturer assignments</p>
+{% endblock %}
+
+{% block content %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+        <!-- Add Course -->
+        <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Course</h2>
+
+            <form action="{{ url_for('admin.courses_page') }}" method="POST" class="space-y-4">
+                {% include '_csrf_field.html' %}
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Course Title</label>
+                    <input type="text" name="title" required placeholder="e.g. Embedded Systems" class="form-input">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Course Code</label>
+                    <input type="text" name="code" required placeholder="e.g. CPE401" class="form-input">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Department</label>
+                    <select name="department_id" required class="form-select">
+                        <option value="" disabled selected>Select department</option>
+                        {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Lecturer</label>
+                    <select name="lecturer_id" required class="form-select">
+                        <option value="" disabled selected>Select lecturer</option>
+                        {% for lecturer in lecturers %}
+                            <option value="{{ lecturer.id }}">{{ lecturer.full_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Semester <span class="text-muted font-normal normal-case">(optional)</span></label>
+                    <select name="semester_id" class="form-select">
+                        <option value="">No semester</option>
+                        {% for semester in semesters %}
+                            <option value="{{ semester.id }}">{{ semester.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Credit Units <span class="text-muted font-normal normal-case">(optional)</span></label>
+                    <input type="number" name="credit_units" min="1" max="10" placeholder="e.g. 3" class="form-input">
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
+                    Create Course
+                </button>
+            </form>
+        </div>
+
+        <!-- Directory -->
+        <div class="lg:col-span-2 bg-card border border-border rounded-2xl overflow-hidden">
+            <div class="px-6 pt-6 pb-4 flex items-center justify-between">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Catalog</h2>
+                <span class="text-xs text-muted">{{ courses|length }} course{{ '' if courses|length == 1 else 's' }}</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-t border-border text-left">
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Department</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Lecturer</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Units</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Enrolled</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for course in courses %}
+                            <tr class="border-t border-border hover:bg-surface/60 transition-colors">
+                                <td class="px-6 py-3.5">
+                                    <p class="font-medium">{{ course.course_title }}</p>
+                                    <p class="text-[11px] text-muted mt-0.5">{{ course.course_code }}</p>
+                                </td>
+                                <td class="px-6 py-3.5 text-secondary">{{ course.department.name if course.department else '—' }}</td>
+                                <td class="px-6 py-3.5 text-secondary">{{ course.lecturer.full_name if course.lecturer else '—' }}</td>
+                                <td class="px-6 py-3.5 text-secondary">{{ course.credit_units if course.credit_units else '—' }}</td>
+                                <td class="px-6 py-3.5 text-secondary">{{ course.enrollments|length }}</td>
+                            </tr>
+                        {% else %}
+                            <tr class="border-t border-border">
+                                <td colspan="5" class="px-6 py-10 text-center text-sm text-muted">No courses yet.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
