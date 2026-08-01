@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hce_service_desc">SUAAMS Attendance Beacon</string>
+    <string name="hce_aid_group_desc">SUAAMS check-in credential</string>
+</resources>
