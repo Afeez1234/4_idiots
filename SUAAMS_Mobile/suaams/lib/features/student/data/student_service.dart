@@ -66,6 +66,43 @@ class StudentService {
     }
   }
 
+  // Polls whether the ESP32 terminal actually relayed the beacon and Flask
+  // recorded attendance -- see checkinStatusEndpoint's doc-comment in
+  // api_constants.dart. Returns the course code on a confirmed check-in,
+  // null if not (yet) confirmed. Deliberately doesn't distinguish "not
+  // confirmed" from most error responses (only truly unexpected ones
+  // throw) -- NfcCheckInNotifier treats a single failed poll as "try
+  // again next tick", not a reason to abort the whole confirmation
+  // attempt, since the actual check-in already happened over NFC.
+  Future<String?> checkCheckinStatus(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.checkinStatusEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        if (responseData['checked_in'] == true) {
+          return responseData['course_code'] as String?;
+        }
+        return null;
+      }
+
+      final errorMsg = responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   // Backs the "TODAY'S PROTOCOL" list -- see todayScheduleEndpoint's
   // doc-comment in api_constants.dart for why this is a separate call from
   // fetchDashboardData rather than folded into that response.
