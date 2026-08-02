@@ -10,63 +10,104 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-        <!-- Add Course -->
-        <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Course</h2>
+        <!-- Add Course + Enroll Student share one sticky column -- same
+             reasoning as students.html's Add Student + Bulk Enroll: wrapping
+             them together keeps Catalog's lg:col-span-2 lining up against a
+             single column 1, and avoids two independently-sticky elements
+             both pinning to top-0. -->
+        <div class="space-y-6 lg:sticky lg:top-0">
+            <div class="bg-card border border-border rounded-2xl p-6">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Course</h2>
 
-            <form action="{{ url_for('admin.courses_page') }}" method="POST" class="space-y-4">
-                {% include '_csrf_field.html' %}
+                <form action="{{ url_for('admin.courses_page') }}" method="POST" class="space-y-4">
+                    {% include '_csrf_field.html' %}
+                    <input type="hidden" name="action" value="create_course">
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Course Title</label>
-                    <input type="text" name="title" required placeholder="e.g. Embedded Systems" class="form-input">
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Course Title</label>
+                        <input type="text" name="title" required placeholder="e.g. Embedded Systems" class="form-input">
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Course Code</label>
-                    <input type="text" name="code" required placeholder="e.g. CPE401" class="form-input">
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Course Code</label>
+                        <input type="text" name="code" required placeholder="e.g. CPE401" class="form-input">
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Department</label>
-                    <select name="department_id" required class="form-select">
-                        <option value="" disabled selected>Select department</option>
-                        {% for dept in departments %}
-                            <option value="{{ dept.id }}">{{ dept.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Department</label>
+                        <select name="department_id" required class="form-select">
+                            <option value="" disabled selected>Select department</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Lecturer</label>
-                    <select name="lecturer_id" required class="form-select">
-                        <option value="" disabled selected>Select lecturer</option>
-                        {% for lecturer in lecturers %}
-                            <option value="{{ lecturer.id }}">{{ lecturer.full_name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Lecturer</label>
+                        <select name="lecturer_id" required class="form-select">
+                            <option value="" disabled selected>Select lecturer</option>
+                            {% for lecturer in lecturers %}
+                                <option value="{{ lecturer.id }}">{{ lecturer.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Semester <span class="text-muted font-normal normal-case">(optional)</span></label>
-                    <select name="semester_id" class="form-select">
-                        <option value="">No semester</option>
-                        {% for semester in semesters %}
-                            <option value="{{ semester.id }}">{{ semester.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Semester <span class="text-muted font-normal normal-case">(optional)</span></label>
+                        <select name="semester_id" class="form-select">
+                            <option value="">No semester</option>
+                            {% for semester in semesters %}
+                                <option value="{{ semester.id }}">{{ semester.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Credit Units <span class="text-muted font-normal normal-case">(optional)</span></label>
-                    <input type="number" name="credit_units" min="1" max="10" placeholder="e.g. 3" class="form-input">
-                </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Credit Units <span class="text-muted font-normal normal-case">(optional)</span></label>
+                        <input type="number" name="credit_units" min="1" max="10" placeholder="e.g. 3" class="form-input">
+                    </div>
 
-                <button type="submit"
-                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
-                    Create Course
-                </button>
-            </form>
+                    <button type="submit"
+                            class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
+                        Create Course
+                    </button>
+                </form>
+            </div>
+
+            <div class="bg-card border border-border rounded-2xl p-6">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Enroll Student</h2>
+
+                <form action="{{ url_for('admin.courses_page') }}" method="POST" class="space-y-4">
+                    {% include '_csrf_field.html' %}
+                    <input type="hidden" name="action" value="enroll_student">
+
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Student</label>
+                        <select name="student_id" required class="form-select">
+                            <option value="" disabled selected>Select student</option>
+                            {% for student in students %}
+                                <option value="{{ student.id }}">{{ student.full_name }} ({{ student.matric_number }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Course</label>
+                        <select name="course_id" required class="form-select">
+                            <option value="" disabled selected>Select course</option>
+                            {% for course in courses %}
+                                <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit"
+                            class="w-full bg-card border border-border hover:border-accent hover:text-accent text-sm font-semibold rounded-lg py-2.5 transition-colors">
+                        Enroll Student
+                    </button>
+                </form>
+            </div>
         </div>
 
         <!-- Directory -->

@@ -88,11 +88,22 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   NfcCheckInState build() {
     _localAuth = LocalAuthentication();
 
+    // Captured here, NOT inside onDispose below -- calling ref.read() from
+    // inside an onDispose callback trips Riverpod's reentrancy guard
+    // ("Cannot use Ref or modify other providers inside life-cycles/
+    // selectors", _debugCallbackStack == 0), since onDispose already runs
+    // as part of Riverpod's own internal teardown sequence and doesn't
+    // permit calling back into the container while that's in progress.
+    // nfcServiceProvider is a plain Provider (always the same NfcService
+    // instance for this container's lifetime), so capturing it once here
+    // and closing over it below is both safe and sufficient.
+    final nfcService = ref.read(nfcServiceProvider);
+
     // Register auto-cleanup to prevent memory leaks when sheet is closed
     ref.onDispose(() {
       _broadcastTimer?.cancel();
       _confirmationTimer?.cancel();
-      ref.read(nfcServiceProvider).stopHceEmulation();
+      nfcService.stopHceEmulation();
     });
 
     return NfcCheckInState();
