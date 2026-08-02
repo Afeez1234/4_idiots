@@ -43,7 +43,7 @@
 #include <HTTPClient.h>
 
 // ---------------- WiFi / Backend ----------------
-// Same network the MFRC522 terminal (SUAAMS_ESP.ino) already uses.
+
 const char* ssid = "Airtel_4G_SMARTBOX_A9DE";
 const char* password = "6A1A68D5";
 const char* checkinUrl = "https://suaams.onrender.com/api/v1/student/checkin";

@@ -89,11 +89,15 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           _radarController.stop();
         }
         if (next.status == NfcCheckInStatus.success) {
-          // Successful check-in verified by ESP32 handshake
+          // Successful check-in, server-confirmed via /checkin/status
           HapticFeedback.vibrate();
         } else if (next.status == NfcCheckInStatus.error) {
           // Security or transmission failure
           HapticFeedback.heavyImpact();
+        } else if (next.status == NfcCheckInStatus.unconfirmed) {
+          // Deliberately distinct from error's heavyImpact -- this is a
+          // "we don't know" outcome, not a confirmed failure.
+          HapticFeedback.mediumImpact();
         }
       }
     });
@@ -127,8 +131,12 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             _buildAuthenticatingState(colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.broadcasting) ...[
             _buildBroadcastingState(nfcState, colorScheme),
+          ] else if (nfcState.status == NfcCheckInStatus.confirming) ...[
+            _buildConfirmingState(colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.success) ...[
-            _buildSuccessState(colorScheme),
+            _buildSuccessState(nfcState, colorScheme),
+          ] else if (nfcState.status == NfcCheckInStatus.unconfirmed) ...[
+            _buildUnconfirmedState(colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.error) ...[
             _buildErrorState(nfcState, colorScheme),
           ] else ...[
@@ -273,7 +281,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
   }
 
   // 4. Success Verified State (Green Check)
-  Widget _buildSuccessState(ColorScheme colorScheme) {
+  // Only reached once /checkin/status has actually confirmed an Attendance
+  // row exists -- see NfcCheckInNotifier's confirmation polling. Shows the
+  // confirmed course code when the backend returned one.
+  Widget _buildSuccessState(NfcCheckInState state, ColorScheme colorScheme) {
     return Column(
       children: [
         Container(
@@ -296,9 +307,70 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         ),
         const SizedBox(height: 8),
         Text(
-          'Your signature has been committed to database ledger.',
+          state.courseCode != null
+              ? 'Checked in for ${state.courseCode}.'
+              : 'Your signature has been committed to database ledger.',
           style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
           textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  // 4b. Confirming State -- broadcast window closed, still polling
+  // /checkin/status for server-side confirmation. No radar here: nothing
+  // is being transmitted anymore, this is purely "waiting to hear back".
+  Widget _buildConfirmingState(ColorScheme colorScheme) {
+    return Column(
+      children: [
+        CircularProgressIndicator(color: colorScheme.primary, strokeWidth: 3),
+        const SizedBox(height: 24),
+        const Text(
+          'CONFIRMING',
+          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Waiting for the terminal to confirm your check-in...',
+          style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  // 4c. Unconfirmed State (Amber) -- confirmation window ran out with no
+  // answer. Deliberately NOT styled like the red error state below: this
+  // means "unknown", not "failed" -- the tap may well have worked.
+  Widget _buildUnconfirmedState(ColorScheme colorScheme) {
+    return Column(
+      children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(0xFFF59E0B), // Amber
+          ),
+          child: const Icon(Icons.help_outline_rounded, color: Colors.white, size: 36),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'COULD NOT CONFIRM',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+            color: Color(0xFFF59E0B),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'Signal was sent, but we couldn\'t confirm it reached the terminal in time. Check your dashboard in a moment.',
+            style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
         ),
       ],
     );

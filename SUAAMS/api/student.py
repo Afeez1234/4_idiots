@@ -247,6 +247,72 @@ def submit_checkin_beacon():
     }), 200
 
 
+# Keyed by user id -- polled repeatedly (every ~1s, for up to ~10s per
+# check-in attempt) by the app, so this needs a much more generous limit
+# than the mint/submit endpoints above.
+@api_student_bp.route('/checkin/status', methods=['GET'])
+@limiter.limit("30 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def get_checkin_status():
+    """
+    Step 3 (optional) of the HCE check-in flow. Polled by the Flutter app
+    after broadcasting a beacon, to find out whether the ESP32 terminal
+    actually relayed it and Flask recorded attendance -- the app has no
+    other way to know this, since the beacon broadcast itself is one-way
+    (phone -> ESP32 -> Flask; nothing comes back to the phone over NFC).
+
+    Resolves "the active session" with the EXACT same query
+    submit_checkin_beacon uses above -- has to check the same session the
+    beacon flow would have targeted, not just any active session.
+
+    checked_in=False alone doesn't say WHY -- "not enrolled in this
+    course" is a definite, permanent failure (waiting longer never fixes
+    it), while "no Attendance row yet" might just be a slow ESP32/backend
+    round-trip still in flight. Without the `reason` field these look
+    identical to the polling client, so it can't tell "stop waiting, this
+    was never going to work" apart from "keep waiting, it might still
+    land". Same idea for "no active session" -- checking it BEFORE
+    enrollment (rather than after, like submit_checkin_beacon does) since
+    there's nothing to be enrolled *in* if no session is running at all.
+    """
+    claims = get_jwt()
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    current_user_id = get_jwt_identity()
+    student = Student.query.filter_by(user_id=int(current_user_id)).first()
+    if not student:
+        return jsonify({"error": "Student profile not found"}), 404
+
+    active_session = SessionModel.query.filter_by(is_active=True).order_by(SessionModel.id.desc()).first()
+    if not active_session:
+        return jsonify({"success": True, "checked_in": False, "reason": "no_active_session"}), 200
+
+    enrolled = Enrollment.query.filter_by(
+        student_id=student.id, course_id=active_session.course_id
+    ).first()
+    if not enrolled:
+        return jsonify({
+            "success": True,
+            "checked_in": False,
+            "reason": "not_enrolled",
+            "course_code": active_session.course.course_code if active_session.course else None,
+        }), 200
+
+    record = Attendance.query.filter_by(
+        session_id=active_session.id, student_id=student.id
+    ).first()
+
+    if not record:
+        return jsonify({"success": True, "checked_in": False}), 200
+
+    return jsonify({
+        "success": True,
+        "checked_in": True,
+        "course_code": active_session.course.course_code if active_session.course else None,
+    }), 200
+
+
 @api_student_bp.route('/schedule/today', methods=['GET'])
 @jwt_required()
 def get_today_schedule():

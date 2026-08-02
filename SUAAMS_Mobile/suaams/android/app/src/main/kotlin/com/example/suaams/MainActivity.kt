@@ -1,10 +1,18 @@
 package com.example.suaams
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
-class MainActivity : FlutterActivity() {
+// FlutterFragmentActivity, not FlutterActivity -- local_auth's Android
+// implementation shows its BiometricPrompt UI via a DialogFragment, which
+// requires the hosting Activity to be a FragmentActivity.
+// FlutterFragmentActivity is Flutter's own FragmentActivity-based
+// alternative to plain FlutterActivity, provided specifically for plugins
+// with this requirement (camera, google_sign_in, local_auth, etc.) -- not
+// a local_auth-specific class, and not a change that needs a new pubspec
+// dependency.
+class MainActivity : FlutterFragmentActivity() {
     // Bridges NfcService (Dart) to SuaamsHceService (native) -- Dart
     // fetches the beacon token over the normal authenticated HTTP call
     // (mint_checkin_beacon) and hands it across this channel right before

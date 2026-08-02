@@ -65,12 +65,22 @@ class SuaamsHceService : HostApduService() {
         @Volatile
         private var beaconToken: ByteArray? = null
 
+        // HCE is purely passive/reactive -- the phone has no way to know
+        // whether a reader is even nearby except by noticing it got asked
+        // something. Without this flag, "nothing nearby ever read this"
+        // and "something read it but the backend never confirmed" are
+        // indistinguishable from the Dart side, which otherwise has to
+        // wait out the full confirmation-poll window either way.
+        @Volatile
+        private var tapDetected: Boolean = false
+
         /** Called from MainActivity's MethodChannel handler right before
          * each broadcast attempt (mirrors mint_checkin_beacon being called
          * fresh per tap, not reused). JWTs are base64url + '.' separators,
          * so plain ASCII encoding is exact -- no multi-byte concerns. */
         fun setBeaconToken(token: String) {
             beaconToken = token.toByteArray(Charsets.US_ASCII)
+            tapDetected = false
             Log.d(TAG, "Beacon token set: ${token.length} chars (t=${System.currentTimeMillis()})")
         }
 
@@ -82,6 +92,15 @@ class SuaamsHceService : HostApduService() {
             beaconToken = null
             Log.d(TAG, "Beacon token cleared (t=${System.currentTimeMillis()})")
         }
+
+        /** True if any reader engaged our AID (i.e. processCommandApdu ran
+         * at all, for any command) since the last setBeaconToken() call.
+         * Checked once the 3-second broadcast window closes -- if false,
+         * there's nothing for confirmation polling to ever find, so the
+         * Dart side can skip straight to "no terminal detected" instead of
+         * waiting out its full poll window for something that could never
+         * have succeeded. */
+        fun wasTapDetected(): Boolean = tapDetected
     }
 
     private var offset = 0

@@ -2,7 +2,6 @@
 
 abstract final class ApiConstants {
   // Use 10.0.2.2 for Android Emulator connecting to local Flask server.
-  // Replace with your Render URL for production (e.g., 'https://suaams.onrender.com/api/v1')
   // static const String baseUrl = 'http://10.0.2.2:5000/api/v1';//localhost for testing
   static const String baseUrl = 'https://suaams.onrender.com/api/v1';//for production
   
@@ -31,6 +30,13 @@ abstract final class ApiConstants {
   // posts that beacon token to POST /student/checkin (no Dart client for
   // that second endpoint since only hardware calls it).
   static const String checkinBeaconEndpoint = '$baseUrl/student/checkin/beacon';
+
+  // Polled by the app after broadcasting a beacon, to find out whether the
+  // ESP32 terminal actually relayed it and Flask recorded attendance --
+  // the beacon broadcast itself is one-way (phone -> ESP32 -> Flask), so
+  // this is the only way the app learns the outcome. See
+  // NfcCheckInNotifier's confirming/unconfirmed states.
+  static const String checkinStatusEndpoint = '$baseUrl/student/checkin/status';
 
   // Backs the "TODAY'S PROTOCOL" list on the student dashboard home tab.
   // Deliberately separate from studentDashboardEndpoint above -- dashboard
