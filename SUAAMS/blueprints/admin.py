@@ -493,6 +493,39 @@ def reset_student_binding(student_id):
 @admin_bp.route('/courses', methods=['GET', 'POST'])
 def courses_page():
     if request.method == 'POST':
+        # Same dual-action-on-one-route pattern organization_page() already
+        # uses (add_faculty/add_department) -- create_course was the only
+        # action this route handled before enroll_student existed, so it
+        # defaults to that for anything posted without the field, but the
+        # real create-course form now sets it explicitly too.
+        action = request.form.get('action', 'create_course')
+
+        if action == 'enroll_student':
+            student_id = request.form.get('student_id')
+            course_id = request.form.get('course_id')
+
+            if not student_id or not course_id:
+                flash('Select both a student and a course to enroll.', 'error')
+                return redirect(url_for('admin.courses_page'))
+
+            try:
+                existing = Enrollment.query.filter_by(
+                    student_id=int(student_id), course_id=int(course_id)
+                ).first()
+                if existing:
+                    flash('That student is already enrolled in this course.', 'error')
+                else:
+                    enrollment = Enrollment(student_id=int(student_id), course_id=int(course_id))
+                    db.session.add(enrollment)
+                    db.session.commit()
+                    flash('Student enrolled successfully.', 'success')
+            except Exception:
+                db.session.rollback()
+                flash('Failed to enroll student.', 'error')
+                log_exception("Enrollment Create Error")
+
+            return redirect(url_for('admin.courses_page'))
+
         title = request.form.get('title')
         code = request.form.get('code')
         department_id = request.form.get('department_id')
@@ -527,12 +560,14 @@ def courses_page():
     departments = Department.query.all()
     lecturers = Lecturer.query.all()
     semesters = Semester.query.all()
+    students = Student.query.all()
     return render_template(
         'admin/courses.html',
         courses=courses,
         departments=departments,
         lecturers=lecturers,
         semesters=semesters,
+        students=students,
         active_page='courses',
     )
 
