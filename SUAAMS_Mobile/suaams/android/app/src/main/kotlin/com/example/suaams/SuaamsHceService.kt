@@ -112,6 +112,14 @@ class SuaamsHceService : HostApduService() {
     override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray {
         val now = System.currentTimeMillis()
 
+        // Android only calls this once our AID has already been matched
+        // via apduservice.xml's routing -- reaching this line at all, for
+        // ANY command (even a malformed one), already proves a reader
+        // engaged specifically with us. Set unconditionally, before the
+        // malformed-command check below, so a garbled first command still
+        // counts as "something was there".
+        tapDetected = true
+
         if (commandApdu == null || commandApdu.size < 4) {
             Log.w(TAG, "Malformed/too-short APDU (t=$now)")
             return SW_INS_NOT_SUPPORTED

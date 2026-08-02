@@ -6,6 +6,7 @@ import 'package:suaams/features/student/data/nfc_service.dart';
 // fetch) -- reusing it instead of creating a second StudentService
 // instance/provider just for the beacon mint call.
 import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/features/student/data/student_service.dart' show CheckinStatusResult;
 import 'package:suaams/core/network/auth_retry.dart';
 
 enum NfcCheckInStatus {
@@ -22,6 +23,17 @@ enum NfcCheckInStatus {
   // well have worked (slow POST still in flight, cold-starting backend,
   // etc.) -- this state means "unknown", not "failed".
   unconfirmed,
+  // The broadcast window closed and no reader ever engaged the HCE
+  // service at all (see SuaamsHceService.wasTapDetected()) -- distinct
+  // from `unconfirmed`: there's nothing ambiguous here, we know for
+  // certain nothing was in range, so there's no point waiting out the
+  // full confirmation-poll window.
+  noHardwareDetected,
+  // A reader DID read the token and Flask DID answer, but the answer was
+  // "you're not registered for this course" -- a definite, permanent
+  // failure (won't resolve by waiting), so confirmation polling stops
+  // immediately rather than running out its full window.
+  notEnrolled,
   error,
 }
 
@@ -29,7 +41,7 @@ class NfcCheckInState {
   final NfcCheckInStatus status;
   final int secondsRemaining; // Countdown for the 3-second broadcast window
   final String? errorMessage;
-  final String? courseCode; // Set once a check-in is server-confirmed
+  final String? courseCode; // Set on a confirmed check-in or a notEnrolled result
 
   NfcCheckInState({
     this.status = NfcCheckInStatus.idle,
@@ -133,8 +145,8 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       // regardless of confirmation state -- that's the anti-relay security
       // window, not something to extend for confirmation's sake.
       // Confirmation polling runs longer, on its own schedule, and can
-      // resolve the whole flow to `success` before the broadcast window
-      // even closes if the ESP32/backend respond quickly.
+      // resolve the whole flow (success, notEnrolled) before the
+      // broadcast window even closes if the ESP32/backend respond quickly.
       _startBroadcastCountdown();
       _startConfirmationPolling();
 
@@ -152,10 +164,10 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   void _startBroadcastCountdown() {
     _broadcastTimer?.cancel();
     _broadcastTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      // If confirmation polling already resolved this attempt (success or
-      // unconfirmed), it cancels this timer directly -- this guard is
-      // just cheap insurance against both timers firing in the same
-      // event-loop tick before that cancellation propagates.
+      // If confirmation polling already resolved this attempt, it cancels
+      // this timer directly -- this guard is cheap insurance against both
+      // timers firing in the same event-loop tick before that
+      // cancellation propagates.
       if (state.status != NfcCheckInStatus.broadcasting) {
         timer.cancel();
         return;
@@ -163,14 +175,30 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
       if (state.secondsRemaining <= 1) {
         timer.cancel();
+
+        // HCE is purely passive -- this is the only way to know whether
+        // any reader was ever actually in range during the broadcast.
+        final tapped = await ref.read(nfcServiceProvider).wasTapDetected();
         await ref.read(nfcServiceProvider).stopHceEmulation();
-        // Confirmation polling keeps running independently -- this just
-        // moves the visible state past "broadcasting" so the UI stops
-        // showing the radar/countdown for a signal that's no longer
-        // being transmitted.
-        if (ref.mounted && state.status == NfcCheckInStatus.broadcasting) {
-          state = state.copyWith(status: NfcCheckInStatus.confirming);
+
+        // Re-check after the awaits above: confirmation polling runs on
+        // its own timer and may have already resolved this attempt while
+        // we were waiting on those platform channel calls.
+        if (!ref.mounted || state.status != NfcCheckInStatus.broadcasting) {
+          return;
         }
+
+        if (!tapped) {
+          // Nothing for confirmation polling to ever find -- no point
+          // waiting out its full window for something that could never
+          // have succeeded.
+          _confirmationTimer?.cancel();
+          state = state.copyWith(status: NfcCheckInStatus.noHardwareDetected);
+          _scheduleReturnToIdle();
+          return;
+        }
+
+        state = state.copyWith(status: NfcCheckInStatus.confirming);
       } else {
         if (ref.mounted) {
           state = state.copyWith(secondsRemaining: state.secondsRemaining - 1);
@@ -186,9 +214,9 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     _confirmationTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       _confirmationTicks++;
 
-      String? courseCode;
+      CheckinStatusResult? result;
       try {
-        courseCode = await withAuthRetry(
+        result = await withAuthRetry(
           ref,
           (token) => ref.read(studentServiceProvider).checkCheckinStatus(token),
         );
@@ -200,15 +228,29 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         // (withAuthRetry itself still gets its normal chance to silently
         // refresh/logout on a genuine auth failure -- this catch just
         // stops that from also killing the polling loop.)
-        courseCode = null;
+        result = null;
       }
 
-      if (courseCode != null) {
+      if (result != null && result.checkedIn) {
         timer.cancel();
         _broadcastTimer?.cancel();
         await ref.read(nfcServiceProvider).stopHceEmulation();
         if (ref.mounted) {
-          state = state.copyWith(status: NfcCheckInStatus.success, courseCode: courseCode);
+          state = state.copyWith(status: NfcCheckInStatus.success, courseCode: result.courseCode);
+          _scheduleReturnToIdle();
+        }
+        return;
+      }
+
+      // not_enrolled is definite and permanent -- waiting longer never
+      // fixes it, so stop immediately rather than running out the full
+      // confirmation window for a result that's already known.
+      if (result != null && result.reason == 'not_enrolled') {
+        timer.cancel();
+        _broadcastTimer?.cancel();
+        await ref.read(nfcServiceProvider).stopHceEmulation();
+        if (ref.mounted) {
+          state = state.copyWith(status: NfcCheckInStatus.notEnrolled, courseCode: result.courseCode);
           _scheduleReturnToIdle();
         }
         return;

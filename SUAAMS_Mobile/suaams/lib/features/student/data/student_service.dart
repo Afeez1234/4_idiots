@@ -4,6 +4,18 @@ import '../../../core/constants/api_constants.dart';
 import '../models/student_dashboard_model.dart';
 import '../models/today_protocol_entry.dart';
 
+/// Result of a /checkin/status poll. `reason` distinguishes a definite,
+/// permanent failure ('not_enrolled') from a genuinely ambiguous "not
+/// confirmed yet" (reason == null) -- NfcCheckInNotifier needs that
+/// distinction to know whether to keep polling or stop immediately.
+class CheckinStatusResult {
+  final bool checkedIn;
+  final String? reason; // 'not_enrolled', 'no_active_session', or null
+  final String? courseCode;
+
+  CheckinStatusResult({required this.checkedIn, this.reason, this.courseCode});
+}
+
 class StudentService {
   // 1. Receive the token directly from RAM to avoid hardware storage race conditions
   Future<StudentDashboardModel> fetchDashboardData(String token) async {
@@ -68,13 +80,12 @@ class StudentService {
 
   // Polls whether the ESP32 terminal actually relayed the beacon and Flask
   // recorded attendance -- see checkinStatusEndpoint's doc-comment in
-  // api_constants.dart. Returns the course code on a confirmed check-in,
-  // null if not (yet) confirmed. Deliberately doesn't distinguish "not
-  // confirmed" from most error responses (only truly unexpected ones
-  // throw) -- NfcCheckInNotifier treats a single failed poll as "try
-  // again next tick", not a reason to abort the whole confirmation
-  // attempt, since the actual check-in already happened over NFC.
-  Future<String?> checkCheckinStatus(String token) async {
+  // api_constants.dart. Deliberately doesn't distinguish "not confirmed
+  // yet" from most error responses (only truly unexpected ones throw) --
+  // NfcCheckInNotifier treats a single failed poll as "try again next
+  // tick", not a reason to abort the whole confirmation attempt, since the
+  // actual check-in already happened over NFC.
+  Future<CheckinStatusResult> checkCheckinStatus(String token) async {
     try {
       final response = await http.get(
         Uri.parse(ApiConstants.checkinStatusEndpoint),
@@ -87,10 +98,11 @@ class StudentService {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200 && responseData['success'] == true) {
-        if (responseData['checked_in'] == true) {
-          return responseData['course_code'] as String?;
-        }
-        return null;
+        return CheckinStatusResult(
+          checkedIn: responseData['checked_in'] == true,
+          reason: responseData['reason'] as String?,
+          courseCode: responseData['course_code'] as String?,
+        );
       }
 
       final errorMsg = responseData['error'] ??
