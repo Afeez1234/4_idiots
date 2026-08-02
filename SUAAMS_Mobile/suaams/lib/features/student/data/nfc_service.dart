@@ -36,4 +36,20 @@ class NfcService {
       throw Exception('Failed to stop HCE: ${e.message ?? e.code}');
     }
   }
+
+  /// Whether any reader actually engaged the HCE service since the last
+  /// startHceEmulation() call. HCE is purely passive/reactive -- this is
+  /// the only way the app can tell "nothing was ever nearby" apart from
+  /// "something read it, but the backend never confirmed", which
+  /// otherwise look identical from here. Fails safe to false (rather than
+  /// throwing) on a platform-channel error, since a channel failure here
+  /// shouldn't be read as "a reader definitely engaged".
+  Future<bool> wasTapDetected() async {
+    try {
+      final result = await _channel.invokeMethod<bool>('wasTapDetected');
+      return result ?? false;
+    } on PlatformException catch (_) {
+      return false;
+    }
+  }
 }

@@ -44,10 +44,13 @@
 
 // ---------------- WiFi / Backend ----------------
 
-const char* ssid = "Airtel_4G_SMARTBOX_A9DE";
-const char* password = "6A1A68D5";
+const char* ssid = "Redmi 13C";
+const char* password = "alesh1234";
 const char* checkinUrl = "https://suaams.onrender.com/api/v1/student/checkin";
 
+
+#define SDA_PIN 21
+#define SCL_PIN 22
 // ---------------- PN532 ----------------
 #define PN532_IRQ   (2)
 #define PN532_RESET (3)
@@ -90,12 +93,23 @@ const uint8_t SW2_SUCCESS   = 0x00;
 const uint8_t SW1_NO_TOKEN  = 0x6A;
 const uint8_t SW2_NO_TOKEN  = 0x88;
 
+// Explicit forward declarations -- Arduino normally auto-generates these
+// by scanning the sketch with ctags, but ctags misreads apostrophes in the
+// header comment above (e.g. the possessive on "Adafruit_PN532") as
+// unterminated character literals, which desyncs its parser for the rest
+// of the file and makes it silently skip both functions below. Declaring
+// them here directly sidesteps that -- and stays correct even if the
+// comment text changes again later, rather than depending on nobody ever
+// typing an apostrophe above this line.
+bool performCheckInExchange(String &outToken);
+void submitBeaconToken(const String &token);
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
   Serial.println("[BOOT] SUAAMS HCE terminal starting...");
 
-  Wire.begin();
+  Wire.begin(SDA_PIN,SCL_PIN);
   nfc.begin();
 
   uint32_t versiondata = nfc.getFirmwareVersion();

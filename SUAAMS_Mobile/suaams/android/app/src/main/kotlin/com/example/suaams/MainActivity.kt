@@ -39,6 +39,9 @@ class MainActivity : FlutterFragmentActivity() {
                         SuaamsHceService.clearBeaconToken()
                         result.success(null)
                     }
+                    "wasTapDetected" -> {
+                        result.success(SuaamsHceService.wasTapDetected())
+                    }
                     else -> result.notImplemented()
                 }
             }

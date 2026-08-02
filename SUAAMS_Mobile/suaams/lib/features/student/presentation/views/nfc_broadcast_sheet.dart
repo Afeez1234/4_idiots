@@ -94,10 +94,16 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         } else if (next.status == NfcCheckInStatus.error) {
           // Security or transmission failure
           HapticFeedback.heavyImpact();
-        } else if (next.status == NfcCheckInStatus.unconfirmed) {
-          // Deliberately distinct from error's heavyImpact -- this is a
-          // "we don't know" outcome, not a confirmed failure.
+        } else if (next.status == NfcCheckInStatus.unconfirmed ||
+            next.status == NfcCheckInStatus.noHardwareDetected) {
+          // Deliberately distinct from error's heavyImpact -- both of
+          // these are retry-friendly outcomes, not confirmed failures.
           HapticFeedback.mediumImpact();
+        } else if (next.status == NfcCheckInStatus.notEnrolled) {
+          // Definite, permanent failure -- same weight as a hard error,
+          // even though the visual treatment below is deliberately
+          // different (this isn't a security/hardware problem).
+          HapticFeedback.heavyImpact();
         }
       }
     });
@@ -137,6 +143,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             _buildSuccessState(nfcState, colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.unconfirmed) ...[
             _buildUnconfirmedState(colorScheme),
+          ] else if (nfcState.status == NfcCheckInStatus.noHardwareDetected) ...[
+            _buildNoHardwareDetectedState(colorScheme),
+          ] else if (nfcState.status == NfcCheckInStatus.notEnrolled) ...[
+            _buildNotEnrolledState(nfcState, colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.error) ...[
             _buildErrorState(nfcState, colorScheme),
           ] else ...[
@@ -368,6 +378,86 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
             'Signal was sent, but we couldn\'t confirm it reached the terminal in time. Check your dashboard in a moment.',
+            style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 4d. No Hardware Detected State (Amber) -- broadcast window closed and
+  // no reader ever engaged the HCE service at all (see
+  // SuaamsHceService.wasTapDetected()). Same amber "retry-friendly" tier
+  // as Unconfirmed above, but a distinct icon/message: this one is
+  // certain, not ambiguous -- nothing was in range, not "we don't know".
+  Widget _buildNoHardwareDetectedState(ColorScheme colorScheme) {
+    return Column(
+      children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(0xFFF59E0B), // Amber
+          ),
+          child: const Icon(Icons.search_off_rounded, color: Colors.white, size: 36),
+        ),
+        const SizedBox(height: 24),
+        const Text(
+          'NO TERMINAL DETECTED',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+            color: Color(0xFFF59E0B),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            'No reader responded during the transmission window. Hold your phone closer to the terminal and try again.',
+            style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 4e. Not Enrolled State (Red) -- a reader DID read the token and Flask
+  // DID answer, but with "you're not registered for this course". Styled
+  // like the hard error state below (this is definite and permanent, not
+  // ambiguous), but with its own icon/copy pointing at the real cause
+  // instead of a generic security/hardware message.
+  Widget _buildNotEnrolledState(NfcCheckInState state, ColorScheme colorScheme) {
+    return Column(
+      children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colorScheme.error,
+          ),
+          child: const Icon(Icons.person_off_rounded, color: Colors.white, size: 36),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'NOT REGISTERED',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+            color: colorScheme.error,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            state.courseCode != null
+                ? 'You\'re not registered for ${state.courseCode}. Contact your department if this looks wrong.'
+                : 'You\'re not registered for this course. Contact your department if this looks wrong.',
             style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
             textAlign: TextAlign.center,
           ),
