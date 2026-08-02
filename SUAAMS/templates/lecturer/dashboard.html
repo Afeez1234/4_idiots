@@ -101,9 +101,9 @@
       <div class="courses-grid">
         {% for course in courses %}
           {% set accent = accents[loop.index0 % accents|length] %}
-          <a href="{{ url_for('lecturer.course_workspace', course_id=course[0]) }}" class="course-card {{ accent }}">
-            <div class="course-badge">{{ course[2] }}</div>
-            <div class="course-title">{{ course[1] }}</div>
+          <a href="{{ url_for('lecturer.course_workspace', course_id=course.id) }}" class="course-card {{ accent }}">
+            <div class="course-badge">{{ course.course_code }}</div>
+            <div class="course-title">{{ course.course_title }}</div>
             <div class="course-desc">Open the course workspace to manage sessions and view attendance.</div>
           </a>
         {% endfor %}
