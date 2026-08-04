@@ -40,13 +40,28 @@ class SuaamsHceService : HostApduService() {
         // between devices).
         private const val TAG = "SuaamsHceService"
 
-        // Tuned with margin below the PN532/Adafruit_PN532 ceiling (~250
-        // usable bytes after the buffer patch) rather than pushed right up
-        // against it -- see the design discussion this was decided in.
-        // Single named constant so it's a one-line change once real
-        // hardware confirms the exact number, same pattern as
-        // BEACON_TOKEN_TTL_SECONDS on the Flask side.
-        private const val CHUNK_SIZE = 200
+        // Originally 200 (margin below the ~250-byte PN532/Adafruit_PN532
+        // buffer ceiling). Dropped to 64 after real hardware testing showed
+        // 200-byte exchanges corrupting mid-transfer -- a hex dump of a
+        // failed read showed genuine JWT bytes for the first ~119 bytes,
+        // then the RF coupling apparently dropped, with the rest of the
+        // buffer coming back as padding (0x80 repeated) instead of real
+        // data or a real status word.
+        //
+        // 64 then proved fully reliable end-to-end (6/6 clean chunks, zero
+        // corruption on a real tap), but paid for that with round-trip
+        // count: ~6 exchanges for a ~360-byte token, and each APDU
+        // round-trip has fixed overhead on top of the RF transfer itself --
+        // that pushed total exchange time past 650ms, eating deep into
+        // BEACON_TOKEN_TTL_SECONDS's 3-second budget once the Flask POST
+        // (which can itself run 1-2s on a cold Render dyno, see /healthz in
+        // app.py) is added on top. Raised to 96 as a middle ground: still
+        // comfortably under the ~119-byte point where the 200-byte exchange
+        // is known to have destabilized, but cuts the same token down to
+        // ~4 round-trips instead of 6. Single named constant, same pattern
+        // as BEACON_TOKEN_TTL_SECONDS on the Flask side, so it's a one-line
+        // change if real-world testing says it needs to move again.
+        private const val CHUNK_SIZE = 96
 
         private val SELECT_HEADER = byteArrayOf(0x00, 0xA4.toByte(), 0x04, 0x00)
         private val GET_RESPONSE_HEADER = byteArrayOf(0x00, 0xC0.toByte(), 0x00, 0x00)
@@ -120,6 +135,9 @@ class SuaamsHceService : HostApduService() {
         // counts as "something was there".
         tapDetected = true
 
+        val commandStr = commandApdu?.joinToString("") { "%02X".format(it) } ?: "NULL"
+        Log.d(TAG, "Received APDU: $commandStr (t=$now)")
+
         if (commandApdu == null || commandApdu.size < 4) {
             Log.w(TAG, "Malformed/too-short APDU (t=$now)")
             return SW_INS_NOT_SUPPORTED
@@ -173,8 +191,8 @@ class SuaamsHceService : HostApduService() {
         return if (stillRemaining > 0) {
             // SW2 can only represent up to 255 in one byte; 0x00 is the
             // ISO 7816-4 sentinel for "256 or more bytes still available".
-            // Not reachable at today's ~300-byte token size with 200-byte
-            // chunks (max remainder is ~100), but correct if the token
+            // Not reachable at today's ~300-byte token size with 64-byte
+            // chunks (max remainder is ~63), but correct if the token
             // shape ever grows.
             val sw2 = if (stillRemaining > 255) 0 else stillRemaining
             Log.d(TAG, "Sent chunk #$chunkIndex: $chunkLen bytes, $stillRemaining remaining, more data follows (t=$now, elapsed=${elapsed}ms)")
