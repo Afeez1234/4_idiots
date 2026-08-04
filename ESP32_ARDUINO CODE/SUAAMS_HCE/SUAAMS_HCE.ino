@@ -3,49 +3,17 @@
   ESP32 + PN532: reads the short-lived beacon token an Android phone
   broadcasts over NFC HCE (see mint_checkin_beacon in api/student.py and
   SuaamsHceService.kt on the app side) and submits it to Flask.
-
-  This is a SEPARATE sketch from SUAAMS_ESP.ino/SUAAMS_.ino (MFRC522,
-  physical card UID flow) -- that flow is untouched and remains a valid
-  fallback; this is the new phone-tap path, not a replacement.
-
-  ***BEFORE COMPILING***
-  Adafruit_PN532's packet buffer defaults to 64 bytes, which is too small
-  for a ~300-byte chunked JWT exchange. This does NOT work as a sketch-level
-  #define before #include -- confirmed by reading the library source
-  directly: PN532_PACKBUFFSIZ is a plain #define with no #ifndef guard in
-  Adafruit_PN532.cpp. You must edit the installed library itself:
-    1. Find Adafruit_PN532.cpp in your Arduino libraries folder
-       (typically Documents/Arduino/libraries/Adafruit_PN532/).
-    2. Change: #define PN532_PACKBUFFSIZ 64
-       to:     #define PN532_PACKBUFFSIZ 255
-    3. Re-save and re-verify/upload this sketch.
-  Without this, inDataExchange() will refuse any exchange longer than ~62
-  bytes and every chunked read will fail.
-
-  WIRING ASSUMPTION: I2C (SDA/SCL), matching Adafruit's own most common
-  example setup. The existing MFRC522 sketches used SPI -- confirm actual
-  wiring once hardware is on the bench. If wired via SPI instead, swap the
-  Adafruit_PN532 constructor below for the SPI variant; everything else in
-  this file (the protocol logic) is unaffected by that choice.
-
-  KNOWN UNCERTAINTY: inListPassiveTarget()'s ability to fully activate an
-  ISO14443-4 (Type 4 / ISO-DEP) target -- what Android HCE emulates -- has
-  only been directly confirmed here against elechouse's PN532_HSU fork's
-  android_hce.ino example, not Adafruit's unmodified library specifically.
-  The API surface is identical, but if inListPassiveTarget() fails
-  specifically against the phone while succeeding against a MIFARE card,
-  that fork is the concrete fallback, not a library to debug blind.
 */
 
 #include <Wire.h>
 #include <Adafruit_PN532.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-
+#include <WiFiClientSecure.h>
 // ---------------- WiFi / Backend ----------------
 
-const char* ssid = "Redmi 13C";
-const char* password = "alesh1234";
+const char* ssid = "Abdul-Afeez's S24";
+const char* password = "vnix7920";
 const char* checkinUrl = "https://suaams.onrender.com/api/v1/student/checkin";
 
 
@@ -66,16 +34,33 @@ const uint8_t SELECT_APDU[] = {
   0x00
 };
 
-// Must match SuaamsHceService.kt's CHUNK_SIZE. +2 for the trailing
-// SW1 SW2 the phone always appends; stays well under the uint8_t 255-byte
-// ceiling inDataExchange()'s own signature imposes on a single exchange.
-const uint8_t CHUNK_SIZE = 200;
+// Must match SuaamsHceService.kt's CHUNK_SIZE exactly. Originally 200
+// (margin below the uint8_t 255-byte ceiling inDataExchange() imposes),
+// dropped to 64 after real hardware testing showed 200-byte exchanges
+// corrupting mid-transfer -- a raw hex dump of a failed read showed real
+// JWT bytes for ~119 bytes, then the RF coupling apparently dropped, with
+// the rest of the buffer coming back as padding instead of real data or a
+// real status word.
+//
+// 64 then proved fully reliable on a real tap (6/6 clean chunks, 361 bytes
+// reassembled with zero corruption), but the resulting ~650ms exchange time
+// (6 round-trips, each with fixed APDU overhead on top of the RF transfer)
+// eats deep into BEACON_TOKEN_TTL_SECONDS's 3-second budget once the Flask
+// POST is added on top -- POST alone measured ~1.8s against a cold Render
+// dyno, enough on its own to expire the token before it's even validated
+// (see /healthz in app.py, added to keep that dyno warm). Raised to 96 as a
+// middle ground: still comfortably under the ~119-byte point where the
+// 200-byte exchange is known to have destabilized, but cuts the same token
+// down to ~4 round-trips instead of 6.
+const uint8_t CHUNK_SIZE = 96;
 const uint8_t RESPONSE_BUF_SIZE = CHUNK_SIZE + 2;
 
-// Safety cap on GET RESPONSE round-trips -- at 200-byte chunks a ~300-byte
-// JWT only ever needs 2 exchanges total. This guards against looping
-// forever if a malformed/malicious response keeps claiming "more data".
-const uint8_t MAX_EXCHANGES = 10;
+// Safety cap on GET RESPONSE round-trips. At 96-byte chunks a ~360-byte
+// JWT needs ~4 exchanges (SELECT + ~3 GET RESPONSEs); capped well above
+// that for headroom rather than tuned tight to today's token size. This
+// guards against looping forever if a malformed/malicious response keeps
+// claiming "more data".
+const uint8_t MAX_EXCHANGES = 15;
 
 // No stable per-tap identity to debounce by (a fresh token exists every
 // tap, unlike the MFRC522 flow's static card UID) -- throttle by attempt
@@ -155,6 +140,27 @@ void loop() {
   lastAttemptEnd = millis();
 }
 
+// Diagnostic-only: dumps the raw bytes of a response exactly as received,
+// before any interpretation. Added specifically to check whether the
+// trailing two bytes we're reading as SW1/SW2 really are what's arriving
+// over the air, or whether something upstream (PN532 framing, buffer
+// indexing) is shifting/truncating the response -- a computed SW=8080
+// doesn't match anything SuaamsHceService.kt can send (61 xx / 90 00 /
+// 6A 88), so seeing the raw bytes is the fastest way to tell "wrong bytes
+// arrived" apart from "right bytes, misread".
+void printHexDump(const char* label, uint8_t* buf, uint8_t len) {
+  Serial.print(label);
+  Serial.print(" (");
+  Serial.print(len);
+  Serial.print(" bytes): ");
+  for (uint8_t i = 0; i < len; i++) {
+    if (buf[i] < 0x10) Serial.print('0');
+    Serial.print(buf[i], HEX);
+    Serial.print(' ');
+  }
+  Serial.println();
+}
+
 // Runs SELECT AID, then follows the phone's 61xx/90 00 status words with
 // GET RESPONSE calls until the token is fully reassembled. Returns false
 // (with a logged reason) for a failed exchange OR the legitimate "no
@@ -185,6 +191,8 @@ bool performCheckInExchange(String &outToken) {
       Serial.println("[APDU] Response too short to contain a status word, aborting");
       return false;
     }
+
+    printHexDump("[APDU] raw response", response, responseLength);
 
     uint8_t sw1 = response[responseLength - 2];
     uint8_t sw2 = response[responseLength - 1];
@@ -217,8 +225,8 @@ bool performCheckInExchange(String &outToken) {
 
     if (sw1 == SW_MORE_DATA) {
       // sw2 == 0x00 would be the ISO 7816-4 sentinel for ">=256 bytes
-      // remain" -- not reachable at today's ~300-byte token with 200-byte
-      // chunks (max remainder ~100), and Le=0x00 in a GET RESPONSE
+      // remain" -- not reachable at today's ~300-byte token with 64-byte
+      // chunks (max remainder ~63), and Le=0x00 in a GET RESPONSE
       // conventionally means "as many bytes as available" anyway, so no
       // special-case handling needed even if it were hit.
       uint8_t remaining = sw2;
@@ -247,8 +255,12 @@ void submitBeaconToken(const String &token) {
     return;
   }
 
+  // Create a secure client and tell it to bypass SSL certificate validation
+  WiFiClientSecure client;
+  client.setInsecure(); 
+  
   HTTPClient http;
-  http.begin(checkinUrl);
+  http.begin(client,checkinUrl);
   http.addHeader("Content-Type", "application/json");
 
   String payload = "{\"beacon_token\":\"" + token + "\"}";

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:suaams/features/student/data/nfc_service.dart';
@@ -71,7 +72,19 @@ final nfcCheckInProvider = NotifierProvider.autoDispose(
 );
 
 class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
-  late final LocalAuthentication _localAuth;
+  // BUG FIX: was `late final LocalAuthentication _localAuth;` assigned
+  // inside build() (`_localAuth = LocalAuthentication();`). late final
+  // permits exactly one assignment per INSTANCE, but build() isn't
+  // guaranteed to run only once per instance -- Riverpod can re-invoke it
+  // on the same Notifier object (e.g. on hot reload during active
+  // development, which re-runs build() without necessarily reconstructing
+  // a fresh instance first). The second call hit the second assignment and
+  // threw LateInitializationError. A field initializer runs exactly once,
+  // at object construction -- a genuinely different, earlier event than
+  // build() -- which sidesteps the whole problem. No `late` needed either:
+  // LocalAuthentication() doesn't depend on anything only available inside
+  // build() (no `ref`, no per-build state).
+  final LocalAuthentication _localAuth = LocalAuthentication();
   Timer? _broadcastTimer;
   Timer? _confirmationTimer;
 
@@ -86,7 +99,8 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
   @override
   NfcCheckInState build() {
-    _localAuth = LocalAuthentication();
+    // _localAuth assignment removed from here -- it's a field initializer
+    // now (see the field declaration above for why).
 
     // Captured here, NOT inside onDispose below -- calling ref.read() from
     // inside an onDispose callback trips Riverpod's reentrancy guard
@@ -149,8 +163,21 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         (token) => ref.read(studentServiceProvider).mintCheckinBeacon(token),
       );
 
-      state = NfcCheckInState(status: NfcCheckInStatus.broadcasting, secondsRemaining: 3);
+      // BUG FIX: `state = ...broadcasting...` used to be set BEFORE this
+      // await, not after. That line triggers an immediate UI rebuild (the
+      // radar animation + "tap now" cue) the instant it executes -- before
+      // the MethodChannel call below even started, let alone completed. A
+      // tap landing in that window hit SuaamsHceService with beaconToken
+      // still null, returning SW_NO_TOKEN (6A 88) -- deterministically, on
+      // every attempt, since the UI invited a tap before the native side
+      // was ready for one. Moving the state change to AFTER this await
+      // guarantees the token is live natively before the user is ever
+      // visually told to tap.
+      debugPrint('[NFC ${DateTime.now().millisecondsSinceEpoch}] Calling setBeaconToken...');
       await ref.read(nfcServiceProvider).startHceEmulation(beaconToken);
+      debugPrint('[NFC ${DateTime.now().millisecondsSinceEpoch}] setBeaconToken call completed.');
+
+      state = NfcCheckInState(status: NfcCheckInStatus.broadcasting, secondsRemaining: 10);
 
       // Both timers start together. Broadcasting is capped at 3s
       // regardless of confirmation state -- that's the anti-relay security

@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from datetime import timedelta
 from flask_migrate import Migrate
 import os
@@ -116,6 +116,19 @@ csrf.exempt(api_auth_bp)
 csrf.exempt(api_student_bp)
 csrf.exempt(api_lecturer_bp)
 csrf.exempt(api_hardware_bp)
+
+
+# Keep-warm target for an external scheduler (e.g. an uptime-monitor ping or
+# a GitHub Actions cron job) hitting this every ~10-14 minutes, so Render's
+# free-tier dyno never fully spins down from inactivity in the first place --
+# a cold dyno is what turned a single beacon-token POST into a ~1.8s round
+# trip during hardware testing, which is enough on its own to blow past the
+# 3-second BEACON_TOKEN_TTL_SECONDS window (see api/student.py). Deliberately
+# doesn't touch the DB: this only needs to keep the web process itself alive,
+# and a DB failure here would give the external monitor a false "down".
+@app.route('/healthz')
+def healthz():
+    return jsonify({"status": "ok"}), 200
 
 
 # The ESP32-facing routes (/, /sessions/active, /sessions/active/<id>,
