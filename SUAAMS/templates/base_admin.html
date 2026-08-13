@@ -110,8 +110,7 @@
                             <span class="material-symbols-rounded text-[20px]">book</span>
                             <span>Courses</span>
                         </a>
-                        <!-- TODO: no admin.timetable route/template yet. -->
-                        <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'timetable' else '' }}">
+                        <a href="{{ url_for('admin.timetable_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'timetable' else '' }}">
                             <span class="material-symbols-rounded text-[20px]">calendar_month</span>
                             <span>Timetable</span>
                         </a>
