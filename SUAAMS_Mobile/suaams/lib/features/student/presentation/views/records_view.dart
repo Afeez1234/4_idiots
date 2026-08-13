@@ -35,10 +35,20 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
       final day = int.parse(parts[0]);
       final monthStr = parts[1].toLowerCase();
       final year = int.parse(parts[2]);
-      
+
       const months = {
-        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-        'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        'jan': 1,
+        'feb': 2,
+        'mar': 3,
+        'apr': 4,
+        'may': 5,
+        'jun': 6,
+        'jul': 7,
+        'aug': 8,
+        'sep': 9,
+        'oct': 10,
+        'nov': 11,
+        'dec': 12,
       };
       final month = months[monthStr] ?? 1;
       return DateTime(year, month, day);
@@ -50,13 +60,13 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
   // --- Helper: Filter Records ---
   List<RecentAttendance> _getFilteredRecords(List<RecentAttendance> records) {
     final now = DateTime.now();
-    
+
     return records.where((record) {
       if (_selectedFilter == 'All') return true;
-      
+
       final dt = _parseDate(record.date);
       if (dt == null) return true; // Show unparseable dates by default
-      
+
       if (_selectedFilter == 'This week') {
         final difference = now.difference(dt).inDays;
         return difference >= 0 && difference <= 7;
@@ -68,17 +78,31 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
   }
 
   // --- Helper: Group Records by Month ---
-  Map<String, List<RecentAttendance>> _groupRecordsByMonth(List<RecentAttendance> records) {
+  Map<String, List<RecentAttendance>> _groupRecordsByMonth(
+    List<RecentAttendance> records,
+  ) {
     final map = <String, List<RecentAttendance>>{};
     const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
     for (var record in records) {
       final dt = _parseDate(record.date);
-      final key = dt != null ? '${monthNames[dt.month - 1]} ${dt.year}' : 'Archived Records';
-      
+      final key = dt != null
+          ? '${monthNames[dt.month - 1]} ${dt.year}'
+          : 'Archived Records';
+
       if (!map.containsKey(key)) {
         map[key] = [];
       }
@@ -153,9 +177,12 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     // Month's Records
-                    ...entry.value.map((record) => _buildLogEntry(record, colorScheme, isDarkMode)),
+                    ...entry.value.map(
+                      (record) =>
+                          _buildLogEntry(record, colorScheme, isDarkMode),
+                    ),
                   ],
                 ),
               );
@@ -187,8 +214,14 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                 decoration: BoxDecoration(
                   color: isSelected ? colorScheme.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
-                  boxShadow: isSelected 
-                      ? [BoxShadow(color: colorScheme.primary.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))]
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: colorScheme.primary.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
                       : [],
                 ),
                 child: Center(
@@ -198,7 +231,9 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
-                      color: isSelected ? colorScheme.surface : colorScheme.onSurface.withValues(alpha: 0.6),
+                      color: isSelected
+                          ? colorScheme.surface
+                          : colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
@@ -222,15 +257,19 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
       ),
       child: Column(
         children: [
-          Icon(Icons.history_rounded, size: 48, color: colorScheme.onSurface.withValues(alpha: 0.2)),
+          Icon(
+            Icons.history_rounded,
+            size: 48,
+            color: colorScheme.onSurface.withValues(alpha: 0.2),
+          ),
           const SizedBox(height: 16),
           Text(
             'NO RECORDS FOUND',
             style: TextStyle(
-              fontFamily: 'JetBrains Mono', 
+              fontFamily: 'JetBrains Mono',
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface.withValues(alpha: 0.5)
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -239,14 +278,18 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
   }
 
   // --- UI: Log Entry Card ---
-  Widget _buildLogEntry(RecentAttendance record, ColorScheme colorScheme, bool isDarkMode) {
+  Widget _buildLogEntry(
+    RecentAttendance record,
+    ColorScheme colorScheme,
+    bool isDarkMode,
+  ) {
     // 3-State Logic Preparation
-    // Note: To support "Late", we assume true = Present, false = Absent for now. 
-    // In the future, if you change 'present' to a String 'status' in the backend, 
+    // Note: To support "Late", we assume true = Present, false = Absent for now.
+    // In the future, if you change 'present' to a String 'status' in the backend,
     // you can map it perfectly here.
     Color statusColor;
     String statusText;
-    
+
     if (record.present) {
       statusColor = const Color(0xFF10B981); // Emerald Green
       statusText = 'PRESENT';
@@ -279,12 +322,16 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
               color: statusColor,
               shape: BoxShape.circle,
               boxShadow: [
-                BoxShadow(color: statusColor.withValues(alpha: 0.4), blurRadius: 6, spreadRadius: 1)
-              ]
+                BoxShadow(
+                  color: statusColor.withValues(alpha: 0.4),
+                  blurRadius: 6,
+                  spreadRadius: 1,
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 16),
-          
+
           // Content
           Expanded(
             child: Column(
@@ -312,7 +359,12 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: CircleAvatar(radius: 2, backgroundColor: colorScheme.onSurface.withValues(alpha: 0.3)),
+                      child: CircleAvatar(
+                        radius: 2,
+                        backgroundColor: colorScheme.onSurface.withValues(
+                          alpha: 0.3,
+                        ),
+                      ),
                     ),
                     Text(
                       statusText,
@@ -328,19 +380,25 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
               ],
             ),
           ),
-          
+
           // Time badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: colorScheme.surface,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
+              border: Border.all(
+                color: colorScheme.outline.withValues(alpha: 0.1),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.access_time_rounded, size: 12, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                Icon(
+                  Icons.access_time_rounded,
+                  size: 12,
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
                 const SizedBox(width: 4),
                 Text(
                   timeText,

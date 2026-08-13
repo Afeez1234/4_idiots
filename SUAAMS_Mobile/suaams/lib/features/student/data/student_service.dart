@@ -39,7 +39,11 @@ class StudentService {
         }
       } else {
         // 3. Extract exact error from Flask or Flask-JWT-Extended
-        final errorMsg = responseData['error'] ?? responseData['msg'] ?? responseData['message'] ?? 'Server returned status ${response.statusCode}';
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
         throw Exception(errorMsg);
       }
     } catch (e) {
@@ -68,7 +72,8 @@ class StudentService {
         return responseData['beacon_token'] as String;
       }
 
-      final errorMsg = responseData['error'] ??
+      final errorMsg =
+          responseData['error'] ??
           responseData['msg'] ??
           responseData['message'] ??
           'Server returned status ${response.statusCode}';
@@ -105,7 +110,8 @@ class StudentService {
         );
       }
 
-      final errorMsg = responseData['error'] ??
+      final errorMsg =
+          responseData['error'] ??
           responseData['msg'] ??
           responseData['message'] ??
           'Server returned status ${response.statusCode}';
@@ -136,7 +142,8 @@ class StudentService {
             .toList();
       }
 
-      final errorMsg = responseData['error'] ??
+      final errorMsg =
+          responseData['error'] ??
           responseData['msg'] ??
           responseData['message'] ??
           'Server returned status ${response.statusCode}';

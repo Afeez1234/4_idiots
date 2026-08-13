@@ -27,12 +27,15 @@ class LecturerDashboardState {
   }
 }
 
-final lecturerServiceProvider = Provider<LecturerService>((ref) => LecturerService());
+final lecturerServiceProvider = Provider<LecturerService>(
+  (ref) => LecturerService(),
+);
 
 final lecturerDashboardProvider =
-    NotifierProvider.autoDispose<LecturerDashboardNotifier, LecturerDashboardState>(
-      LecturerDashboardNotifier.new,
-    );
+    NotifierProvider.autoDispose<
+      LecturerDashboardNotifier,
+      LecturerDashboardState
+    >(LecturerDashboardNotifier.new);
 
 class LecturerDashboardNotifier extends Notifier<LecturerDashboardState> {
   @override

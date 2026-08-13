@@ -8,11 +8,7 @@ class StudentDashboardState {
   final StudentDashboardModel? data;
   final String? errorMessage;
 
-  StudentDashboardState({
-    this.isLoading = false,
-    this.data,
-    this.errorMessage,
-  });
+  StudentDashboardState({this.isLoading = false, this.data, this.errorMessage});
 
   StudentDashboardState copyWith({
     bool? isLoading,
@@ -28,15 +24,18 @@ class StudentDashboardState {
 }
 
 // Service provider
-final studentServiceProvider = Provider<StudentService>((ref) => StudentService());
-
-// Updated to 3.3+ compliant syntax
-final studentDashboardProvider = NotifierProvider.autoDispose<StudentDashboardNotifier, StudentDashboardState>(
-  StudentDashboardNotifier.new,
+final studentServiceProvider = Provider<StudentService>(
+  (ref) => StudentService(),
 );
 
+// Updated to 3.3+ compliant syntax
+final studentDashboardProvider =
+    NotifierProvider.autoDispose<
+      StudentDashboardNotifier,
+      StudentDashboardState
+    >(StudentDashboardNotifier.new);
+
 class StudentDashboardNotifier extends Notifier<StudentDashboardState> {
-  
   @override
   StudentDashboardState build() {
     // We initialize the state here directly using the Notifier base class property

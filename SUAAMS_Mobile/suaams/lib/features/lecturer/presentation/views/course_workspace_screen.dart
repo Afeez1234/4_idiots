@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../providers/course_workspace_provider.dart';
 import '../../models/course_workspace_model.dart';
 
@@ -9,7 +10,8 @@ class CourseWorkspaceScreen extends ConsumerStatefulWidget {
   const CourseWorkspaceScreen({super.key, required this.courseId});
 
   @override
-  ConsumerState<CourseWorkspaceScreen> createState() => _CourseWorkspaceScreenState();
+  ConsumerState<CourseWorkspaceScreen> createState() =>
+      _CourseWorkspaceScreenState();
 }
 
 class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
@@ -39,14 +41,20 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
 
   Future<void> _startSession() async {
     setState(() => _submitting = true);
-    final success = await ref.read(courseWorkspaceProvider(widget.courseId).notifier).startSession(
-          plannedStart: _plannedStart != null ? _formatTime(_plannedStart!) : null,
+    final success = await ref
+        .read(courseWorkspaceProvider(widget.courseId).notifier)
+        .startSession(
+          plannedStart: _plannedStart != null
+              ? _formatTime(_plannedStart!)
+              : null,
           plannedEnd: _plannedEnd != null ? _formatTime(_plannedEnd!) : null,
         );
     if (!mounted) return;
     setState(() => _submitting = false);
     if (!success) {
-      final error = ref.read(courseWorkspaceProvider(widget.courseId)).errorMessage;
+      final error = ref
+          .read(courseWorkspaceProvider(widget.courseId))
+          .errorMessage;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error ?? 'Failed to start session.')),
       );
@@ -60,19 +68,29 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
         title: const Text('End Session'),
         content: const Text('Are you sure you want to end the active session?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('END SESSION')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('END SESSION'),
+          ),
         ],
       ),
     );
     if (confirmed != true) return;
 
     setState(() => _submitting = true);
-    final success = await ref.read(courseWorkspaceProvider(widget.courseId).notifier).endSession();
+    final success = await ref
+        .read(courseWorkspaceProvider(widget.courseId).notifier)
+        .endSession();
     if (!mounted) return;
     setState(() => _submitting = false);
     if (!success) {
-      final error = ref.read(courseWorkspaceProvider(widget.courseId)).errorMessage;
+      final error = ref
+          .read(courseWorkspaceProvider(widget.courseId))
+          .errorMessage;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error ?? 'Failed to end session.')),
       );
@@ -102,9 +120,24 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
         title: Text(data.course.title),
         backgroundColor: colorScheme.surface,
         elevation: 0,
+        actions: [
+          // Pushed relative to whatever branch this screen is mounted
+          // under (Home or Sessions both reuse this same screen at
+          // .../course/:courseId -- see app_router.dart), so appending
+          // "/history" to the current matched path works from either.
+          TextButton.icon(
+            onPressed: () =>
+                context.push('${GoRouterState.of(context).uri.path}/history'),
+            icon: const Icon(Icons.history_rounded, size: 18),
+            label: const Text('HISTORY'),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.read(courseWorkspaceProvider(widget.courseId).notifier).loadWorkspace(),
+        onRefresh: () => ref
+            .read(courseWorkspaceProvider(widget.courseId).notifier)
+            .loadWorkspace(),
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
@@ -158,7 +191,10 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
                   ...data.liveAttendance.map(
                     (entry) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _LiveAttendanceCard(entry: entry, colorScheme: colorScheme),
+                      child: _LiveAttendanceCard(
+                        entry: entry,
+                        colorScheme: colorScheme,
+                      ),
                     ),
                   ),
               ],
@@ -181,11 +217,24 @@ class _WorkspaceStatsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _StatBox(val: '${stats.enrolledCount}', label: 'ENROLLED', colorScheme: colorScheme),
+        _StatBox(
+          val: '${stats.enrolledCount}',
+          label: 'ENROLLED',
+          colorScheme: colorScheme,
+        ),
         const SizedBox(width: 12),
-        _StatBox(val: '${stats.avgAttendance}%', label: 'AVG ATTENDANCE', colorScheme: colorScheme),
+        _StatBox(
+          val: '${stats.avgAttendance}%',
+          label: 'AVG ATTENDANCE',
+          colorScheme: colorScheme,
+        ),
         const SizedBox(width: 12),
-        _StatBox(val: '${stats.presentNow}', label: 'PRESENT NOW', colorScheme: colorScheme, highlight: stats.presentNow > 0),
+        _StatBox(
+          val: '${stats.presentNow}',
+          label: 'PRESENT NOW',
+          colorScheme: colorScheme,
+          highlight: stats.presentNow > 0,
+        ),
       ],
     );
   }
@@ -227,7 +276,9 @@ class _StatBox extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
-                color: highlight ? const Color(0xFF10B981) : colorScheme.onSurface,
+                color: highlight
+                    ? const Color(0xFF10B981)
+                    : colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 4),
@@ -283,12 +334,16 @@ class _SessionControls extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border(
           left: BorderSide(
-            color: activeSession != null ? const Color(0xFF10B981) : colorScheme.primary,
+            color: activeSession != null
+                ? const Color(0xFF10B981)
+                : colorScheme.primary,
             width: 4,
           ),
         ),
       ),
-      child: activeSession != null ? _buildActive(context) : _buildIdle(context),
+      child: activeSession != null
+          ? _buildActive(context)
+          : _buildIdle(context),
     );
   }
 
@@ -300,13 +355,23 @@ class _SessionControls extends StatelessWidget {
           children: [
             Icon(Icons.circle, size: 8, color: Color(0xFF10B981)),
             SizedBox(width: 8),
-            Text('SESSION ACTIVE', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, fontSize: 12)),
+            Text(
+              'SESSION ACTIVE',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.5,
+                fontSize: 12,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 8),
         Text(
           'Planned ${activeSession!.plannedStart ?? '--:--'} – ${activeSession!.plannedEnd ?? '--:--'}',
-          style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+          style: TextStyle(
+            fontSize: 12,
+            color: colorScheme.onSurface.withValues(alpha: 0.6),
+          ),
         ),
         const SizedBox(height: 20),
         ElevatedButton(
@@ -314,13 +379,25 @@ class _SessionControls extends StatelessWidget {
             backgroundColor: colorScheme.error,
             foregroundColor: colorScheme.onError,
             minimumSize: const Size(double.infinity, 48),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
             elevation: 0,
           ),
           onPressed: submitting ? null : onEnd,
           child: submitting
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('END SESSION', style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text(
+                  'END SESSION',
+                  style: TextStyle(
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
       ],
     );
@@ -332,7 +409,12 @@ class _SessionControls extends StatelessWidget {
       children: [
         const Text(
           'NO ACTIVE SESSION',
-          style: TextStyle(fontSize: 10, letterSpacing: 1.5, color: Colors.grey, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 10,
+            letterSpacing: 1.5,
+            color: Colors.grey,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: 16),
         Row(
@@ -362,13 +444,25 @@ class _SessionControls extends StatelessWidget {
             backgroundColor: colorScheme.primary,
             foregroundColor: colorScheme.surface,
             minimumSize: const Size(double.infinity, 48),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
             elevation: 0,
           ),
           onPressed: submitting ? null : onStart,
           child: submitting
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('START SESSION', style: TextStyle(letterSpacing: 2, fontWeight: FontWeight.bold)),
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text(
+                  'START SESSION',
+                  style: TextStyle(
+                    letterSpacing: 2,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
       ],
     );
@@ -398,16 +492,27 @@ class _TimePickerField extends StatelessWidget {
         decoration: BoxDecoration(
           color: colorScheme.surface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: colorScheme.outline.withValues(alpha: 0.15)),
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.15),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: TextStyle(fontSize: 9, color: colorScheme.onSurface.withValues(alpha: 0.5))),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 9,
+                color: colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
             const SizedBox(height: 2),
             Text(
               value?.format(context) ?? '--:--',
-              style: const TextStyle(fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontFamily: 'JetBrains Mono',
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -425,7 +530,9 @@ class _LiveAttendanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPresent = entry.status.toLowerCase() == 'present';
-    final statusColor = isPresent ? const Color(0xFF10B981) : colorScheme.onSurface.withValues(alpha: 0.5);
+    final statusColor = isPresent
+        ? const Color(0xFF10B981)
+        : colorScheme.onSurface.withValues(alpha: 0.5);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -441,11 +548,18 @@ class _LiveAttendanceCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(entry.fullName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  entry.fullName,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 4),
                 Text(
                   entry.matricNumber,
-                  style: TextStyle(fontSize: 10, color: colorScheme.onSurface.withValues(alpha: 0.5), fontFamily: 'JetBrains Mono'),
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    fontFamily: 'JetBrains Mono',
+                  ),
                 ),
               ],
             ),
@@ -455,12 +569,21 @@ class _LiveAttendanceCard extends StatelessWidget {
             children: [
               Text(
                 entry.timeIn ?? '--:--',
-                style: const TextStyle(fontFamily: 'JetBrains Mono', fontWeight: FontWeight.bold, fontSize: 12),
+                style: const TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
               ),
               const SizedBox(height: 4),
               Text(
                 entry.status.toUpperCase(),
-                style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: statusColor, letterSpacing: 0.5),
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                  color: statusColor,
+                  letterSpacing: 0.5,
+                ),
               ),
             ],
           ),

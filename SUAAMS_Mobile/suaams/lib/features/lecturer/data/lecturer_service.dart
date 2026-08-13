@@ -24,7 +24,11 @@ class LecturerService {
           throw Exception('Data parsing error: $parseError');
         }
       } else {
-        final errorMsg = responseData['error'] ?? responseData['msg'] ?? responseData['message'] ?? 'Server returned status ${response.statusCode}';
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
         throw Exception(errorMsg);
       }
     } catch (e) {
@@ -32,7 +36,10 @@ class LecturerService {
     }
   }
 
-  Future<CourseWorkspaceModel> fetchCourseWorkspace(String token, int courseId) async {
+  Future<CourseWorkspaceModel> fetchCourseWorkspace(
+    String token,
+    int courseId,
+  ) async {
     try {
       final response = await http.get(
         Uri.parse(ApiConstants.courseWorkspaceEndpoint(courseId)),
@@ -51,7 +58,11 @@ class LecturerService {
           throw Exception('Data parsing error: $parseError');
         }
       } else {
-        final errorMsg = responseData['error'] ?? responseData['msg'] ?? responseData['message'] ?? 'Server returned status ${response.statusCode}';
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
         throw Exception(errorMsg);
       }
     } catch (e) {
@@ -64,7 +75,12 @@ class LecturerService {
   // real datetime.time objects server-side (see BUG FIX comment there for
   // why that parsing has to happen; this client just passes the raw
   // strings through).
-  Future<void> startSession(String token, int courseId, {String? plannedStart, String? plannedEnd}) async {
+  Future<void> startSession(
+    String token,
+    int courseId, {
+    String? plannedStart,
+    String? plannedEnd,
+  }) async {
     try {
       final response = await http.post(
         Uri.parse(ApiConstants.startSessionEndpoint(courseId)),
@@ -81,7 +97,11 @@ class LecturerService {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (!(response.statusCode == 201 && responseData['success'] == true)) {
-        final errorMsg = responseData['error'] ?? responseData['msg'] ?? responseData['message'] ?? 'Server returned status ${response.statusCode}';
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
         throw Exception(errorMsg);
       }
     } catch (e) {
@@ -102,7 +122,11 @@ class LecturerService {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (!(response.statusCode == 200 && responseData['success'] == true)) {
-        final errorMsg = responseData['error'] ?? responseData['msg'] ?? responseData['message'] ?? 'Server returned status ${response.statusCode}';
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
         throw Exception(errorMsg);
       }
     } catch (e) {

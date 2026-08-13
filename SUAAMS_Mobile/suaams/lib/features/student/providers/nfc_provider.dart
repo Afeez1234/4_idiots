@@ -7,7 +7,8 @@ import 'package:suaams/features/student/data/nfc_service.dart';
 // fetch) -- reusing it instead of creating a second StudentService
 // instance/provider just for the beacon mint call.
 import 'package:suaams/features/student/providers/student_provider.dart';
-import 'package:suaams/features/student/data/student_service.dart' show CheckinStatusResult;
+import 'package:suaams/features/student/data/student_service.dart'
+    show CheckinStatusResult;
 import 'package:suaams/core/network/auth_retry.dart';
 
 enum NfcCheckInStatus {
@@ -42,7 +43,8 @@ class NfcCheckInState {
   final NfcCheckInStatus status;
   final int secondsRemaining; // Countdown for the 3-second broadcast window
   final String? errorMessage;
-  final String? courseCode; // Set on a confirmed check-in or a notEnrolled result
+  final String?
+  courseCode; // Set on a confirmed check-in or a notEnrolled result
 
   NfcCheckInState({
     this.status = NfcCheckInStatus.idle,
@@ -67,9 +69,7 @@ class NfcCheckInState {
 }
 
 // OPTIMIZATION: Leveraged absolute type inference to prevent generic bound mismatch on Riverpod 3.x
-final nfcCheckInProvider = NotifierProvider.autoDispose(
-  NfcCheckInNotifier.new,
-);
+final nfcCheckInProvider = NotifierProvider.autoDispose(NfcCheckInNotifier.new);
 
 class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   // BUG FIX: was `late final LocalAuthentication _localAuth;` assigned
@@ -133,7 +133,9 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       final isDeviceSupported = await _localAuth.isDeviceSupported();
 
       if (!canAuthenticateWithBiometrics || !isDeviceSupported) {
-        throw Exception('Hardware security mismatch: Biometrics are disabled or unsupported.');
+        throw Exception(
+          'Hardware security mismatch: Biometrics are disabled or unsupported.',
+        );
       }
 
       // 2. Cross-Version Safe Biometric Call
@@ -173,11 +175,18 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       // was ready for one. Moving the state change to AFTER this await
       // guarantees the token is live natively before the user is ever
       // visually told to tap.
-      debugPrint('[NFC ${DateTime.now().millisecondsSinceEpoch}] Calling setBeaconToken...');
+      debugPrint(
+        '[NFC ${DateTime.now().millisecondsSinceEpoch}] Calling setBeaconToken...',
+      );
       await ref.read(nfcServiceProvider).startHceEmulation(beaconToken);
-      debugPrint('[NFC ${DateTime.now().millisecondsSinceEpoch}] setBeaconToken call completed.');
+      debugPrint(
+        '[NFC ${DateTime.now().millisecondsSinceEpoch}] setBeaconToken call completed.',
+      );
 
-      state = NfcCheckInState(status: NfcCheckInStatus.broadcasting, secondsRemaining: 10);
+      state = NfcCheckInState(
+        status: NfcCheckInStatus.broadcasting,
+        secondsRemaining: 10,
+      );
 
       // Both timers start together. Broadcasting is capped at 3s
       // regardless of confirmation state -- that's the anti-relay security
@@ -187,7 +196,6 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       // broadcast window even closes if the ESP32/backend respond quickly.
       _startBroadcastCountdown();
       _startConfirmationPolling();
-
     } catch (e) {
       if (ref.mounted) {
         state = NfcCheckInState(
@@ -249,7 +257,9 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     _confirmationTimer?.cancel();
     _confirmationTicks = 0;
 
-    _confirmationTimer = Timer.periodic(const Duration(seconds: 1), (timer) async {
+    _confirmationTimer = Timer.periodic(const Duration(seconds: 1), (
+      timer,
+    ) async {
       _confirmationTicks++;
 
       CheckinStatusResult? result;
@@ -274,7 +284,10 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         _broadcastTimer?.cancel();
         await ref.read(nfcServiceProvider).stopHceEmulation();
         if (ref.mounted) {
-          state = state.copyWith(status: NfcCheckInStatus.success, courseCode: result.courseCode);
+          state = state.copyWith(
+            status: NfcCheckInStatus.success,
+            courseCode: result.courseCode,
+          );
           _scheduleReturnToIdle();
         }
         return;
@@ -288,7 +301,10 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         _broadcastTimer?.cancel();
         await ref.read(nfcServiceProvider).stopHceEmulation();
         if (ref.mounted) {
-          state = state.copyWith(status: NfcCheckInStatus.notEnrolled, courseCode: result.courseCode);
+          state = state.copyWith(
+            status: NfcCheckInStatus.notEnrolled,
+            courseCode: result.courseCode,
+          );
           _scheduleReturnToIdle();
         }
         return;
