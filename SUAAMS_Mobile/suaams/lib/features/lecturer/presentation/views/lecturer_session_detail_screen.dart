@@ -1,0 +1,24 @@
+import 'package:flutter/material.dart';
+import '../../../../shared/widgets/coming_soon_screen.dart';
+
+// Placeholder for Course workspace > Session history > "Session detail
+// (tap a session)".
+class LecturerSessionDetailScreen extends StatelessWidget {
+  final int courseId;
+  final String sessionId;
+
+  const LecturerSessionDetailScreen({
+    super.key,
+    required this.courseId,
+    required this.sessionId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ComingSoonScreen(
+      title: 'Session Detail',
+      subtitle: 'Detail view for session #$sessionId is coming soon.',
+      icon: Icons.event_note_rounded,
+    );
+  }
+}

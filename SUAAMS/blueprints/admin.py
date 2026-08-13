@@ -1,18 +1,19 @@
 import csv
 import io
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 import bcrypt
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
     Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
 )
+from extensions import log_exception, logger
+from utils import resolve_current_course, session_status_for_course
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
 # same as Python's date.weekday()) -- shared by the create-form <select> and
 # the list view below so they can't drift apart.
 WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-from extensions import log_exception, logger
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -580,6 +581,89 @@ def courses_page():
 # ==========================================
 # TIMETABLE
 # ==========================================
+GRID_UNIT_MINUTES = 30
+_UNITS_PER_HOUR = 60 // GRID_UNIT_MINUTES
+
+
+def _build_timetable_grid(entries):
+    """
+    CSS-grid placement for the weekly calendar: half-hour-unit row-start/
+    row-span per entry (so 09:30-11:00-style times still land correctly,
+    not just on-the-hour slots) plus a day column, and the dynamic hour
+    range the grid needs to cover. Defaults to 07:00-19:00 with no data yet;
+    widens automatically to fit anything outside that window.
+    """
+    start_hour, end_hour = 7, 19
+    for e in entries:
+        start_hour = min(start_hour, e.start_time.hour)
+        end_hour = max(end_hour, e.end_time.hour + (1 if e.end_time.minute > 0 else 0))
+
+    hour_labels = [f"{h:02d}:00" for h in range(start_hour, end_hour)]
+
+    today = datetime.now()
+    today_weekday = today.weekday()
+
+    placed = []
+    for e in entries:
+        start_units = (e.start_time.hour - start_hour) * _UNITS_PER_HOUR + (1 if e.start_time.minute >= 30 else 0)
+        end_units = (e.end_time.hour - start_hour) * _UNITS_PER_HOUR + (1 if e.end_time.minute >= 30 else 0)
+
+        # Session/attendance status only means something for TODAY's
+        # occurrence of a recurring slot -- every other day in the grid is
+        # just a schedule entry, nothing "live" to report.
+        today_status = None
+        if e.day_of_week == today_weekday:
+            status, present_count = session_status_for_course(e.course_id, today.date())
+            today_status = {'status': status, 'present_count': present_count}
+
+        placed.append({
+            'entry': e,
+            'row_start': start_units + 1,  # CSS grid rows are 1-indexed
+            'row_span': max(1, end_units - start_units),
+            'day_col': e.day_of_week + 2,  # column 1 is the time-label gutter
+            'today_status': today_status,
+        })
+
+    return {
+        'placed': placed,
+        'hour_labels': hour_labels,
+        'total_rows': (end_hour - start_hour) * _UNITS_PER_HOUR,
+    }
+
+
+def _validate_timetable_slot(course, semester_id, day_of_week, start_time, end_time, room, exclude_id=None):
+    """
+    Shared by create and update. Returns an error string, or None if the
+    slot is valid. Two checks:
+    - start must be before end.
+    - "obvious" conflicts: another slot the same day+semester with an
+      overlapping time range that either shares the exact room, or shares
+      the same lecturer (two different courses, same teacher, can't both be
+      live at once). Two different lecturers in different rooms teaching at
+      the same hour is legitimate and NOT flagged.
+    """
+    if start_time >= end_time:
+        return 'Start time must be before end time.'
+
+    query = Timetable.query.filter(
+        Timetable.day_of_week == day_of_week,
+        Timetable.semester_id == semester_id,
+        Timetable.start_time < end_time,
+        Timetable.end_time > start_time,
+    )
+    if exclude_id is not None:
+        query = query.filter(Timetable.id != exclude_id)
+
+    for other in query.all():
+        if room and other.room and other.room.strip().lower() == room.strip().lower():
+            other_code = other.course.course_code if other.course else 'another course'
+            return f'Room {room} is already booked by {other_code} at that time.'
+        if course and other.course and other.course.lecturer_id == course.lecturer_id:
+            lecturer_name = course.lecturer.full_name if course.lecturer else 'This lecturer'
+            return f'{lecturer_name} already has {other.course.course_code} scheduled at an overlapping time.'
+    return None
+
+
 @admin_bp.route('/timetable', methods=['GET', 'POST'])
 def timetable_page():
     if request.method == 'POST':
@@ -601,36 +685,83 @@ def timetable_page():
                 log_exception("Timetable Delete Error")
             return redirect(url_for('admin.timetable_page'))
 
+        timetable_id = request.form.get('timetable_id')  # set only for action == 'update'
         course_id = request.form.get('course_id')
         semester_id = request.form.get('semester_id')
         day_of_week = request.form.get('day_of_week')
-        start_time = request.form.get('start_time')
-        end_time = request.form.get('end_time')
+        start_time_raw = request.form.get('start_time')
+        end_time_raw = request.form.get('end_time')
         room = request.form.get('room') or None
         slot_type = request.form.get('type', 'scheduled')
 
-        if not all([course_id, semester_id, day_of_week, start_time, end_time]):
+        if not all([course_id, semester_id, day_of_week, start_time_raw, end_time_raw]):
             flash('Course, semester, day, start time, and end time are all required.', 'error')
             return redirect(url_for('admin.timetable_page'))
 
         try:
-            entry = Timetable(
-                course_id=int(course_id),
-                semester_id=int(semester_id),
-                day_of_week=int(day_of_week),
-                start_time=datetime.strptime(start_time, '%H:%M').time(),
-                end_time=datetime.strptime(end_time, '%H:%M').time(),
-                room=room.strip() if room else None,
-                type=slot_type,
-                created_by=session['user_id'],
+            semester_id_int = int(semester_id)
+            day_of_week_int = int(day_of_week)
+            start_time = datetime.strptime(start_time_raw, '%H:%M').time()
+            end_time = datetime.strptime(end_time_raw, '%H:%M').time()
+            course = Course.query.get(int(course_id))
+        except (ValueError, TypeError):
+            flash('Invalid timetable slot data.', 'error')
+            return redirect(url_for('admin.timetable_page'))
+
+        # Sidebar's active semester is the intended default -- picking a
+        # different one requires an explicit confirmation checkbox so a
+        # stray click can't silently create a slot under the wrong academic
+        # session. Only enforced when there IS an active semester to compare
+        # against.
+        active_semester = Semester.query.filter_by(is_active=True).first()
+        if active_semester and semester_id_int != active_semester.id \
+                and request.form.get('confirm_other_semester') != 'on':
+            chosen = Semester.query.get(semester_id_int)
+            flash(
+                f'"{chosen.name if chosen else "Selected semester"}" isn\'t the active semester '
+                f'({active_semester.name}). Check "Use a different semester" below and resubmit to proceed.',
+                'error',
             )
-            db.session.add(entry)
-            db.session.commit()
-            flash('Timetable slot added.', 'success')
+            return redirect(url_for('admin.timetable_page'))
+
+        error = _validate_timetable_slot(
+            course, semester_id_int, day_of_week_int, start_time, end_time, room,
+            exclude_id=int(timetable_id) if timetable_id else None,
+        )
+        if error:
+            flash(error, 'error')
+            return redirect(url_for('admin.timetable_page'))
+
+        try:
+            if action == 'update' and timetable_id:
+                entry = Timetable.query.get_or_404(int(timetable_id))
+                entry.course_id = course.id
+                entry.semester_id = semester_id_int
+                entry.day_of_week = day_of_week_int
+                entry.start_time = start_time
+                entry.end_time = end_time
+                entry.room = room.strip() if room else None
+                entry.type = slot_type
+                db.session.commit()
+                flash('Timetable slot updated.', 'success')
+            else:
+                entry = Timetable(
+                    course_id=course.id,
+                    semester_id=semester_id_int,
+                    day_of_week=day_of_week_int,
+                    start_time=start_time,
+                    end_time=end_time,
+                    room=room.strip() if room else None,
+                    type=slot_type,
+                    created_by=session['user_id'],
+                )
+                db.session.add(entry)
+                db.session.commit()
+                flash('Timetable slot added.', 'success')
         except Exception:
             db.session.rollback()
-            flash('Failed to add timetable slot.', 'error')
-            log_exception("Timetable Create Error")
+            flash('Failed to save timetable slot.', 'error')
+            log_exception("Timetable Save Error")
 
         return redirect(url_for('admin.timetable_page'))
 
@@ -645,8 +776,23 @@ def timetable_page():
         courses=courses,
         semesters=semesters,
         weekday_names=WEEKDAY_NAMES,
+        grid=_build_timetable_grid(timetable_entries),
+        current_course=resolve_current_course(),
         active_page='timetable',
     )
+
+
+@admin_bp.route('/timetable/current', methods=['GET'])
+def timetable_current():
+    """
+    JSON version of the same "what's happening right now" resolution the
+    page renders server-side on load -- polled client-side (see
+    timetable.html's extra_scripts) so the "Happening Now" banner updates
+    live without a full page reload. The computation itself still runs
+    entirely in resolve_current_course() on the backend; the frontend only
+    displays whatever this endpoint returns.
+    """
+    return jsonify(resolve_current_course())
 
 
 # ==========================================

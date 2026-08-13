@@ -17,11 +17,7 @@ class CourseWorkspaceState {
   final CourseWorkspaceModel? data;
   final String? errorMessage;
 
-  CourseWorkspaceState({
-    this.isLoading = false,
-    this.data,
-    this.errorMessage,
-  });
+  CourseWorkspaceState({this.isLoading = false, this.data, this.errorMessage});
 
   CourseWorkspaceState copyWith({
     bool? isLoading,
@@ -94,7 +90,9 @@ class CourseWorkspaceNotifier extends Notifier<CourseWorkspaceState> {
       return true;
     } catch (e) {
       if (ref.mounted) {
-        state = state.copyWith(errorMessage: e.toString().replaceAll('Exception: ', ''));
+        state = state.copyWith(
+          errorMessage: e.toString().replaceAll('Exception: ', ''),
+        );
       }
       return false;
     }
@@ -111,7 +109,9 @@ class CourseWorkspaceNotifier extends Notifier<CourseWorkspaceState> {
       return true;
     } catch (e) {
       if (ref.mounted) {
-        state = state.copyWith(errorMessage: e.toString().replaceAll('Exception: ', ''));
+        state = state.copyWith(
+          errorMessage: e.toString().replaceAll('Exception: ', ''),
+        );
       }
       return false;
     }

@@ -75,8 +75,8 @@ class ProfileView extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
-          // 1. Digital Smart ID Card
-          _buildDigitalIDCard(profile, colorScheme, isDarkMode),
+          // 1. Personal info
+          _buildPersonalInfoCard(profile, colorScheme),
           const SizedBox(height: 32),
 
           const Text(
@@ -104,18 +104,33 @@ class ProfileView extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _buildPreferenceTile(
+            icon: Icons.phonelink_lock_rounded,
+            title: 'Linked Devices',
+            subtitle: 'Manage device binding',
+            colorScheme: colorScheme,
+            onTap: () => context.push('/student/profile/devices'),
+          ),
+          const SizedBox(height: 12),
+          _buildPreferenceTile(
+            icon: Icons.notifications_rounded,
+            title: 'Notification Settings',
+            subtitle: 'Announcements & session alerts',
+            colorScheme: colorScheme,
+            onTap: () => context.push('/student/profile/notifications'),
+          ),
+          const SizedBox(height: 12),
+          _buildPreferenceTile(
             icon: Icons.security_rounded,
             title: 'Account Security',
             subtitle: 'Update authorization code',
             colorScheme: colorScheme,
-            // FEATURE FIX: was `onTap: () {} // Mock for now`. Reuses the
-            // existing ChangePasswordScreen (already fully working -- it's
-            // also used for the forced first-login flow at app_router.dart).
-            // Uses push (not go) deliberately: go replaces the whole nav
-            // stack, which is right for the forced-login case but would
-            // leave a voluntary visit here with no way back if the student
-            // changes their mind. push keeps this screen underneath, so the
-            // OS back gesture/button returns to Profile.
+            // Reuses the existing ChangePasswordScreen (already fully
+            // working -- it's also used for the forced first-login flow at
+            // app_router.dart). Uses push (not go) deliberately: go replaces
+            // the whole nav stack, which is right for the forced-login case
+            // but would leave a voluntary visit here with no way back if the
+            // student changes their mind. push keeps this screen underneath,
+            // so the OS back gesture/button returns to Profile.
             onTap: () => context.push('/change-password'),
           ),
           const SizedBox(height: 12),
@@ -168,136 +183,65 @@ class ProfileView extends ConsumerWidget {
     );
   }
 
-  Widget _buildDigitalIDCard(
+  // The digital ID card visuals (NFC chip mark, hardware UID row) that used
+  // to live here moved to StudentIdCardScreen -- they're the "Full screen
+  // digital ID" tab now. This is a plain personal-info summary instead.
+  Widget _buildPersonalInfoCard(
     StudentProfile profile,
     ColorScheme colorScheme,
-    bool isDarkMode,
   ) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.15),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDarkMode ? 0.4 : 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Mock NFC Chip
-              Container(
-                width: 40,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                    color: Colors.amber.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.memory_rounded,
-                    size: 20,
-                    color: Colors.amber,
-                  ),
-                ),
-              ),
-              // Profile Avatar
               CircleAvatar(
-                radius: 32,
+                radius: 24,
                 backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
                 child: Text(
                   profile.fullName[0].toUpperCase(),
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
-                    fontSize: 28,
+                    fontSize: 20,
                     color: colorScheme.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  profile.fullName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 24),
-
-          Text(
-            profile.fullName.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          _buildIDRow('MATRIC NO', profile.matricNumber, colorScheme),
-          const SizedBox(height: 8),
-          _buildIDRow('DEPARTMENT', profile.department, colorScheme),
-          const SizedBox(height: 8),
-          _buildIDRow('LEVEL', profile.level, colorScheme),
-
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Divider(height: 1, thickness: 1),
           ),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'HARDWARE UID',
-                    style: TextStyle(
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    profile.rfidUid ?? 'UNASSIGNED',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'JetBrains Mono',
-                      fontWeight: FontWeight.bold,
-                      color: profile.rfidUid == null
-                          ? colorScheme.error
-                          : colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-              Icon(
-                Icons.contactless_rounded,
-                color: profile.rfidUid == null
-                    ? colorScheme.error.withValues(alpha: 0.5)
-                    : colorScheme.primary,
-              ),
-            ],
-          ),
+          _buildInfoRow('MATRIC NO', profile.matricNumber, colorScheme),
+          const SizedBox(height: 8),
+          _buildInfoRow('DEPARTMENT', profile.department, colorScheme),
+          const SizedBox(height: 8),
+          _buildInfoRow('LEVEL', profile.level, colorScheme),
         ],
       ),
     );
   }
 
-  Widget _buildIDRow(String label, String value, ColorScheme colorScheme) {
+  Widget _buildInfoRow(String label, String value, ColorScheme colorScheme) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

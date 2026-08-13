@@ -2,13 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../shared/widgets/dashboard_background.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/lecturer_provider.dart';
-import '../../../shared/utils/grid_overlay_painter.dart';
 import '../models/lecturer_dashboard_model.dart';
 
-class LecturerDashboardScreen extends ConsumerWidget {
-  const LecturerDashboardScreen({super.key});
+// Home tab of the lecturer bottom nav. Was LecturerDashboardScreen, the
+// only screen on the lecturer side before this redesign -- renamed since
+// it's now specifically the Home tab (Sessions/Reports/Announce/Profile are
+// new sibling tabs). Content and logic are unchanged; only the course-tap
+// destination path changed to live under the Home branch
+// (see student_shell_screen.dart's sibling comment for why
+// StatefulShellRoute is used here).
+class LecturerHomeScreen extends ConsumerWidget {
+  const LecturerHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,18 +39,17 @@ class LecturerDashboardScreen extends ConsumerWidget {
       backgroundColor: colorScheme.surface,
       body: Stack(
         children: [
-          // Same background pattern as student_dashboard_screen.dart --
-          // RepaintBoundary isolates the static gradient/grid from
-          // whatever's rebuilding on top of it.
           RepaintBoundary(
-            child: _DashboardBackground(
+            child: DashboardBackground(
               isDarkMode: isDarkMode,
               colorScheme: colorScheme,
             ),
           ),
           SafeArea(
             child: RefreshIndicator(
-              onRefresh: () => ref.read(lecturerDashboardProvider.notifier).loadDashboardData(),
+              onRefresh: () => ref
+                  .read(lecturerDashboardProvider.notifier)
+                  .loadDashboardData(),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(24),
@@ -84,7 +90,9 @@ class LecturerDashboardScreen extends ConsumerWidget {
                           child: _CourseCard(
                             course: course,
                             colorScheme: colorScheme,
-                            onTap: () => context.push('/lecturer/course/${course.id}'),
+                            onTap: () => context.push(
+                              '/lecturer/home/course/${course.id}',
+                            ),
                           ),
                         ),
                       ),
@@ -96,64 +104,6 @@ class LecturerDashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _DashboardBackground extends StatelessWidget {
-  final bool isDarkMode;
-  final ColorScheme colorScheme;
-
-  const _DashboardBackground({
-    required this.isDarkMode,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Container(decoration: BoxDecoration(color: colorScheme.surface)),
-        ),
-        Positioned(
-          top: -55,
-          right: -45,
-          child: Container(
-            width: 170,
-            height: 170,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDarkMode
-                  ? const Color(0xFF0A0A14).withValues(alpha: 0.6)
-                  : const Color(0xFFE0E7FF).withValues(alpha: 0.75),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -35,
-          left: -25,
-          child: Container(
-            width: 130,
-            height: 130,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDarkMode
-                  ? const Color(0xFF080810).withValues(alpha: 0.65)
-                  : const Color(0xFFFEF3C7).withValues(alpha: 0.55),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(
-              painter: isDarkMode
-                  ? const GridOverlayPainter(color: Colors.white)
-                  : const GridOverlayPainter(color: Colors.black),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -174,12 +124,20 @@ class _DashboardHeader extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colorScheme.surfaceContainer,
-        title: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to log out of your session?'),
+        title: const Text(
+          'Sign Out',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Are you sure you want to log out of your session?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('CANCEL', style: TextStyle(color: colorScheme.onSurface)),
+            child: Text(
+              'CANCEL',
+              style: TextStyle(color: colorScheme.onSurface),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -200,8 +158,12 @@ class _DashboardHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final displayName = profile.fullName.trim();
-    final fallbackName = displayName.isNotEmpty ? displayName : 'Unknown Lecturer';
-    final avatarLetter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'L';
+    final fallbackName = displayName.isNotEmpty
+        ? displayName
+        : 'Unknown Lecturer';
+    final avatarLetter = displayName.isNotEmpty
+        ? displayName[0].toUpperCase()
+        : 'L';
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -224,12 +186,18 @@ class _DashboardHeader extends ConsumerWidget {
                 fallbackName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               if (profile.department != null)
                 Text(
                   profile.department!,
-                  style: TextStyle(fontSize: 12, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
                 ),
             ],
           ),
@@ -244,15 +212,23 @@ class _DashboardHeader extends ConsumerWidget {
                 onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
                 style: IconButton.styleFrom(
                   backgroundColor: colorScheme.surfaceContainer,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.15)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(
+                    color: colorScheme.outline.withValues(alpha: 0.15),
+                  ),
                 ),
                 icon: Icon(
-                  isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                  isDarkMode
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_rounded,
                   color: colorScheme.primary,
                   size: 20,
                 ),
-                tooltip: isDarkMode ? 'Switch to light mode' : 'Switch to dark mode',
+                tooltip: isDarkMode
+                    ? 'Switch to light mode'
+                    : 'Switch to dark mode',
               ),
               const SizedBox(width: 8),
               GestureDetector(
@@ -262,7 +238,10 @@ class _DashboardHeader extends ConsumerWidget {
                   backgroundColor: colorScheme.surfaceContainer,
                   child: Text(
                     avatarLetter,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ),
@@ -284,11 +263,24 @@ class _StatsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _StatBox(val: '${stats.totalCourses}', label: 'COURSES', colorScheme: colorScheme),
+        _StatBox(
+          val: '${stats.totalCourses}',
+          label: 'COURSES',
+          colorScheme: colorScheme,
+        ),
         const SizedBox(width: 12),
-        _StatBox(val: '${stats.activeSessions}', label: 'LIVE NOW', colorScheme: colorScheme, highlight: stats.activeSessions > 0),
+        _StatBox(
+          val: '${stats.activeSessions}',
+          label: 'LIVE NOW',
+          colorScheme: colorScheme,
+          highlight: stats.activeSessions > 0,
+        ),
         const SizedBox(width: 12),
-        _StatBox(val: '${stats.todayCheckins}', label: 'CHECK-INS TODAY', colorScheme: colorScheme),
+        _StatBox(
+          val: '${stats.todayCheckins}',
+          label: 'CHECK-INS TODAY',
+          colorScheme: colorScheme,
+        ),
       ],
     );
   }
@@ -330,7 +322,9 @@ class _StatBox extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
-                color: highlight ? const Color(0xFF10B981) : colorScheme.onSurface,
+                color: highlight
+                    ? const Color(0xFF10B981)
+                    : colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 4),
@@ -391,7 +385,10 @@ class _CourseCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           course.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),

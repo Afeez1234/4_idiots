@@ -112,9 +112,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(
-          color: colorScheme.outline.withValues(alpha: 0.1),
-        ),
+        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -143,7 +141,8 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             _buildSuccessState(nfcState, colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.unconfirmed) ...[
             _buildUnconfirmedState(colorScheme),
-          ] else if (nfcState.status == NfcCheckInStatus.noHardwareDetected) ...[
+          ] else if (nfcState.status ==
+              NfcCheckInStatus.noHardwareDetected) ...[
             _buildNoHardwareDetectedState(colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.notEnrolled) ...[
             _buildNotEnrolledState(nfcState, colorScheme),
@@ -196,7 +195,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         const SizedBox(height: 8),
         Text(
           'Awaiting initialization signal...',
-          style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+          style: TextStyle(
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
+            fontSize: 12,
+          ),
         ),
       ],
     );
@@ -215,7 +217,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         const SizedBox(height: 8),
         Text(
           'Please verify biometric key on your terminal...',
-          style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+          style: TextStyle(
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
+            fontSize: 12,
+          ),
         ),
       ],
     );
@@ -223,7 +228,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
 
   // 3. Broadcasting State (Concentric Pulse Radar + Countdown)
   // DEEP FIX 1: Restored parameter signature (NfcCheckInState state) to solve undefined compiler error
-  Widget _buildBroadcastingState(NfcCheckInState state, ColorScheme colorScheme) {
+  Widget _buildBroadcastingState(
+    NfcCheckInState state,
+    ColorScheme colorScheme,
+  ) {
     return Column(
       children: [
         // Concentric animated radar waves
@@ -283,7 +291,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         const SizedBox(height: 8),
         Text(
           'Hold your terminal close to the door sensor...',
-          style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+          style: TextStyle(
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
+            fontSize: 12,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
@@ -320,7 +331,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           state.courseCode != null
               ? 'Checked in for ${state.courseCode}.'
               : 'Your signature has been committed to database ledger.',
-          style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+          style: TextStyle(
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
+            fontSize: 12,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
@@ -342,7 +356,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         const SizedBox(height: 8),
         Text(
           'Waiting for the terminal to confirm your check-in...',
-          style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+          style: TextStyle(
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
+            fontSize: 12,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
@@ -362,7 +379,11 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             shape: BoxShape.circle,
             color: Color(0xFFF59E0B), // Amber
           ),
-          child: const Icon(Icons.help_outline_rounded, color: Colors.white, size: 36),
+          child: const Icon(
+            Icons.help_outline_rounded,
+            color: Colors.white,
+            size: 36,
+          ),
         ),
         const SizedBox(height: 24),
         const Text(
@@ -378,7 +399,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
             'Signal was sent, but we couldn\'t confirm it reached the terminal in time. Check your dashboard in a moment.',
-            style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+            style: TextStyle(
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 12,
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -401,7 +425,11 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             shape: BoxShape.circle,
             color: Color(0xFFF59E0B), // Amber
           ),
-          child: const Icon(Icons.search_off_rounded, color: Colors.white, size: 36),
+          child: const Icon(
+            Icons.search_off_rounded,
+            color: Colors.white,
+            size: 36,
+          ),
         ),
         const SizedBox(height: 24),
         const Text(
@@ -417,7 +445,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
             'No reader responded during the transmission window. Hold your phone closer to the terminal and try again.',
-            style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+            style: TextStyle(
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 12,
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -430,7 +461,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
   // like the hard error state below (this is definite and permanent, not
   // ambiguous), but with its own icon/copy pointing at the real cause
   // instead of a generic security/hardware message.
-  Widget _buildNotEnrolledState(NfcCheckInState state, ColorScheme colorScheme) {
+  Widget _buildNotEnrolledState(
+    NfcCheckInState state,
+    ColorScheme colorScheme,
+  ) {
     return Column(
       children: [
         Container(
@@ -440,7 +474,11 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             shape: BoxShape.circle,
             color: colorScheme.error,
           ),
-          child: const Icon(Icons.person_off_rounded, color: Colors.white, size: 36),
+          child: const Icon(
+            Icons.person_off_rounded,
+            color: Colors.white,
+            size: 36,
+          ),
         ),
         const SizedBox(height: 24),
         Text(
@@ -458,7 +496,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             state.courseCode != null
                 ? 'You\'re not registered for ${state.courseCode}. Contact your department if this looks wrong.'
                 : 'You\'re not registered for this course. Contact your department if this looks wrong.',
-            style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+            style: TextStyle(
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 12,
+            ),
             textAlign: TextAlign.center,
           ),
         ),
@@ -494,7 +535,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
             state.errorMessage ?? 'Unknown security error.',
-            style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5), fontSize: 12),
+            style: TextStyle(
+              color: colorScheme.onSurface.withValues(alpha: 0.5),
+              fontSize: 12,
+            ),
             textAlign: TextAlign.center,
           ),
         ),

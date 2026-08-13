@@ -6,10 +6,35 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
-import '../../features/student/presentation/student_dashboard_screen.dart';
 import '../../features/auth/presentation/change_password_screen.dart';
-import '../../features/lecturer/presentation/lecturer_dashboard_screen.dart';
+
+// Student
+import '../../features/student/presentation/student_shell_screen.dart';
+import '../../features/student/presentation/student_home_screen.dart';
+import '../../features/student/presentation/views/course_detail_screen.dart';
+import '../../features/student/presentation/views/student_timetable_screen.dart';
+import '../../features/student/presentation/views/day_detail_screen.dart';
+import '../../features/student/presentation/views/student_attendance_screen.dart';
+import '../../features/student/presentation/views/course_attendance_detail_screen.dart';
+import '../../features/student/presentation/views/session_history_screen.dart';
+import '../../features/student/presentation/views/session_detail_screen.dart';
+import '../../features/student/presentation/views/student_id_card_screen.dart';
+import '../../features/student/presentation/views/student_profile_screen.dart';
+import '../../features/student/presentation/views/linked_devices_screen.dart';
+import '../../features/student/presentation/views/notification_settings_screen.dart';
+
+// Lecturer
+import '../../features/lecturer/presentation/lecturer_shell_screen.dart';
+import '../../features/lecturer/presentation/lecturer_home_screen.dart';
+import '../../features/lecturer/presentation/lecturer_profile_screen.dart';
 import '../../features/lecturer/presentation/views/course_workspace_screen.dart';
+import '../../features/lecturer/presentation/views/lecturer_session_history_screen.dart';
+import '../../features/lecturer/presentation/views/lecturer_session_detail_screen.dart';
+import '../../features/lecturer/presentation/views/active_sessions_screen.dart';
+import '../../features/lecturer/presentation/views/reports_list_screen.dart';
+import '../../features/lecturer/presentation/views/course_analytics_screen.dart';
+import '../../features/lecturer/presentation/views/announcements_list_screen.dart';
+import '../../features/lecturer/presentation/views/create_announcement_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // 1. Create a simple ValueNotifier bridge for GoRouter
@@ -41,8 +66,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (user != null && (isLoggingIn || isSplash)) {
         if (user.role == 'admin') return '/admin';
-        if (user.role == 'lecturer') return '/lecturer';
-        if (user.role == 'student') return '/student';
+        if (user.role == 'lecturer') return '/lecturer/home';
+        if (user.role == 'student') return '/student/home';
       }
 
       return null;
@@ -60,22 +85,250 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             const Scaffold(body: Center(child: Text('Admin Dashboard'))),
       ),
       GoRoute(
-        path: '/lecturer',
-        builder: (context, state) => const LecturerDashboardScreen(),
-      ),
-      GoRoute(
-        path: '/lecturer/course/:courseId',
-        builder: (context, state) => CourseWorkspaceScreen(
-          courseId: int.parse(state.pathParameters['courseId']!),
-        ),
-      ),
-      GoRoute(
-        path: '/student',
-        builder: (context, state) => const StudentDashboardScreen(),
-      ),
-      GoRoute(
         path: '/change-password',
         builder: (context, state) => const ChangePasswordScreen(),
+      ),
+
+      // ============ STUDENT: 5-tab bottom nav ============
+      // Home, Timetable, Attendance, ID Card, Profile. Each branch below is
+      // its own Navigator stack (StatefulShellRoute.indexedStack), so
+      // pushing a detail screen in one tab doesn't touch another tab's
+      // stack, and switching tabs preserves each one's position.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            StudentShellScreen(navigationShell: navigationShell),
+        branches: [
+          // Home
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/student/home',
+                builder: (context, state) => const StudentHomeScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'course/:courseId',
+                    builder: (context, state) => CourseDetailScreen(
+                      courseId: int.parse(state.pathParameters['courseId']!),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Timetable
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/student/timetable',
+                builder: (context, state) => const StudentTimetableScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'day/:day',
+                    builder: (context, state) =>
+                        DayDetailScreen(day: state.pathParameters['day']!),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Attendance
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/student/attendance',
+                builder: (context, state) => const StudentAttendanceScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'course/:courseId',
+                    builder: (context, state) => CourseAttendanceDetailScreen(
+                      courseId: int.parse(state.pathParameters['courseId']!),
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'history',
+                    builder: (context, state) => const SessionHistoryScreen(),
+                    routes: [
+                      GoRoute(
+                        path: 'session/:sessionId',
+                        builder: (context, state) => SessionDetailScreen(
+                          sessionId: state.pathParameters['sessionId']!,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // ID Card
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/student/id-card',
+                builder: (context, state) => const StudentIdCardScreen(),
+              ),
+            ],
+          ),
+
+          // Profile
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/student/profile',
+                builder: (context, state) => const StudentProfileScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'devices',
+                    builder: (context, state) => const LinkedDevicesScreen(),
+                  ),
+                  GoRoute(
+                    path: 'notifications',
+                    builder: (context, state) =>
+                        const NotificationSettingsScreen(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+
+      // ============ LECTURER: 5-tab bottom nav ============
+      // Home, Sessions, Reports, Announce, Profile.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            LecturerShellScreen(navigationShell: navigationShell),
+        branches: [
+          // Home
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/lecturer/home',
+                builder: (context, state) => const LecturerHomeScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'course/:courseId',
+                    builder: (context, state) => CourseWorkspaceScreen(
+                      courseId: int.parse(state.pathParameters['courseId']!),
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: 'history',
+                        builder: (context, state) =>
+                            LecturerSessionHistoryScreen(
+                              courseId: int.parse(
+                                state.pathParameters['courseId']!,
+                              ),
+                            ),
+                        routes: [
+                          GoRoute(
+                            path: 'session/:sessionId',
+                            builder: (context, state) =>
+                                LecturerSessionDetailScreen(
+                                  courseId: int.parse(
+                                    state.pathParameters['courseId']!,
+                                  ),
+                                  sessionId: state.pathParameters['sessionId']!,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Sessions
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/lecturer/sessions',
+                builder: (context, state) => const ActiveSessionsScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'course/:courseId',
+                    builder: (context, state) => CourseWorkspaceScreen(
+                      courseId: int.parse(state.pathParameters['courseId']!),
+                    ),
+                    routes: [
+                      GoRoute(
+                        path: 'history',
+                        builder: (context, state) =>
+                            LecturerSessionHistoryScreen(
+                              courseId: int.parse(
+                                state.pathParameters['courseId']!,
+                              ),
+                            ),
+                        routes: [
+                          GoRoute(
+                            path: 'session/:sessionId',
+                            builder: (context, state) =>
+                                LecturerSessionDetailScreen(
+                                  courseId: int.parse(
+                                    state.pathParameters['courseId']!,
+                                  ),
+                                  sessionId: state.pathParameters['sessionId']!,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Reports
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/lecturer/reports',
+                builder: (context, state) => const ReportsListScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'course/:courseId',
+                    builder: (context, state) => CourseAnalyticsScreen(
+                      courseId: int.parse(state.pathParameters['courseId']!),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Announce
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/lecturer/announce',
+                builder: (context, state) => const AnnouncementsListScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'create',
+                    builder: (context, state) =>
+                        const CreateAnnouncementScreen(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Profile
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/lecturer/profile',
+                builder: (context, state) => const LecturerProfileScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );

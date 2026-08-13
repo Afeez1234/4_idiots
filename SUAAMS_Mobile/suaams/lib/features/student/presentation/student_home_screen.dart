@@ -1,47 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../shared/widgets/dashboard_background.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/student_provider.dart';
 import '../providers/today_schedule_provider.dart';
-import '../../../shared/utils/grid_overlay_painter.dart';
 import '../models/student_dashboard_model.dart';
 import '../models/today_protocol_entry.dart';
-import 'views/profile_view_screen.dart';
-import 'views/courses_view.dart';
-import 'views/records_view.dart';
-import 'views/nfc_broadcast_sheet.dart'; // <-- Add this import
+import 'views/nfc_broadcast_sheet.dart';
 
-// Bottom tab selection state for the dashboard navigation bar.
-final selectedDashboardTabProvider =
-    NotifierProvider<SelectedDashboardTabNotifier, int>(
-      SelectedDashboardTabNotifier.new,
-    );
-
-class SelectedDashboardTabNotifier extends Notifier<int> {
-  @override
-  int build() {
-    return 0;
-  }
-
-  void setTab(int tabIndex) {
-    state = tabIndex;
-  }
-}
-
-class StudentDashboardScreen extends ConsumerWidget {
-  const StudentDashboardScreen({super.key});
+// The Home tab of the student bottom nav. This used to be one of four
+// manually-switched bodies inside StudentDashboardScreen (see git history);
+// that screen has been split up so each bottom-nav tab is a real routed
+// screen with its own back-stack (see student_shell_screen.dart +
+// app_router.dart). This file keeps only the original "Home" body --
+// header, next-session card, stats grid, today's protocol list.
+class StudentHomeScreen extends ConsumerWidget {
+  const StudentHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // PERF FIX: selectedDashboardTabProvider is deliberately NOT watched
-    // here anymore. Previously it was watched at the top of this build()
-    // alongside studentDashboardProvider, which meant every bottom-nav tab
-    // tap re-ran this entire ~700-line build method -- reconstructing the
-    // background, Scaffold, everything -- to change what amounts to a
-    // single Builder's output and the nav bar's highlighted icon. It's now
-    // watched inside two small Consumer widgets below instead, so a tab
-    // switch only rebuilds those two subtrees.
     final state = ref.watch(studentDashboardProvider);
 
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -62,158 +41,51 @@ class StudentDashboardScreen extends ConsumerWidget {
       backgroundColor: colorScheme.surface,
       body: Stack(
         children: [
-          // PERF FIX: RepaintBoundary isolates this static decorative
-          // background from the tab content painted above it, same pattern
-          // already used for the equivalent backgrounds in login_screen.dart
-          // and change_password_screen.dart. Without it, the background's
-          // CustomPaint grid + gradient circles shared a paint layer with
-          // whatever's rebuilding on top of them.
           RepaintBoundary(
-            child: _DashboardBackground(
+            child: DashboardBackground(
               isDarkMode: isDarkMode,
               colorScheme: colorScheme,
             ),
           ),
           SafeArea(
-            // PERF FIX: selectedDashboardTabProvider is watched inside this
-            // Consumer (was previously watched at the top of build() -- see
-            // comment above) so switching tabs only rebuilds this subtree,
-            // not the whole screen.
-            child: Consumer(
-              builder: (context, ref, _) {
-                final selectedTab = ref.watch(selectedDashboardTabProvider);
-
-                // Tab 1: COURSES
-                if (selectedTab == 1) {
-                  return const CoursesView();
-                }
-
-                // Tab 2: RECORDS
-                if (selectedTab == 2) {
-                  return const RecordsView(); // <-- Add this block
-                }
-
-                // Tab 3: PROFILE
-                if (selectedTab == 3) {
-                  return const ProfileView();
-                }
-
-                // Tab 0: HOME (Default)
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _DashboardHeader(
-                        profile: data.profile,
-                        colorScheme: colorScheme,
-                        isDarkMode: isDarkMode,
-                      ),
-                      const SizedBox(height: 32),
-
-                      _NextSessionCard(colorScheme: colorScheme),
-                      const SizedBox(height: 20),
-
-                      _StatsGrid(stats: data.stats, colorScheme: colorScheme),
-                      const SizedBox(height: 32),
-
-                      const Text(
-                        'TODAY\'S PROTOCOL',
-                        style: TextStyle(
-                          fontSize: 10,
-                          letterSpacing: 1.5,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      _ProtocolList(colorScheme: colorScheme),
-                      const SizedBox(height: 32), // Bottom padding
-                    ],
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _DashboardHeader(
+                    profile: data.profile,
+                    colorScheme: colorScheme,
+                    isDarkMode: isDarkMode,
                   ),
-                );
-              },
+                  const SizedBox(height: 32),
+
+                  _NextSessionCard(colorScheme: colorScheme),
+                  const SizedBox(height: 20),
+
+                  _StatsGrid(stats: data.stats, colorScheme: colorScheme),
+                  const SizedBox(height: 32),
+
+                  const Text(
+                    'TODAY\'S PROTOCOL',
+                    style: TextStyle(
+                      fontSize: 10,
+                      letterSpacing: 1.5,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  _ProtocolList(colorScheme: colorScheme),
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
           ),
         ],
       ),
-      // PERF FIX: same Consumer scoping as above -- the bottom nav is the
-      // other (and only other) part of the screen that needs selectedTab.
-      bottomNavigationBar: Consumer(
-        builder: (context, ref, _) {
-          final selectedTab = ref.watch(selectedDashboardTabProvider);
-          return _DashboardBottomNav(
-            selectedTab: selectedTab,
-            colorScheme: colorScheme,
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _DashboardBackground extends StatelessWidget {
-  final bool isDarkMode;
-  final ColorScheme colorScheme;
-
-  const _DashboardBackground({
-    required this.isDarkMode,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(color: colorScheme.surface),
-          ),
-        ),
-        Positioned(
-          top: -55,
-          right: -45,
-          child: Container(
-            width: 170,
-            height: 170,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDarkMode
-                  ? const Color(0xFF0A0A14).withValues(alpha: 0.6)
-                  : const Color(0xFFE0E7FF).withValues(alpha: 0.75),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -35,
-          left: -25,
-          child: Container(
-            width: 130,
-            height: 130,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDarkMode
-                  ? const Color(0xFF080810).withValues(alpha: 0.65)
-                  : const Color(0xFFFEF3C7).withValues(alpha: 0.55),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(
-              // PERF FIX: branch on isDarkMode to pick between two `const`
-              // painter instances instead of building a new GridOverlayPainter
-              // every rebuild -- shouldRepaint is always false, so this const
-              // instance is fully reused.
-              painter: isDarkMode
-                  ? const GridOverlayPainter(color: Colors.white)
-                  : const GridOverlayPainter(color: Colors.black),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -355,14 +227,6 @@ class _DashboardHeader extends ConsumerWidget {
   }
 }
 
-// FEATURE FIX: was a StatelessWidget taking an arbitrary CourseBreakdown
-// (data.courses.first -- not actually "next", just whichever course
-// happened to be first in the enrollment list) and always showing the
-// hardcoded string 'NEXT SESSION IN 15 MIN' regardless of reality. Now a
-// ConsumerWidget reading todayScheduleProvider (same data _ProtocolList
-// uses) and showing the earliest still-PENDING entry -- entries already
-// arrive ordered by start_time ascending from the backend query in
-// api/student.py, so the first PENDING one found IS the next session.
 class _NextSessionCard extends ConsumerWidget {
   final ColorScheme colorScheme;
 
@@ -383,8 +247,8 @@ class _NextSessionCard extends ConsumerWidget {
     final subtitle = scheduleState.isLoading
         ? 'LOADING TODAY\'S SCHEDULE...'
         : nextSession != null
-            ? 'NEXT SESSION TODAY'
-            : 'NO UPCOMING SESSIONS';
+        ? 'NEXT SESSION TODAY'
+        : 'NO UPCOMING SESSIONS';
 
     final title = nextSession?.courseName ?? 'No Upcoming Sessions';
 
@@ -392,7 +256,7 @@ class _NextSessionCard extends ConsumerWidget {
         nextSession?.startTime != null && nextSession?.endTime != null;
     final timeRange = hasTimeRange
         ? '${nextSession!.startTime} - ${nextSession.endTime}'
-            '${nextSession.room != null ? ' · ${nextSession.room}' : ''}'
+              '${nextSession.room != null ? ' · ${nextSession.room}' : ''}'
         : null;
 
     return Container(
@@ -545,10 +409,6 @@ class _StatBox extends StatelessWidget {
   }
 }
 
-// PERF/FEATURE: now a ConsumerWidget backed by todayScheduleProvider instead
-// of taking a `courses` list and faking status/time per-index. See
-// api/student.py's get_today_schedule for how PENDING/PRESENT/ABSENT are
-// actually derived from Timetable + Session + Attendance.
 class _ProtocolList extends ConsumerWidget {
   final ColorScheme colorScheme;
 
@@ -592,6 +452,7 @@ class _ProtocolList extends ConsumerWidget {
             : '--:-- - --:--';
 
         return _ProtocolCard(
+          courseId: entry.courseId,
           title: entry.courseName,
           time: timeRange,
           status: entry.status,
@@ -603,12 +464,14 @@ class _ProtocolList extends ConsumerWidget {
 }
 
 class _ProtocolCard extends StatelessWidget {
+  final int courseId;
   final String title;
   final String time;
   final String status;
   final ColorScheme colorScheme;
 
   const _ProtocolCard({
+    required this.courseId,
     required this.title,
     required this.time,
     required this.status,
@@ -620,9 +483,6 @@ class _ProtocolCard extends StatelessWidget {
     final isPresent = status == 'PRESENT';
     final isAbsent = status == 'ABSENT';
 
-    // PRESENT: green (unchanged). ABSENT: red, matching the same color used
-    // for absent entries in records_view.dart. PENDING (or anything else):
-    // the original neutral grey styling.
     final Color statusColor;
     final Color bgColor;
     final Color borderColor;
@@ -640,189 +500,74 @@ class _ProtocolCard extends StatelessWidget {
       borderColor = colorScheme.outline.withValues(alpha: 0.1);
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  time,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey,
-                    fontFamily: 'JetBrains Mono',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: borderColor),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Dot indicator for resolved states (PRESENT/ABSENT); not
-                // shown for PENDING, matching the original present-only dot.
-                if (isPresent || isAbsent) ...[
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: statusColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  status.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1,
-                    color: statusColor,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DashboardBottomNav extends ConsumerWidget {
-  final int selectedTab;
-  final ColorScheme colorScheme;
-
-  const _DashboardBottomNav({
-    required this.selectedTab,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return SafeArea(
-      top: false,
+    return InkWell(
+      // Tapping a course's today-entry opens the Home-tab course detail
+      // screen (see the "Course detail (tap a course)" node under Home in
+      // the navigation map), pushed within this tab's own stack.
+      onTap: () => context.push('/student/home/course/$courseId'),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: colorScheme.surface,
-          border: Border(
-            top: BorderSide(color: colorScheme.outline.withValues(alpha: 0.15)),
-          ),
+          color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _BottomNavItem(
-              icon: Icons.grid_view_rounded,
-              label: 'HOME',
-              active: selectedTab == 0,
-              colorScheme: colorScheme,
-              onTap: () =>
-                  ref.read(selectedDashboardTabProvider.notifier).setTab(0),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    time,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey,
+                      fontFamily: 'JetBrains Mono',
+                    ),
+                  ),
+                ],
+              ),
             ),
-            _BottomNavItem(
-              icon: Icons.description_rounded,
-              label: 'COURSES',
-              active: selectedTab == 1,
-              colorScheme: colorScheme,
-              onTap: () =>
-                  ref.read(selectedDashboardTabProvider.notifier).setTab(1),
-            ),
-            _BottomNavItem(
-              icon: Icons.fact_check_rounded,
-              label: 'RECORDS',
-              active: selectedTab == 2,
-              colorScheme: colorScheme,
-              onTap: () =>
-                  ref.read(selectedDashboardTabProvider.notifier).setTab(2),
-            ),
-            _BottomNavItem(
-              icon: Icons.person_rounded,
-              label: 'PROFILE',
-              active: selectedTab == 3,
-              colorScheme: colorScheme,
-              onTap: () =>
-                  ref.read(selectedDashboardTabProvider.notifier).setTab(3),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BottomNavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool active;
-  final ColorScheme colorScheme;
-  final VoidCallback onTap;
-
-  const _BottomNavItem({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.colorScheme,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: active
-              ? colorScheme.primary.withValues(alpha: 0.05)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: active
-                  ? colorScheme.primary
-                  : colorScheme.onSurface.withValues(alpha: 0.45),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 8,
-                fontWeight: FontWeight.bold,
-                color: active
-                    ? colorScheme.primary
-                    : colorScheme.onSurface.withValues(alpha: 0.45),
-                letterSpacing: 1,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: borderColor),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isPresent || isAbsent) ...[
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    status.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1,
+                      color: statusColor,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

@@ -29,7 +29,8 @@ class StudentProfile {
   final String fullName;
   final String department;
   final String level;
-  final String? rfidUid; // Nullable in case a student hasn't been issued an RFID yet
+  final String?
+  rfidUid; // Nullable in case a student hasn't been issued an RFID yet
   final String matricNumber;
 
   StudentProfile({
@@ -44,7 +45,9 @@ class StudentProfile {
     return StudentProfile(
       fullName: json['full_name'] ?? 'Unknown Student',
       department: json['department'] ?? 'Unknown Dept',
-      level: json['level']?.toString() ?? 'N/A', // .toString() protects us if DB sends an int
+      level:
+          json['level']?.toString() ??
+          'N/A', // .toString() protects us if DB sends an int
       rfidUid: json['rfid_uid'],
       matricNumber: json['matric_number'] ?? '',
     );
@@ -68,7 +71,7 @@ class DashboardStats {
 
   factory DashboardStats.fromJson(Map<String, dynamic> json) {
     return DashboardStats(
-      // We use (json['...'] as num).toDouble() because JSON sometimes sends whole numbers (85) 
+      // We use (json['...'] as num).toDouble() because JSON sometimes sends whole numbers (85)
       // instead of floats (85.0), which causes Dart to crash if explicitly cast as double.
       overallRate: (json['overall_rate'] as num).toDouble(),
       attendanceCount: json['attendance_count'] as int,

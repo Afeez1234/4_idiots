@@ -8,13 +8,28 @@
 
 {% block content %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    <!-- ============ HAPPENING NOW ============
+         Skeleton only -- JS fetches /admin/timetable/current on load and on
+         a 60s poll, and renders whatever it gets back. The day/time/semester
+         matching itself runs entirely server-side (resolve_current_course()
+         in utils.py); this element never computes anything, it just displays
+         the backend's answer. -->
+    <div id="now-banner" class="rounded-2xl border border-border bg-card p-4 flex items-center gap-4 mb-6">
+        <div id="now-banner-icon-wrap" class="w-9 h-9 rounded-full bg-surface text-muted flex items-center justify-center shrink-0">
+            <span class="material-symbols-rounded text-[20px]" id="now-banner-icon">schedule</span>
+        </div>
+        <div class="min-w-0" id="now-banner-text">
+            <p class="text-sm font-bold">Checking today's schedule&hellip;</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
 
         <!-- Add Timetable Slot -->
         <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
             <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Timetable Slot</h2>
 
-            <form action="{{ url_for('admin.timetable_page') }}" method="POST" class="space-y-4">
+            <form id="create-slot-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="space-y-4">
                 {% include '_csrf_field.html' %}
                 <input type="hidden" name="action" value="create">
 
@@ -30,13 +45,27 @@
 
                 <div>
                     <label class="block text-xs font-medium text-secondary mb-1.5">Semester</label>
-                    <select name="semester_id" required class="form-input">
-                        <option value="" disabled selected>Select semester</option>
+                    <select name="semester_id" id="create-semester-id" required class="form-input">
+                        <option value="" disabled {{ 'selected' if not active_semester else '' }}>Select semester</option>
                         {% for semester in semesters %}
-                            <option value="{{ semester.id }}">{{ semester.name }}</option>
+                            <option value="{{ semester.id }}" {{ 'selected' if active_semester and semester.id == active_semester.id else '' }}>
+                                {{ semester.name }}{{ ' (active)' if active_semester and semester.id == active_semester.id else '' }}
+                            </option>
                         {% endfor %}
                     </select>
+                    <p class="text-[11px] text-muted mt-1.5">
+                        {% if active_semester %}Defaults to the active semester.{% else %}No active semester is set -- pick one explicitly.{% endif %}
+                    </p>
                 </div>
+
+                <!-- Only shown/required when the picked semester isn't the
+                     active one -- see toggleOtherSemesterWarning() below.
+                     Prevents accidentally creating a slot under the wrong
+                     academic session without removing the semester field. -->
+                <label id="create-other-semester-row" class="hidden items-start gap-2 text-[11px] text-warning bg-warning/10 border border-warning/20 rounded-lg px-3 py-2">
+                    <input type="checkbox" name="confirm_other_semester" id="create-confirm-other-semester" class="mt-0.5">
+                    <span>This isn't the active semester{% if active_semester %} ({{ active_semester.name }}){% endif %}. Use it anyway.</span>
+                </label>
 
                 <div>
                     <label class="block text-xs font-medium text-secondary mb-1.5">Day of Week</label>
@@ -51,13 +80,14 @@
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="block text-xs font-medium text-secondary mb-1.5">Start Time</label>
-                        <input type="time" name="start_time" required class="form-input">
+                        <input type="time" name="start_time" id="create-start-time" required class="form-input">
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-secondary mb-1.5">End Time</label>
-                        <input type="time" name="end_time" required class="form-input">
+                        <input type="time" name="end_time" id="create-end-time" required class="form-input">
                     </div>
                 </div>
+                <p id="create-time-error" class="hidden text-[11px] text-error -mt-2">Start time must be before end time.</p>
 
                 <div>
                     <label class="block text-xs font-medium text-secondary mb-1.5">Room <span class="text-muted">(optional)</span></label>
@@ -79,43 +109,345 @@
             </form>
         </div>
 
-        <!-- Directory -->
-        <div class="lg:col-span-2 bg-card border border-border rounded-2xl overflow-hidden">
+        <!-- ============ WEEKLY CALENDAR ============ -->
+        <div class="lg:col-span-3 bg-card border border-border rounded-2xl overflow-hidden">
             <div class="px-6 pt-6 pb-4 flex items-center justify-between">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Weekly Slots</h2>
-                <span class="text-xs text-muted">{{ timetable_entries|length }} total</span>
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Weekly Timetable</h2>
+                <span class="text-xs text-muted">{{ timetable_entries|length }} slot{{ '' if timetable_entries|length == 1 else 's' }}</span>
             </div>
 
-            <div class="divide-y divide-border border-t border-border">
-                {% for entry in timetable_entries %}
-                    <div class="flex items-center justify-between px-6 py-4">
-                        <div>
-                            <p class="text-sm font-medium">
-                                {{ entry.course.course_code if entry.course else 'Unknown course' }}
-                                <span class="text-muted font-normal">&ndash; {{ entry.course.course_title if entry.course else '' }}</span>
-                            </p>
-                            <p class="text-[11px] text-muted mt-0.5">
-                                {{ weekday_names[entry.day_of_week] }} &middot;
-                                {{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}
-                                {% if entry.room %} &middot; {{ entry.room }}{% endif %}
-                                {% if entry.type == 'fixed' %} &middot; <span class="text-accent">fixed</span>{% endif %}
-                            </p>
+            {% if timetable_entries %}
+            <div class="overflow-x-auto border-t border-border custom-scrollbar">
+                <div class="grid" style="grid-template-columns: 64px repeat(7, minmax(112px, 1fr)); grid-template-rows: 34px repeat({{ grid.total_rows }}, 26px); min-width: 900px;">
+
+                    <div class="border-b border-r border-border bg-surface/60 sticky top-0" style="grid-column:1; grid-row:1;"></div>
+                    {% for day in weekday_names %}
+                        <div class="border-b border-r border-border bg-surface/60 sticky top-0 flex items-center justify-center text-[11px] font-bold uppercase tracking-wide text-secondary"
+                             style="grid-column:{{ loop.index + 1 }}; grid-row:1;">
+                            {{ day[:3] }}
                         </div>
-                        <form action="{{ url_for('admin.timetable_page') }}" method="POST" class="shrink-0 ml-3">
-                            {% include '_csrf_field.html' %}
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="timetable_id" value="{{ entry.id }}">
-                            <button type="submit"
-                                    class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-secondary hover:border-error hover:text-error transition-colors">
-                                Remove
-                            </button>
-                        </form>
-                    </div>
-                {% else %}
-                    <p class="px-6 py-8 text-sm text-muted text-center">No timetable slots yet. Add one on the left.</p>
-                {% endfor %}
+                    {% endfor %}
+
+                    {% for label in grid.hour_labels %}
+                        <div class="border-r border-border text-[10px] text-muted text-right pr-2 pt-0.5"
+                             style="grid-column:1; grid-row: {{ (loop.index0 * 2) + 2 }} / span 2;">
+                            {{ label }}
+                        </div>
+                    {% endfor %}
+
+                    {% for row in range(grid.total_rows) %}
+                        {% for col in range(7) %}
+                            <div class="border-r border-b border-border/30" style="grid-column: {{ col + 2 }}; grid-row: {{ row + 2 }};"></div>
+                        {% endfor %}
+                    {% endfor %}
+
+                    {% for p in grid.placed %}
+                        {% set entry = p.entry %}
+                        <button type="button"
+                                class="timetable-chip m-0.5 rounded-lg px-2 py-1 text-left overflow-hidden bg-accent/15 border border-accent/30 hover:bg-accent/25 hover:border-accent/50 transition-colors cursor-pointer"
+                                style="grid-column: {{ p.day_col }}; grid-row: {{ p.row_start + 1 }} / span {{ p.row_span }};"
+                                data-id="{{ entry.id }}"
+                                data-course-id="{{ entry.course_id }}"
+                                data-course-code="{{ entry.course.course_code if entry.course else '' }}"
+                                data-course-title="{{ entry.course.course_title if entry.course else '' }}"
+                                data-lecturer="{{ entry.course.lecturer.full_name if entry.course and entry.course.lecturer else '' }}"
+                                data-room="{{ entry.room or '' }}"
+                                data-day="{{ entry.day_of_week }}"
+                                data-day-name="{{ weekday_names[entry.day_of_week] }}"
+                                data-start="{{ entry.start_time.strftime('%H:%M') }}"
+                                data-end="{{ entry.end_time.strftime('%H:%M') }}"
+                                data-semester-id="{{ entry.semester_id }}"
+                                data-semester-name="{{ entry.semester.name if entry.semester else '' }}"
+                                data-type="{{ entry.type }}"
+                                data-today-status="{{ p.today_status.status if p.today_status else '' }}"
+                                data-today-present="{{ p.today_status.present_count if p.today_status and p.today_status.present_count is not none else '' }}">
+                            <p class="text-[11px] font-bold text-white truncate">{{ entry.course.course_code if entry.course else 'Unknown' }}</p>
+                            <p class="text-[10px] text-secondary truncate">
+                                {{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}{% if entry.room %} &middot; {{ entry.room }}{% endif %}
+                            </p>
+                        </button>
+                    {% endfor %}
+                </div>
             </div>
+            {% else %}
+                <p class="px-6 py-10 text-sm text-muted text-center border-t border-border">No timetable slots yet. Add one on the left -- it'll show up here as a card in the grid.</p>
+            {% endif %}
         </div>
     </div>
 
+    <!-- ============ SLOT DETAILS / EDIT MODAL ============ -->
+    <div id="slot-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4">
+        <div class="bg-card border border-border rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-bold">Timetable Slot</h3>
+                <button type="button" id="slot-modal-close" class="text-muted hover:text-white transition-colors">
+                    <span class="material-symbols-rounded text-[20px]">close</span>
+                </button>
+            </div>
+
+            <!-- Read-only view -->
+            <div id="slot-view">
+                <dl class="space-y-3 text-sm">
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Course</dt><dd class="font-medium text-right" id="slot-view-course"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Lecturer</dt><dd class="font-medium text-right" id="slot-view-lecturer"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Day</dt><dd class="font-medium text-right" id="slot-view-day"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Time</dt><dd class="font-medium text-right" id="slot-view-time"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Room</dt><dd class="font-medium text-right" id="slot-view-room"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Semester</dt><dd class="font-medium text-right" id="slot-view-semester"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Type</dt><dd class="font-medium text-right" id="slot-view-type"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Status</dt><dd class="font-medium text-right" id="slot-view-status"></dd></div>
+                </dl>
+                <div class="flex gap-3 mt-6">
+                    <button type="button" id="slot-edit-btn" class="flex-1 bg-surface border border-border hover:border-accent hover:text-accent text-sm font-semibold rounded-lg py-2.5 transition-colors">Edit</button>
+                    <button type="button" id="slot-delete-btn" class="flex-1 bg-surface border border-border hover:border-error hover:text-error text-sm font-semibold rounded-lg py-2.5 transition-colors">Remove</button>
+                </div>
+            </div>
+
+            <!-- Edit form (hidden until "Edit" is clicked) -->
+            <form id="slot-edit-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="space-y-4 hidden">
+                {% include '_csrf_field.html' %}
+                <input type="hidden" name="action" value="update">
+                <input type="hidden" name="timetable_id" id="edit-timetable-id">
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Course</label>
+                    <select name="course_id" id="edit-course-id" required class="form-input">
+                        {% for course in courses %}
+                            <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Semester</label>
+                    <select name="semester_id" id="edit-semester-id" required class="form-input">
+                        {% for semester in semesters %}
+                            <option value="{{ semester.id }}">{{ semester.name }}{{ ' (active)' if active_semester and semester.id == active_semester.id else '' }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <label id="edit-other-semester-row" class="hidden items-start gap-2 text-[11px] text-warning bg-warning/10 border border-warning/20 rounded-lg px-3 py-2">
+                    <input type="checkbox" name="confirm_other_semester" id="edit-confirm-other-semester" class="mt-0.5">
+                    <span>This isn't the active semester{% if active_semester %} ({{ active_semester.name }}){% endif %}. Use it anyway.</span>
+                </label>
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Day of Week</label>
+                    <select name="day_of_week" id="edit-day-of-week" required class="form-input">
+                        {% for name in weekday_names %}
+                            <option value="{{ loop.index0 }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Start Time</label>
+                        <input type="time" name="start_time" id="edit-start-time" required class="form-input">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">End Time</label>
+                        <input type="time" name="end_time" id="edit-end-time" required class="form-input">
+                    </div>
+                </div>
+                <p id="edit-time-error" class="hidden text-[11px] text-error -mt-2">Start time must be before end time.</p>
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Room</label>
+                    <input type="text" name="room" id="edit-room" class="form-input">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Type</label>
+                    <select name="type" id="edit-type" class="form-input">
+                        <option value="scheduled">Scheduled (recurring)</option>
+                        <option value="fixed">Fixed (one-off, pinned)</option>
+                    </select>
+                </div>
+
+                <div class="flex gap-3 mt-2">
+                    <button type="button" id="slot-cancel-edit-btn" class="flex-1 bg-surface border border-border text-sm font-semibold rounded-lg py-2.5 transition-colors">Cancel</button>
+                    <button type="submit" class="flex-1 bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 transition-colors">Save Changes</button>
+                </div>
+            </form>
+
+            <!-- Submitted via JS after a confirm() -- no cascade risk beyond
+                 the FK-RESTRICT the backend already handles gracefully, so a
+                 lightweight native confirm is enough here (unlike the
+                 type-the-name modal organization.html uses for cascading
+                 faculty/department deletes). -->
+            <form id="slot-delete-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="hidden">
+                {% include '_csrf_field.html' %}
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="timetable_id" id="delete-timetable-id">
+            </form>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    (function () {
+        var ACTIVE_SEMESTER_ID = {{ active_semester.id if active_semester else 'null' }};
+
+        // ---------- "different semester" warning (create + edit forms) ----------
+        function wireOtherSemesterWarning(selectEl, rowEl) {
+            function toggle() {
+                var isOther = ACTIVE_SEMESTER_ID !== null && selectEl.value && parseInt(selectEl.value, 10) !== ACTIVE_SEMESTER_ID;
+                rowEl.classList.toggle('hidden', !isOther);
+                rowEl.classList.toggle('flex', isOther);
+                if (!isOther) rowEl.querySelector('input[type=checkbox]').checked = false;
+            }
+            selectEl.addEventListener('change', toggle);
+            toggle();
+        }
+        wireOtherSemesterWarning(document.getElementById('create-semester-id'), document.getElementById('create-other-semester-row'));
+        wireOtherSemesterWarning(document.getElementById('edit-semester-id'), document.getElementById('edit-other-semester-row'));
+
+        // ---------- start < end validation (create + edit forms) ----------
+        function wireTimeValidation(form, startEl, endEl, errorEl) {
+            form.addEventListener('submit', function (e) {
+                if (startEl.value && endEl.value && startEl.value >= endEl.value) {
+                    e.preventDefault();
+                    errorEl.classList.remove('hidden');
+                } else {
+                    errorEl.classList.add('hidden');
+                }
+            });
+        }
+        wireTimeValidation(
+            document.getElementById('create-slot-form'),
+            document.getElementById('create-start-time'),
+            document.getElementById('create-end-time'),
+            document.getElementById('create-time-error')
+        );
+        wireTimeValidation(
+            document.getElementById('slot-edit-form'),
+            document.getElementById('edit-start-time'),
+            document.getElementById('edit-end-time'),
+            document.getElementById('edit-time-error')
+        );
+
+        // ---------- slot details / edit modal ----------
+        var modal = document.getElementById('slot-modal');
+        var view = document.getElementById('slot-view');
+        var editForm = document.getElementById('slot-edit-form');
+
+        function openModal() {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        function closeModal() {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            view.classList.remove('hidden');
+            editForm.classList.add('hidden');
+        }
+
+        function statusText(data) {
+            if (!data.todayStatus) return 'Not today';
+            var label = data.todayStatus === 'live' ? 'Live now' : data.todayStatus === 'ended' ? 'Ended' : 'Not started yet';
+            if (data.todayPresent !== '') label += ' · ' + data.todayPresent + ' present';
+            return label;
+        }
+
+        document.querySelectorAll('.timetable-chip').forEach(function (chip) {
+            chip.addEventListener('click', function () {
+                var d = chip.dataset;
+
+                document.getElementById('slot-view-course').textContent = d.courseCode + ' – ' + d.courseTitle;
+                document.getElementById('slot-view-lecturer').textContent = d.lecturer || '—';
+                document.getElementById('slot-view-day').textContent = d.dayName;
+                document.getElementById('slot-view-time').textContent = d.start + '–' + d.end;
+                document.getElementById('slot-view-room').textContent = d.room || '—';
+                document.getElementById('slot-view-semester').textContent = d.semesterName;
+                document.getElementById('slot-view-type').textContent = d.type === 'fixed' ? 'Fixed (one-off)' : 'Scheduled (recurring)';
+                document.getElementById('slot-view-status').textContent = statusText(d);
+
+                document.getElementById('edit-timetable-id').value = d.id;
+                document.getElementById('edit-course-id').value = d.courseId;
+                document.getElementById('edit-semester-id').value = d.semesterId;
+                document.getElementById('edit-day-of-week').value = d.day;
+                document.getElementById('edit-start-time').value = d.start;
+                document.getElementById('edit-end-time').value = d.end;
+                document.getElementById('edit-room').value = d.room || '';
+                document.getElementById('edit-type').value = d.type;
+                document.getElementById('delete-timetable-id').value = d.id;
+                document.getElementById('edit-semester-id').dispatchEvent(new Event('change'));
+
+                view.classList.remove('hidden');
+                editForm.classList.add('hidden');
+                openModal();
+            });
+        });
+
+        document.getElementById('slot-modal-close').addEventListener('click', closeModal);
+        modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+
+        document.getElementById('slot-edit-btn').addEventListener('click', function () {
+            view.classList.add('hidden');
+            editForm.classList.remove('hidden');
+        });
+        document.getElementById('slot-cancel-edit-btn').addEventListener('click', function () {
+            editForm.classList.add('hidden');
+            view.classList.remove('hidden');
+        });
+        document.getElementById('slot-delete-btn').addEventListener('click', function () {
+            var courseCode = document.getElementById('slot-view-course').textContent;
+            if (window.confirm('Remove this timetable slot (' + courseCode + ')?')) {
+                document.getElementById('slot-delete-form').submit();
+            }
+        });
+
+        // ---------- "Happening Now" banner ----------
+        function el(tag, className, text) {
+            var e = document.createElement(tag);
+            if (className) e.className = className;
+            if (text !== undefined && text !== null) e.textContent = text;
+            return e;
+        }
+
+        function renderNowBanner(data) {
+            var iconWrap = document.getElementById('now-banner-icon-wrap');
+            var icon = document.getElementById('now-banner-icon');
+            var banner = document.getElementById('now-banner');
+            var text = document.getElementById('now-banner-text');
+
+            var palette = data.status === 'in_session'
+                ? { banner: 'bg-success/10 border-success/20', iconWrap: 'bg-success/20 text-success', icon: 'sensors' }
+                : data.status === 'no_active_semester'
+                    ? { banner: 'bg-warning/10 border-warning/20', iconWrap: 'bg-warning/20 text-warning', icon: 'error' }
+                    : { banner: 'bg-card border-border', iconWrap: 'bg-surface text-muted', icon: 'schedule' };
+
+            banner.className = 'rounded-2xl border p-4 flex items-center gap-4 mb-6 ' + palette.banner;
+            iconWrap.className = 'w-9 h-9 rounded-full flex items-center justify-center shrink-0 ' + palette.iconWrap;
+            icon.textContent = palette.icon;
+
+            text.innerHTML = '';
+            if (data.status === 'in_session') {
+                text.appendChild(el('p', 'text-sm font-bold truncate', 'Happening now: ' + data.course_code + ' – ' + data.course_title));
+                var parts = [
+                    data.start_time + '–' + data.end_time,
+                    data.room,
+                    data.lecturer,
+                    'Session ' + String(data.session_status).replace('_', ' '),
+                    (data.present_count !== null && data.present_count !== undefined) ? data.present_count + ' present' : null,
+                    data.overlap_warning ? 'multiple slots overlap here' : null,
+                ].filter(Boolean).join(' · ');
+                text.appendChild(el('p', 'text-[11px] text-secondary mt-0.5', parts));
+            } else if (data.status === 'no_active_semester') {
+                text.appendChild(el('p', 'text-sm font-bold', 'No active semester set'));
+                text.appendChild(el('p', 'text-[11px] text-secondary mt-0.5', 'Set one active on the Semesters page to enable "happening now" detection.'));
+            } else {
+                text.appendChild(el('p', 'text-sm font-bold', 'No class in session right now'));
+                text.appendChild(el('p', 'text-[11px] text-secondary mt-0.5', data.semester || ''));
+            }
+        }
+
+        function pollNowBanner() {
+            fetch('{{ url_for("admin.timetable_current") }}')
+                .then(function (r) { return r.json(); })
+                .then(renderNowBanner)
+                .catch(function () {});
+        }
+        pollNowBanner();
+        setInterval(pollNowBanner, 60000);
+    })();
+</script>
 {% endblock %}

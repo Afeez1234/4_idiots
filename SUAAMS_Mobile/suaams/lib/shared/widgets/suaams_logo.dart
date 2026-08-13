@@ -4,11 +4,7 @@ class SuaamsLogo extends StatelessWidget {
   final double size;
   final Color color;
 
-  const SuaamsLogo({
-    super.key,
-    this.size = 48,
-    this.color = Colors.white,
-  });
+  const SuaamsLogo({super.key, this.size = 48, this.color = Colors.white});
 
   @override
   Widget build(BuildContext context) {
@@ -49,15 +45,29 @@ class _LogoPainter extends CustomPainter {
     // NFC inner arc (left)
     paint.color = color;
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(24 * s, 24 * s), width: 10 * s, height: 10 * s),
-      2.36, 1.57, false, paint,
+      Rect.fromCenter(
+        center: Offset(24 * s, 24 * s),
+        width: 10 * s,
+        height: 10 * s,
+      ),
+      2.36,
+      1.57,
+      false,
+      paint,
     );
 
     // NFC outer arc (left)
     paint.color = color.withValues(alpha: 0.5);
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(24 * s, 24 * s), width: 18 * s, height: 18 * s),
-      2.36, 1.57, false, paint,
+      Rect.fromCenter(
+        center: Offset(24 * s, 24 * s),
+        width: 18 * s,
+        height: 18 * s,
+      ),
+      2.36,
+      1.57,
+      false,
+      paint,
     );
 
     // Center dot
@@ -71,15 +81,29 @@ class _LogoPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..color = color;
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(24 * s, 24 * s), width: 10 * s, height: 10 * s),
-      5.50, 1.57, false, paint,
+      Rect.fromCenter(
+        center: Offset(24 * s, 24 * s),
+        width: 10 * s,
+        height: 10 * s,
+      ),
+      5.50,
+      1.57,
+      false,
+      paint,
     );
 
     // NFC outer arc (right)
     paint.color = color.withValues(alpha: 0.5);
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(24 * s, 24 * s), width: 18 * s, height: 18 * s),
-      5.50, 1.57, false, paint,
+      Rect.fromCenter(
+        center: Offset(24 * s, 24 * s),
+        width: 18 * s,
+        height: 18 * s,
+      ),
+      5.50,
+      1.57,
+      false,
+      paint,
     );
   }
 
@@ -87,16 +111,11 @@ class _LogoPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-
 class SuaamsLogoFull extends StatelessWidget {
   final double size;
   final Color color;
 
-  const SuaamsLogoFull({
-    super.key,
-    this.size = 64,
-    this.color = Colors.white,
-  });
+  const SuaamsLogoFull({super.key, this.size = 64, this.color = Colors.white});
 
   @override
   Widget build(BuildContext context) {
