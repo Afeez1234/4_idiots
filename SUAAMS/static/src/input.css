@@ -33,6 +33,11 @@
 .custom-scrollbar::-webkit-scrollbar-track { background: #0F0F0F; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: #333333; border-radius: 4px; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #10B981; }
+
+/* Fully hidden scrollbar -- element still scrolls (wheel/touch/keyboard),
+   the bar itself is just never painted. */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 }
 
 /* 3. Admin portal nav-link component classes (base_admin.html sidebar).
