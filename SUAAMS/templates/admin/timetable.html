@@ -1,0 +1,121 @@
+{% extends "base_admin.html" %}
+
+{% block title %}Timetable | SUAAMS Admin{% endblock %}
+{% block page_title %}Timetable{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">Recurring weekly course slots -- drives the mobile app's "today's protocol" list</p>
+{% endblock %}
+
+{% block content %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+        <!-- Add Timetable Slot -->
+        <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Timetable Slot</h2>
+
+            <form action="{{ url_for('admin.timetable_page') }}" method="POST" class="space-y-4">
+                {% include '_csrf_field.html' %}
+                <input type="hidden" name="action" value="create">
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Course</label>
+                    <select name="course_id" required class="form-input">
+                        <option value="" disabled selected>Select course</option>
+                        {% for course in courses %}
+                            <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Semester</label>
+                    <select name="semester_id" required class="form-input">
+                        <option value="" disabled selected>Select semester</option>
+                        {% for semester in semesters %}
+                            <option value="{{ semester.id }}">{{ semester.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Day of Week</label>
+                    <select name="day_of_week" required class="form-input">
+                        <option value="" disabled selected>Select day</option>
+                        {% for name in weekday_names %}
+                            <option value="{{ loop.index0 }}">{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Start Time</label>
+                        <input type="time" name="start_time" required class="form-input">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">End Time</label>
+                        <input type="time" name="end_time" required class="form-input">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Room <span class="text-muted">(optional)</span></label>
+                    <input type="text" name="room" placeholder="e.g. LR 4" class="form-input">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Type</label>
+                    <select name="type" class="form-input">
+                        <option value="scheduled" selected>Scheduled (recurring)</option>
+                        <option value="fixed">Fixed (one-off, pinned)</option>
+                    </select>
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
+                    Add Slot
+                </button>
+            </form>
+        </div>
+
+        <!-- Directory -->
+        <div class="lg:col-span-2 bg-card border border-border rounded-2xl overflow-hidden">
+            <div class="px-6 pt-6 pb-4 flex items-center justify-between">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Weekly Slots</h2>
+                <span class="text-xs text-muted">{{ timetable_entries|length }} total</span>
+            </div>
+
+            <div class="divide-y divide-border border-t border-border">
+                {% for entry in timetable_entries %}
+                    <div class="flex items-center justify-between px-6 py-4">
+                        <div>
+                            <p class="text-sm font-medium">
+                                {{ entry.course.course_code if entry.course else 'Unknown course' }}
+                                <span class="text-muted font-normal">&ndash; {{ entry.course.course_title if entry.course else '' }}</span>
+                            </p>
+                            <p class="text-[11px] text-muted mt-0.5">
+                                {{ weekday_names[entry.day_of_week] }} &middot;
+                                {{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}
+                                {% if entry.room %} &middot; {{ entry.room }}{% endif %}
+                                {% if entry.type == 'fixed' %} &middot; <span class="text-accent">fixed</span>{% endif %}
+                            </p>
+                        </div>
+                        <form action="{{ url_for('admin.timetable_page') }}" method="POST" class="shrink-0 ml-3">
+                            {% include '_csrf_field.html' %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="timetable_id" value="{{ entry.id }}">
+                            <button type="submit"
+                                    class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border text-secondary hover:border-error hover:text-error transition-colors">
+                                Remove
+                            </button>
+                        </form>
+                    </div>
+                {% else %}
+                    <p class="px-6 py-8 text-sm text-muted text-center">No timetable slots yet. Add one on the left.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

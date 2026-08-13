@@ -5,8 +5,13 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 import bcrypt
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
-    Session as SessionModel, Attendance, HOD, Semester, Announcement,
+    Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
 )
+
+# Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
+# same as Python's date.weekday()) -- shared by the create-form <select> and
+# the list view below so they can't drift apart.
+WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 from extensions import log_exception, logger
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -569,6 +574,78 @@ def courses_page():
         semesters=semesters,
         students=students,
         active_page='courses',
+    )
+
+
+# ==========================================
+# TIMETABLE
+# ==========================================
+@admin_bp.route('/timetable', methods=['GET', 'POST'])
+def timetable_page():
+    if request.method == 'POST':
+        action = request.form.get('action', 'create')
+
+        if action == 'delete':
+            timetable_id = request.form.get('timetable_id')
+            try:
+                entry = Timetable.query.get_or_404(int(timetable_id))
+                db.session.delete(entry)
+                db.session.commit()
+                flash('Timetable slot removed.', 'success')
+            except Exception:
+                db.session.rollback()
+                # Session.timetable_id deliberately isn't cascaded (models.py) --
+                # a FK-RESTRICT failure here means real session history already
+                # exists under this slot.
+                flash('Could not delete: sessions already exist for this slot.', 'error')
+                log_exception("Timetable Delete Error")
+            return redirect(url_for('admin.timetable_page'))
+
+        course_id = request.form.get('course_id')
+        semester_id = request.form.get('semester_id')
+        day_of_week = request.form.get('day_of_week')
+        start_time = request.form.get('start_time')
+        end_time = request.form.get('end_time')
+        room = request.form.get('room') or None
+        slot_type = request.form.get('type', 'scheduled')
+
+        if not all([course_id, semester_id, day_of_week, start_time, end_time]):
+            flash('Course, semester, day, start time, and end time are all required.', 'error')
+            return redirect(url_for('admin.timetable_page'))
+
+        try:
+            entry = Timetable(
+                course_id=int(course_id),
+                semester_id=int(semester_id),
+                day_of_week=int(day_of_week),
+                start_time=datetime.strptime(start_time, '%H:%M').time(),
+                end_time=datetime.strptime(end_time, '%H:%M').time(),
+                room=room.strip() if room else None,
+                type=slot_type,
+                created_by=session['user_id'],
+            )
+            db.session.add(entry)
+            db.session.commit()
+            flash('Timetable slot added.', 'success')
+        except Exception:
+            db.session.rollback()
+            flash('Failed to add timetable slot.', 'error')
+            log_exception("Timetable Create Error")
+
+        return redirect(url_for('admin.timetable_page'))
+
+    timetable_entries = Timetable.query.order_by(
+        Timetable.day_of_week.asc(), Timetable.start_time.asc()
+    ).all()
+    courses = Course.query.all()
+    semesters = Semester.query.all()
+    return render_template(
+        'admin/timetable.html',
+        timetable_entries=timetable_entries,
+        courses=courses,
+        semesters=semesters,
+        weekday_names=WEEKDAY_NAMES,
+        active_page='timetable',
     )
 
 
