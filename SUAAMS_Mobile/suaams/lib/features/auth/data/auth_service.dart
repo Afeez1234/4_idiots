@@ -1,12 +1,20 @@
 // This file handles secure authentication calls and platform-key storage.
 // Optimized to prevent Android Keystore and iOS Secure Enclave execution deadlocks.
 
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/auth_user.dart';
+
+// The backend (suaams.onrender.com) is on Render's free tier, which spins
+// the dyno down after ~15 minutes idle -- the next request has to cold-start
+// it, commonly taking 20-40s. Long enough to tolerate a real cold start,
+// short enough that a genuinely dead/unreachable server fails within a
+// bounded time instead of leaving the caller's spinner stuck forever.
+const _kNetworkTimeout = Duration(seconds: 20);
 
 class AuthService {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
@@ -16,15 +24,24 @@ class AuthService {
     String password,
     String deviceId,
   ) async {
-    final response = await http.post(
-      Uri.parse(ApiConstants.loginEndpoint),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'username': username,
-        'password': password,
-        'device_id': deviceId,
-      }),
-    );
+    final http.Response response;
+    try {
+      response = await http
+          .post(
+            Uri.parse(ApiConstants.loginEndpoint),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'username': username,
+              'password': password,
+              'device_id': deviceId,
+            }),
+          )
+          .timeout(_kNetworkTimeout);
+    } on TimeoutException {
+      throw Exception(
+        'Server is taking too long to respond. It may be waking up from idle -- please try again in a moment.',
+      );
+    }
 
     final Map<String, dynamic> responseData = jsonDecode(response.body);
 
@@ -69,14 +86,16 @@ class AuthService {
   // "current" one for refresh purposes.
   Future<String> changePassword(String newPassword, String token) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiConstants.changePasswordEndpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode({'new_password': newPassword}),
-      );
+      final response = await http
+          .post(
+            Uri.parse(ApiConstants.changePasswordEndpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'new_password': newPassword}),
+          )
+          .timeout(_kNetworkTimeout);
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
@@ -104,6 +123,10 @@ class AuthService {
       } catch (e) {
         throw Exception('Server Error: ${response.statusCode}');
       }
+    } on TimeoutException {
+      throw Exception(
+        'Server is taking too long to respond. It may be waking up from idle -- please try again in a moment.',
+      );
     } catch (e) {
       rethrow;
     }
@@ -124,13 +147,15 @@ class AuthService {
       throw Exception('No refresh token available');
     }
 
-    final response = await http.post(
-      Uri.parse(ApiConstants.refreshEndpoint),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $refreshToken',
-      },
-    );
+    final response = await http
+        .post(
+          Uri.parse(ApiConstants.refreshEndpoint),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $refreshToken',
+          },
+        )
+        .timeout(_kNetworkTimeout);
 
     final Map<String, dynamic> responseData = jsonDecode(response.body);
 
@@ -163,27 +188,37 @@ class AuthService {
   // rejected. Defaults to true for every normal "sign out" call.
   Future<void> logout({bool notifyServer = true}) async {
     // Best-effort: tell the backend to invalidate the refresh token
-    // server-side (see mobile_logout in api/auth.py) before wiping local
-    // storage. Wrapped so a network drop never blocks the user from
-    // logging out locally -- worst case, the refresh token stays valid
-    // server-side until it naturally expires (<=14 days) or gets revoked
-    // some other way (e.g. device unbind), but the device itself no longer
-    // has it once deleteAll() runs below.
+    // server-side (see mobile_logout in api/auth.py). Deliberately NOT
+    // awaited -- local logout (below) used to wait on this call, so a cold
+    // backend (Render free tier, see _kNetworkTimeout above) made "Sign
+    // Out" look like it did nothing for up to a minute. The token is read
+    // here (before deleteAll wipes it) and the request fires in the
+    // background; worst case it fails/times out and the refresh token just
+    // stays valid server-side until it naturally expires (<=14 days) or
+    // gets revoked some other way (e.g. device unbind) -- the device itself
+    // no longer has it once deleteAll() runs below, so the user is signed
+    // out locally either way.
     if (notifyServer) {
-      try {
-        final refreshToken = await getRefreshToken();
-        if (refreshToken != null) {
-          await http.post(
-            Uri.parse(ApiConstants.logoutEndpoint),
-            headers: {'Authorization': 'Bearer $refreshToken'},
-          );
-        }
-      } catch (e) {
-        debugPrint('Logout backend call failed (continuing with local logout): $e');
+      final refreshToken = await getRefreshToken();
+      if (refreshToken != null) {
+        unawaited(_notifyServerLogout(refreshToken));
       }
     }
 
     await _secureStorage.deleteAll();
+  }
+
+  Future<void> _notifyServerLogout(String refreshToken) async {
+    try {
+      await http
+          .post(
+            Uri.parse(ApiConstants.logoutEndpoint),
+            headers: {'Authorization': 'Bearer $refreshToken'},
+          )
+          .timeout(_kNetworkTimeout);
+    } catch (e) {
+      debugPrint('Logout backend call failed (continuing with local logout): $e');
+    }
   }
 
   Future<String?> getToken() async {

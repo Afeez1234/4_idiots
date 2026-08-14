@@ -47,9 +47,9 @@ class _ChangePasswordScreenState
           // DEEP FIX 1: Explicitly force navigation on success to bypass Router redirect lag
           final user = ref.read(authProvider).user;
           if (user?.role == 'student') {
-            context.go('/student');
+            context.go('/student/home');
           } else if (user?.role == 'lecturer') {
-            context.go('/lecturer');
+            context.go('/lecturer/home');
           } else if (user?.role == 'admin') {
             context.go('/admin');
           }
