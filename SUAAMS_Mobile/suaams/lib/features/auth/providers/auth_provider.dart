@@ -2,12 +2,14 @@
 // exposes login, logout, changePassword, and session restoration actions,
 // and notifies the router when auth state changes so navigation happens automatically.
 import 'package:device_info_plus/device_info_plus.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import '../data/auth_service.dart';
 import '../models/auth_user.dart';
+import '../../../core/services/notification_service.dart';
 
 class AuthState {
   final bool isLoading;
@@ -127,6 +129,11 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
 
     state = state.copyWith(isLoading: false);
     notifyListeners();
+    // Covers both branches above (token was still valid, or was refreshed
+    // just now) -- either way there's a live session worth syncing a push
+    // token against. The early returns inside the `if (!tokenLooksValid)`
+    // block above (no session / refresh failed) never reach this line.
+    unawaited(NotificationService.instance.syncDeviceToken());
   }
 
   Future<bool> login(String username, String password) async {
@@ -139,6 +146,11 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
       await _authService.saveUsername(user.username);
       state = state.copyWith(isLoading: false, user: user);
       notifyListeners();
+      // Fire-and-forget, same reasoning as AuthService's own
+      // _notifyServerLogout: a push-token sync failure shouldn't block or
+      // fail the login itself, since it isn't part of the auth flow's own
+      // success/failure condition.
+      unawaited(NotificationService.instance.syncDeviceToken());
       return true;
     } catch (e) {
       state = state.copyWith(

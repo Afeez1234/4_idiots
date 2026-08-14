@@ -57,8 +57,7 @@
                             <span class="material-symbols-rounded text-[20px]">dashboard</span>
                             <span>Dashboard</span>
                         </a>
-                        <!-- TODO: no lecturer.analytics route/template yet -- same placeholder pattern base_admin.html already uses for its own not-yet-built Analytics link. -->
-                        <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'analytics' else '' }}">
+                        <a href="{{ url_for('lecturer.analytics') }}" class="nav-link {{ 'nav-link-active' if active_page == 'analytics' else '' }}">
                             <span class="material-symbols-rounded text-[20px]">monitoring</span>
                             <span>Analytics</span>
                         </a>
