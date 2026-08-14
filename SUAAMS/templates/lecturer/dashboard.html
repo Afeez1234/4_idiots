@@ -1,138 +1,117 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SUAAMS — Lecturer Dashboard</title>
-  <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet" />
-  <link href="{{ url_for('static', filename='css/lecturer--dashboard.css') }}" rel="stylesheet" />
-</head>
-<body>
+{% extends "base_lecturer.html" %}
 
-  <!-- Sidebar -->
-  <nav class="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-icon">SU</div>
-      <div>
-        <div class="brand-text">SUAAMS</div>
-        <div class="brand-sub">Lecturer Portal</div>
-      </div>
-    </div>
+{% block title %}Dashboard | SUAAMS Lecturer{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">Welcome back, {{ session.get('username', 'Lecturer') }}</p>
+{% endblock %}
 
-    <div class="sidebar-section">Main</div>
-    <a href="{{ url_for('lecturer.dashboard') }}" class="sidebar-link active">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      Dashboard
-    </a>
+{% block content %}
 
-    <div class="sidebar-section">Sessions</div>
-    <a href="#" class="sidebar-link">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      My Sessions
-    </a>
-    <a href="#" class="sidebar-link">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      Attendance Records
-    </a>
-
-    <div class="sidebar-footer">
-      <a href="{{ url_for('auth.logout') }}" class="signout-btn">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Sign Out
-      </a>
-    </div>
-  </nav>
-
-  <!-- Main content -->
-  <main class="main">
-
-    <div class="topbar">
-      <span class="topbar-title">Lecturer Dashboard</span>
-      <div class="avatar">{{ session['username'][0]|upper }}</div>
-    </div>
-
-    <!-- Flash messages -->
-    <div class="flash-area">
-      {% for category, message in get_flashed_messages(with_categories=True) %}
-        <div class="flash-msg flash-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    </div>
-
-    <!-- Welcome banner -->
-    <div class="welcome-banner">
-      <div>
-        <p style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:0.3rem;">Welcome back</p>
-        <h2>{{ session['username'] }} <span style="color:var(--accent-cyan);">·</span></h2>
-        <p id="today-date"></p>
-      </div>
-      <div class="live-clock">
-        TODAY
-        <span id="live-clock">--:--</span>
-      </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-label">Total Courses</div>
-        <div class="stat-value" style="color:var(--accent-cyan);">{{ courses|length }}</div>
-        <div class="stat-sub">Assigned this semester</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Today's Check-ins</div>
-        <div class="stat-value" style="color:var(--accent-green);">{{ today_checkins }}</div>
-        <div class="stat-sub">Students scanned in</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Session Status</div>
-        <div class="stat-value" style="font-size:1.3rem; color:{% if active_session_count > 0 %}var(--accent-green){% else %}var(--text-muted){% endif %};">
-          {% if active_session_count > 0 %}Active{% else %}Idle{% endif %}
+    <!-- Active session banner -- only rendered while at least one of this
+         lecturer's courses has a session running right now. -->
+    {% if active_sessions %}
+        <div class="bg-success/10 border border-success/30 rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap">
+            <div class="flex items-center gap-3">
+                <span class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-success"></span>
+                </span>
+                <div>
+                    <p class="text-sm font-semibold text-white">
+                        {% if active_sessions|length == 1 %}
+                            Session active for {{ active_sessions[0].course.course_code }}
+                        {% else %}
+                            {{ active_sessions|length }} sessions active right now
+                        {% endif %}
+                    </p>
+                    <p class="text-xs text-secondary mt-0.5">
+                        {% for s in active_sessions %}{{ s.course.course_code }}{{ ', ' if not loop.last }}{% endfor %}
+                    </p>
+                </div>
+            </div>
+            <a href="{{ url_for('lecturer.course_workspace', course_id=active_sessions[0].course_id) }}"
+               class="bg-success/20 hover:bg-success/30 text-success text-sm font-semibold rounded-lg px-4 py-2 transition-colors shrink-0">
+                View Live Attendance
+            </a>
         </div>
-        <div class="stat-sub">Current state</div>
-      </div>
-    </div>
-
-    <!-- Courses -->
-    <div class="section-header">Your Courses</div>
-
-    {% set accents = ['accent-cyan', 'accent-green', 'accent-amber', 'accent-red', 'accent-purple'] %}
-
-    {% if courses %}
-      <div class="courses-grid">
-        {% for course in courses %}
-          {% set accent = accents[loop.index0 % accents|length] %}
-          <a href="{{ url_for('lecturer.course_workspace', course_id=course.id) }}" class="course-card {{ accent }}">
-            <div class="course-badge">{{ course.course_code }}</div>
-            <div class="course-title">{{ course.course_title }}</div>
-            <div class="course-desc">Open the course workspace to manage sessions and view attendance.</div>
-          </a>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="empty-state">No courses assigned yet. Contact your administrator.</div>
     {% endif %}
 
-  </main>
+    <!-- Stat cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
 
-  <script>
-    function pad(n) { return String(n).padStart(2, '0'); }
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Total Courses</span>
+                <span class="material-symbols-rounded text-accent">book</span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ course_cards|length }}</p>
+            <p class="mt-1 text-xs text-muted">Assigned this semester</p>
+        </div>
 
-    function tick() {
-      const now = new Date();
-      document.getElementById('live-clock').textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
-    }
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Today's Check-ins</span>
+                <span class="material-symbols-rounded text-accent">how_to_reg</span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ today_checkins }}</p>
+            <p class="mt-1 text-xs text-muted">Students scanned in today</p>
+        </div>
 
-    function setDate() {
-      const now = new Date();
-      document.getElementById('today-date').textContent = now.toLocaleDateString('en-GB', {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-      });
-    }
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Session Status</span>
+                <span class="relative flex h-2.5 w-2.5 mt-1">
+                    {% if active_sessions %}
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                    {% endif %}
+                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 {{ 'bg-success' if active_sessions else 'bg-muted' }}"></span>
+                </span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ 'Active' if active_sessions else 'Idle' }}</p>
+            <p class="mt-1 text-xs text-muted">Current state</p>
+        </div>
+    </div>
 
-    tick(); setDate();
-    setInterval(tick, 30000);
-  </script>
+    <!-- Course cards -->
+    <div>
+        <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-4">Your Courses</h2>
 
-  <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-</body>
-</html>
+        {% if course_cards %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {% for card in course_cards %}
+                    <a href="{{ url_for('lecturer.course_workspace', course_id=card.course.id) }}"
+                       class="bg-card border border-border hover:border-accent rounded-2xl p-5 transition-colors">
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-accent/10 text-accent">
+                                {{ card.course.course_code }}
+                            </span>
+                            {% if card.is_live %}
+                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-success"></span> LIVE
+                                </span>
+                            {% endif %}
+                        </div>
+                        <p class="mt-3 text-sm font-semibold text-white leading-snug">{{ card.course.course_title }}</p>
+
+                        <div class="mt-4 flex items-center gap-4 text-xs text-secondary">
+                            <span class="flex items-center gap-1">
+                                <span class="material-symbols-rounded text-[16px]">group</span>
+                                {{ card.enrolled_count }} enrolled
+                            </span>
+                            <span class="flex items-center gap-1">
+                                <span class="material-symbols-rounded text-[16px]">event</span>
+                                {{ card.session_count }} sessions
+                            </span>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="bg-card border border-border rounded-2xl p-10 text-center">
+                <p class="text-sm text-muted">No courses assigned yet. Contact your administrator.</p>
+            </div>
+        {% endif %}
+    </div>
+
+{% endblock %}
