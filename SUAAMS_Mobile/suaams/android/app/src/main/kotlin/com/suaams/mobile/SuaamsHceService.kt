@@ -1,4 +1,4 @@
-package com.example.suaams
+package com.suaams.mobile
 
 import android.nfc.cardemulation.HostApduService
 import android.os.Bundle

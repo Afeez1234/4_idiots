@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "919100096336",
+    "project_id": "suaams-b968a",
+    "storage_bucket": "suaams-b968a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:919100096336:android:352f3a71d7a6f28613f655",
+        "android_client_info": {
+          "package_name": "com.suaams.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDyYgsar00JHcrImv4rVPH7qfpdoKO_Hfw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
