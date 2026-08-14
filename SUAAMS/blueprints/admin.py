@@ -10,6 +10,7 @@ from models import (
 )
 from extensions import log_exception, logger
 from utils import resolve_current_course, session_status_for_course
+from push_notifications import send_push_notification
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
 # same as Python's date.weekday()) -- shared by the create-form <select> and
@@ -485,6 +486,15 @@ def reset_student_binding(student_id):
         if student.user:
             student.user.current_refresh_jti = None
         db.session.commit()
+
+        if student.user:
+            send_push_notification(
+                student.user,
+                'device_unlocked',
+                'Device Binding Reset',
+                'Your account is no longer locked to your previous device. You can now log in from a new one.',
+            )
+
         flash(f"Successfully cleared hardware device binding for {student.full_name}.", 'success')
     except Exception:
         db.session.rollback()

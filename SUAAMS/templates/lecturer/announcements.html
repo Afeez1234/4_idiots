@@ -1,0 +1,75 @@
+{% extends "base_lecturer.html" %}
+
+{% block title %}Announcements | SUAAMS Lecturer{% endblock %}
+{% block page_title %}Announcements{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">Post notices to the courses you teach</p>
+{% endblock %}
+
+{% block content %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+        <!-- Post Announcement -->
+        <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Post Announcement</h2>
+
+            <form action="{{ url_for('lecturer.announcements') }}" method="POST" class="space-y-4">
+                {% include '_csrf_field.html' %}
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Course</label>
+                    <select name="course_id" required class="form-select">
+                        <option value="" disabled selected>Select course</option>
+                        <!-- sidebar_courses comes from inject_lecturer_context() -- already
+                             scoped to this lecturer's own courses, no separate query needed. -->
+                        {% for course in sidebar_courses %}
+                            <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Title</label>
+                    <input type="text" name="title" required placeholder="e.g. Midterm Rescheduled" class="form-input">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Body</label>
+                    <textarea name="body" required rows="4" placeholder="Announcement details..." class="form-input resize-none"></textarea>
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
+                    Post Announcement
+                </button>
+            </form>
+        </div>
+
+        <!-- Feed: this lecturer's own sent announcements -->
+        <div class="lg:col-span-2 space-y-4">
+            {% for a in announcements %}
+                <div class="bg-card border border-border rounded-2xl p-6">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-semibold">{{ a.title }}</p>
+                            <p class="text-[11px] text-muted mt-0.5">
+                                {{ a.created_at.strftime('%d %b %Y, %H:%M') }} &middot;
+                                {{ a.course.course_code if a.course else 'Course' }}
+                            </p>
+                        </div>
+                        {% if not a.is_active %}
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-muted/10 text-muted shrink-0">Inactive</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-sm text-secondary mt-3 leading-relaxed">{{ a.body }}</p>
+                </div>
+            {% else %}
+                <div class="bg-card border border-border rounded-2xl p-10 text-center">
+                    <p class="text-sm text-muted">You haven't posted any announcements yet.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+{% endblock %}

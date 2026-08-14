@@ -3,13 +3,14 @@ from flask_jwt_extended import (
     jwt_required, get_jwt_identity, get_jwt,
     create_access_token, decode_token,
 )
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime, timezone
 
 # Import db and our elegant SQLAlchemy models
 # (added Enrollment here for the check-in endpoints, Timetable for the
 # today's-schedule endpoint below)
-from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable
+from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification
 from extensions import limiter, jwt_identity_or_ip, api_error_response
+from push_notifications import send_push_notification
 
 # Create the API blueprint for student mobile endpoints
 api_student_bp = Blueprint('api_student', __name__, url_prefix='/api/v1/student')
@@ -237,6 +238,18 @@ def submit_checkin_beacon():
     db.session.add(record)
     db.session.commit()
 
+    # Best-effort push -- see send_push_notification's docstring for why a
+    # failure here never affects the response below (attendance is already
+    # committed by this point regardless).
+    course = active_session.course
+    send_push_notification(
+        student.user,
+        'attendance_marked',
+        'Attendance Recorded',
+        f"You've been marked present for {course.course_code}." if course else "You've been marked present.",
+        data={'session_id': active_session.id, 'course_id': active_session.course_id},
+    )
+
     return jsonify({
         "success": True,
         "message": "Attendance recorded successfully.",
@@ -414,3 +427,87 @@ def get_today_schedule():
 
     except Exception:
         return api_error_response("Today Schedule Error", "Failed to load today's schedule")
+
+
+# Called once at app start (and again whenever Firebase hands the app a
+# fresh token via onTokenRefresh) -- generous limit since a refresh can
+# legitimately happen a few times in a session (e.g. app reinstall, token
+# rotation), not just once at login.
+@api_student_bp.route('/device-token', methods=['POST'])
+@limiter.limit("20 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def register_device_token():
+    """
+    Upserts by fcm_token, not by (user_id, platform): the same physical app
+    instance can only ever be one row, and if the token shows up under a
+    different user_id than before (e.g. a different student logged into the
+    same physical phone), this re-points the existing row rather than
+    leaving a stale duplicate pointed at the old user.
+    """
+    data = request.get_json()
+    fcm_token = data.get('fcm_token') if data else None
+    platform = data.get('platform') if data else None
+
+    if not fcm_token or platform not in ('android', 'ios'):
+        return jsonify({"error": "fcm_token and platform ('android'|'ios') are required"}), 400
+
+    current_user_id = int(get_jwt_identity())
+
+    try:
+        existing = DeviceToken.query.filter_by(fcm_token=fcm_token).first()
+        if existing:
+            existing.user_id = current_user_id
+            existing.platform = platform
+        else:
+            db.session.add(DeviceToken(
+                user_id=current_user_id, fcm_token=fcm_token, platform=platform,
+            ))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return api_error_response("Device Token Registration Error", "Failed to register device token")
+
+    return jsonify({"success": True}), 200
+
+
+@api_student_bp.route('/notifications', methods=['GET'])
+@limiter.limit("30 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def get_notifications():
+    current_user_id = int(get_jwt_identity())
+
+    notifications = Notification.query.filter_by(user_id=current_user_id) \
+        .order_by(Notification.created_at.desc()).limit(50).all()
+
+    return jsonify({
+        "success": True,
+        "notifications": [{
+            "id": n.id,
+            "type": n.type,
+            "title": n.title,
+            "body": n.body,
+            "data": n.data,
+            "read": n.read_at is not None,
+            "created_at": n.created_at.isoformat(),
+        } for n in notifications],
+        "unread_count": sum(1 for n in notifications if n.read_at is None),
+    }), 200
+
+
+@api_student_bp.route('/notifications/<int:notification_id>/read', methods=['POST'])
+@limiter.limit("60 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def mark_notification_read(notification_id):
+    current_user_id = int(get_jwt_identity())
+
+    notification = Notification.query.filter_by(
+        id=notification_id, user_id=current_user_id
+    ).first()
+    if not notification:
+        return jsonify({"error": "Notification not found"}), 404
+
+    if notification.read_at is None:
+        notification.read_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+    return jsonify({"success": True}), 200

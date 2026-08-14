@@ -7,3 +7,4 @@ flask-sqlalchemy
 flask-migrate
 flask-limiter
 flask-wtf
+firebase-admin
