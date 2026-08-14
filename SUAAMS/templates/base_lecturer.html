@@ -89,8 +89,7 @@
                             <span class="material-symbols-rounded text-[20px]">sensors</span>
                             <span>Active Sessions</span>
                         </a>
-                        <!-- TODO: no lecturer.session_history route/template yet -- wire up when that page (build order item 3) lands. -->
-                        <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'session_history' else '' }}">
+                        <a href="{{ url_for('lecturer.session_history') }}" class="nav-link {{ 'nav-link-active' if active_page == 'session_history' else '' }}">
                             <span class="material-symbols-rounded text-[20px]">history</span>
                             <span>Session History</span>
                         </a>

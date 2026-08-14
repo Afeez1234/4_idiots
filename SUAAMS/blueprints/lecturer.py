@@ -325,5 +325,7 @@ def session_detail(course_id, session_id):
         course=course,
         session_info=session_info,
         attendance_records=attendance_records,
-        enrolled_count=enrolled_count
+        enrolled_count=enrolled_count,
+        active_page='session_history',
+        active_course_id=course.id,
     )

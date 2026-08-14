@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .env
 instance/
+firebase-service-account.json
