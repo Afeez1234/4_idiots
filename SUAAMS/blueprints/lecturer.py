@@ -1,7 +1,9 @@
-from flask import Blueprint, flash, render_template, redirect, request, session, url_for
+import csv
+import io
+from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response
 from datetime import date, datetime, timezone
 from utils import login_required
-from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester
+from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
 from extensions import log_exception
 
 lecturer_bp = Blueprint('lecturer', __name__)
@@ -206,6 +208,150 @@ def session_history():
         'lecturer/session_history.html',
         history_sessions=history_sessions,
         active_page='session_history',
+    )
+
+
+@lecturer_bp.route('/lecturer/announcements', methods=['GET', 'POST'])
+@login_required('lecturer')
+def announcements():
+    """Lecturer-scoped announcements: unlike admin's version (which can post
+    university/department/course-wide), a lecturer can only post to a course
+    they actually teach, and only ever sees their own sent announcements --
+    no scope selector needed since 'course' is the only option."""
+    user_id = session.get('user_id')
+
+    lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+    if not lecturer:
+        flash('Lecturer profile not found.', 'error')
+        return redirect(url_for('auth.login'))
+
+    if request.method == 'POST':
+        title = request.form.get('title')
+        body = request.form.get('body')
+        course_id = request.form.get('course_id')
+
+        if not all([title, body, course_id]):
+            flash('Title, body, and course are all required.', 'error')
+            return redirect(url_for('lecturer.announcements'))
+
+        # Ownership check -- a lecturer must not be able to post an
+        # announcement against a course they don't actually teach, even if
+        # course_id is forged in the request.
+        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        if not course:
+            flash('You can only post announcements to courses you teach.', 'error')
+            return redirect(url_for('lecturer.announcements'))
+
+        try:
+            announcement = Announcement(
+                title=title.strip(),
+                body=body.strip(),
+                sender_id=user_id,
+                scope='course',
+                course_id=course.id,
+            )
+            db.session.add(announcement)
+            db.session.commit()
+            flash(f"Announcement '{title}' posted successfully.", 'success')
+        except Exception:
+            db.session.rollback()
+            flash('Failed to post announcement.', 'error')
+            log_exception("Lecturer Announcement Create Error")
+
+        return redirect(url_for('lecturer.announcements'))
+
+    sent_announcements = Announcement.query.filter_by(sender_id=user_id).order_by(Announcement.created_at.desc()).all()
+    return render_template(
+        'lecturer/announcements.html',
+        announcements=sent_announcements,
+        active_page='announcements',
+    )
+
+
+def _course_attendance_reports(lecturer):
+    """Per-course attendance percentage, shared by reports() and
+    export_reports() so the on-screen table and the exported CSV can't
+    drift apart. Same 'actual / (sessions * enrolled)' formula already used
+    by course_workspace()'s stats.average_attendance and admin's
+    department_attendance."""
+    courses = Course.query.filter_by(lecturer_id=lecturer.id).order_by(Course.course_code).all()
+    rows = []
+    for course in courses:
+        enrolled_count = Enrollment.query.filter_by(course_id=course.id).count()
+        session_count = SessionModel.query.filter_by(course_id=course.id).count()
+        total_attendance = Attendance.query.join(SessionModel).filter(SessionModel.course_id == course.id).count()
+        average_attendance = round(
+            (total_attendance / (session_count * enrolled_count) * 100)
+            if session_count and enrolled_count else 0, 1
+        )
+        rows.append({
+            'course': course,
+            'enrolled_count': enrolled_count,
+            'session_count': session_count,
+            'average_attendance': average_attendance,
+        })
+    return rows
+
+
+@lecturer_bp.route('/lecturer/reports')
+@login_required('lecturer')
+def reports():
+    user_id = session.get('user_id')
+
+    try:
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+        if not lecturer:
+            flash('Lecturer profile not found.', 'error')
+            return redirect(url_for('auth.login'))
+
+        course_reports = _course_attendance_reports(lecturer)
+
+    except Exception:
+        log_exception("Lecturer Reports Error")
+        flash('An error occurred loading reports.', 'error')
+        return redirect(url_for('lecturer.dashboard'))
+
+    return render_template(
+        'lecturer/reports.html',
+        course_reports=course_reports,
+        active_page='reports',
+    )
+
+
+@lecturer_bp.route('/lecturer/reports/export')
+@login_required('lecturer')
+def export_reports():
+    user_id = session.get('user_id')
+
+    try:
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+        if not lecturer:
+            flash('Lecturer profile not found.', 'error')
+            return redirect(url_for('auth.login'))
+
+        course_reports = _course_attendance_reports(lecturer)
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Course Code', 'Course Title', 'Enrolled', 'Sessions Run', 'Average Attendance (%)'])
+        for row in course_reports:
+            writer.writerow([
+                row['course'].course_code,
+                row['course'].course_title,
+                row['enrolled_count'],
+                row['session_count'],
+                row['average_attendance'],
+            ])
+
+    except Exception:
+        log_exception("Lecturer Reports Export Error")
+        flash('Failed to export attendance report.', 'error')
+        return redirect(url_for('lecturer.reports'))
+
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=attendance_report.csv'},
     )
 
 

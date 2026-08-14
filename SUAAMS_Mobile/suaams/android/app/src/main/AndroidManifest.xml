@@ -1,6 +1,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.NFC"/>
+    <!-- Android 13+ (API 33) requires this as a runtime-requested
+         permission before any notification (including FCM-delivered ones)
+         can display -- without it, pushes still arrive and update the
+         in-app Notification list, but silently, with no system tray
+         banner. firebase_messaging's requestPermission() call (wired in
+         notification_service.dart) is what actually triggers the runtime
+         prompt; this manifest entry just declares the permission exists. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- required="false": MIFARE cards remain a valid check-in path, so an
          HCE-incapable device shouldn't be blocked from installing the app
          entirely, it just won't be able to use the phone-tap flow. -->

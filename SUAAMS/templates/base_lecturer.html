@@ -99,8 +99,7 @@
                 <div>
                     <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Communication</p>
                     <div class="space-y-1">
-                        <!-- TODO: no lecturer.announcements route/template yet -- wire up when that page (build order item 5) lands. -->
-                        <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' else '' }}">
+                        <a href="{{ url_for('lecturer.announcements') }}" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' else '' }}">
                             <span class="material-symbols-rounded text-[20px]">campaign</span>
                             <span>Announcements</span>
                         </a>
@@ -110,12 +109,11 @@
                 <div>
                     <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Reports</p>
                     <div class="space-y-1">
-                        <!-- TODO: no lecturer.reports / lecturer.export_reports routes yet -- wire up when that page (build order item 6) lands. -->
-                        <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'reports' else '' }}">
+                        <a href="{{ url_for('lecturer.reports') }}" class="nav-link {{ 'nav-link-active' if active_page == 'reports' else '' }}">
                             <span class="material-symbols-rounded text-[20px]">summarize</span>
                             <span>Attendance Reports</span>
                         </a>
-                        <a href="#" class="nav-link">
+                        <a href="{{ url_for('lecturer.export_reports') }}" class="nav-link">
                             <span class="material-symbols-rounded text-[20px]">download</span>
                             <span>Export</span>
                         </a>

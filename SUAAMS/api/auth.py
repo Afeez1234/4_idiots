@@ -8,6 +8,7 @@ import bcrypt
 # We import db and User instead of connect_to_database
 from models import db, User
 from extensions import limiter, jwt_identity_or_ip, api_error_response
+from push_notifications import send_push_notification
 
 # Create the API blueprint for mobile authentication
 api_auth_bp = Blueprint('api_auth', __name__, url_prefix='/api/v1/auth')
@@ -76,6 +77,18 @@ def mobile_login():
             
             # 2. Subsequent Login (Check if hardware matches)
             elif student_profile.device_id != device_id:
+                # Security alert to the LEGITIMATE bound device -- the
+                # device attempting this login is the one being rejected,
+                # so it never gets this far (no token issued to it, ever).
+                # Only the previously-bound device can hold a registered
+                # DeviceToken, since token registration requires a prior
+                # successful login (see /device-token in api/student.py).
+                send_push_notification(
+                    user,
+                    'device_lockout_alert',
+                    'Login Attempt Blocked',
+                    'Someone tried to log into your account from a different device. If this wasn\'t you, your account remains locked to your original device.',
+                )
                 return jsonify({
                     "error": "SECURITY LOCK: Account is bound to another device. Please visit IT Administration to request a hardware unbind."
                 }), 403

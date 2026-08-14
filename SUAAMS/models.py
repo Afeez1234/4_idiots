@@ -88,6 +88,9 @@ class User(db.Model):
     student = db.relationship('Student', backref='user', uselist=False, cascade="all, delete-orphan")
     lecturer = db.relationship('Lecturer', backref='user', uselist=False, cascade="all, delete-orphan")
     hod = db.relationship('HOD', backref='user', uselist=False, cascade="all, delete-orphan")
+    # NEW: push notification support (see DeviceToken/Notification below).
+    device_tokens = db.relationship('DeviceToken', backref='user', lazy=True, cascade="all, delete-orphan")
+    notifications = db.relationship('Notification', backref='user', lazy=True, cascade="all, delete-orphan")
 
 
 # ==========================================
@@ -364,3 +367,52 @@ class Result(db.Model):
     __table_args__ = (
         db.UniqueConstraint('student_id', 'course_id', 'semester_id', name='uq_result_student_course_semester'),
     )
+
+
+# ==========================================
+# 9. NOTIFICATIONS
+# ==========================================
+class DeviceToken(db.Model):
+    # NEW TABLE. One row per (user, installed app instance) -- a user can
+    # hold multiple rows if they're logged into more than one physical
+    # device (mirrors that push delivery is per-installation, unlike
+    # Student.device_id's single-device login binding above, which is a
+    # separate concern). fcm_token is unique because the same token can only
+    # ever point at one live app instance at a time -- if it shows up again
+    # under a different user_id (e.g. someone logged out and a different
+    # student logged in on the same phone), the registration endpoint
+    # updates this row's user_id in place rather than inserting a duplicate.
+    __tablename__ = 'device_tokens'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    fcm_token = db.Column(db.String(255), unique=True, nullable=False)
+    platform = db.Column(db.Enum('android', 'ios'), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+class Notification(db.Model):
+    # NEW TABLE. Persisted in-app record of every push sent -- the source of
+    # truth for the notification list screen, independent of whether the
+    # FCM send itself succeeded (a student who was offline when it fired
+    # still sees it here next time they open the app). `type` is a plain
+    # string rather than db.Enum deliberately: more notification types
+    # (absentee alerts, class-starting-soon) are on the roadmap but not
+    # wired yet, and a string column avoids a schema migration just to add
+    # an enum value once those land.
+    __tablename__ = 'notifications'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    type = db.Column(db.String(50), nullable=False)
+    title = db.Column(db.String(150), nullable=False)
+    body = db.Column(db.String(500), nullable=False)
+    # Deep-link payload (e.g. {"session_id": 5}) -- lets the app route a tap
+    # straight to the relevant screen instead of just opening to the list.
+    data = db.Column(db.JSON, nullable=True)
+    read_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
