@@ -174,7 +174,8 @@ class AuthService {
       return newAccessToken;
     }
 
-    final errorMsg = responseData['error'] ??
+    final errorMsg =
+        responseData['error'] ??
         responseData['msg'] ??
         responseData['message'] ??
         'Session refresh failed';
@@ -217,7 +218,9 @@ class AuthService {
           )
           .timeout(_kNetworkTimeout);
     } catch (e) {
-      debugPrint('Logout backend call failed (continuing with local logout): $e');
+      debugPrint(
+        'Logout backend call failed (continuing with local logout): $e',
+      );
     }
   }
 

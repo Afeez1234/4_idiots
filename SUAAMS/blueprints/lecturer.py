@@ -1,49 +1,79 @@
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for
 from datetime import date, datetime, timezone
 from utils import login_required
-from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department
+from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester
 from extensions import log_exception
 
 lecturer_bp = Blueprint('lecturer', __name__)
+
+
+@lecturer_bp.context_processor
+def inject_lecturer_context():
+    """Makes the signed-in lecturer's course list (for the sidebar's dynamic
+    'My Courses' section) and the active semester (sidebar pill, same pattern
+    as admin's inject_active_semester) available to every lecturer template."""
+    user_id = session.get('user_id')
+    if not user_id or session.get('role') != 'lecturer':
+        return {}
+    lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+    if not lecturer:
+        return {}
+    return {
+        'sidebar_courses': Course.query.filter_by(lecturer_id=lecturer.id).order_by(Course.course_code).all(),
+        'active_semester': Semester.query.filter_by(is_active=True).first(),
+    }
+
 
 @lecturer_bp.route('/lecturer/dashboard')
 @login_required('lecturer')
 def dashboard():
     user_id = session.get('user_id')
-    
+
     try:
-        # 1. Get the lecturer using ORM
         lecturer = Lecturer.query.filter_by(user_id=user_id).first()
         if not lecturer:
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
-            
-        # 2. Get their courses
-        courses = Course.query.filter_by(lecturer_id=lecturer.id).all()
-        
-        # 3. Count active sessions for this lecturer's courses
-        active_session_count = SessionModel.query.join(Course).filter(
+
+        courses = Course.query.filter_by(lecturer_id=lecturer.id).order_by(Course.course_code).all()
+
+        # Full active-session rows (not just a count) so the dashboard banner
+        # can name the course(s) currently live and link straight into them.
+        active_sessions = SessionModel.query.join(Course).filter(
             Course.lecturer_id == lecturer.id,
             SessionModel.is_active == True
-        ).count()
-        
-        # 4. Count today's check-ins using timezone-aware dates
+        ).all()
+        active_course_ids = {s.course_id for s in active_sessions}
+
         today = datetime.now(timezone.utc).date()
         today_checkins = Attendance.query.join(SessionModel).join(Course).filter(
             Course.lecturer_id == lecturer.id,
             db.func.date(Attendance.time_in) == today
         ).count()
-        
+
+        # Per-course stats for the course cards. enrolled_students is the
+        # viewonly dynamic backref off Enrollment (models.py), so .count()
+        # here doesn't pull every row into memory.
+        course_cards = []
+        for course in courses:
+            course_cards.append({
+                'course': course,
+                'enrolled_count': course.enrolled_students.count(),
+                'session_count': SessionModel.query.filter_by(course_id=course.id).count(),
+                'is_live': course.id in active_course_ids,
+            })
+
     except Exception:
         log_exception("Lecturer Dashboard Error")
         flash('An error occurred while fetching lecturer data.', 'error')
         return redirect(url_for('auth.login'))
 
     return render_template(
-        'lecturer/dashboard.html', 
-        courses=courses, 
-        active_session_count=active_session_count, 
-        today_checkins=today_checkins
+        'lecturer/dashboard.html',
+        course_cards=course_cards,
+        active_sessions=active_sessions,
+        today_checkins=today_checkins,
+        active_page='dashboard',
     )
 
 
