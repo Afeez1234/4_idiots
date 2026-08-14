@@ -1,314 +1,168 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Refresh the page every 5 seconds so the summary cards and live attendee list stay current. -->
-  {% if active_session %}
-    <meta http-equiv="refresh" content="5">
-  {% endif %}
-  <!-- SCHEMA UPDATE: course.title/course.code -> course.course_title/course.course_code -->
-  <title>SUAAMS — {{ course.course_title }}</title>
-  <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet" />
-  <link href="{{ url_for('static', filename='css/course_workspace.css') }}" rel="stylesheet" />
-</head>
-<body>
+{% extends "base_lecturer.html" %}
 
-  <!-- Sidebar -->
-  <nav class="sidebar">
-    <div class="sidebar-brand">
-      <div class="brand-icon">SU</div>
-      <div>
-        <div class="brand-text">SUAAMS</div>
-        <div class="brand-sub">Lecturer Portal</div>
-      </div>
-    </div>
+{% block title %}{{ course.course_title }} | SUAAMS Lecturer{% endblock %}
+{% block page_title %}{{ course.course_code }}{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">{{ course.course_title }}</p>
+{% endblock %}
 
-    <div class="course-info">
-      <div class="course-info-label">Course</div>
-      <div class="course-info-title">{{ course.course_title }}</div>
-      <div class="course-info-code">{{ course.course_code }}</div>
-    </div>
-
-    <div class="sidebar-section">Workspace</div>
-    <a href="#overview" class="sidebar-link active">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-      Overview
-    </a>
-    <a href="#live-attendance" class="sidebar-link">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      Live Attendance
-    </a>
-    <a href="#history" class="sidebar-link">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-      Attendance History
-    </a>
-    <a href="#report" class="sidebar-link">
-      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-      Student Report
-    </a>
-
-    <div class="sidebar-footer">
-      <a href="{{ url_for('lecturer.dashboard') }}" class="back-btn">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="15 18 9 12 15 6"/></svg>
-        Back to Dashboard
-      </a>
-      <a href="{{ url_for('auth.logout') }}" class="signout-btn">
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Sign Out
-      </a>
-    </div>
-  </nav>
-
-  <!-- Main -->
-  <main class="main">
-
-    <div class="topbar">
-      <div>
-        <div class="topbar-title">{{ course.course_title }}</div>
-        <div class="topbar-sub">Course Workspace</div>
-      </div>
-      <div class="avatar">{{ session['username'][0]|upper }}</div>
-    </div>
-
-    <!-- Flash -->
-    <div class="flash-area">
-      {% for category, message in get_flashed_messages(with_categories=True) %}
-        <div class="flash-msg flash-{{ category }}">{{ message }}</div>
-      {% endfor %}
-    </div>
-
-    <!-- Summary Stat Cards -->
-    <section id="overview" class="workspace-card">
-      <div class="card-header-row">
-        <div>
-          <div class="card-title">Course Summary</div>
-          <div class="card-subtitle">Key attendance metrics for this semester.</div>
-        </div>
-      </div>
-
-      <div class="stats-grid">
-        <div class="stat-card cyan">
-          <div class="stat-label">Students Enrolled</div>
-          <div class="stat-value">{{ stats.total_enrolled_students }}</div>
-          <div class="stat-desc">Registered for this course</div>
-        </div>
-
-        <div class="stat-card green">
-          <div class="stat-label">Sessions This Semester</div>
-          <div class="stat-value">{{ stats.total_sessions_this_semester }}</div>
-          <div class="stat-desc">Attendance sessions run</div>
-        </div>
-
-        <div class="stat-card amber">
-          <div class="stat-label">Average Attendance</div>
-          <div class="stat-value">{{ stats.average_attendance }}%</div>
-          <div class="stat-desc">Across completed sessions</div>
-        </div>
-
-        <div class="stat-card red">
-          <div class="stat-label">Present in Current Session</div>
-          <div class="stat-value">{{ stats.present_in_current_session }}</div>
-          <div class="stat-desc">Students checked in now</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Session Controls -->
-    <section class="workspace-card">
-      <div class="card-header-row">
-        <div>
-          <div class="card-title">Session Controls</div>
-          <div class="card-subtitle">Start or stop attendance tracking for this course.</div>
-        </div>
-        <div style="display:flex; align-items:center; gap:0.75rem;">
-          {% if active_session %}
-            <div class="session-status-pill pill-active">
-              <span class="pill-dot"></span> Session Active
-            </div>
-            <form method="POST" action="{{ url_for('lecturer.end_session_r', course_id=course.id) }}">
-              {% include '_csrf_field.html' %}
-              <button type="submit" class="btn-end-session">End Session</button>
-            </form>
-          {% else %}
-            <div class="session-status-pill pill-idle">
-              <span class="pill-dot"></span> No Active Session
-            </div>
-            <form method="POST" action="{{ url_for('lecturer.start_session', course_id=course.id) }}">
-              {% include '_csrf_field.html' %}
-              <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
-                <div>
-                  <label style="font-size:0.75rem; color:var(--text-muted);">Planned Start (optional)</label>
-                  <input type="time" name="planned_start" class="date-input" />
-                </div>
-                <div>
-                  <label style="font-size:0.75rem; color:var(--text-muted);">Planned End (optional)</label>
-                  <input type="time" name="planned_end" class="date-input" />
-                </div>
-                <button type="submit" class="btn-start-session">Start Session</button>
-              </div>
-            </form>
-          {% endif %}
-        </div>
-      </div>
-    </section>
-
-    <!-- Live Attendance -->
+{% block extra_head %}
+    <!-- Auto-refresh every 5s while a session is live, so the stat cards and
+         live attendance table stay current without a manual reload. -->
     {% if active_session %}
-    <section id="live-attendance" class="workspace-card">
-      <div class="card-header-row">
-        <div class="card-title">Live Attendance</div>
-        <input type="search" class="search-bar" id="live-search" placeholder="Search student or matric number…" />
-      </div>
-      <table class="data-table" id="live-table">
-        <thead>
-          <tr>
-            <th>Student</th>
-            <th>Matric Number</th>
-            <th>Time In</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% if attendance_records %}
-            {% for record in attendance_records %}
-            <tr>
-              <td>{{ record[0] }}</td>
-              <td>{{ record[3] }}</td>
-              <td>{{ record[5] }}</td>
-              <td>
-                <span class="status-badge
-                  {% if record[4]|lower == 'present' %}badge-present
-                  {% elif record[4]|lower == 'late' %}badge-late
-                  {% else %}badge-absent{% endif %}">
-                  {{ record[4] }}
-                </span>
-              </td>
-            </tr>
-            {% endfor %}
-          {% else %}
-            <tr class="empty-row"><td colspan="4">No check-ins yet. Waiting for students to scan…</td></tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </section>
+        <meta http-equiv="refresh" content="5">
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+    <!-- Stat cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Students Enrolled</span>
+                <span class="material-symbols-rounded text-accent">group</span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ stats.total_enrolled_students }}</p>
+            <p class="mt-1 text-xs text-muted">Registered for this course</p>
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Sessions This Semester</span>
+                <span class="material-symbols-rounded text-accent">event</span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ stats.total_sessions_this_semester }}</p>
+            <p class="mt-1 text-xs text-muted">Attendance sessions run</p>
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Average Attendance</span>
+                <span class="material-symbols-rounded text-accent">insights</span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ stats.average_attendance }}%</p>
+            <p class="mt-1 text-xs text-muted">Across completed sessions</p>
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Present Now</span>
+                <span class="material-symbols-rounded text-accent">how_to_reg</span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ stats.present_in_current_session }}</p>
+            <p class="mt-1 text-xs text-muted">Checked in this session</p>
+        </div>
+    </div>
+
+    <!-- Session controls -->
+    <div class="bg-card border border-border rounded-2xl p-6">
+        <div class="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Session Controls</h2>
+                <p class="text-xs text-muted mt-1">Start or stop attendance tracking for this course.</p>
+            </div>
+
+            {% if active_session %}
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-success/10 text-success">
+                        <span class="w-1.5 h-1.5 rounded-full bg-success"></span> Session Active
+                    </span>
+                    <form method="POST" action="{{ url_for('lecturer.end_session_r', course_id=course.id) }}">
+                        {% include '_csrf_field.html' %}
+                        <button type="submit"
+                                class="bg-error/10 hover:bg-error/20 text-error text-sm font-semibold rounded-lg px-4 py-2 transition-colors">
+                            End Session
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <form method="POST" action="{{ url_for('lecturer.start_session', course_id=course.id) }}"
+                      class="flex items-end gap-3 flex-wrap">
+                    {% include '_csrf_field.html' %}
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Planned Start <span class="text-muted font-normal normal-case">(optional)</span></label>
+                        <input type="time" name="planned_start" class="form-input">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-secondary mb-1.5">Planned End <span class="text-muted font-normal normal-case">(optional)</span></label>
+                        <input type="time" name="planned_end" class="form-input">
+                    </div>
+                    <button type="submit"
+                            class="bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg px-5 py-3 transition-colors">
+                        Start Session
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Live attendance -->
+    {% if active_session %}
+        <div class="bg-card border border-border rounded-2xl overflow-hidden">
+            <div class="px-6 pt-6 pb-4 flex items-center justify-between gap-4 flex-wrap">
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Live Attendance</h2>
+                <input type="search" id="live-search" placeholder="Search student or matric number…"
+                       class="w-full sm:w-64 bg-surface border border-border text-white text-sm rounded-xl px-4 py-2 placeholder:text-muted transition-colors focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent">
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-t border-border text-left">
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Student</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Matric Number</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Time In</th>
+                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="live-table-body">
+                        {% for record in attendance_records %}
+                            <tr class="border-t border-border hover:bg-surface/60 transition-colors">
+                                <td class="px-6 py-3.5">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-8 h-8 shrink-0 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent font-bold text-xs">
+                                            {{ record[0][0]|upper }}
+                                        </div>
+                                        <span class="font-medium">{{ record[0] }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-3.5 text-secondary">{{ record[3] }}</td>
+                                <td class="px-6 py-3.5 text-secondary">{{ record[5].strftime('%H:%M:%S') if record[5] else '—' }}</td>
+                                <td class="px-6 py-3.5">
+                                    {% set status = record[4]|lower %}
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold
+                                        {{ 'bg-success/10 text-success' if status == 'present'
+                                           else 'bg-warning/10 text-warning' if status == 'late'
+                                           else 'bg-error/10 text-error' }}">
+                                        {{ record[4] }}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr class="border-t border-border">
+                                <td colspan="4" class="px-6 py-10 text-center text-sm text-muted">No check-ins yet. Waiting for students to scan…</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     {% endif %}
 
-    <!-- Attendance History -->
-    <section id="history" class="workspace-card">
-      <div class="card-header-row">
-        <div class="card-title">Attendance History</div>
-        <input type="date" class="date-input" id="history-date" />
-      </div>
-      <table class="data-table" id="history-table">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Session</th>
-            <th>Present</th>
-            <th>Absent</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% if history_sessions is defined and history_sessions %}
-            {% for s in history_sessions %}
-            <tr style="cursor:pointer" onclick="window.location='{{ url_for('lecturer.session_detail', course_id=course.id, session_id=s.session_id) }}'">
-              <td>{{ s.date }}</td>
-              <td>{{ s.label }}</td>
-              <td>{{ s.present_count }}</td>
-              <td>{{ s.absent_count }}</td>
-            </tr>
-            {% endfor %}
-          {% else %}
-            <tr class="empty-row"><td colspan="4">No attendance history available yet.</td></tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </section>
+{% endblock %}
 
-    <!-- Student Report -->
-    <section id="report" class="workspace-card">
-      <div class="card-header-row">
-        <div class="card-title">Student Report</div>
-        <div style="display:flex;gap:0.6rem;align-items:center;">
-          <input type="search" class="search-bar" id="report-search" placeholder="Search student…" />
-          <button class="export-btn">Export Report</button>
-        </div>
-      </div>
-      <table class="data-table" id="report-table">
-        <thead>
-          <tr>
-            <th>Student</th>
-            <th>Matric Number</th>
-            <th>Present</th>
-            <th>Absent</th>
-            <th>Attendance %</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% if student_reports is defined and student_reports %}
-            {% for r in student_reports %}
-            <tr>
-              <td>{{ r.student_name }}</td>
-              <td>{{ r.matric_number }}</td>
-              <td>{{ r.present_count }}</td>
-              <td>{{ r.absent_count }}</td>
-              <td>
-                <span class="pct-badge
-                  {% if r.attendance_percentage >= 75 %}pct-good
-                  {% elif r.attendance_percentage >= 50 %}pct-warn
-                  {% else %}pct-bad{% endif %}">
-                  {{ r.attendance_percentage }}%
-                </span>
-              </td>
-            </tr>
-            {% endfor %}
-          {% else %}
-            <tr class="empty-row"><td colspan="5">No report data available yet.</td></tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </section>
-
-  </main>
-
-  <script>
-    // Live attendance search
+{% block extra_scripts %}
+<script>
     const liveSearch = document.getElementById('live-search');
     if (liveSearch) {
-      liveSearch.addEventListener('input', function () {
-        const term = this.value.toLowerCase();
-        document.querySelectorAll('#live-table tbody tr').forEach(row => {
-          row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+        liveSearch.addEventListener('input', function () {
+            const term = this.value.toLowerCase();
+            document.querySelectorAll('#live-table-body tr').forEach(function (row) {
+                row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+            });
         });
-      });
     }
-
-    // Report search
-    const reportSearch = document.getElementById('report-search');
-    if (reportSearch) {
-      reportSearch.addEventListener('input', function () {
-        const term = this.value.toLowerCase();
-        document.querySelectorAll('#report-table tbody tr').forEach(row => {
-          row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
-        });
-      });
-    }
-
-    // History date filter
-    const historyDate = document.getElementById('history-date');
-    if (historyDate) {
-      historyDate.addEventListener('change', function () {
-        const selected = this.value;
-        document.querySelectorAll('#history-table tbody tr').forEach(row => {
-          const cell = row.querySelector('td');
-          if (!cell) return;
-          row.style.display = selected ? (cell.textContent.trim() === selected ? '' : 'none') : '';
-        });
-      });
-    }
-  </script>
-
-  <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-</body>
-</html>
+</script>
+{% endblock %}

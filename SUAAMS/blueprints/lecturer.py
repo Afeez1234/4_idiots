@@ -117,28 +117,6 @@ def course_workspace(course_id):
             
         enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
 
-        # Get session history with attendance counts
-        history = db.session.query(
-            SessionModel.id,
-            SessionModel.session_date,
-            SessionModel.planned_start,
-            db.func.count(Attendance.id)
-        ).outerjoin(Attendance, Attendance.session_id == SessionModel.id)\
-         .filter(SessionModel.course_id == course_id, SessionModel.is_active == False)\
-         .group_by(SessionModel.id)\
-         .order_by(SessionModel.session_date.desc()).all()
-
-        history_sessions = []
-        for session_id, session_date, start_time, present_count in history:
-            absent_count = enrolled_count - present_count
-            history_sessions.append({
-                'label': f"{session_date.strftime('%d %b %Y')} {start_time}",
-                'date': session_date,
-                'present_count': present_count,
-                'absent_count': absent_count,
-                'session_id': session_id,
-            })
-
         total_sessions_this_semester = SessionModel.query.filter_by(course_id=course_id).count()
         
         total_attendance = Attendance.query.join(SessionModel).filter(SessionModel.course_id == course_id).count()
@@ -164,8 +142,70 @@ def course_workspace(course_id):
         course=course,
         active_session=active_session,
         attendance_records=attendance_records,
-        history_sessions=history_sessions,
         stats=stats,
+        active_page='course_workspace',
+        active_course_id=course.id,
+    )
+
+
+@lecturer_bp.route('/lecturer/sessions/history')
+@login_required('lecturer')
+def session_history():
+    """Cross-course session history: every ended session across all of this
+    lecturer's courses, newest first. Distinct from course_workspace's old
+    embedded history table (removed) -- this is the sidebar's global
+    'Session History' page, so rows need a course column to stay legible."""
+    user_id = session.get('user_id')
+
+    try:
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+        if not lecturer:
+            flash('Lecturer profile not found.', 'error')
+            return redirect(url_for('auth.login'))
+
+        courses = Course.query.filter_by(lecturer_id=lecturer.id).all()
+        course_ids = [c.id for c in courses]
+        courses_by_id = {c.id: c for c in courses}
+
+        # Enrolled count per course, needed to derive absentees below --
+        # cached here so the loop over sessions doesn't re-query it per row.
+        enrolled_counts = {
+            course_id: Enrollment.query.filter_by(course_id=course_id).count()
+            for course_id in course_ids
+        }
+
+        sessions_data = db.session.query(
+            SessionModel.id,
+            SessionModel.course_id,
+            SessionModel.session_date,
+            SessionModel.planned_start,
+            db.func.count(Attendance.id)
+        ).outerjoin(Attendance, Attendance.session_id == SessionModel.id)\
+         .filter(SessionModel.course_id.in_(course_ids), SessionModel.is_active == False)\
+         .group_by(SessionModel.id)\
+         .order_by(SessionModel.session_date.desc()).all()
+
+        history_sessions = []
+        for sess_id, course_id, sess_date, start_time, present_count in sessions_data:
+            enrolled = enrolled_counts.get(course_id, 0)
+            history_sessions.append({
+                'session_id': sess_id,
+                'course': courses_by_id.get(course_id),
+                'date': sess_date,
+                'start_time': start_time,
+                'present_count': present_count,
+                'absent_count': max(enrolled - present_count, 0),
+            })
+
+    except Exception:
+        log_exception("Session History Error")
+        flash('An error occurred loading session history.', 'error')
+        return redirect(url_for('lecturer.dashboard'))
+
+    return render_template(
+        'lecturer/session_history.html',
+        history_sessions=history_sessions,
+        active_page='session_history',
     )
 
 
