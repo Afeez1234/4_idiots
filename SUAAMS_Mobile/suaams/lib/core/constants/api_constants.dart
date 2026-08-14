@@ -10,6 +10,14 @@ abstract final class ApiConstants {
   static const String attendanceEndpoint = '$baseUrl/attendance';
   static const String studentCoursesEndpoint = '$baseUrl/student/courses';
   static const String notificationsEndpoint = '$baseUrl/student/notifications';
+
+  // Registers/refreshes this app instance's FCM token (see
+  // register_device_token in api/student.py) -- called once after login and
+  // again whenever Firebase hands the app a new token via onTokenRefresh.
+  static const String deviceTokenEndpoint = '$baseUrl/student/device-token';
+
+  static String markNotificationReadEndpoint(int notificationId) =>
+      '$baseUrl/student/notifications/$notificationId/read';
   static const String changePasswordEndpoint = '$baseUrl/auth/change-password';
 
   // Exchanges a refresh token (sent as the Authorization bearer) for a new

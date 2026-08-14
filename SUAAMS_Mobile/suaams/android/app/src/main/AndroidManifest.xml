@@ -58,6 +58,21 @@
                 android:resource="@xml/apduservice"/>
         </service>
 
+        <!-- FCM default notification channel/icon for when a data+notification
+             message arrives while the app is backgrounded/terminated -- the
+             Android system tray needs SOME channel id to post to before the
+             app process is even running to set one up in Dart. Must match
+             the channel id created by flutter_local_notifications in
+             notification_service.dart (both use 'suaams_notifications'), or
+             backgrounded pushes would silently use Android's default
+             low-importance channel instead of the one actually configured. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="suaams_notifications" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

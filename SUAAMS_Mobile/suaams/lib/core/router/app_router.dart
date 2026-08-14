@@ -36,6 +36,13 @@ import '../../features/lecturer/presentation/views/course_analytics_screen.dart'
 import '../../features/lecturer/presentation/views/announcements_list_screen.dart';
 import '../../features/lecturer/presentation/views/create_announcement_screen.dart';
 
+// Lets code outside the widget tree (NotificationService's tap handler,
+// which has no BuildContext of its own) navigate via
+// rootNavigatorKey.currentContext -- the standard go_router pattern for
+// this, since GoRouter itself lives inside a Riverpod Provider that isn't
+// reachable from a plain singleton service.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 final appRouterProvider = Provider<GoRouter>((ref) {
   // 1. Create a simple ValueNotifier bridge for GoRouter
   final routerListener = ValueNotifier<bool>(false);
@@ -45,6 +52,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     routerListener.value = !routerListener.value;
   });
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     //3. Pass the bridge to GoRouter so it can listen for changes in the auth state
     refreshListenable:

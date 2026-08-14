@@ -1,0 +1,423 @@
+{% extends "base_lecturer.html" %}
+
+{% block title %}Analytics | SUAAMS Lecturer{% endblock %}
+{% block page_title %}Analytics{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">Attendance trends across your courses</p>
+{% endblock %}
+
+{% block content %}
+
+    <!-- KPI tiles -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Overall Average</span>
+                <span class="material-symbols-rounded text-accent">insights</span>
+            </div>
+            {% if overall_avg is not none %}
+                <p class="mt-4 text-3xl font-extrabold">{{ overall_avg }}%</p>
+                <p class="mt-1 text-xs text-muted">Across all courses this semester</p>
+            {% else %}
+                <p class="mt-4 text-3xl font-extrabold text-muted">&mdash;</p>
+                <p class="mt-1 text-xs text-muted">No completed sessions yet</p>
+            {% endif %}
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Best Performing</span>
+                <span class="material-symbols-rounded text-success">trending_up</span>
+            </div>
+            {% if best_course %}
+                <p class="mt-4 text-3xl font-extrabold text-success">{{ best_course.average_attendance }}%</p>
+                <p class="mt-1 text-xs text-muted">{{ best_course.course.course_code }} &middot; {{ best_course.course.course_title }}</p>
+            {% else %}
+                <p class="mt-4 text-3xl font-extrabold text-muted">&mdash;</p>
+                <p class="mt-1 text-xs text-muted">No completed sessions yet</p>
+            {% endif %}
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Needs Attention</span>
+                <span class="material-symbols-rounded text-error">trending_down</span>
+            </div>
+            {% if worst_course %}
+                <p class="mt-4 text-3xl font-extrabold text-error">{{ worst_course.average_attendance }}%</p>
+                <p class="mt-1 text-xs text-muted">{{ worst_course.course.course_code }} &middot; {{ worst_course.course.course_title }}</p>
+            {% else %}
+                <p class="mt-4 text-3xl font-extrabold text-muted">&mdash;</p>
+                <p class="mt-1 text-xs text-muted">Need 2+ rated courses to compare</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Attendance trend -->
+    <div class="bg-card border border-border rounded-2xl p-6">
+        <div class="flex items-center justify-between gap-4 flex-wrap mb-1">
+            <div>
+                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Attendance Trend</h2>
+                <p class="text-xs text-muted mt-1">Per-session attendance, by course, over time</p>
+            </div>
+            {% if trend_series %}
+                <div id="trend-legend" class="flex items-center gap-4 flex-wrap text-xs"></div>
+            {% endif %}
+        </div>
+
+        {% if trend_series %}
+            <div id="trend-chart" class="relative mt-4" style="height: 300px;"></div>
+            <details class="mt-4">
+                <summary class="text-xs text-muted cursor-pointer hover:text-secondary transition-colors">View as table</summary>
+                <div class="overflow-x-auto mt-3">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-t border-border text-left">
+                                <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
+                                <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary">Date</th>
+                                <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary">Attendance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for s in trend_series %}
+                                {% for p in s.points %}
+                                    <tr class="border-t border-border">
+                                        <td class="px-4 py-2 text-secondary">{{ s.code }}</td>
+                                        <td class="px-4 py-2 text-secondary">{{ p.date }}</td>
+                                        <td class="px-4 py-2">{{ p.pct }}%</td>
+                                    </tr>
+                                {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        {% else %}
+            <div class="mt-4 py-16 text-center">
+                <p class="text-sm text-muted">No completed sessions yet to chart.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Course comparison -->
+    <div class="bg-card border border-border rounded-2xl p-6">
+        <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Course Comparison</h2>
+        <p class="text-xs text-muted mt-1">Average attendance by course</p>
+
+        {% if comparison_data %}
+            <div id="comparison-chart" class="relative mt-4" style="height: 260px;"></div>
+            <details class="mt-4">
+                <summary class="text-xs text-muted cursor-pointer hover:text-secondary transition-colors">View as table</summary>
+                <div class="overflow-x-auto mt-3">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-t border-border text-left">
+                                <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
+                                <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary">Average Attendance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for c in comparison_data %}
+                                <tr class="border-t border-border">
+                                    <td class="px-4 py-2 text-secondary">{{ c.code }} &ndash; {{ c.title }}</td>
+                                    <td class="px-4 py-2">{{ c.pct }}%</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        {% else %}
+            <div class="mt-4 py-16 text-center">
+                <p class="text-sm text-muted">No courses assigned yet.</p>
+            </div>
+        {% endif %}
+    </div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const trendData = {{ trend_series|tojson }};
+    const comparisonData = {{ comparison_data|tojson }};
+
+    function el(tag, attrs) {
+        const e = document.createElementNS(SVG_NS, tag);
+        for (const k in attrs) e.setAttribute(k, attrs[k]);
+        return e;
+    }
+
+    function fmtDate(iso) {
+        const d = new Date(iso + 'T00:00:00');
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    }
+
+    // Shared HTML tooltip overlay, reused by both charts (one at a time).
+    function makeTooltip(container) {
+        const tip = document.createElement('div');
+        tip.className = 'pointer-events-none absolute z-10 hidden bg-surface border border-border rounded-lg px-3 py-2 text-xs shadow-lg';
+        tip.style.minWidth = '140px';
+        container.appendChild(tip);
+        return tip;
+    }
+
+    function positionTooltip(tip, container, x, y) {
+        const cw = container.clientWidth, tw = tip.offsetWidth || 150;
+        let left = x + 12;
+        if (left + tw > cw) left = x - tw - 12;
+        tip.style.left = Math.max(4, left) + 'px';
+        tip.style.top = Math.max(4, y - 10) + 'px';
+    }
+
+    // ===================== Attendance Trend (line chart) =====================
+    function renderTrendChart() {
+        const container = document.getElementById('trend-chart');
+        const legend = document.getElementById('trend-legend');
+        if (!container || !trendData.length) return;
+
+        const width = container.clientWidth || 600;
+        const height = 300;
+        const pad = { top: 16, right: 54, bottom: 24, left: 34 };
+        const plotW = width - pad.left - pad.right;
+        const plotH = height - pad.top - pad.bottom;
+
+        let minT = Infinity, maxT = -Infinity;
+        trendData.forEach(function (s) {
+            s.points.forEach(function (p) {
+                const t = new Date(p.date + 'T00:00:00').getTime();
+                if (t < minT) minT = t;
+                if (t > maxT) maxT = t;
+            });
+        });
+        const tSpan = maxT - minT || 1;
+
+        function xOf(dateIso) {
+            const t = new Date(dateIso + 'T00:00:00').getTime();
+            return pad.left + (maxT === minT ? plotW / 2 : ((t - minT) / tSpan) * plotW);
+        }
+        function yOf(pct) {
+            return pad.top + (1 - pct / 100) * plotH;
+        }
+
+        const svg = el('svg', { width: '100%', height: height, viewBox: '0 0 ' + width + ' ' + height });
+
+        // Gridlines + y-axis labels (0/25/50/75/100).
+        [0, 25, 50, 75, 100].forEach(function (v) {
+            const y = yOf(v);
+            svg.appendChild(el('line', {
+                x1: pad.left, x2: width - pad.right, y1: y, y2: y,
+                style: 'stroke: var(--color-border); stroke-width: 1;'
+            }));
+            const label = el('text', { x: pad.left - 8, y: y + 3, 'text-anchor': 'end', 'font-size': 10, style: 'fill: var(--color-muted);' });
+            label.textContent = v + '%';
+            svg.appendChild(label);
+        });
+
+        // X-axis: earliest / latest date only, to keep it readable across
+        // courses whose sessions don't fall on the same days.
+        const startLabel = el('text', { x: pad.left, y: height - 6, 'font-size': 10, style: 'fill: var(--color-muted);' });
+        startLabel.textContent = fmtDate(new Date(minT).toISOString().slice(0, 10));
+        svg.appendChild(startLabel);
+        const endLabel = el('text', { x: width - pad.right, y: height - 6, 'text-anchor': 'end', 'font-size': 10, style: 'fill: var(--color-muted);' });
+        endLabel.textContent = fmtDate(new Date(maxT).toISOString().slice(0, 10));
+        svg.appendChild(endLabel);
+
+        // One line per course, plus an end-marker + direct end-label.
+        const endLabelPositions = [];
+        trendData.forEach(function (s) {
+            const pts = s.points.map(function (p) { return [xOf(p.date), yOf(p.pct)]; });
+            const d = pts.map(function (pt, i) { return (i === 0 ? 'M' : 'L') + pt[0].toFixed(1) + ',' + pt[1].toFixed(1); }).join(' ');
+            svg.appendChild(el('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+
+            const last = pts[pts.length - 1];
+            // Surface ring (a slightly larger card-colored disc behind the
+            // marker) keeps the dot legible where lines cross.
+            svg.appendChild(el('circle', { cx: last[0], cy: last[1], r: 7, style: 'fill: var(--color-card);' }));
+            svg.appendChild(el('circle', { cx: last[0], cy: last[1], r: 5, fill: s.color }));
+
+            endLabelPositions.push({ code: s.code, x: last[0] + 9, y: last[1], color: s.color });
+        });
+
+        // De-collide end labels that land within 14px of each other
+        // vertically, then draw a thin leader line from the marker to any
+        // label that had to move.
+        endLabelPositions.sort(function (a, b) { return a.y - b.y; });
+        for (let i = 1; i < endLabelPositions.length; i++) {
+            const prev = endLabelPositions[i - 1], cur = endLabelPositions[i];
+            if (cur.y - prev.y < 14) cur.y = prev.y + 14;
+        }
+        endLabelPositions.forEach(function (lp, i) {
+            const originalY = trendData[i] ? yOf(trendData[i].points[trendData[i].points.length - 1].pct) : lp.y;
+            if (Math.abs(lp.y - originalY) > 3) {
+                svg.appendChild(el('line', {
+                    x1: lp.x - 5, y1: originalY, x2: lp.x, y2: lp.y,
+                    style: 'stroke: var(--color-muted); stroke-width: 1;'
+                }));
+            }
+            const t = el('text', { x: lp.x, y: lp.y + 4, 'font-size': 11, 'font-weight': 600, style: 'fill: var(--color-secondary);' });
+            t.textContent = lp.code;
+            svg.appendChild(t);
+        });
+
+        container.appendChild(svg);
+
+        // Legend: colored line-key + course code (text stays in a text
+        // token, never the series color itself).
+        if (legend) {
+            trendData.forEach(function (s) {
+                const item = document.createElement('div');
+                item.className = 'flex items-center gap-1.5';
+                const swatch = document.createElement('span');
+                swatch.className = 'inline-block w-3 h-0.5 rounded-full';
+                swatch.style.backgroundColor = s.color;
+                const label = document.createElement('span');
+                label.className = 'text-secondary';
+                label.textContent = s.code;
+                item.appendChild(swatch);
+                item.appendChild(label);
+                legend.appendChild(item);
+            });
+        }
+
+        // Crosshair + tooltip: nearest point per series to the pointer's X.
+        const hit = el('rect', { x: pad.left, y: pad.top, width: plotW, height: plotH, fill: 'transparent', style: 'cursor: crosshair;' });
+        svg.appendChild(hit);
+        const crosshair = el('line', { y1: pad.top, y2: height - pad.bottom, style: 'stroke: var(--color-muted); stroke-width: 1; display: none;' });
+        svg.appendChild(crosshair);
+        const tip = makeTooltip(container);
+
+        hit.addEventListener('pointermove', function (evt) {
+            const rect = container.getBoundingClientRect();
+            const mx = evt.clientX - rect.left;
+            crosshair.setAttribute('x1', mx);
+            crosshair.setAttribute('x2', mx);
+            crosshair.style.display = '';
+
+            tip.replaceChildren();
+            trendData.forEach(function (s) {
+                let nearest = s.points[0], nearestDist = Infinity;
+                s.points.forEach(function (p) {
+                    const dist = Math.abs(xOf(p.date) - mx);
+                    if (dist < nearestDist) { nearestDist = dist; nearest = p; }
+                });
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-3 py-0.5';
+                const left = document.createElement('span');
+                left.className = 'flex items-center gap-1.5 text-secondary';
+                const key = document.createElement('span');
+                key.className = 'inline-block w-2.5 h-0.5 rounded-full';
+                key.style.backgroundColor = s.color;
+                const name = document.createElement('span');
+                name.textContent = s.code + ' · ' + fmtDate(nearest.date);
+                left.appendChild(key);
+                left.appendChild(name);
+                const val = document.createElement('span');
+                val.className = 'font-semibold text-white';
+                val.textContent = nearest.pct + '%';
+                row.appendChild(left);
+                row.appendChild(val);
+                tip.appendChild(row);
+            });
+            tip.classList.remove('hidden');
+            positionTooltip(tip, container, mx, evt.clientY - rect.top);
+        });
+        hit.addEventListener('pointerleave', function () {
+            crosshair.style.display = 'none';
+            tip.classList.add('hidden');
+        });
+    }
+
+    // ===================== Course Comparison (bar chart) =====================
+    function renderComparisonChart() {
+        const container = document.getElementById('comparison-chart');
+        if (!container || !comparisonData.length) return;
+
+        const width = container.clientWidth || 600;
+        const height = 260;
+        const pad = { top: 20, right: 16, bottom: 30, left: 16 };
+        const plotW = width - pad.left - pad.right;
+        const plotH = height - pad.top - pad.bottom;
+
+        const n = comparisonData.length;
+        const bandW = plotW / n;
+        const barW = Math.min(24, bandW * 0.5);
+
+        function yOf(pct) { return pad.top + (1 - pct / 100) * plotH; }
+
+        const svg = el('svg', { width: '100%', height: height, viewBox: '0 0 ' + width + ' ' + height });
+
+        [0, 25, 50, 75, 100].forEach(function (v) {
+            const y = yOf(v);
+            svg.appendChild(el('line', {
+                x1: pad.left, x2: width - pad.right, y1: y, y2: y,
+                style: 'stroke: var(--color-border); stroke-width: 1;'
+            }));
+        });
+
+        const baseline = height - pad.bottom;
+        const tip = makeTooltip(container);
+
+        comparisonData.forEach(function (c, i) {
+            const cx = pad.left + bandW * i + bandW / 2;
+            const top = yOf(c.pct);
+            const left = cx - barW / 2, right = cx + barW / 2, r = 4;
+
+            // Rounded-top, square-bottom bar as a path (a plain <rect>
+            // can't round only two corners).
+            const d = [
+                'M', left, baseline,
+                'L', left, top + r,
+                'Q', left, top, left + r, top,
+                'L', right - r, top,
+                'Q', right, top, right, top + r,
+                'L', right, baseline,
+                'Z'
+            ].join(' ');
+            const bar = el('path', { d: d, fill: c.color, style: 'transition: opacity .12s;' });
+            svg.appendChild(bar);
+
+            const valueLabel = el('text', { x: cx, y: top - 8, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 600, style: 'fill: var(--color-secondary);' });
+            valueLabel.textContent = c.pct + '%';
+            svg.appendChild(valueLabel);
+
+            const axisLabel = el('text', { x: cx, y: height - 8, 'text-anchor': 'middle', 'font-size': 10, style: 'fill: var(--color-muted);' });
+            axisLabel.textContent = c.code;
+            svg.appendChild(axisLabel);
+
+            // A transparent, taller hit area (full band height) so the bar
+            // is easy to hover even when its own height is small.
+            const hit = el('rect', { x: pad.left + bandW * i, y: pad.top, width: bandW, height: plotH, fill: 'transparent', style: 'cursor: pointer;' });
+            hit.addEventListener('pointerenter', function () {
+                bar.style.opacity = '0.8';
+                tip.replaceChildren();
+                const title = document.createElement('div');
+                title.className = 'text-secondary';
+                title.textContent = c.code + ' – ' + c.title;
+                const val = document.createElement('div');
+                val.className = 'font-semibold text-white mt-0.5';
+                val.textContent = c.pct + '% average attendance';
+                tip.appendChild(title);
+                tip.appendChild(val);
+                tip.classList.remove('hidden');
+            });
+            hit.addEventListener('pointermove', function (evt) {
+                const rect = container.getBoundingClientRect();
+                positionTooltip(tip, container, evt.clientX - rect.left, evt.clientY - rect.top);
+            });
+            hit.addEventListener('pointerleave', function () {
+                bar.style.opacity = '1';
+                tip.classList.add('hidden');
+            });
+            svg.appendChild(hit);
+        });
+
+        container.appendChild(svg);
+    }
+
+    renderTrendChart();
+    renderComparisonChart();
+})();
+</script>
+{% endblock %}

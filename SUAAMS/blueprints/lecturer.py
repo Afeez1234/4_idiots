@@ -268,6 +268,15 @@ def announcements():
     )
 
 
+# Validated categorical palette (see dataviz skill) for course identity in
+# the Analytics charts -- slot 1 is the app's own accent color, the rest are
+# the dataviz reference palette's dark-mode hues re-ordered so no adjacent
+# pair fails the CVD/normal-vision floors against this app's #0F1117
+# surface (validated via validate_palette.js, not eyeballed). Capped at 5:
+# past that, courses fold into "Other" rather than reusing a color.
+ANALYTICS_PALETTE = ['#4F6BED', '#d95926', '#9085e9', '#d55181', '#c98500']
+
+
 def _course_attendance_reports(lecturer):
     """Per-course attendance percentage, shared by reports() and
     export_reports() so the on-screen table and the exported CSV can't
@@ -291,6 +300,91 @@ def _course_attendance_reports(lecturer):
             'average_attendance': average_attendance,
         })
     return rows
+
+
+@lecturer_bp.route('/lecturer/analytics')
+@login_required('lecturer')
+def analytics():
+    user_id = session.get('user_id')
+
+    try:
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+        if not lecturer:
+            flash('Lecturer profile not found.', 'error')
+            return redirect(url_for('auth.login'))
+
+        # Reuses the exact Reports numbers so the comparison chart can't
+        # disagree with the Reports page for the same course.
+        course_reports = _course_attendance_reports(lecturer)
+
+        comparison_data = [
+            {
+                'course_id': row['course'].id,
+                'code': row['course'].course_code,
+                'title': row['course'].course_title,
+                'pct': row['average_attendance'],
+                'color': ANALYTICS_PALETTE[i % len(ANALYTICS_PALETTE)],
+            }
+            for i, row in enumerate(course_reports)
+        ]
+
+        # Per-session attendance %, per course, for the trend line chart --
+        # capped at 5 courses (the validated palette's slot count) and only
+        # courses with at least one completed session (an all-zero flat
+        # line for a brand-new course isn't a trend, it's noise).
+        trend_series = []
+        for i, row in enumerate(course_reports[:len(ANALYTICS_PALETTE)]):
+            course = row['course']
+            enrolled = row['enrolled_count']
+
+            sessions_data = db.session.query(
+                SessionModel.session_date,
+                db.func.count(Attendance.id)
+            ).outerjoin(Attendance, Attendance.session_id == SessionModel.id)\
+             .filter(SessionModel.course_id == course.id, SessionModel.is_active == False)\
+             .group_by(SessionModel.id)\
+             .order_by(SessionModel.session_date.asc()).all()
+
+            if not sessions_data:
+                continue
+
+            points = [
+                {
+                    'date': sess_date.strftime('%Y-%m-%d'),
+                    'pct': round((present_count / enrolled * 100) if enrolled else 0, 1),
+                }
+                for sess_date, present_count in sessions_data
+            ]
+            trend_series.append({
+                'course_id': course.id,
+                'code': course.course_code,
+                'title': course.course_title,
+                'color': ANALYTICS_PALETTE[i % len(ANALYTICS_PALETTE)],
+                'points': points,
+            })
+
+        # KPI tiles, scoped to courses that have actually run a session --
+        # an unstarted course's 0% would otherwise drag the average down
+        # and falsely win "Needs Attention".
+        rated = [r for r in course_reports if r['session_count'] > 0]
+        overall_avg = round(sum(r['average_attendance'] for r in rated) / len(rated), 1) if rated else None
+        best_course = max(rated, key=lambda r: r['average_attendance']) if rated else None
+        worst_course = min(rated, key=lambda r: r['average_attendance']) if len(rated) > 1 else None
+
+    except Exception:
+        log_exception("Lecturer Analytics Error")
+        flash('An error occurred loading analytics.', 'error')
+        return redirect(url_for('lecturer.dashboard'))
+
+    return render_template(
+        'lecturer/analytics.html',
+        trend_series=trend_series,
+        comparison_data=comparison_data,
+        overall_avg=overall_avg,
+        best_course=best_course,
+        worst_course=worst_course,
+        active_page='analytics',
+    )
 
 
 @lecturer_bp.route('/lecturer/reports')

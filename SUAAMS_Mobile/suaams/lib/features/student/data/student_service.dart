@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../../../core/constants/api_constants.dart';
 import '../models/student_dashboard_model.dart';
 import '../models/today_protocol_entry.dart';
+import '../models/notification_item.dart';
 
 /// Result of a /checkin/status poll. `reason` distinguishes a definite,
 /// permanent failure ('not_enrolled') from a genuinely ambiguous "not
@@ -151,5 +152,85 @@ class StudentService {
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
+  }
+
+  // Backs the notification list/inbox screen -- see notificationsEndpoint's
+  // doc-comment in api_constants.dart and get_notifications in
+  // api/student.py.
+  Future<List<NotificationItem>> fetchNotifications(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.notificationsEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return (responseData['notifications'] as List)
+            .map((entry) => NotificationItem.fromJson(entry))
+            .toList();
+      }
+
+      final errorMsg =
+          responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> markNotificationRead(String token, int notificationId) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.markNotificationReadEndpoint(notificationId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return;
+      }
+
+      final errorMsg =
+          responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  // Upserts this app instance's FCM token (see register_device_token in
+  // api/student.py). Deliberately silent on failure -- called fire-and-
+  // forget from NotificationService right after login/token-refresh, and a
+  // failure here shouldn't surface as a user-facing error or block anything
+  // else; the device just won't receive pushes until the next successful
+  // sync attempt.
+  Future<void> registerDeviceToken(
+    String token,
+    String fcmToken,
+    String platform,
+  ) async {
+    await http.post(
+      Uri.parse(ApiConstants.deviceTokenEndpoint),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'fcm_token': fcmToken, 'platform': platform}),
+    );
   }
 }
