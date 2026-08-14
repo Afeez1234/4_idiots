@@ -1,5 +1,6 @@
 import csv
 import io
+from collections import defaultdict
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 import bcrypt
@@ -585,6 +586,56 @@ GRID_UNIT_MINUTES = 30
 _UNITS_PER_HOUR = 60 // GRID_UNIT_MINUTES
 
 
+def _assign_lanes(day_entries):
+    """
+    Side-by-side sub-column layout for entries that overlap in time on the
+    same day -- e.g. two different courses in two different rooms at the
+    same hour, which _validate_timetable_slot() deliberately allows (a
+    whole-school timetable has many classes running concurrently). Without
+    this, two overlapping entries both get the full day-column width and
+    render stacked exactly on top of each other.
+
+    Classic greedy interval-lane assignment: sort by start time, place each
+    entry in the first lane whose previous occupant has already ended.
+    Entries are first grouped into connected overlap clusters (a sweep that
+    starts a new cluster whenever the next entry begins at or after
+    everything placed so far in the current one has ended) so that every
+    entry in the same visual cluster agrees on how many lanes wide to
+    render -- otherwise two entries that don't overlap each other, but both
+    overlap a third, could end up with inconsistent widths.
+
+    Mutates each dict in day_entries in place, adding 'lane' (0-indexed)
+    and 'lane_count' (how many lanes its cluster needs).
+    """
+    ordered = sorted(day_entries, key=lambda e: (e['start_units'], e['end_units']))
+
+    clusters = []
+    cluster = []
+    cluster_max_end = None
+    for e in ordered:
+        if cluster and e['start_units'] >= cluster_max_end:
+            clusters.append(cluster)
+            cluster = []
+            cluster_max_end = None
+        cluster.append(e)
+        cluster_max_end = e['end_units'] if cluster_max_end is None else max(cluster_max_end, e['end_units'])
+    if cluster:
+        clusters.append(cluster)
+
+    for cluster in clusters:
+        lane_ends = []  # end_units of the most recent entry placed in each lane
+        for e in cluster:
+            lane = next((i for i, end in enumerate(lane_ends) if e['start_units'] >= end), None)
+            if lane is None:
+                lane_ends.append(e['end_units'])
+                lane = len(lane_ends) - 1
+            else:
+                lane_ends[lane] = e['end_units']
+            e['lane'] = lane
+        for e in cluster:
+            e['lane_count'] = len(lane_ends)
+
+
 def _build_timetable_grid(entries):
     """
     CSS-grid placement for the weekly calendar: half-hour-unit row-start/
@@ -604,6 +655,7 @@ def _build_timetable_grid(entries):
     today_weekday = today.weekday()
 
     placed = []
+    by_day = defaultdict(list)
     for e in entries:
         start_units = (e.start_time.hour - start_hour) * _UNITS_PER_HOUR + (1 if e.start_time.minute >= 30 else 0)
         end_units = (e.end_time.hour - start_hour) * _UNITS_PER_HOUR + (1 if e.end_time.minute >= 30 else 0)
@@ -616,13 +668,23 @@ def _build_timetable_grid(entries):
             status, present_count = session_status_for_course(e.course_id, today.date())
             today_status = {'status': status, 'present_count': present_count}
 
-        placed.append({
+        p = {
             'entry': e,
             'row_start': start_units + 1,  # CSS grid rows are 1-indexed
             'row_span': max(1, end_units - start_units),
             'day_col': e.day_of_week + 2,  # column 1 is the time-label gutter
             'today_status': today_status,
-        })
+            'start_units': start_units,
+            'end_units': end_units,
+        }
+        placed.append(p)
+        by_day[e.day_of_week].append(p)
+
+    for day_entries in by_day.values():
+        _assign_lanes(day_entries)
+    for p in placed:
+        p['width_pct'] = round(100 / p['lane_count'], 3)
+        p['left_pct'] = round(100 / p['lane_count'] * p['lane'], 3)
 
     return {
         'placed': placed,

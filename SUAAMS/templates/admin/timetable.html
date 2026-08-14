@@ -144,8 +144,11 @@
                     {% for p in grid.placed %}
                         {% set entry = p.entry %}
                         <button type="button"
-                                class="timetable-chip m-0.5 rounded-lg px-2 py-1 text-left overflow-hidden bg-accent/15 border border-accent/30 hover:bg-accent/25 hover:border-accent/50 transition-colors cursor-pointer"
-                                style="grid-column: {{ p.day_col }}; grid-row: {{ p.row_start + 1 }} / span {{ p.row_span }};"
+                                class="timetable-chip my-0.5 rounded-lg px-2 py-1 text-left overflow-hidden bg-accent/15 border border-accent/30 hover:bg-accent/25 hover:border-accent/50 transition-colors cursor-pointer"
+                                style="grid-column: {{ p.day_col }}; grid-row: {{ p.row_start + 1 }} / span {{ p.row_span }};
+                                       justify-self: start; align-self: stretch;
+                                       width: calc({{ p.width_pct }}% - {{ 4 if p.lane_count > 1 else 8 }}px);
+                                       margin-left: calc({{ p.left_pct }}% + {{ 2 if p.lane_count > 1 else 4 }}px);"
                                 data-id="{{ entry.id }}"
                                 data-course-id="{{ entry.course_id }}"
                                 data-course-code="{{ entry.course.course_code if entry.course else '' }}"
