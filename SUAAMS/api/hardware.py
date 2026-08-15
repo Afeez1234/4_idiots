@@ -9,6 +9,7 @@
 from flask import Blueprint, request, jsonify, redirect, url_for
 from models import db, Student, Session, Enrollment, Attendance
 from extensions import limiter
+from utils import compute_attendance_status
 
 api_hardware_bp = Blueprint('api_hardware', __name__)
 
@@ -16,8 +17,9 @@ api_hardware_bp = Blueprint('api_hardware', __name__)
 def find_student_by_rfid(rfid_uid):
     return Student.query.filter_by(rfid_uid=rfid_uid).first()
 
-def record_attendance(student_id, session_id):
-    record = Attendance(student_id=student_id, session_id=session_id)
+def record_attendance(student_id, session):
+    record = Attendance(student_id=student_id, session_id=session.id,
+                         status=compute_attendance_status(session))
     db.session.add(record)
     db.session.commit()
 
@@ -109,7 +111,7 @@ def attendance():
     if attendance_already_recorded(active_session.id, student.id):
         return jsonify({"message": "Attendance already marked"}), 200
 
-    record_attendance(student.id, active_session.id)
+    record_attendance(student.id, active_session)
 
     return jsonify({
         "success": True,

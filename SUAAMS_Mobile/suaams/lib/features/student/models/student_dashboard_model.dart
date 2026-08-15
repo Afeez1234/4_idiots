@@ -115,13 +115,15 @@ class RecentAttendance {
   final String course;
   final String date;
   final String time;
-  final bool present;
+  final String status; // 'present' | 'late' | 'absent' | 'excused'
+  final int sessionId;
 
   RecentAttendance({
     required this.course,
     required this.date,
     required this.time,
-    required this.present,
+    required this.status,
+    required this.sessionId,
   });
 
   factory RecentAttendance.fromJson(Map<String, dynamic> json) {
@@ -129,7 +131,8 @@ class RecentAttendance {
       course: json['course'] as String,
       date: json['date'] as String,
       time: json['time'] as String,
-      present: json['present'] as bool,
+      status: json['status'] as String,
+      sessionId: json['session_id'] as int,
     );
   }
 }

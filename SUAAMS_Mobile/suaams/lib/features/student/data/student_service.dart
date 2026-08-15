@@ -4,6 +4,7 @@ import '../../../core/constants/api_constants.dart';
 import '../models/student_dashboard_model.dart';
 import '../models/today_protocol_entry.dart';
 import '../models/notification_item.dart';
+import '../models/course_attendance_history_model.dart';
 
 /// Result of a /checkin/status poll. `reason` distinguishes a definite,
 /// permanent failure ('not_enrolled') from a genuinely ambiguous "not
@@ -208,6 +209,42 @@ class StudentService {
           responseData['message'] ??
           'Server returned status ${response.statusCode}';
       throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  // Full per-session attendance breakdown for one course -- see
+  // courseAttendanceHistoryEndpoint's doc-comment in api_constants.dart.
+  Future<CourseAttendanceHistoryModel> fetchCourseAttendanceHistory(
+    String token,
+    int courseId,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.courseAttendanceHistoryEndpoint(courseId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        try {
+          return CourseAttendanceHistoryModel.fromJson(responseData['data']);
+        } catch (parseError) {
+          throw Exception('Data parsing error: $parseError');
+        }
+      } else {
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
+        throw Exception(errorMsg);
+      }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }

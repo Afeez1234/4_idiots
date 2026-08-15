@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../providers/student_provider.dart';
 import '../../models/student_dashboard_model.dart';
@@ -304,115 +305,121 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
     final dateText = record.date.isEmpty ? '--/--/----' : record.date;
     final timeText = record.time.isEmpty ? '--:--' : record.time;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
+    return InkWell(
+      onTap: () => context.push(
+        '/student/attendance/history/session/${record.sessionId}',
       ),
-      child: Row(
-        children: [
-          // The Status Dot
-          Container(
-            width: 12,
-            height: 12,
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: statusColor.withValues(alpha: 0.4),
-                  blurRadius: 6,
-                  spreadRadius: 1,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-
-          // Content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  courseName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
-                    letterSpacing: 0.5,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainer,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          children: [
+            // The Status Dot
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: statusColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: statusColor.withValues(alpha: 0.4),
+                    blurRadius: 6,
+                    spreadRadius: 1,
                   ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Text(
-                      dateText.toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontFamily: 'JetBrains Mono',
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: CircleAvatar(
-                        radius: 2,
-                        backgroundColor: colorScheme.onSurface.withValues(
-                          alpha: 0.3,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      statusText,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                        color: statusColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Time badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: colorScheme.outline.withValues(alpha: 0.1),
+                ],
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.access_time_rounded,
-                  size: 12,
-                  color: colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  timeText,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: FontWeight.bold,
-                    color: colorScheme.onSurface.withValues(alpha: 0.8),
+            const SizedBox(width: 16),
+
+            // Content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    courseName,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 15,
+                      letterSpacing: 0.5,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        dateText.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontFamily: 'JetBrains Mono',
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: CircleAvatar(
+                          radius: 2,
+                          backgroundColor: colorScheme.onSurface.withValues(
+                            alpha: 0.3,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        statusText,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+
+            // Time badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: colorScheme.outline.withValues(alpha: 0.1),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.access_time_rounded,
+                    size: 12,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    timeText,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontFamily: 'JetBrains Mono',
+                      fontWeight: FontWeight.bold,
+                      color: colorScheme.onSurface.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
