@@ -82,12 +82,22 @@
                       class="flex items-end gap-3 flex-wrap">
                     {% include '_csrf_field.html' %}
                     <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Planned Start <span class="text-muted font-normal normal-case">(optional)</span></label>
-                        <input type="time" name="planned_start" class="form-input">
+                        <label class="block text-xs font-medium text-secondary mb-1.5">
+                            Planned Start
+                            {% if timetable_slot %}<span class="text-muted font-normal normal-case">(from timetable)</span>
+                            {% else %}<span class="text-muted font-normal normal-case">(optional)</span>{% endif %}
+                        </label>
+                        <input type="time" name="planned_start" class="form-input"
+                               value="{{ timetable_slot.start_time.strftime('%H:%M') if timetable_slot else '' }}">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Planned End <span class="text-muted font-normal normal-case">(optional)</span></label>
-                        <input type="time" name="planned_end" class="form-input">
+                        <label class="block text-xs font-medium text-secondary mb-1.5">
+                            Planned End
+                            {% if timetable_slot %}<span class="text-muted font-normal normal-case">(from timetable)</span>
+                            {% else %}<span class="text-muted font-normal normal-case">(optional)</span>{% endif %}
+                        </label>
+                        <input type="time" name="planned_end" class="form-input"
+                               value="{{ timetable_slot.end_time.strftime('%H:%M') if timetable_slot else '' }}">
                     </div>
                     <button type="submit"
                             class="bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg px-5 py-3 transition-colors">
