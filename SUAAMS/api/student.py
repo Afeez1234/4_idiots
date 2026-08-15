@@ -11,6 +11,7 @@ from datetime import timedelta, date, datetime, timezone
 from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from push_notifications import send_push_notification
+from utils import compute_attendance_status
 
 # Create the API blueprint for student mobile endpoints
 api_student_bp = Blueprint('api_student', __name__, url_prefix='/api/v1/student')
@@ -83,8 +84,13 @@ def get_student_dashboard():
         at_risk_count = sum(1 for course in course_breakdown if course['pct'] < 75)
 
         # 6) Get the recent attendance history elegantly via ORM
+        # session_id included so the Flutter side can deep-link a tapped
+        # record into its own detail view (see get_session_detail_for_student
+        # below) -- previously omitted, which is why that tap-through wasn't
+        # wired up on the client (see records_view.dart's own doc-comment
+        # about this exact gap before this fix).
         recent_records = db.session.query(
-            Course.course_code, SessionModel.session_date, SessionModel.planned_start, Attendance.status # SCHEMA UPDATE: code -> course_code
+            Course.course_code, SessionModel.session_date, SessionModel.planned_start, Attendance.status, SessionModel.id # SCHEMA UPDATE: code -> course_code
         ).select_from(Attendance).join(
             SessionModel, Attendance.session_id == SessionModel.id
         ).join(
@@ -96,12 +102,13 @@ def get_student_dashboard():
         ).limit(10).all()
 
         recent_attendance = []
-        for course_code, session_date, start_time, status in recent_records:
+        for course_code, session_date, start_time, status, session_id in recent_records:
             recent_attendance.append({
                 'course': course_code,
                 'date': session_date.strftime('%d %b %Y') if hasattr(session_date, 'strftime') else str(session_date),
                 'time': start_time.strftime('%H:%M') if start_time else '--:--', # FIX: Safe null fallback
-                'present': status == 'present', # Map DB status to boolean
+                'status': status,
+                'session_id': session_id,
             })
 
         # 7) Bundle everything into a clean JSON object for Flutter
@@ -135,6 +142,70 @@ def get_student_dashboard():
         # server-side via the "suaams" logger and returns only a generic
         # message to the caller.
         return api_error_response("Mobile API Error", "Database error occurred")
+
+
+@api_student_bp.route('/course/<int:course_id>/history', methods=['GET'])
+@jwt_required()
+def get_course_attendance_history(course_id):
+    """
+    Full per-session attendance breakdown for one course, scoped to the
+    calling student -- mirrors get_session_history in api/lecturer.py
+    (same response shape), but "who was present" becomes "was I present"
+    since a student only ever sees their own record.
+    """
+    claims = get_jwt()
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    try:
+        current_user_id = int(get_jwt_identity())
+        student = Student.query.filter_by(user_id=current_user_id).first()
+        if not student:
+            return jsonify({"error": "Student profile not found."}), 404
+
+        course = Course.query.get(course_id)
+        if not course:
+            return jsonify({"error": "Course not found."}), 404
+
+        enrolled = Enrollment.query.filter_by(student_id=student.id, course_id=course_id).first()
+        if not enrolled:
+            return jsonify({"error": "Not enrolled in this course."}), 403
+
+        sessions = (
+            SessionModel.query
+            .filter_by(course_id=course_id, is_active=False)
+            .order_by(SessionModel.session_date.desc())
+            .all()
+        )
+
+        history = []
+        for session in sessions:
+            attendance = Attendance.query.filter_by(
+                session_id=session.id, student_id=student.id
+            ).first()
+            history.append({
+                'session_id': session.id,
+                'date': session.session_date.strftime('%d %b %Y') if session.session_date else None,
+                'planned_start': str(session.planned_start) if session.planned_start else None,
+                'planned_end': str(session.planned_end) if session.planned_end else None,
+                'status': attendance.status if attendance else 'absent',
+                'time_in': attendance.time_in.strftime('%H:%M') if attendance and attendance.time_in else None,
+            })
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "course": {
+                    "id": course.id,
+                    "title": course.course_title,
+                    "code": course.course_code,
+                },
+                "sessions": history,
+            }
+        }), 200
+
+    except Exception:
+        return api_error_response("Course Attendance History API Error", "Failed to load attendance history")
 
 
 # Keyed by user id -- a real check-in only needs one beacon per attendance
@@ -234,7 +305,8 @@ def submit_checkin_beacon():
     if already_recorded:
         return jsonify({"success": True, "message": "Attendance already marked"}), 200
 
-    record = Attendance(student_id=student.id, session_id=active_session.id)
+    record = Attendance(student_id=student.id, session_id=active_session.id,
+                         status=compute_attendance_status(active_session))
     db.session.add(record)
     db.session.commit()
 

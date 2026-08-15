@@ -70,7 +70,10 @@ class SessionDetailStats {
 class SessionAttendanceRecord {
   final String fullName;
   final String matricNumber;
-  final int level;
+  // String, not int -- Student.level is db.String(20) in the schema
+  // (values like "400L"), kept as a string deliberately to avoid a
+  // migration that would fail casting non-numeric values (see models.py).
+  final String level;
   final String? department;
   final String? timeIn;
   final String status;
@@ -88,7 +91,7 @@ class SessionAttendanceRecord {
     return SessionAttendanceRecord(
       fullName: json['full_name'] as String,
       matricNumber: json['matric_number'] as String,
-      level: json['level'] as int,
+      level: json['level']?.toString() ?? 'N/A',
       department: json['department'] as String?,
       timeIn: json['time_in'] as String?,
       status: json['status'] as String,

@@ -92,7 +92,13 @@ class ActiveSessionInfo {
 class LiveAttendanceEntry {
   final String fullName;
   final String matricNumber;
-  final int level;
+  // String, not int -- Student.level is db.String(20) in the schema
+  // (values like "400L"), kept as a string deliberately to avoid a
+  // migration that would fail casting non-numeric values (see models.py).
+  // Was declared `int` here, which threw "type 'String' is not a subtype
+  // of type 'int'" the moment a live-attendance list actually rendered a
+  // real student -- caught via an on-device walkthrough, not the analyzer.
+  final String level;
   final String? department;
   final String? timeIn;
   final String status;
@@ -110,7 +116,7 @@ class LiveAttendanceEntry {
     return LiveAttendanceEntry(
       fullName: json['full_name'] as String,
       matricNumber: json['matric_number'] as String,
-      level: json['level'] as int,
+      level: json['level']?.toString() ?? 'N/A',
       department: json['department'] as String?,
       timeIn: json['time_in'] as String?,
       status: json['status'] as String,

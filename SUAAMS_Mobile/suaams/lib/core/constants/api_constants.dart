@@ -2,8 +2,8 @@
 
 abstract final class ApiConstants {
   // Use 10.0.2.2 for Android Emulator connecting to local Flask server.
-  // static const String baseUrl = 'http://10.0.2.2:5000/api/v1';//localhost for testing
-  static const String baseUrl = 'https://suaams.onrender.com/api/v1';//for production
+  static const String baseUrl = 'http://10.0.2.2:5000/api/v1';//localhost for testing
+  // static const String baseUrl = 'https://suaams.onrender.com/api/v1';//for production
   
   static const String loginEndpoint = '$baseUrl/auth/login';
   static const String studentDashboardEndpoint = '$baseUrl/student/dashboard';
@@ -52,6 +52,11 @@ abstract final class ApiConstants {
   // lecturer starts/ends a session and the student checks in, so it has
   // its own refresh cadence (see today_schedule_provider.dart).
   static const String todayScheduleEndpoint = '$baseUrl/student/schedule/today';
+
+  // Full per-session attendance breakdown for one course, scoped to this
+  // student -- see get_course_attendance_history in api/student.py.
+  static String courseAttendanceHistoryEndpoint(int courseId) =>
+      '$baseUrl/student/course/$courseId/history';
 
   // Lecturer mobile endpoints (see api/lecturer.py). courseWorkspaceEndpoint/
   // startSessionEndpoint/endSessionEndpoint take the course id as a path

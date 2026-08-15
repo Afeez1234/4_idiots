@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import session,redirect,url_for,flash
 from functools import wraps
 
@@ -114,6 +114,29 @@ def resolve_current_course(semester=None, at=None):
         'session_status': session_status,
         'present_count': present_count,
     }
+
+
+# Grace period after Session.planned_start during which a check-in still
+# counts as 'present' rather than 'late'.
+LATE_GRACE_MINUTES = 10
+
+
+def compute_attendance_status(session, at=None):
+    """
+    Session.planned_start + LATE_GRACE_MINUTES -> 'present' or 'late' for a
+    check-in happening right now. planned_start is optional (a lecturer can
+    start a session without one), in which case there's no scheduled time to
+    be late against, so this always returns 'present'. Compares naive local
+    wall-clock time, matching resolve_current_course()'s existing convention
+    for Timetable/Session time columns (none of them are timezone-aware).
+    """
+    if session.planned_start is None:
+        return 'present'
+
+    now = at or datetime.now()
+    session_date = session.session_date or now.date()
+    cutoff = datetime.combine(session_date, session.planned_start) + timedelta(minutes=LATE_GRACE_MINUTES)
+    return 'late' if now > cutoff else 'present'
 
 
 def resolve_timetable_slot_for_course(course_id, semester=None, on_date=None):
