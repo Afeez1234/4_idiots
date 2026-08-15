@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 import '../../providers/student_provider.dart';
 import '../../models/student_dashboard_model.dart';
 
@@ -165,9 +166,7 @@ class _RecordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = record.present
-        ? const Color(0xFF10B981)
-        : const Color(0xFFEF4444);
+    final statusColor = attendanceStatusColor(record.status);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -205,7 +204,7 @@ class _RecordCard extends StatelessWidget {
               border: Border.all(color: statusColor.withValues(alpha: 0.3)),
             ),
             child: Text(
-              record.present ? 'PRESENT' : 'ABSENT',
+              attendanceStatusLabel(record.status),
               style: TextStyle(
                 fontSize: 8,
                 fontWeight: FontWeight.bold,

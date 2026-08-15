@@ -132,8 +132,7 @@
                             <span class="material-symbols-rounded text-[20px]">campaign</span>
                             <span>Announcements</span>
                         </a>
-                        <!-- TODO: no admin.reports route/template yet. -->
-                        <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'reports' else '' }}">
+                        <a href="{{ url_for('admin.reports_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'reports' else '' }}">
                             <span class="material-symbols-rounded text-[20px]">summarize</span>
                             <span>Reports</span>
                         </a>

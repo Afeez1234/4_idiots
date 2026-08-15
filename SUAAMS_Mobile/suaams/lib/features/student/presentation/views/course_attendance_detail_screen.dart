@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 import '../../providers/course_attendance_history_provider.dart';
 import '../../models/course_attendance_history_model.dart';
 
@@ -91,12 +92,7 @@ class _SessionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPresent = session.status.toLowerCase() == 'present';
-    final statusColor = isPresent
-        ? const Color(0xFF10B981)
-        : session.status.toLowerCase() == 'late'
-        ? const Color(0xFFF59E0B)
-        : const Color(0xFFEF4444);
+    final statusColor = attendanceStatusColor(session.status);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -139,7 +135,7 @@ class _SessionRow extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                session.status.toUpperCase(),
+                attendanceStatusLabel(session.status),
                 style: TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
