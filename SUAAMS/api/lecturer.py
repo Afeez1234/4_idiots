@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, timezone
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department
 from extensions import limiter, jwt_identity_or_ip, api_error_response
+from utils import resolve_timetable_slot_for_course
 
 api_lecturer_bp = Blueprint('api_lecturer', __name__, url_prefix='/api/v1/lecturer')
 
@@ -249,6 +250,15 @@ def start_session(course_id):
         ).first()
         if existing:
             return jsonify({"error": "A session is already active for this course."}), 409
+
+        # Mirrors blueprints/lecturer.py's web start_session(): if the
+        # client didn't send explicit times, fall back to today's Timetable
+        # slot for this course instead of recording NULL.
+        if planned_start is None and planned_end is None:
+            slot = resolve_timetable_slot_for_course(course_id)
+            if slot:
+                planned_start = slot.start_time
+                planned_end = slot.end_time
 
         # SCHEMA FIX: Session has no start_time/stop_time columns --
         # passing them here used to raise TypeError at construction time

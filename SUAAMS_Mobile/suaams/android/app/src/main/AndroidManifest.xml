@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.NFC"/>
     <!-- Android 13+ (API 33) requires this as a runtime-requested
          permission before any notification (including FCM-delivered ones)
-         can display -- without it, pushes still arrive and update the
+         can display; without it, pushes still arrive and update the
          in-app Notification list, but silently, with no system tray
          banner. firebase_messaging's requestPermission() call (wired in
          notification_service.dart) is what actually triggers the runtime
@@ -59,7 +59,7 @@
         </service>
 
         <!-- FCM default notification channel/icon for when a data+notification
-             message arrives while the app is backgrounded/terminated -- the
+             message arrives while the app is backgrounded/terminated; the
              Android system tray needs SOME channel id to post to before the
              app process is even running to set one up in Dart. Must match
              the channel id created by flutter_local_notifications in

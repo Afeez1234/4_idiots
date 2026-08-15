@@ -115,3 +115,38 @@ def resolve_current_course(semester=None, at=None):
         'present_count': present_count,
     }
 
+
+def resolve_timetable_slot_for_course(course_id, semester=None, on_date=None):
+    """
+    Course + today's weekday -> its scheduled Timetable slot, used to
+    auto-fill Session.planned_start/planned_end when a lecturer starts a
+    session instead of requiring manual time entry. Same semester/weekday
+    resolution as resolve_current_course() above, but scoped to one course
+    rather than "whatever's on right now" -- so it still finds today's slot
+    even if the lecturer clicks Start Session a few minutes before/after the
+    exact scheduled window (resolve_current_course's on-the-dot time filter
+    would report no_class_now in that case).
+
+    Returns the matching Timetable row, or None if there's no active
+    semester or no slot for this course today.
+    """
+    from models import Timetable, Semester
+
+    on_date = on_date or datetime.now()
+
+    if semester is None:
+        semester = Semester.query.filter_by(is_active=True).first()
+    if semester is None:
+        return None
+
+    return (
+        Timetable.query
+        .filter(
+            Timetable.course_id == course_id,
+            Timetable.semester_id == semester.id,
+            Timetable.day_of_week == on_date.weekday(),
+        )
+        .order_by(Timetable.start_time.asc(), Timetable.id.asc())
+        .first()
+    )
+

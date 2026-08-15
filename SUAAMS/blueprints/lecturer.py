@@ -2,7 +2,7 @@ import csv
 import io
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response
 from datetime import date, datetime, timezone
-from utils import login_required
+from utils import login_required, resolve_timetable_slot_for_course
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
 from extensions import log_exception
 
@@ -139,6 +139,8 @@ def course_workspace(course_id):
         flash('An error occurred loading the workspace.', 'error')
         return redirect(url_for('lecturer.dashboard'))
 
+    timetable_slot = None if active_session else resolve_timetable_slot_for_course(course.id)
+
     return render_template(
         'lecturer/course_workspace.html',
         course=course,
@@ -147,6 +149,7 @@ def course_workspace(course_id):
         stats=stats,
         active_page='course_workspace',
         active_course_id=course.id,
+        timetable_slot=timetable_slot,
     )
 
 
@@ -472,6 +475,16 @@ def start_session(course_id):
         planned_end_raw = request.form.get('planned_end') or None
         planned_start = datetime.strptime(planned_start_raw, '%H:%M').time() if planned_start_raw else None
         planned_end = datetime.strptime(planned_end_raw, '%H:%M').time() if planned_end_raw else None
+
+        # The form pre-fills these from today's Timetable slot, but a
+        # lecturer can still clear/skip them entirely (both fields are
+        # marked optional) -- fall back to the timetable slot here too so a
+        # blank submission still records the scheduled time instead of NULL.
+        if planned_start is None and planned_end is None:
+            slot = resolve_timetable_slot_for_course(course_id)
+            if slot:
+                planned_start = slot.start_time
+                planned_end = slot.end_time
 
         new_session = SessionModel(
             course_id=course_id,
