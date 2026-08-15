@@ -221,7 +221,7 @@ def submit_checkin_beacon():
     active_session = SessionModel.query.filter_by(is_active=True).order_by(SessionModel.id.desc()).first()
     if not active_session:
         return jsonify({"error": "No active session"}), 404
-
+#testing something
     enrolled = Enrollment.query.filter_by(
         student_id=student.id, course_id=active_session.course_id
     ).first()
