@@ -488,7 +488,16 @@ def get_notifications():
             "body": n.body,
             "data": n.data,
             "read": n.read_at is not None,
-            "created_at": n.created_at.isoformat(),
+            # MySQL's DATETIME column drops tzinfo on read-back even though
+            # this was written as an aware UTC datetime (models.py's
+            # default=lambda: datetime.now(timezone.utc)) -- a bare
+            # .isoformat() on that naive value omits the offset entirely,
+            # and the Flutter side's DateTime.parse() then misreads it as
+            # LOCAL time instead of UTC, throwing the "time ago" display off
+            # by the device's UTC offset. Reattaching tzinfo=utc before
+            # serializing (safe: every value in this column is UTC by
+            # construction) makes the ISO string carry an explicit +00:00.
+            "created_at": n.created_at.replace(tzinfo=timezone.utc).isoformat(),
         } for n in notifications],
         "unread_count": sum(1 for n in notifications if n.read_at is None),
     }), 200

@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import '../../../core/constants/api_constants.dart';
 import '../models/lecturer_dashboard_model.dart';
 import '../models/course_workspace_model.dart';
+import '../models/session_history_model.dart';
+import '../models/session_detail_model.dart';
 
 class LecturerService {
   Future<LecturerDashboardModel> fetchDashboardData(String token) async {
@@ -122,6 +124,75 @@ class LecturerService {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (!(response.statusCode == 200 && responseData['success'] == true)) {
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<SessionHistoryModel> fetchSessionHistory(
+    String token,
+    int courseId,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.sessionHistoryEndpoint(courseId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        try {
+          return SessionHistoryModel.fromJson(responseData['data']);
+        } catch (parseError) {
+          throw Exception('Data parsing error: $parseError');
+        }
+      } else {
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<SessionDetailModel> fetchSessionDetail(
+    String token,
+    int courseId,
+    int sessionId,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.sessionDetailEndpoint(courseId, sessionId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        try {
+          return SessionDetailModel.fromJson(responseData['data']);
+        } catch (parseError) {
+          throw Exception('Data parsing error: $parseError');
+        }
+      } else {
         final errorMsg =
             responseData['error'] ??
             responseData['msg'] ??
