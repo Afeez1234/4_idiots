@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../providers/student_provider.dart';
 import '../../models/student_dashboard_model.dart';
@@ -284,22 +285,8 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
     ColorScheme colorScheme,
     bool isDarkMode,
   ) {
-    // 3-State Logic Preparation
-    // Note: To support "Late", we assume true = Present, false = Absent for now.
-    // In the future, if you change 'present' to a String 'status' in the backend,
-    // you can map it perfectly here.
-    Color statusColor;
-    String statusText;
-
-    if (record.present) {
-      statusColor = const Color(0xFF10B981); // Emerald Green
-      statusText = 'PRESENT';
-    } else {
-      // Mock logic: If we want to test Orange (Late), we could add a condition.
-      // Defaulting to Crimson Red for false.
-      statusColor = const Color(0xFFEF4444); // Crimson Red
-      statusText = 'ABSENT';
-    }
+    final statusColor = attendanceStatusColor(record.status);
+    final statusText = attendanceStatusLabel(record.status);
 
     final courseName = record.course.isEmpty ? 'UNKNOWN MODULE' : record.course;
     final dateText = record.date.isEmpty ? '--/--/----' : record.date;

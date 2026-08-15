@@ -1,6 +1,7 @@
 // This file is the brain of the auth feature. It holds the current auth state,
 // exposes login, logout, changePassword, and session restoration actions,
 // and notifies the router when auth state changes so navigation happens automatically.
+import 'package:android_id/android_id.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:async';
 import 'dart:io';
@@ -43,14 +44,24 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
 
   // Helper method to securely get the unique hardware UUID
   Future<String> _getHardwareUUID() async {
-    final DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
     try {
       if (Platform.isIOS) {
-        final iosInfo = await deviceInfo.iosInfo;
+        final iosInfo = await DeviceInfoPlugin().iosInfo;
         return iosInfo.identifierForVendor ?? 'unknown_ios_device';
       } else if (Platform.isAndroid) {
-        final androidInfo = await deviceInfo.androidInfo;
-        return androidInfo.id;
+        // DEVICE-BINDING FIX: androidInfo.id (device_info_plus) is
+        // Build.ID -- an OS build/firmware string, identical across every
+        // device flashed with the same image (e.g. two phones on the same
+        // stock ROM release). It is NOT a per-device identifier, so it
+        // silently defeated the "lock account to this phone" security
+        // model whenever two demo devices shared a build. ANDROID_ID
+        // (Settings.Secure.ANDROID_ID, via the android_id package) is a
+        // random value generated per device+app-signing-key at first boot
+        // -- the standard per-device identifier Android actually exposes,
+        // now that raw IMEI/serial access requires a system-level
+        // permission apps can't hold.
+        final androidId = await const AndroidId().getId();
+        return androidId ?? 'fallback_device_id';
       }
     } catch (e) {
       return 'fallback_device_id';

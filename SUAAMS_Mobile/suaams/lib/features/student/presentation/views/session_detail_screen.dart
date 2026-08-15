@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 import '../../providers/student_provider.dart';
 import '../../models/student_dashboard_model.dart';
 
 // Reuses the already-loaded studentDashboardProvider -- RecentAttendance
-// already carries everything this screen needs (course/date/time/present),
+// already carries everything this screen needs (course/date/time/status),
 // so there's no separate fetch here, same reasoning as CourseDetailScreen.
 // Only the last 10 records are ever in that list (see get_student_dashboard
 // in api/student.py), which matches this screen only ever being reached by
@@ -49,9 +50,7 @@ class SessionDetailScreen extends ConsumerWidget {
       );
     }
 
-    final statusColor = record.present
-        ? const Color(0xFF10B981)
-        : const Color(0xFFEF4444);
+    final statusColor = attendanceStatusColor(record.status);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -95,7 +94,7 @@ class SessionDetailScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: 10),
                       Text(
-                        record.present ? 'PRESENT' : 'ABSENT',
+                        attendanceStatusLabel(record.status),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w900,

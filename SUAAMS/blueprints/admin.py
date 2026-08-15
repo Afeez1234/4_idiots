@@ -2,7 +2,7 @@ import csv
 import io
 from collections import defaultdict
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, Response
 import bcrypt
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
@@ -1033,4 +1033,84 @@ def announcements_page():
         departments=departments,
         courses=courses,
         active_page='announcements',
+    )
+
+
+# ==========================================
+# REPORTS
+# ==========================================
+def _all_course_attendance_reports():
+    """
+    System-wide per-course attendance percentage, shared by reports_page()
+    and export_reports() so the on-screen table and the exported CSV can't
+    drift apart. Same 'actual / (sessions * enrolled)' formula already used
+    by the dashboard's department_attendance and lecturer.py's own
+    _course_attendance_reports, just scoped to every course instead of one
+    lecturer's or one department's.
+    """
+    courses = Course.query.order_by(Course.course_code).all()
+    rows = []
+    for course in courses:
+        enrolled_count = Enrollment.query.filter_by(course_id=course.id).count()
+        session_count = SessionModel.query.filter_by(course_id=course.id).count()
+        total_attendance = Attendance.query.join(SessionModel).filter(SessionModel.course_id == course.id).count()
+        average_attendance = round(
+            (total_attendance / (session_count * enrolled_count) * 100)
+            if session_count and enrolled_count else 0, 1
+        )
+        rows.append({
+            'course': course,
+            'lecturer_name': course.lecturer.full_name if course.lecturer else 'Unassigned',
+            'department_name': course.department.name if course.department else 'Unassigned',
+            'enrolled_count': enrolled_count,
+            'session_count': session_count,
+            'average_attendance': average_attendance,
+        })
+    return rows
+
+
+@admin_bp.route('/reports', methods=['GET'])
+def reports_page():
+    try:
+        course_reports = _all_course_attendance_reports()
+    except Exception:
+        log_exception("Admin Reports Error")
+        flash('An error occurred loading reports.', 'error')
+        return redirect(url_for('admin.dashboard'))
+
+    return render_template(
+        'admin/reports.html',
+        course_reports=course_reports,
+        active_page='reports',
+    )
+
+
+@admin_bp.route('/reports/export', methods=['GET'])
+def export_reports():
+    try:
+        course_reports = _all_course_attendance_reports()
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Course Code', 'Course Title', 'Department', 'Lecturer',
+                          'Enrolled', 'Sessions Run', 'Average Attendance (%)'])
+        for row in course_reports:
+            writer.writerow([
+                row['course'].course_code,
+                row['course'].course_title,
+                row['department_name'],
+                row['lecturer_name'],
+                row['enrolled_count'],
+                row['session_count'],
+                row['average_attendance'],
+            ])
+    except Exception:
+        log_exception("Admin Reports Export Error")
+        flash('Failed to export attendance report.', 'error')
+        return redirect(url_for('admin.reports_page'))
+
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=admin_attendance_report.csv'},
     )
