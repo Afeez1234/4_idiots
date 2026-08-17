@@ -21,6 +21,11 @@ class StudentAttendanceScreen extends StatelessWidget {
         elevation: 0,
         actions: [
           TextButton.icon(
+            onPressed: () => context.push('/student/attendance/register'),
+            icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+            label: const Text('REGISTER'),
+          ),
+          TextButton.icon(
             onPressed: () => context.push('/student/attendance/history'),
             icon: const Icon(Icons.history_rounded, size: 18),
             label: const Text('HISTORY'),

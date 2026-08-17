@@ -8,7 +8,7 @@ from datetime import timedelta, date, datetime, timezone
 # Import db and our elegant SQLAlchemy models
 # (added Enrollment here for the check-in endpoints, Timetable for the
 # today's-schedule endpoint below)
-from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification
+from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from push_notifications import send_push_notification
 from utils import compute_attendance_status
@@ -501,6 +501,56 @@ def get_today_schedule():
         return api_error_response("Today Schedule Error", "Failed to load today's schedule")
 
 
+@api_student_bp.route('/schedule/week', methods=['GET'])
+@jwt_required()
+def get_week_schedule():
+    """
+    The student's full recurring weekly Timetable, across all enrolled
+    courses -- backs the Timetable tab's day list and the Day Detail view
+    (both filter this same response client-side by day_of_week rather than
+    each making their own call). Unlike /schedule/today, this is purely the
+    recurring schedule with no live Session/Attendance status attached,
+    since most of the week hasn't happened yet.
+    """
+    claims = get_jwt()
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    try:
+        current_user_id = int(get_jwt_identity())
+        student = Student.query.filter_by(user_id=current_user_id).first()
+        if not student:
+            return jsonify({"error": "Student profile not found."}), 404
+
+        courses_by_id = {course.id: course for course in student.courses}
+        if not courses_by_id:
+            return jsonify({"success": True, "week": []}), 200
+
+        entries = Timetable.query.filter(
+            Timetable.course_id.in_(courses_by_id.keys())
+        ).order_by(Timetable.day_of_week.asc(), Timetable.start_time.asc()).all()
+
+        week = []
+        for entry in entries:
+            course = courses_by_id.get(entry.course_id)
+            if course is None:
+                continue
+            week.append({
+                'day_of_week': entry.day_of_week,
+                'course_id': course.id,
+                'course_name': course.course_title,
+                'course_code': course.course_code,
+                'start_time': entry.start_time.strftime('%H:%M') if entry.start_time else None,
+                'end_time': entry.end_time.strftime('%H:%M') if entry.end_time else None,
+                'room': entry.room,
+            })
+
+        return jsonify({"success": True, "week": week}), 200
+
+    except Exception:
+        return api_error_response("Week Schedule Error", "Failed to load week schedule")
+
+
 # Called once at app start (and again whenever Firebase hands the app a
 # fresh token via onTokenRefresh) -- generous limit since a refresh can
 # legitimately happen a few times in a session (e.g. app reinstall, token
@@ -592,3 +642,152 @@ def mark_notification_read(notification_id):
         db.session.commit()
 
     return jsonify({"success": True}), 200
+
+
+@api_student_bp.route('/device-info', methods=['GET'])
+@jwt_required()
+def get_device_info():
+    """
+    Read-only device-binding status for the "Linked Devices" screen.
+    Deliberately no unbind/reset action here -- CLAUDE.md's threat model
+    requires a physical ID check at the Admin Web Dashboard to reset a
+    binding (see reset_student_binding in blueprints/admin.py), so a
+    self-service reset in the app would defeat the whole point of device
+    binding. This endpoint only reports status; the screen explains the
+    admin-reset flow rather than offering to do it itself.
+    """
+    claims = get_jwt()
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    try:
+        current_user_id = int(get_jwt_identity())
+        student = Student.query.filter_by(user_id=current_user_id).first()
+        if not student:
+            return jsonify({"error": "Student profile not found."}), 404
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "device_bound": bool(student.device_id),
+            }
+        }), 200
+
+    except Exception:
+        return api_error_response("Device Info Error", "Failed to load device info")
+
+
+# ── Self-service course registration ────────────────────────────────────────
+# Scoped to the student's own department + the currently active semester --
+# matches how every other course-facing query in this file/admin.py already
+# scopes courses (department_id, semester_id), and keeps a student from
+# registering into a course that isn't actually theirs to take.
+
+@api_student_bp.route('/courses/available', methods=['GET'])
+@limiter.limit("30 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def get_available_courses():
+    claims = get_jwt()
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    try:
+        student = Student.query.filter_by(user_id=int(get_jwt_identity())).first()
+        if not student:
+            return jsonify({"error": "Student profile not found."}), 404
+
+        active_semester = Semester.query.filter_by(is_active=True).first()
+        if not active_semester:
+            return jsonify({"success": True, "data": {"semester": None, "courses": []}}), 200
+
+        enrolled_course_ids = {c.id for c in student.courses}
+
+        courses = Course.query.filter(
+            Course.department_id == student.department_id,
+            Course.semester_id == active_semester.id,
+        ).order_by(Course.course_code).all()
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "semester": active_semester.name,
+                "courses": [
+                    {
+                        "id": c.id,
+                        "course_code": c.course_code,
+                        "course_title": c.course_title,
+                        "credit_units": c.credit_units,
+                        "lecturer": c.lecturer.full_name if c.lecturer else None,
+                        "enrolled": c.id in enrolled_course_ids,
+                    }
+                    for c in courses
+                ],
+            },
+        }), 200
+
+    except Exception:
+        return api_error_response("Available Courses Error", "Failed to load available courses")
+
+
+@api_student_bp.route('/courses/<int:course_id>/register', methods=['POST'])
+@limiter.limit("10 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def register_course(course_id):
+    claims = get_jwt()
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    try:
+        student = Student.query.filter_by(user_id=int(get_jwt_identity())).first()
+        if not student:
+            return jsonify({"error": "Student profile not found."}), 404
+
+        course = Course.query.get(course_id)
+        if not course:
+            return jsonify({"error": "Course not found."}), 404
+
+        active_semester = Semester.query.filter_by(is_active=True).first()
+        if not active_semester or course.semester_id != active_semester.id:
+            return jsonify({"error": "This course is not open for registration this semester."}), 400
+
+        if course.department_id != student.department_id:
+            return jsonify({"error": "This course is not offered by your department."}), 403
+
+        if Enrollment.query.filter_by(student_id=student.id, course_id=course.id).first():
+            return jsonify({"error": "You are already registered for this course."}), 409
+
+        db.session.add(Enrollment(student_id=student.id, course_id=course.id))
+        db.session.commit()
+
+        return jsonify({"success": True, "message": f"Registered for {course.course_code}."}), 201
+
+    except Exception:
+        db.session.rollback()
+        return api_error_response("Course Registration Error", "Failed to register for course")
+
+
+@api_student_bp.route('/courses/<int:course_id>/drop', methods=['POST'])
+@limiter.limit("10 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def drop_course(course_id):
+    claims = get_jwt()
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    try:
+        student = Student.query.filter_by(user_id=int(get_jwt_identity())).first()
+        if not student:
+            return jsonify({"error": "Student profile not found."}), 404
+
+        enrollment = Enrollment.query.filter_by(student_id=student.id, course_id=course_id).first()
+        if not enrollment:
+            return jsonify({"error": "You are not registered for this course."}), 404
+
+        db.session.delete(enrollment)
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "Course dropped."}), 200
+
+    except Exception:
+        db.session.rollback()
+        return api_error_response("Course Drop Error", "Failed to drop course")

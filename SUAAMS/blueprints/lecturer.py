@@ -3,7 +3,7 @@ import io
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response
 from datetime import date, datetime, timezone
 from utils import login_required, resolve_timetable_slot_for_course
-from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
+from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement, HOD
 from extensions import log_exception
 
 lecturer_bp = Blueprint('lecturer', __name__)
@@ -13,21 +13,29 @@ lecturer_bp = Blueprint('lecturer', __name__)
 def inject_lecturer_context():
     """Makes the signed-in lecturer's course list (for the sidebar's dynamic
     'My Courses' section) and the active semester (sidebar pill, same pattern
-    as admin's inject_active_semester) available to every lecturer template."""
+    as admin's inject_active_semester) available to every lecturer template.
+
+    Also reachable by role='hod' (see login_required(('lecturer', 'hod'))
+    on the routes below) for someone who holds both a Lecturer and an HOD
+    profile under the same account -- is_also_hod flags that case so
+    base_lecturer.html can show a link back to their Department Overview
+    instead of stranding them in the lecturer-only chrome."""
     user_id = session.get('user_id')
-    if not user_id or session.get('role') != 'lecturer':
+    if not user_id or session.get('role') not in ('lecturer', 'hod'):
         return {}
     lecturer = Lecturer.query.filter_by(user_id=user_id).first()
     if not lecturer:
         return {}
+    is_also_hod = HOD.query.filter_by(user_id=user_id).first() is not None
     return {
         'sidebar_courses': Course.query.filter_by(lecturer_id=lecturer.id).order_by(Course.course_code).all(),
         'active_semester': Semester.query.filter_by(is_active=True).first(),
+        'is_also_hod': is_also_hod,
     }
 
 
 @lecturer_bp.route('/lecturer/dashboard')
-@login_required('lecturer')
+@login_required(('lecturer', 'hod'))
 def dashboard():
     user_id = session.get('user_id')
 
@@ -80,7 +88,7 @@ def dashboard():
 
 
 @lecturer_bp.route('/lecturer/course/<int:course_id>')
-@login_required('lecturer')
+@login_required(('lecturer', 'hod'))
 def course_workspace(course_id):
     user_id = session.get('user_id')
     
@@ -154,7 +162,7 @@ def course_workspace(course_id):
 
 
 @lecturer_bp.route('/lecturer/sessions/history')
-@login_required('lecturer')
+@login_required(('lecturer', 'hod'))
 def session_history():
     """Cross-course session history: every ended session across all of this
     lecturer's courses, newest first. Distinct from course_workspace's old
@@ -214,8 +222,62 @@ def session_history():
     )
 
 
+@lecturer_bp.route('/lecturer/sessions/active')
+@login_required(('lecturer', 'hod'))
+def active_sessions():
+    """Cross-course view of every session currently running for this
+    lecturer -- the sidebar's 'Active Sessions' page. course_workspace's own
+    live-attendance table is scoped to one course; this rolls all of them up
+    so a lecturer teaching several courses doesn't have to guess which one
+    (if any) is still live, and can jump straight into it."""
+    user_id = session.get('user_id')
+
+    try:
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+        if not lecturer:
+            flash('Lecturer profile not found.', 'error')
+            return redirect(url_for('auth.login'))
+
+        live_sessions = SessionModel.query.join(Course).filter(
+            Course.lecturer_id == lecturer.id,
+            SessionModel.is_active == True
+        ).order_by(SessionModel.session_date.desc()).all()
+
+        rows = []
+        for sess in live_sessions:
+            enrolled_count = Enrollment.query.filter_by(course_id=sess.course_id).count()
+            present_count = Attendance.query.filter_by(session_id=sess.id).count()
+            # Legacy sessions started before start_time was wired up (see
+            # start_session()) won't have one -- elapsed time just isn't
+            # shown for those rather than guessing a start.
+            started_at_iso = (
+                datetime.combine(sess.session_date, sess.start_time, tzinfo=timezone.utc).isoformat()
+                if sess.start_time else None
+            )
+            rows.append({
+                'session_id': sess.id,
+                'course': sess.course,
+                'session_date': sess.session_date,
+                'start_time': sess.start_time,
+                'started_at_iso': started_at_iso,
+                'present_count': present_count,
+                'enrolled_count': enrolled_count,
+            })
+
+    except Exception:
+        log_exception("Active Sessions Error")
+        flash('An error occurred loading active sessions.', 'error')
+        return redirect(url_for('lecturer.dashboard'))
+
+    return render_template(
+        'lecturer/active_sessions.html',
+        live_sessions=rows,
+        active_page='active_sessions',
+    )
+
+
 @lecturer_bp.route('/lecturer/announcements', methods=['GET', 'POST'])
-@login_required('lecturer')
+@login_required(('lecturer', 'hod'))
 def announcements():
     """Lecturer-scoped announcements: unlike admin's version (which can post
     university/department/course-wide), a lecturer can only post to a course
@@ -306,7 +368,7 @@ def _course_attendance_reports(lecturer):
 
 
 @lecturer_bp.route('/lecturer/analytics')
-@login_required('lecturer')
+@login_required(('lecturer', 'hod'))
 def analytics():
     user_id = session.get('user_id')
 
@@ -391,7 +453,7 @@ def analytics():
 
 
 @lecturer_bp.route('/lecturer/reports')
-@login_required('lecturer')
+@login_required(('lecturer', 'hod'))
 def reports():
     user_id = session.get('user_id')
 
@@ -416,7 +478,7 @@ def reports():
 
 
 @lecturer_bp.route('/lecturer/reports/export')
-@login_required('lecturer')
+@login_required(('lecturer', 'hod'))
 def export_reports():
     user_id = session.get('user_id')
 
@@ -453,14 +515,33 @@ def export_reports():
 
 
 @lecturer_bp.route('/lecturer/course/<int:course_id>/start-session', methods=['POST'])
-@login_required('lecturer')
+@login_required(('lecturer', 'hod'))
 def start_session(course_id):
+    user_id = session.get('user_id')
+
     try:
+        # SECURITY FIX: this route had no ownership check at all -- any
+        # authenticated lecturer could POST to another lecturer's course_id
+        # and start a session on a course they don't teach. course_workspace()
+        # and session_detail() already guard against this the same way; the
+        # JSON equivalent in api/lecturer.py enforces it too (via
+        # get_lecturer_or_403() + Course.query...lecturer_id==lecturer.id).
+        # This route was just missing it.
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+        if not lecturer:
+            flash('Lecturer profile not found.', 'error')
+            return redirect(url_for('auth.login'))
+
+        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        if not course:
+            flash('Course not found or access denied.', 'error')
+            return redirect(url_for('lecturer.dashboard'))
+
         active_session = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
         if active_session:
             flash('A session is already active for this course.', 'error')
             return redirect(url_for('lecturer.course_workspace', course_id=course_id))
-        
+
         # BUG FIX: request.form.get() returns "HH:MM" strings (from the
         # <input type="time"> in course_workspace.html), but
         # Session.planned_start/planned_end are db.Time columns expecting
@@ -490,6 +571,12 @@ def start_session(course_id):
             course_id=course_id,
             session_date=datetime.now(timezone.utc).date(),
             is_active=True,
+            # start_time exists on the model precisely for this ("gets set
+            # when a lecturer actually starts the session" -- models.py)
+            # but was never actually being written here. Populating it now
+            # so pages that need a real elapsed time (Active Sessions) have
+            # something other than planned_start to read.
+            start_time=datetime.now(timezone.utc).time(),
             planned_start=planned_start,
             planned_end=planned_end
         )
@@ -507,17 +594,33 @@ def start_session(course_id):
     
 
 @lecturer_bp.route('/lecturer/course/<int:course_id>/end-session', methods=['POST'])
-@login_required('lecturer')
+@login_required(('lecturer', 'hod'))
 def end_session_r(course_id):
+    user_id = session.get('user_id')
+
     try:
+        # SECURITY FIX: same missing ownership check as start_session()
+        # above -- without it, any lecturer could end another lecturer's
+        # live session by guessing/forging its course_id.
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+        if not lecturer:
+            flash('Lecturer profile not found.', 'error')
+            return redirect(url_for('auth.login'))
+
+        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        if not course:
+            flash('Course not found or access denied.', 'error')
+            return redirect(url_for('lecturer.dashboard'))
+
         active_session = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
         if not active_session:
             flash('No active session found for this course.', 'error')
             return redirect(url_for('lecturer.course_workspace', course_id=course_id))
             
         active_session.is_active = False
+        active_session.stop_time = datetime.now(timezone.utc).time()
         db.session.commit()
-        
+
         flash('Session ended successfully.', 'success')
         
     except Exception:
@@ -529,7 +632,7 @@ def end_session_r(course_id):
 
 
 @lecturer_bp.route('/lecturer/course/<int:course_id>/session/<int:session_id>')
-@login_required('lecturer')
+@login_required(('lecturer', 'hod'))
 def session_detail(course_id, session_id):
     user_id = session.get('user_id')
     

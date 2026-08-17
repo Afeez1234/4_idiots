@@ -2,8 +2,8 @@
 
 abstract final class ApiConstants {
   // Use 10.0.2.2 for Android Emulator connecting to local Flask server.
-  static const String baseUrl = 'http://10.0.2.2:5000/api/v1';//localhost for testing
-  // static const String baseUrl = 'https://suaams.onrender.com/api/v1';//for production
+  // static const String baseUrl = 'http://10.0.2.2:5000/api/v1';//localhost for testing
+  static const String baseUrl = 'https://suaams.onrender.com/api/v1';//for production
   
   static const String loginEndpoint = '$baseUrl/auth/login';
   static const String studentDashboardEndpoint = '$baseUrl/student/dashboard';
@@ -53,10 +53,30 @@ abstract final class ApiConstants {
   // its own refresh cadence (see today_schedule_provider.dart).
   static const String todayScheduleEndpoint = '$baseUrl/student/schedule/today';
 
+  // Full recurring weekly schedule -- backs the Timetable tab + Day Detail
+  // view. See get_week_schedule in api/student.py.
+  static const String weekScheduleEndpoint = '$baseUrl/student/schedule/week';
+
+  // Read-only device-binding status -- see get_device_info in
+  // api/student.py. No unbind/reset endpoint on purpose (see that
+  // function's doc-comment); resets go through an admin.
+  static const String deviceInfoEndpoint = '$baseUrl/student/device-info';
+
   // Full per-session attendance breakdown for one course, scoped to this
   // student -- see get_course_attendance_history in api/student.py.
   static String courseAttendanceHistoryEndpoint(int courseId) =>
       '$baseUrl/student/course/$courseId/history';
+
+  // Self-service course registration -- see get_available_courses/
+  // register_course/drop_course in api/student.py. Scoped server-side to
+  // the student's own department + the currently active semester.
+  static const String availableCoursesEndpoint = '$baseUrl/student/courses/available';
+
+  static String registerCourseEndpoint(int courseId) =>
+      '$baseUrl/student/courses/$courseId/register';
+
+  static String dropCourseEndpoint(int courseId) =>
+      '$baseUrl/student/courses/$courseId/drop';
 
   // Lecturer mobile endpoints (see api/lecturer.py). courseWorkspaceEndpoint/
   // startSessionEndpoint/endSessionEndpoint take the course id as a path
@@ -78,4 +98,13 @@ abstract final class ApiConstants {
 
   static String sessionDetailEndpoint(int courseId, int sessionId) =>
       '$baseUrl/lecturer/course/$courseId/session/$sessionId';
+
+  static String courseAnalyticsEndpoint(int courseId) =>
+      '$baseUrl/lecturer/course/$courseId/analytics';
+
+  static const String lecturerAnnouncementsEndpoint =
+      '$baseUrl/lecturer/announcements';
+
+  static String createAnnouncementEndpoint(int courseId) =>
+      '$baseUrl/lecturer/course/$courseId/announcements';
 }

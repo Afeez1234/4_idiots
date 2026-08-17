@@ -22,6 +22,7 @@ import '../../features/student/presentation/views/student_id_card_screen.dart';
 import '../../features/student/presentation/views/student_profile_screen.dart';
 import '../../features/student/presentation/views/linked_devices_screen.dart';
 import '../../features/student/presentation/views/notification_settings_screen.dart';
+import 'package:suaams/features/student/presentation/views/course_registration_screen.dart';
 
 // Lecturer
 import '../../features/lecturer/presentation/lecturer_shell_screen.dart';
@@ -165,6 +166,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         ),
                       ),
                     ],
+                  ),
+                  GoRoute(
+                    path: 'register',
+                    builder: (context, state) => const CourseRegistrationScreen(),
                   ),
                 ],
               ),

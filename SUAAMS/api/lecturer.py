@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, timezone
-from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department
+from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Announcement
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from utils import resolve_timetable_slot_for_course
 
@@ -260,14 +260,18 @@ def start_session(course_id):
                 planned_start = slot.start_time
                 planned_end = slot.end_time
 
-        # SCHEMA FIX: Session has no start_time/stop_time columns --
-        # passing them here used to raise TypeError at construction time
-        # (SQLAlchemy's default __init__ rejects unknown kwargs), meaning
-        # starting a session would have failed 100% of the time.
+        # STALE COMMENT FIX: this used to say Session had no start_time/
+        # stop_time columns and that passing them would raise TypeError --
+        # both columns do exist (models.py: "RE-ADDED: actual start/stop
+        # timestamps"), they were just never being written from here.
+        # Populating start_time now so this session's elapsed time can be
+        # computed the same way blueprints/lecturer.py's web start_session()
+        # (and the lecturer web portal's Active Sessions page) already do.
         new_session = SessionModel(
             course_id=course_id,
             session_date=datetime.now(timezone.utc).date(),
             is_active=True,
+            start_time=datetime.now(timezone.utc).time(),
             planned_start=planned_start,
             planned_end=planned_end,
         )
@@ -314,11 +318,14 @@ def end_session(course_id):
         if not active_session:
             return jsonify({"error": "No active session found for this course."}), 404
 
-        # SCHEMA FIX: dropped `active_session.stop_time = ...` -- Session
-        # has no such column, so this line used to silently set a plain
-        # Python attribute that was never persisted (not an error, just
-        # dead code that did nothing).
+        # STALE COMMENT FIX: this used to say Session had no stop_time
+        # column and dropped the assignment as dead code -- the column does
+        # exist (models.py: "RE-ADDED: actual start/stop timestamps"), it
+        # was just never being written from here. Same gap existed on the
+        # web side (blueprints/lecturer.py's end_session_r) and has now
+        # been fixed there too, so both surfaces record a real stop time.
         active_session.is_active = False
+        active_session.stop_time = datetime.now(timezone.utc).time()
         db.session.commit()
 
         final_count = Attendance.query.filter_by(
@@ -539,3 +546,182 @@ def get_session_detail(course_id, session_id):
 
     except Exception:
         return api_error_response("Session Detail API Error", "Failed to load session detail")
+
+
+# ── 8. Course analytics ───────────────────────────────────────────────────────
+
+@api_lecturer_bp.route('/course/<int:course_id>/analytics', methods=['GET'])
+@jwt_required()
+def get_course_analytics(course_id):
+    """
+    Summary stats + a chronological attendance-percentage trend across
+    sessions + a per-student breakdown (sorted ascending by pct, so the
+    most at-risk students surface first). Only considers completed
+    sessions (is_active=False), same scoping as get_session_history above.
+    """
+    lecturer, error_response, status = get_lecturer_or_403()
+    if error_response:
+        return error_response, status
+
+    try:
+        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        if not course:
+            return jsonify({"error": "Course not found or access denied."}), 404
+
+        enrollments = Enrollment.query.filter_by(course_id=course_id).all()
+        enrolled_count = len(enrollments)
+
+        sessions = (
+            SessionModel.query
+            .filter_by(course_id=course_id, is_active=False)
+            .order_by(SessionModel.session_date.asc())
+            .all()
+        )
+        total_sessions = len(sessions)
+
+        # Chronological trend -- one point per completed session.
+        trend = []
+        pct_sum = 0.0
+        for session in sessions:
+            present_count = Attendance.query.filter_by(session_id=session.id).count()
+            pct = round((present_count / enrolled_count * 100) if enrolled_count else 0, 1)
+            pct_sum += pct
+            trend.append({
+                'session_id': session.id,
+                'date': session.session_date.strftime('%d %b %Y') if session.session_date else None,
+                'present_count': present_count,
+                'enrolled_count': enrolled_count,
+                'pct': pct,
+            })
+
+        # Average of each session's own pct (not total-present /
+        # total-possible) -- matches what the trend line itself shows.
+        avg_attendance = round(pct_sum / total_sessions, 1) if total_sessions else 0
+
+        students = []
+        for enrollment in enrollments:
+            student = Student.query.get(enrollment.student_id)
+            if student is None:
+                continue
+            attended = Attendance.query.join(SessionModel).filter(
+                SessionModel.course_id == course_id,
+                SessionModel.is_active == False,
+                Attendance.student_id == student.id,
+            ).count()
+            pct = round((attended / total_sessions * 100) if total_sessions else 0, 1)
+            students.append({
+                'student_id': student.id,
+                'full_name': student.full_name,
+                'matric_number': student.matric_number,
+                'attended': attended,
+                'total': total_sessions,
+                'pct': pct,
+            })
+        students.sort(key=lambda s: s['pct'])
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "course": {
+                    "id": course.id,
+                    "title": course.course_title,
+                    "code": course.course_code,
+                },
+                "summary": {
+                    "enrolled_count": enrolled_count,
+                    "total_sessions": total_sessions,
+                    "avg_attendance": avg_attendance,
+                },
+                "trend": trend,
+                "students": students,
+            }
+        }), 200
+
+    except Exception:
+        return api_error_response("Course Analytics API Error", "Failed to load course analytics")
+
+
+# ── 9. Announcements ──────────────────────────────────────────────────────────
+# Deliberately scoped to scope='course' only -- a lecturer posting to their
+# own course's students, not university- or department-wide (those stay
+# admin-only, see blueprints/admin.py's announcements_page). Keeps a
+# lecturer from broadcasting outside what they actually own.
+
+@api_lecturer_bp.route('/announcements', methods=['GET'])
+@jwt_required()
+def get_lecturer_announcements():
+    """All course-scoped announcements the lecturer has posted, across all
+    of their courses, newest first."""
+    lecturer, error_response, status = get_lecturer_or_403()
+    if error_response:
+        return error_response, status
+
+    try:
+        course_ids = [c.id for c in Course.query.filter_by(lecturer_id=lecturer.id).all()]
+        if not course_ids:
+            return jsonify({"success": True, "data": []}), 200
+
+        announcements = (
+            Announcement.query
+            .filter(Announcement.course_id.in_(course_ids), Announcement.scope == 'course')
+            .order_by(Announcement.created_at.desc())
+            .all()
+        )
+
+        courses_by_id = {c.id: c for c in Course.query.filter(Course.id.in_(course_ids)).all()}
+
+        data = []
+        for a in announcements:
+            course = courses_by_id.get(a.course_id)
+            data.append({
+                'id': a.id,
+                'title': a.title,
+                'body': a.body,
+                'course_id': a.course_id,
+                'course_code': course.course_code if course else None,
+                'created_at': a.created_at.strftime('%d %b %Y, %H:%M') if a.created_at else None,
+            })
+
+        return jsonify({"success": True, "data": data}), 200
+
+    except Exception:
+        return api_error_response("Lecturer Announcements API Error", "Failed to load announcements")
+
+
+@api_lecturer_bp.route('/course/<int:course_id>/announcements', methods=['POST'])
+@limiter.limit("10 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def create_lecturer_announcement(course_id):
+    """Posts a course-scoped announcement, visible to that course's
+    enrolled students. sender_id is the lecturer's own User row."""
+    lecturer, error_response, status = get_lecturer_or_403()
+    if error_response:
+        return error_response, status
+
+    try:
+        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        if not course:
+            return jsonify({"error": "Course not found or access denied."}), 404
+
+        payload = request.get_json(silent=True) or {}
+        title = (payload.get('title') or '').strip()
+        body = (payload.get('body') or '').strip()
+
+        if not title or not body:
+            return jsonify({"error": "Title and body are both required."}), 400
+
+        announcement = Announcement(
+            title=title,
+            body=body,
+            sender_id=lecturer.user_id,
+            scope='course',
+            course_id=course.id,
+        )
+        db.session.add(announcement)
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "Announcement posted."}), 201
+
+    except Exception:
+        db.session.rollback()
+        return api_error_response("Create Announcement API Error", "Failed to post announcement")

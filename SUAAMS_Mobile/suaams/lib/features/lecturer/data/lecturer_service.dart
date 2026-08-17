@@ -5,6 +5,8 @@ import '../models/lecturer_dashboard_model.dart';
 import '../models/course_workspace_model.dart';
 import '../models/session_history_model.dart';
 import '../models/session_detail_model.dart';
+import '../models/announcement_model.dart';
+import '../models/course_analytics_model.dart';
 
 class LecturerService {
   Future<LecturerDashboardModel> fetchDashboardData(String token) async {
@@ -193,6 +195,100 @@ class LecturerService {
           throw Exception('Data parsing error: $parseError');
         }
       } else {
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<CourseAnalyticsModel> fetchCourseAnalytics(
+    String token,
+    int courseId,
+  ) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.courseAnalyticsEndpoint(courseId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        try {
+          return CourseAnalyticsModel.fromJson(responseData['data']);
+        } catch (parseError) {
+          throw Exception('Data parsing error: $parseError');
+        }
+      } else {
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<List<AnnouncementItem>> fetchAnnouncements(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.lecturerAnnouncementsEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return (responseData['data'] as List)
+            .map((entry) => AnnouncementItem.fromJson(entry))
+            .toList();
+      }
+
+      final errorMsg =
+          responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> createAnnouncement(
+    String token,
+    int courseId, {
+    required String title,
+    required String body,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.createAnnouncementEndpoint(courseId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'title': title, 'body': body}),
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (!(response.statusCode == 201 && responseData['success'] == true)) {
         final errorMsg =
             responseData['error'] ??
             responseData['msg'] ??

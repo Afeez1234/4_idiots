@@ -133,14 +133,6 @@ class ProfileView extends ConsumerWidget {
             // so the OS back gesture/button returns to Profile.
             onTap: () => context.push('/change-password'),
           ),
-          const SizedBox(height: 12),
-          _buildPreferenceTile(
-            icon: Icons.support_agent_rounded,
-            title: 'IT Support',
-            subtitle: 'Report a hardware issue',
-            colorScheme: colorScheme,
-            onTap: () {}, // Mock for now
-          ),
 
           const SizedBox(height: 48),
 

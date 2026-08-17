@@ -5,6 +5,9 @@ import '../models/student_dashboard_model.dart';
 import '../models/today_protocol_entry.dart';
 import '../models/notification_item.dart';
 import '../models/course_attendance_history_model.dart';
+import '../models/week_schedule_entry.dart';
+import '../models/device_info.dart';
+import '../models/available_course_model.dart';
 
 /// Result of a /checkin/status poll. `reason` distinguishes a definite,
 /// permanent failure ('not_enrolled') from a genuinely ambiguous "not
@@ -214,6 +217,66 @@ class StudentService {
     }
   }
 
+  // Full recurring weekly schedule -- see weekScheduleEndpoint's
+  // doc-comment in api_constants.dart.
+  Future<List<WeekScheduleEntry>> fetchWeekSchedule(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.weekScheduleEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return (responseData['week'] as List)
+            .map((entry) => WeekScheduleEntry.fromJson(entry))
+            .toList();
+      }
+
+      final errorMsg =
+          responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  // Read-only device-binding status -- see deviceInfoEndpoint's
+  // doc-comment in api_constants.dart.
+  Future<DeviceInfo> fetchDeviceInfo(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.deviceInfoEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return DeviceInfo.fromJson(responseData['data']);
+      }
+
+      final errorMsg =
+          responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   // Full per-session attendance breakdown for one course -- see
   // courseAttendanceHistoryEndpoint's doc-comment in api_constants.dart.
   Future<CourseAttendanceHistoryModel> fetchCourseAttendanceHistory(
@@ -269,5 +332,93 @@ class StudentService {
       },
       body: jsonEncode({'fcm_token': fcmToken, 'platform': platform}),
     );
+  }
+
+  // Backs the course registration screen -- see get_available_courses in
+  // api/student.py. Returns every course in the student's own department +
+  // the active semester, each flagged with whether they're already
+  // enrolled, so Register/Drop can live in a single list.
+  Future<List<AvailableCourse>> fetchAvailableCourses(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.availableCoursesEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        final courses = responseData['data']['courses'] as List;
+        return courses
+            .map((entry) => AvailableCourse.fromJson(entry))
+            .toList();
+      }
+
+      final errorMsg =
+          responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> registerCourse(String token, int courseId) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.registerCourseEndpoint(courseId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 201 && responseData['success'] == true) {
+        return;
+      }
+
+      final errorMsg =
+          responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> dropCourse(String token, int courseId) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.dropCourseEndpoint(courseId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return;
+      }
+
+      final errorMsg =
+          responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
   }
 }
