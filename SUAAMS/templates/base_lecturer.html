@@ -64,6 +64,22 @@
                     </div>
                 </div>
 
+                <!-- Only shown for a lecturer who also holds an HOD profile
+                     under this same account (see inject_lecturer_context()'s
+                     is_also_hod) -- takes them back to their department
+                     overview, no second login needed. -->
+                {% if is_also_hod %}
+                    <div>
+                        <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Also</p>
+                        <div class="space-y-1">
+                            <a href="{{ url_for('hod.dashboard') }}" class="nav-link">
+                                <span class="material-symbols-rounded text-[20px]">account_tree</span>
+                                <span>Department Overview</span>
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+
                 <!-- My Courses: dynamic, from inject_lecturer_context()'s sidebar_courses. -->
                 <div>
                     <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">My Courses</p>
@@ -83,8 +99,7 @@
                 <div>
                     <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Sessions</p>
                     <div class="space-y-1">
-                        <!-- TODO: no lecturer.active_sessions route/template yet -- not in the build order, placeholder for now. -->
-                        <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'active_sessions' else '' }}">
+                        <a href="{{ url_for('lecturer.active_sessions') }}" class="nav-link {{ 'nav-link-active' if active_page == 'active_sessions' else '' }}">
                             <span class="material-symbols-rounded text-[20px]">sensors</span>
                             <span>Active Sessions</span>
                         </a>

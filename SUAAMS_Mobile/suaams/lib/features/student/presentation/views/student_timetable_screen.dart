@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../providers/week_schedule_provider.dart';
+import '../../models/week_schedule_entry.dart';
 
-// Timetable tab root -- "Weekly view (Mon-Sun schedule)". No timetable data
-// wiring exists yet (no provider/endpoint), so this renders the day chips
-// (tappable, matching "Day detail (tap a day)") with a coming-soon body.
-class StudentTimetableScreen extends StatelessWidget {
+// Timetable tab root -- weekly view backed by weekScheduleProvider
+// (dayOfWeek 0=Monday matches this list's index, per Timetable.day_of_week's
+// documented convention in models.py).
+class StudentTimetableScreen extends ConsumerWidget {
   const StudentTimetableScreen({super.key});
 
   static const _days = [
@@ -18,8 +21,13 @@ class StudentTimetableScreen extends StatelessWidget {
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(weekScheduleProvider);
     final colorScheme = Theme.of(context).colorScheme;
+
+    if (state.isLoading && state.entries.isEmpty) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -28,8 +36,11 @@ class StudentTimetableScreen extends StatelessWidget {
         backgroundColor: colorScheme.surface,
         elevation: 0,
       ),
-      body: SafeArea(
+      body: RefreshIndicator(
+        onRefresh: () =>
+            ref.read(weekScheduleProvider.notifier).loadWeekSchedule(),
         child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,9 +55,24 @@ class StudentTimetableScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              ..._days.map(
-                (day) => _DayTile(day: day, colorScheme: colorScheme),
-              ),
+              if (state.errorMessage != null)
+                Text(
+                  'Could not load timetable.',
+                  style: TextStyle(color: colorScheme.error, fontSize: 12),
+                )
+              else
+                ..._days.asMap().entries.map((mapEntry) {
+                  final dayIndex = mapEntry.key;
+                  final dayName = mapEntry.value;
+                  final dayEntries = state.entries
+                      .where((e) => e.dayOfWeek == dayIndex)
+                      .toList();
+                  return _DayTile(
+                    day: dayName,
+                    entries: dayEntries,
+                    colorScheme: colorScheme,
+                  );
+                }),
             ],
           ),
         ),
@@ -57,12 +83,24 @@ class StudentTimetableScreen extends StatelessWidget {
 
 class _DayTile extends StatelessWidget {
   final String day;
+  final List<WeekScheduleEntry> entries;
   final ColorScheme colorScheme;
 
-  const _DayTile({required this.day, required this.colorScheme});
+  const _DayTile({
+    required this.day,
+    required this.entries,
+    required this.colorScheme,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final hasClasses = entries.isNotEmpty;
+    final subtitle = !hasClasses
+        ? 'No classes'
+        : entries.length == 1
+        ? entries.first.courseCode
+        : '${entries.length} classes';
+
     return InkWell(
       onTap: () => context.push('/student/timetable/day/$day'),
       borderRadius: BorderRadius.circular(12),
@@ -72,14 +110,37 @@ class _DayTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
+          border: Border.all(
+            color: hasClasses
+                ? colorScheme.primary.withValues(alpha: 0.25)
+                : colorScheme.outline.withValues(alpha: 0.1),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              day.toUpperCase(),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  day.toUpperCase(),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontFamily: 'JetBrains Mono',
+                    color: hasClasses
+                        ? colorScheme.primary
+                        : colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+                ),
+              ],
             ),
             Icon(
               Icons.chevron_right_rounded,

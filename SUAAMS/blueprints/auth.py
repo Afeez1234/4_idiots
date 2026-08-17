@@ -12,6 +12,8 @@ def redirect_to_dashboard():
         return redirect(url_for('admin.dashboard'))
     if role == 'lecturer':
         return redirect(url_for('lecturer.dashboard'))
+    if role == 'hod':
+        return redirect(url_for('hod.dashboard'))
     if role == 'student':
         return redirect(url_for('student.dashboard'))
     session.clear()

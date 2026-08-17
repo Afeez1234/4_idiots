@@ -10,6 +10,7 @@ from blueprints.auth import auth_bp
 from blueprints.admin import admin_bp
 from blueprints.lecturer import lecturer_bp
 from blueprints.student import student_bp
+from blueprints.hod import hod_bp
 from api.auth import api_auth_bp
 from api.student import api_student_bp
 from api.lecturer import api_lecturer_bp
@@ -98,6 +99,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(admin_bp)
 app.register_blueprint(lecturer_bp)
 app.register_blueprint(student_bp)
+app.register_blueprint(hod_bp)
 app.register_blueprint(api_auth_bp)
 app.register_blueprint(api_student_bp)
 app.register_blueprint(api_lecturer_bp)

@@ -4,13 +4,20 @@ from functools import wraps
 
 #it finally worked !!!!!!!!!
 def login_required(role):
+    """`role` accepts either a single role string (the common case) or an
+    iterable of roles -- the latter is for routes an HOD-who's-also-a-
+    Lecturer needs to reach (e.g. lecturer.dashboard accepts
+    ('lecturer', 'hod') so someone holding both profiles can manage their
+    courses without a second login/account)."""
+    allowed_roles = {role} if isinstance(role, str) else set(role)
+
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
             if 'user_id' not in session:
                 flash('Please log in to access that page.', 'error')
                 return redirect(url_for('auth.login'))
-            if session.get('role') != role:
+            if session.get('role') not in allowed_roles:
                 flash('You do not have permission to access that page.', 'error')
                 return redirect(url_for('auth.login'))
             return func(*args, **kwargs)

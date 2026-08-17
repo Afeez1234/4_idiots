@@ -1,0 +1,91 @@
+{% extends "base_lecturer.html" %}
+
+{% block title %}Active Sessions | SUAAMS Lecturer{% endblock %}
+{% block page_title %}Active Sessions{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">Sessions currently running across all your courses</p>
+{% endblock %}
+
+{% block extra_head %}
+    {% if live_sessions %}
+        <!-- Keeps present/enrolled counts current while a session is live, same as course_workspace.html's own refresh. -->
+        <meta http-equiv="refresh" content="15">
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+    <div class="bg-card border border-border rounded-2xl overflow-hidden">
+        <div class="px-6 pt-6 pb-4 flex items-center justify-between">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Live Now</h2>
+            <span class="text-xs text-muted">{{ live_sessions|length }} session{{ '' if live_sessions|length == 1 else 's' }}</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-t border-border text-left">
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Started</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Elapsed</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Present</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Enrolled</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in live_sessions %}
+                        <tr class="border-t border-border hover:bg-surface/60 transition-colors cursor-pointer"
+                            onclick="window.location='{{ url_for('lecturer.course_workspace', course_id=s.course.id) }}'">
+                            <td class="px-6 py-3.5">
+                                <div class="flex items-center gap-2">
+                                    <span class="relative flex h-2 w-2 shrink-0">
+                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                                        <span class="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+                                    </span>
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-accent/10 text-accent">
+                                        {{ s.course.course_code }}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-3.5 text-secondary">{{ s.start_time.strftime('%H:%M') if s.start_time else '—' }}</td>
+                            <td class="px-6 py-3.5 text-secondary elapsed-cell" data-started-at="{{ s.started_at_iso or '' }}">
+                                {{ '—' if not s.started_at_iso }}
+                            </td>
+                            <td class="px-6 py-3.5">
+                                <span class="font-semibold text-success">{{ s.present_count }}</span>
+                            </td>
+                            <td class="px-6 py-3.5 text-secondary">{{ s.enrolled_count }}</td>
+                        </tr>
+                    {% else %}
+                        <tr class="border-t border-border">
+                            <td colspan="5" class="px-6 py-10 text-center text-sm text-muted">
+                                No sessions are currently active. Start one from a course's workspace.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Live "Xm" / "Xh Ym" elapsed readout, ticking client-side so it stays
+    // accurate between the page's own 15s refreshes.
+    function updateElapsed() {
+        const now = Date.now();
+        document.querySelectorAll('.elapsed-cell').forEach(function (cell) {
+            const iso = cell.dataset.startedAt;
+            if (!iso) return;
+            const started = new Date(iso).getTime();
+            const minutes = Math.max(0, Math.floor((now - started) / 60000));
+            const h = Math.floor(minutes / 60), m = minutes % 60;
+            cell.textContent = h > 0 ? (h + 'h ' + m + 'm') : (m + 'm');
+        });
+    }
+    updateElapsed();
+    setInterval(updateElapsed, 30000);
+</script>
+{% endblock %}

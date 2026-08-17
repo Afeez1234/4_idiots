@@ -95,6 +95,11 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   // starts can run several seconds) without mistaking that for a failed
   // check-in.
   static const int _confirmationWindowSeconds = 10;
+
+  // The anti-relay security window (matches BEACON_TOKEN_TTL_SECONDS in
+  // api/student.py) -- NOT the same clock as _confirmationWindowSeconds
+  // above. Broadcasting must stop at 3s regardless of confirmation state.
+  static const int _broadcastWindowSeconds = 3;
   int _confirmationTicks = 0;
 
   @override
@@ -185,7 +190,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
       state = NfcCheckInState(
         status: NfcCheckInStatus.broadcasting,
-        secondsRemaining: 10,
+        secondsRemaining: _broadcastWindowSeconds,
       );
 
       // Both timers start together. Broadcasting is capped at 3s
