@@ -1,6 +1,9 @@
 import mysql.connector
 from config import DB_CONFIG
 
+#judst testing thid festure
+
+
 def create_tables():
     # Connect without specifying a database first so we can create it if it doesn't exist.
     connection = mysql.connector.connect(
