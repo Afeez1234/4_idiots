@@ -52,7 +52,7 @@ const uint8_t SELECT_APDU[] = {
 // middle ground: still comfortably under the ~119-byte point where the
 // 200-byte exchange is known to have destabilized, but cuts the same token
 // down to ~4 round-trips instead of 6.
-const uint8_t CHUNK_SIZE = 96;
+const uint8_t CHUNK_SIZE = 64;
 const uint8_t RESPONSE_BUF_SIZE = CHUNK_SIZE + 2;
 
 // Safety cap on GET RESPONSE round-trips. At 96-byte chunks a ~360-byte

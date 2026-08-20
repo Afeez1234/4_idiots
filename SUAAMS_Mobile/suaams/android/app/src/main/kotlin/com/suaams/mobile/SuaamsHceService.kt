@@ -61,7 +61,7 @@ class SuaamsHceService : HostApduService() {
         // ~4 round-trips instead of 6. Single named constant, same pattern
         // as BEACON_TOKEN_TTL_SECONDS on the Flask side, so it's a one-line
         // change if real-world testing says it needs to move again.
-        private const val CHUNK_SIZE = 96
+        private const val CHUNK_SIZE = 64
 
         private val SELECT_HEADER = byteArrayOf(0x00, 0xA4.toByte(), 0x04, 0x00)
         private val GET_RESPONSE_HEADER = byteArrayOf(0x00, 0xC0.toByte(), 0x00, 0x00)

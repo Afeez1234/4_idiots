@@ -1,0 +1,57 @@
+{% extends "base_student.html" %}
+
+{% block title %}Attendance History | SUAAMS Student{% endblock %}
+{% block page_title %}Attendance History{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">Your full check-in log across all courses</p>
+{% endblock %}
+
+{% block content %}
+
+    <div class="bg-card border border-border rounded-2xl overflow-hidden">
+        <div class="px-6 pt-6 pb-4 flex items-center justify-between">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Attendance Log</h2>
+            <span class="text-xs text-muted">{{ attendance_log|length }} record{{ '' if attendance_log|length == 1 else 's' }}</span>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-t border-border text-left">
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Date</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Time</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in attendance_log %}
+                        <tr class="border-t border-border hover:bg-surface/60 transition-colors">
+                            <td class="px-6 py-3.5">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-accent/10 text-accent">
+                                    {{ record.course_code }}
+                                </span>
+                                <span class="text-xs text-muted ml-2">{{ record.course_title }}</span>
+                            </td>
+                            <td class="px-6 py-3.5 text-secondary">{{ record.date }}</td>
+                            <td class="px-6 py-3.5 text-secondary">{{ record.time }}</td>
+                            <td class="px-6 py-3.5">
+                                {% set is_present = record.status in ('present', 'late') %}
+                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold
+                                            {{ 'bg-success/10 text-success' if is_present else 'bg-error/10 text-error' }}">
+                                    <span class="w-1.5 h-1.5 rounded-full {{ 'bg-success' if is_present else 'bg-error' }}"></span>
+                                    {{ record.status|capitalize }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr class="border-t border-border">
+                            <td colspan="4" class="px-6 py-10 text-center text-sm text-muted">No attendance records found.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+{% endblock %}

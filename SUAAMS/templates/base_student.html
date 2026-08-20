@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SUAAMS Student{% endblock %}</title>
+
+    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-surface text-white font-sans antialiased">
+
+    <div class="fixed inset-0 flex overflow-hidden">
+
+        <div id="sidebar-backdrop" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden"></div>
+
+        <!-- ============ SIDEBAR ============ -->
+        <aside id="sidebar"
+               class="fixed lg:static inset-y-0 left-0 z-40 w-64 shrink-0 bg-sidebar border-r border-border
+                      flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-200">
+
+            <!-- Brand: same shield mark as base_admin.html/base_lecturer.html, subtitle swapped to Student Portal. -->
+            <div class="h-16 flex items-center gap-3 px-5 border-b border-border shrink-0">
+                <svg viewBox="0 0 48 48" class="w-8 h-8 text-accent shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M24 6 L10 12 L10 24 C10 31.73 16.27 38.92 24 41 C31.73 38.92 38 31.73 38 24 L38 12 Z"/>
+                    <path d="M20.5 27.5 A5 5 0 0 1 20.5 20.5"/>
+                    <path d="M17.6 30.4 A9 9 0 0 1 17.6 17.6" stroke-opacity=".5"/>
+                    <path d="M27.5 27.5 A5 5 0 0 0 27.5 20.5"/>
+                    <path d="M30.4 30.4 A9 9 0 0 0 30.4 17.6" stroke-opacity=".5"/>
+                    <circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/>
+                </svg>
+                <div class="leading-tight">
+                    <p class="text-sm font-bold tracking-wide">SUAAMS</p>
+                    <p class="text-[10px] text-muted uppercase tracking-widest">Student Portal</p>
+                </div>
+            </div>
+
+            <!-- Active semester pill -- supplied by inject_student_context(), same pattern as admin/lecturer. -->
+            <div class="px-5 py-3 border-b border-border shrink-0">
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/20 text-[11px] font-semibold text-accent">
+                    <span class="material-symbols-rounded text-[14px]">event_available</span>
+                    {{ active_semester.name if active_semester else 'No active semester' }}
+                </div>
+            </div>
+
+            <!-- Nav -->
+            <nav class="flex-1 overflow-y-auto no-scrollbar px-3 py-5 space-y-6">
+
+                <div>
+                    <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Overview</p>
+                    <div class="space-y-1">
+                        <a href="{{ url_for('student.dashboard') }}"
+                           class="nav-link {{ 'nav-link-active' if active_page == 'dashboard' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">dashboard</span>
+                            <span>Dashboard</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Academics</p>
+                    <div class="space-y-1">
+                        <a href="{{ url_for('student.my_courses') }}" class="nav-link {{ 'nav-link-active' if active_page == 'my_courses' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">book</span>
+                            <span>My Courses</span>
+                        </a>
+                        <a href="{{ url_for('student.attendance_history') }}" class="nav-link {{ 'nav-link-active' if active_page == 'attendance_history' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">history</span>
+                            <span>Attendance History</span>
+                        </a>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Communication</p>
+                    <div class="space-y-1">
+                        <a href="{{ url_for('student.announcements') }}" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">campaign</span>
+                            <span>Announcements</span>
+                        </a>
+                    </div>
+                </div>
+
+            </nav>
+
+            <!-- Sidebar footer: signed-in student + logout -->
+            <div class="border-t border-border p-4 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-bold text-sm">
+                        {{ session.get('username', 'S')[0]|upper }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm font-semibold truncate">{{ session.get('username', 'Student') }}</p>
+                        <p class="text-[11px] text-muted capitalize">{{ session.get('role', 'student') }}</p>
+                    </div>
+                    <a href="{{ url_for('auth.logout') }}" title="Sign out"
+                       class="text-muted hover:text-error transition-colors">
+                        <span class="material-symbols-rounded text-[20px]">logout</span>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- ============ MAIN COLUMN (topbar + content) ============ -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+            <header class="h-16 shrink-0 flex items-center justify-between gap-4 px-4 lg:px-8 border-b border-border bg-surface/95 backdrop-blur">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button id="sidebar-toggle" class="lg:hidden text-secondary hover:text-white">
+                        <span class="material-symbols-rounded">menu</span>
+                    </button>
+                    <div class="min-w-0">
+                        <h1 class="text-lg font-bold truncate">{% block page_title %}Dashboard{% endblock %}</h1>
+                        {% block page_subtitle %}{% endblock %}
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 text-xs text-secondary shrink-0">
+                    <span class="w-2 h-2 rounded-full bg-success"></span>
+                    <span class="hidden sm:inline">System Online</span>
+                </div>
+            </header>
+
+            <main class="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6">
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="space-y-2">
+                            {% for category, message in messages %}
+                                {% set is_success = category == 'success' %}
+                                <div class="px-4 py-3 rounded-xl border text-sm flex items-center gap-2
+                                            {{ 'border-success/30 bg-success/10 text-success' if is_success else 'border-error/30 bg-error/10 text-error' }}">
+                                    <span class="material-symbols-rounded text-base">{{ 'check_circle' if is_success else 'report_problem' }}</span>
+                                    <span>{{ message }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebar-backdrop');
+        const toggleBtn = document.getElementById('sidebar-toggle');
+
+        function openSidebar() {
+            sidebar.classList.remove('-translate-x-full');
+            backdrop.classList.remove('hidden');
+        }
+        function closeSidebar() {
+            sidebar.classList.add('-translate-x-full');
+            backdrop.classList.add('hidden');
+        }
+        toggleBtn.addEventListener('click', openSidebar);
+        backdrop.addEventListener('click', closeSidebar);
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

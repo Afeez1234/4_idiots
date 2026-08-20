@@ -1,199 +1,151 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SUAAMS — Student Dashboard</title>
-    <link href="{{ url_for('static', filename='css/bootstrap.min.css') }}" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/student_dashboard.css') }}" rel="stylesheet">
-</head>
-<body>
+{% extends "base_student.html" %}
 
-    <aside class="sidebar">
-        <div class="sidebar-brand">
-            <div class="brand-badge">
-                <div class="brand-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="#00D4FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h.01M18 14h.01M14 18h.01M18 18h.01"/></svg>
-                </div>
-                <div>
-                    <div class="brand-name">SUA<span>AMS</span></div>
-                    <div class="brand-role">Student Portal</div>
-                </div>
+{% block title %}Dashboard | SUAAMS Student{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}
+    <p class="text-xs text-secondary">Welcome back, {{ student_profile.full_name or session.get('username', 'Student') }}</p>
+{% endblock %}
+
+{% block content %}
+
+    <!-- Profile banner -->
+    <div class="bg-card border border-border rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center gap-4 min-w-0">
+            <div class="w-12 h-12 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-bold text-lg shrink-0">
+                {{ (student_profile.full_name or session.get('username', 'S'))[0]|upper }}
+            </div>
+            <div class="min-w-0">
+                <p class="text-sm font-semibold truncate">{{ student_profile.full_name or session.get('username') }}</p>
+                <p class="text-xs text-secondary mt-0.5">
+                    {{ student_profile.matric_number or '—' }}
+                    {% if student_profile.department %} &middot; {{ student_profile.department }}{% endif %}
+                    {% if student_profile.level %} &middot; {{ student_profile.level }} Level{% endif %}
+                </p>
             </div>
         </div>
-        <nav class="sidebar-nav">
-            <div class="nav-section-label">Main</div>
-            <a href="{{ url_for('student.dashboard') }}" class="nav-link active">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                Dashboard
-            </a>
-            <div class="nav-section-label">Academics</div>
-            <a href="#" class="nav-link">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                My Courses
-            </a>
-            <a href="#" class="nav-link">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                Attendance History
-            </a>
-        </nav>
-        <div class="sidebar-footer">
-            <a href="{{ url_for('auth.logout') }}" class="btn-logout">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                Sign Out
-            </a>
-        </div>
-    </aside>
-
-    <div class="main">
-        <header class="topbar">
-            <div class="topbar-title">Student Dashboard</div>
-            <div class="topbar-user">
-                <div class="user-avatar">{{ (student_profile.full_name or session['username'])[0]|upper }}</div>
-                <span>{{ student_profile.full_name or session['username'] }}</span>
-            </div>
-        </header>
-
-        <div class="content">
-
-            {% for category, message in get_flashed_messages(with_categories=True) %}
-                <div class="flash-msg {{ category }}">{{ message }}</div>
-            {% endfor %}
-
-            <!-- Profile banner -->
-            <div class="profile-banner">
-                <div class="profile-pic" id="avatarPic">—</div>
-                <div class="profile-info">
-                    <div class="profile-name" id="profileName">{{ student_profile.full_name or session['username'] }}</div>
-                    <div class="profile-meta">
-                        <div class="profile-meta-item">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
-                            <span id="profileDept">{{ student_profile.department or '—' }}</span>
-                        </div>
-                        <div class="profile-meta-item">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                            <span id="profileLevel">{{ student_profile.level or '—' }}</span>
-                        </div>
-                        <div class="profile-meta-item">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                            <span>{{ student_profile.full_name or session['username'] }}</span>
-                        </div>
-                        <div class="profile-meta-item">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M7 3h10"/><rect x="4" y="7" width="16" height="13" rx="2"/></svg>
-                            <span id="profileMatric">{{ student_profile.matric_number or '—' }}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="rfid-badge">
-                    <div class="rfid-badge-label">RFID Tag</div>
-                    <div class="rfid-badge-val" id="rfidDisplay">{{ 'Linked ✓' if student_profile.rfid_uid else 'Not linked' }}</div>
-                </div>
-            </div>
-
-            <!-- Stats -->
-            <div class="stats-grid">
-                <div class="stat-card cyan">
-                    <div class="stat-label">Courses Enrolled</div>
-                    <div class="stat-value" >{{ enrollment_count }}</div>
-                    <div class="stat-desc">This semester</div>
-                </div>
-                <div class="stat-card green">
-                    <div class="stat-label">Sessions Attended</div>
-                    <div class="stat-value" id="statAttended">{{ attendance_count }}</div>
-                    <div class="stat-desc">Total check-ins</div>
-                </div>
-                <div class="stat-card amber">
-                    <div class="stat-label">Attendance Rate</div>
-                    <div class="stat-value" id="statRate">{{ overall_rate }}%</div>
-                    <div class="stat-desc">Overall percentage</div>
-                </div>
-                <div class="stat-card red">
-                    <div class="stat-label">At-Risk Courses</div>
-                    <div class="stat-value" id="statRisk">{{ at_risk_count }}</div>
-                    <div class="stat-desc">Below 75%</div>
-                </div>
-            </div>
-
-            <!-- Attendance ring + courses -->
-            <div class="two-col" style="margin-bottom:1.5rem;">
-                <!-- Overall ring -->
-                <div class="ring-card">
-                    <div class="ring-wrap">
-                        <svg width="120" height="120" viewBox="0 0 120 120">
-                            <circle class="ring-bg"   cx="60" cy="60" r="50"/>
-                            <circle class="ring-fill" cx="60" cy="60" r="50" id="ringFill"
-                                stroke-dasharray="314.16"
-                                stroke-dashoffset="314.16"/>
-                        </svg>
-                        <div class="ring-label">
-                            <div class="ring-pct" id="ringPct">—%</div>
-                            <div class="ring-sub">overall</div>
-                        </div>
-                    </div>
-                    <div class="ring-title">Attendance Overview</div>
-                    <div class="ring-desc">Your attendance across all enrolled courses this semester.</div>
-                    <div id="ringPill" class="ring-ok-pill">Good standing</div>
-                </div>
-
-                <!-- Per-course breakdown -->
-                <div class="courses-card">
-                    <div class="card-header">
-                        <div class="card-header-left">
-                            <div class="card-header-icon">
-                                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                            </div>
-                            <div class="card-header-title">Course Breakdown</div>
-                        </div>
-                    </div>
-                    <div id="courseList"></div>
-                </div>
-            </div>
-
-            <!-- Recent attendance history -->
-            <div class="section-heading">Recent Attendance History</div>
-            <div class="table-card">
-                <div class="card-header">
-                    <div class="card-header-left">
-                        <div class="card-header-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                        </div>
-                        <div class="card-header-title">Attendance Log</div>
-                    </div>
-                </div>
-                <div style="overflow-x:auto;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Course</th>
-                                <th>Date</th>
-                                <th>Time</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="attendanceLog">
-                            <tr>
-                                <td colspan="4">
-                                    <div class="empty-state">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                                        <p>No attendance records found</p>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
+        <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold shrink-0
+                    {{ 'bg-success/10 text-success' if student_profile.rfid_uid else 'bg-warning/10 text-warning' }}">
+            <span class="material-symbols-rounded text-[14px]">{{ 'contactless' if student_profile.rfid_uid else 'contactless_off' }}</span>
+            {{ 'RFID Linked' if student_profile.rfid_uid else 'RFID Not Linked' }}
         </div>
     </div>
 
-    <script>
-        // Send the Flask-built dashboard data to JavaScript.
-        // This is the reusable pattern: create data in Python/Flask, expose it in HTML, then read it in JS.
-        window.dashboardData = {{ dashboard_data|tojson }};
-    </script>
-    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/student_dashboard.js') }}"></script>
-</body>
-</html>
+    <!-- Stat cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Courses Enrolled</span>
+                <span class="material-symbols-rounded text-accent">book</span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ enrollment_count }}</p>
+            <p class="mt-1 text-xs text-muted">This semester</p>
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Sessions Attended</span>
+                <span class="material-symbols-rounded text-success">how_to_reg</span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ attendance_count }}</p>
+            <p class="mt-1 text-xs text-muted">Total check-ins</p>
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Attendance Rate</span>
+                <span class="material-symbols-rounded text-accent">insights</span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold">{{ overall_rate }}%</p>
+            <p class="mt-1 text-xs text-muted">Overall percentage</p>
+        </div>
+
+        <div class="bg-card border border-border rounded-2xl p-5">
+            <div class="flex items-start justify-between">
+                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">At-Risk Courses</span>
+                <span class="material-symbols-rounded {{ 'text-error' if at_risk_count else 'text-muted' }}">warning</span>
+            </div>
+            <p class="mt-4 text-3xl font-extrabold {{ 'text-error' if at_risk_count else '' }}">{{ at_risk_count }}</p>
+            <p class="mt-1 text-xs text-muted">Below 75%</p>
+        </div>
+    </div>
+
+    <!-- Course breakdown -->
+    <div class="bg-card border border-border rounded-2xl p-6">
+        <div class="flex items-center justify-between gap-4 flex-wrap mb-1">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Course Breakdown</h2>
+            <a href="{{ url_for('student.my_courses') }}" class="text-xs text-accent hover:underline">View all courses</a>
+        </div>
+
+        {% if courses %}
+            <div class="mt-4 space-y-4">
+                {% for course in courses %}
+                    <div>
+                        <div class="flex items-center justify-between gap-3 mb-1.5">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-accent/10 text-accent shrink-0">
+                                    {{ course.code }}
+                                </span>
+                                <span class="text-sm text-secondary truncate">{{ course.name }}</span>
+                            </div>
+                            <span class="text-sm font-semibold shrink-0 {{ 'text-error' if course.pct < 75 else 'text-success' }}">{{ course.pct }}%</span>
+                        </div>
+                        <div class="h-1 rounded-full bg-muted/20">
+                            <div class="h-1 rounded-full {{ 'bg-error' if course.pct < 75 else 'bg-success' }}" style="width: {{ course.pct }}%"></div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="mt-4 py-10 text-center">
+                <p class="text-sm text-muted">You're not enrolled in any courses yet.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Recent attendance history -->
+    <div class="bg-card border border-border rounded-2xl overflow-hidden">
+        <div class="px-6 pt-6 pb-4 flex items-center justify-between gap-4 flex-wrap">
+            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Recent Attendance</h2>
+            <a href="{{ url_for('student.attendance_history') }}" class="text-xs text-accent hover:underline">View full history</a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-t border-border text-left">
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Date</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Time</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in recent_attendance %}
+                        <tr class="border-t border-border hover:bg-surface/60 transition-colors">
+                            <td class="px-6 py-3.5">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-accent/10 text-accent">
+                                    {{ record.course }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-3.5 text-secondary">{{ record.date }}</td>
+                            <td class="px-6 py-3.5 text-secondary">{{ record.time }}</td>
+                            <td class="px-6 py-3.5">
+                                {% set is_present = record.status in ('present', 'late') %}
+                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold
+                                            {{ 'bg-success/10 text-success' if is_present else 'bg-error/10 text-error' }}">
+                                    <span class="w-1.5 h-1.5 rounded-full {{ 'bg-success' if is_present else 'bg-error' }}"></span>
+                                    {{ record.status|capitalize }}
+                                </span>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr class="border-t border-border">
+                            <td colspan="4" class="px-6 py-10 text-center text-sm text-muted">No attendance records found.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+{% endblock %}
