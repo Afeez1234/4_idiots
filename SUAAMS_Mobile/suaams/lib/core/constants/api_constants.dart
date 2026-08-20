@@ -3,8 +3,9 @@
 abstract final class ApiConstants {
   // Use 10.0.2.2 for Android Emulator connecting to local Flask server.
   // static const String baseUrl = 'http://10.0.2.2:5000/api/v1';//localhost for testing
-  static const String baseUrl = 'https://suaams.onrender.com/api/v1';//for production
-  
+  static const String baseUrl =
+      'https://suaams.onrender.com/api/v1'; //for production
+
   static const String loginEndpoint = '$baseUrl/auth/login';
   static const String studentDashboardEndpoint = '$baseUrl/student/dashboard';
   static const String attendanceEndpoint = '$baseUrl/attendance';
@@ -70,7 +71,8 @@ abstract final class ApiConstants {
   // Self-service course registration -- see get_available_courses/
   // register_course/drop_course in api/student.py. Scoped server-side to
   // the student's own department + the currently active semester.
-  static const String availableCoursesEndpoint = '$baseUrl/student/courses/available';
+  static const String availableCoursesEndpoint =
+      '$baseUrl/student/courses/available';
 
   static String registerCourseEndpoint(int courseId) =>
       '$baseUrl/student/courses/$courseId/register';

@@ -23,9 +23,9 @@ class AnnouncementsListScreen extends ConsumerWidget {
       if (next.errorMessage != null &&
           next.errorMessage != previous?.errorMessage &&
           !next.isLoading) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.errorMessage!)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(next.errorMessage!)));
       }
     });
 
@@ -134,12 +134,18 @@ class _AnnouncementCard extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: colorScheme.surfaceContainer,
-        title: const Text('Delete Announcement', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Delete Announcement',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         content: Text('Delete "${item.title}"? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('CANCEL', style: TextStyle(color: colorScheme.onSurface)),
+            child: Text(
+              'CANCEL',
+              style: TextStyle(color: colorScheme.onSurface),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -175,7 +181,10 @@ class _AnnouncementCard extends ConsumerWidget {
               Expanded(
                 child: Text(
                   item.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
                 ),
               ),
               if (item.courseCode != null) ...[
