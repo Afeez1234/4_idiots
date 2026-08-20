@@ -22,8 +22,27 @@
         <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
             <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Assign HOD</h2>
 
-            <form action="{{ url_for('admin.hods_page') }}" method="POST" class="space-y-4">
+            <!-- Mode toggle: promoting an existing lecturer reuses their
+                 existing User row/login (only their role flips to 'hod' and
+                 a new HOD profile is linked to that same account) rather
+                 than creating a second, separate account for the same
+                 person -- see hods_page's action == 'promote_lecturer'
+                 branch in blueprints/admin.py. -->
+            <div class="flex gap-1.5 p-1 mb-5 bg-surface rounded-lg border border-border">
+                <button type="button" data-mode-tab="new"
+                        class="mode-tab flex-1 text-xs font-semibold rounded-md py-2 transition-colors bg-accent text-white">
+                    New Account
+                </button>
+                <button type="button" data-mode-tab="promote"
+                        class="mode-tab flex-1 text-xs font-semibold rounded-md py-2 transition-colors text-secondary hover:text-white">
+                    Promote Lecturer
+                </button>
+            </div>
+
+            <!-- New Account -->
+            <form id="mode-form-new" action="{{ url_for('admin.hods_page') }}" method="POST" class="space-y-4">
                 {% include '_csrf_field.html' %}
+                <input type="hidden" name="action" value="create_new">
 
                 <div>
                     <label class="block text-xs font-medium text-secondary mb-1.5">Full Name</label>
@@ -49,6 +68,45 @@
                 <button type="submit"
                         class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
                     Assign HOD
+                </button>
+            </form>
+
+            <!-- Promote Existing Lecturer -->
+            <form id="mode-form-promote" action="{{ url_for('admin.hods_page') }}" method="POST" class="space-y-4 hidden">
+                {% include '_csrf_field.html' %}
+                <input type="hidden" name="action" value="promote_lecturer">
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Lecturer</label>
+                    <select name="lecturer_id" required class="form-select">
+                        <option value="" disabled selected>Select lecturer</option>
+                        {% for lect in promotable_lecturers %}
+                            <option value="{{ lect.id }}">{{ lect.full_name }} &middot; {{ lect.staff_id }} &middot; {{ lect.department.name if lect.department else 'No department' }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if not promotable_lecturers %}
+                        <p class="mt-1.5 text-[11px] text-muted">No lecturers available to promote -- everyone with a lecturer account is already an HOD.</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-secondary mb-1.5">Department (as HOD)</label>
+                    <select name="department_id" required class="form-select">
+                        <option value="" disabled selected>Select department</option>
+                        {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <p class="mt-1.5 text-[11px] text-muted">Usually the same department they already teach in, but not required to be.</p>
+                </div>
+
+                <p class="text-[11px] text-secondary bg-surface border border-border rounded-lg px-3 py-2">
+                    Their existing login stays the same -- they'll land on the HOD dashboard next time they sign in, with a link back into their own courses.
+                </p>
+
+                <button type="submit" {{ 'disabled' if not promotable_lecturers else '' }}
+                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    Promote to HOD
                 </button>
             </form>
         </div>
@@ -102,4 +160,33 @@
         </div>
     </div>
 
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    (function () {
+        var tabs = document.querySelectorAll('[data-mode-tab]');
+        var forms = {
+            new: document.getElementById('mode-form-new'),
+            promote: document.getElementById('mode-form-promote'),
+        };
+
+        tabs.forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                var mode = tab.dataset.modeTab;
+
+                tabs.forEach(function (t) {
+                    var active = t === tab;
+                    t.classList.toggle('bg-accent', active);
+                    t.classList.toggle('text-white', active);
+                    t.classList.toggle('text-secondary', !active);
+                });
+
+                Object.keys(forms).forEach(function (key) {
+                    forms[key].classList.toggle('hidden', key !== mode);
+                });
+            });
+        });
+    })();
+</script>
 {% endblock %}

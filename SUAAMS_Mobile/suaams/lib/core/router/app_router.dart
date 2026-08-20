@@ -75,7 +75,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       if (user != null && (isLoggingIn || isSplash)) {
         if (user.role == 'admin') return '/admin';
-        if (user.role == 'lecturer') return '/lecturer/home';
+        // No HOD-specific mobile screen exists -- an HOD promoted from an
+        // existing Lecturer account (see hods_page's action ==
+        // 'promote_lecturer' in blueprints/admin.py) keeps that Lecturer
+        // profile, so mobile is only ever useful to them for their own
+        // teaching duties. Routes them into the same portal a plain
+        // lecturer gets; get_lecturer_or_403 in api/lecturer.py accepts
+        // role 'hod' too so the API calls that screen makes still work.
+        if (user.role == 'lecturer' || user.role == 'hod') {
+          return '/lecturer/home';
+        }
         if (user.role == 'student') return '/student/home';
       }
 

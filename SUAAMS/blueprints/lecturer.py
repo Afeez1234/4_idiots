@@ -325,12 +325,41 @@ def announcements():
 
         return redirect(url_for('lecturer.announcements'))
 
-    sent_announcements = Announcement.query.filter_by(sender_id=user_id).order_by(Announcement.created_at.desc()).all()
+    sent_announcements = (
+        Announcement.query
+        .filter_by(sender_id=user_id, is_active=True)
+        .order_by(Announcement.created_at.desc())
+        .all()
+    )
     return render_template(
         'lecturer/announcements.html',
         announcements=sent_announcements,
         active_page='announcements',
     )
+
+
+@lecturer_bp.route('/lecturer/announcements/<int:announcement_id>/delete', methods=['POST'])
+@login_required(('lecturer', 'hod'))
+def delete_announcement(announcement_id):
+    """Soft-delete, scoped to sender_id so a lecturer can only delete their
+    own announcements (unlike admin's equivalent in blueprints/admin.py,
+    which can delete any)."""
+    user_id = session.get('user_id')
+    announcement = Announcement.query.filter_by(id=announcement_id, sender_id=user_id).first()
+    if not announcement:
+        flash('Announcement not found or access denied.', 'error')
+        return redirect(url_for('lecturer.announcements'))
+
+    try:
+        announcement.is_active = False
+        db.session.commit()
+        flash(f"Announcement '{announcement.title}' deleted.", 'success')
+    except Exception:
+        db.session.rollback()
+        flash('Failed to delete announcement.', 'error')
+        log_exception("Lecturer Announcement Delete Error")
+
+    return redirect(url_for('lecturer.announcements'))
 
 
 # Validated categorical palette (see dataviz skill) for course identity in
