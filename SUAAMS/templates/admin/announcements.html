@@ -81,7 +81,16 @@
                                 {% endif %}
                             </p>
                         </div>
-                        {% if not a.is_active %}
+                        {% if a.is_active %}
+                            <form action="{{ url_for('admin.delete_announcement', announcement_id=a.id) }}" method="POST"
+                                  onsubmit="return confirm('Delete this announcement? This cannot be undone.');" class="shrink-0">
+                                {% include '_csrf_field.html' %}
+                                <button type="submit" title="Delete announcement"
+                                        class="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition-colors">
+                                    <span class="material-symbols-rounded text-[18px]">delete</span>
+                                </button>
+                            </form>
+                        {% else %}
                             <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-muted/10 text-muted shrink-0">Inactive</span>
                         {% endif %}
                     </div>

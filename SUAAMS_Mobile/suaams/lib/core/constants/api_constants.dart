@@ -107,4 +107,10 @@ abstract final class ApiConstants {
 
   static String createAnnouncementEndpoint(int courseId) =>
       '$baseUrl/lecturer/course/$courseId/announcements';
+
+  // See delete_lecturer_announcement in api/lecturer.py -- soft-deletes
+  // (is_active=False), scoped server-side to announcements this lecturer
+  // posted themselves.
+  static String deleteAnnouncementEndpoint(int announcementId) =>
+      '$baseUrl/lecturer/announcements/$announcementId';
 }
