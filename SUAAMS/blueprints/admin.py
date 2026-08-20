@@ -928,50 +928,95 @@ def semesters_page():
 @admin_bp.route('/hods', methods=['GET', 'POST'])
 def hods_page():
     if request.method == 'POST':
-        full_name = request.form.get('full_name')
-        staff_id = request.form.get('staff_id')
+        action = request.form.get('action', 'create_new')
         department_id = request.form.get('department_id')
 
-        if not all([full_name, staff_id, department_id]):
-            flash('All fields are required to assign an HOD.', 'error')
+        if not department_id:
+            flash('A department is required to assign an HOD.', 'error')
             return redirect(url_for('admin.hods_page'))
 
         try:
-            existing_user = User.query.filter_by(username=staff_id.strip()).first()
-            if existing_user:
-                flash('Staff ID is already registered as an active username.', 'error')
-                return redirect(url_for('admin.hods_page'))
-
             # GAP (also flagged in hods.html's own comment): nothing stops
             # a department getting a second HOD at the schema level --
             # HOD.department_id has no unique constraint in models.py.
             # Rejecting a duplicate assignment here since the schema
-            # doesn't enforce it.
+            # doesn't enforce it. Shared by both actions below.
             existing_hod = HOD.query.filter_by(department_id=int(department_id)).first()
             if existing_hod:
                 flash(f"{existing_hod.department.name} already has an HOD assigned ({existing_hod.full_name}).", 'error')
                 return redirect(url_for('admin.hods_page'))
 
-            hashed_password = bcrypt.hashpw(staff_id.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            user = User(
-                username=staff_id.strip(),
-                password_hash=hashed_password,
-                role='hod',
-                is_active=True,
-                requires_password_change=True,
-            )
-            db.session.add(user)
-            db.session.flush()
+            if action == 'promote_lecturer':
+                lecturer_id = request.form.get('lecturer_id')
+                if not lecturer_id:
+                    flash('Select a lecturer to promote.', 'error')
+                    return redirect(url_for('admin.hods_page'))
 
-            hod = HOD(
-                full_name=full_name.strip(),
-                staff_id=staff_id.strip(),
-                department_id=int(department_id),
-                user_id=user.id,
-            )
-            db.session.add(hod)
-            db.session.commit()
-            flash(f"HOD account created successfully for {full_name}.", 'success')
+                lecturer = Lecturer.query.get(int(lecturer_id))
+                if not lecturer:
+                    flash('Lecturer not found.', 'error')
+                    return redirect(url_for('admin.hods_page'))
+
+                if HOD.query.filter_by(user_id=lecturer.user_id).first():
+                    flash(f"{lecturer.full_name} is already an HOD.", 'error')
+                    return redirect(url_for('admin.hods_page'))
+
+                # Reuses the lecturer's existing User row (and therefore
+                # their existing login credentials) instead of creating a
+                # second account -- HOD becomes their primary role (what
+                # they land on after login, matching login_required('hod')
+                # gating admin_bp/hod_bp routes), but the Lecturer row is
+                # deliberately left in place so login_required(('lecturer',
+                # 'hod')) on blueprints/lecturer.py still lets them into
+                # their own courses (see hod_bp's has_lecturer_profile
+                # context flag, which is exactly this: an HOD account that
+                # also still holds a Lecturer profile).
+                user = User.query.get(lecturer.user_id)
+                user.role = 'hod'
+
+                hod = HOD(
+                    full_name=lecturer.full_name,
+                    staff_id=lecturer.staff_id,
+                    department_id=int(department_id),
+                    user_id=lecturer.user_id,
+                )
+                db.session.add(hod)
+                db.session.commit()
+                flash(f"{lecturer.full_name} promoted to HOD.", 'success')
+
+            else:
+                full_name = request.form.get('full_name')
+                staff_id = request.form.get('staff_id')
+
+                if not all([full_name, staff_id]):
+                    flash('Full name and staff ID are required to assign an HOD.', 'error')
+                    return redirect(url_for('admin.hods_page'))
+
+                existing_user = User.query.filter_by(username=staff_id.strip()).first()
+                if existing_user:
+                    flash('Staff ID is already registered as an active username.', 'error')
+                    return redirect(url_for('admin.hods_page'))
+
+                hashed_password = bcrypt.hashpw(staff_id.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                user = User(
+                    username=staff_id.strip(),
+                    password_hash=hashed_password,
+                    role='hod',
+                    is_active=True,
+                    requires_password_change=True,
+                )
+                db.session.add(user)
+                db.session.flush()
+
+                hod = HOD(
+                    full_name=full_name.strip(),
+                    staff_id=staff_id.strip(),
+                    department_id=int(department_id),
+                    user_id=user.id,
+                )
+                db.session.add(hod)
+                db.session.commit()
+                flash(f"HOD account created successfully for {full_name}.", 'success')
         except Exception:
             db.session.rollback()
             flash('Failed to assign HOD. Verify values.', 'error')
@@ -981,10 +1026,20 @@ def hods_page():
 
     hods = HOD.query.all()
     departments = Department.query.all()
+    # Only lecturers not already promoted -- promoting flips User.role to
+    # 'hod', so this filter naturally excludes anyone already promoted
+    # without needing separate bookkeeping.
+    promotable_lecturers = (
+        Lecturer.query.join(User, Lecturer.user_id == User.id)
+        .filter(User.role == 'lecturer')
+        .order_by(Lecturer.full_name)
+        .all()
+    )
     return render_template(
         'admin/hods.html',
         hods=hods,
         departments=departments,
+        promotable_lecturers=promotable_lecturers,
         active_page='hods',
     )
 
