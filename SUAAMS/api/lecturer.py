@@ -9,9 +9,18 @@ api_lecturer_bp = Blueprint('api_lecturer', __name__, url_prefix='/api/v1/lectur
 
 
 def get_lecturer_or_403():
-    """Helper — fetches the lecturer from JWT identity, returns None if unauthorized."""
+    """
+    Helper — fetches the lecturer from JWT identity, returns None if
+    unauthorized. Accepts role 'hod' too, matching login_required(('lecturer',
+    'hod')) on the web side (blueprints/lecturer.py) -- an HOD who was
+    promoted from an existing Lecturer account (see hods_page's
+    action == 'promote_lecturer' in blueprints/admin.py) keeps that Lecturer
+    profile row, and without this they'd lose mobile access to their own
+    course workspace/session start-stop the moment they got promoted, even
+    though the web dashboard already keeps working for them.
+    """
     claims = get_jwt()
-    if claims.get('role') != 'lecturer':
+    if claims.get('role') not in ('lecturer', 'hod'):
         return None, jsonify({"error": "Unauthorized access. Lecturers only."}), 403
     current_user_id = int(get_jwt_identity())
     lecturer = Lecturer.query.filter_by(user_id=current_user_id).first()
@@ -663,7 +672,11 @@ def get_lecturer_announcements():
 
         announcements = (
             Announcement.query
-            .filter(Announcement.course_id.in_(course_ids), Announcement.scope == 'course')
+            .filter(
+                Announcement.course_id.in_(course_ids),
+                Announcement.scope == 'course',
+                Announcement.is_active == True,  # noqa: E712 -- SQLAlchemy comparator, not a Python bool check
+            )
             .order_by(Announcement.created_at.desc())
             .all()
         )

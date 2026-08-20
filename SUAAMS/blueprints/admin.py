@@ -1091,6 +1091,31 @@ def announcements_page():
     )
 
 
+@admin_bp.route('/announcements/<int:announcement_id>/delete', methods=['POST'])
+def delete_announcement(announcement_id):
+    """Soft-delete: flips is_active rather than removing the row, so the
+    announcement disappears from lecturer/mobile audience views immediately
+    but stays visible here (grayed out, see the 'Inactive' badge in
+    admin/announcements.html) as an audit trail. Admin can delete any
+    announcement regardless of who posted it -- no ownership check, unlike
+    the lecturer-side equivalent in blueprints/lecturer.py."""
+    announcement = Announcement.query.get(announcement_id)
+    if not announcement:
+        flash('Announcement not found.', 'error')
+        return redirect(url_for('admin.announcements_page'))
+
+    try:
+        announcement.is_active = False
+        db.session.commit()
+        flash(f"Announcement '{announcement.title}' deleted.", 'success')
+    except Exception:
+        db.session.rollback()
+        flash('Failed to delete announcement.', 'error')
+        log_exception("Announcement Delete Error")
+
+    return redirect(url_for('admin.announcements_page'))
+
+
 # ==========================================
 # REPORTS
 # ==========================================
