@@ -738,3 +738,31 @@ def create_lecturer_announcement(course_id):
     except Exception:
         db.session.rollback()
         return api_error_response("Create Announcement API Error", "Failed to post announcement")
+
+
+@api_lecturer_bp.route('/announcements/<int:announcement_id>', methods=['DELETE'])
+@jwt_required()
+def delete_lecturer_announcement(announcement_id):
+    """Soft-delete (is_active=False), scoped to sender_id -- a lecturer can
+    only delete their own posted announcements. Mirrors the web equivalent
+    in blueprints/lecturer.py; admin's version in blueprints/admin.py has no
+    ownership check since admin can delete any announcement."""
+    lecturer, error_response, status = get_lecturer_or_403()
+    if error_response:
+        return error_response, status
+
+    try:
+        announcement = Announcement.query.filter_by(
+            id=announcement_id, sender_id=lecturer.user_id
+        ).first()
+        if not announcement:
+            return jsonify({"error": "Announcement not found or access denied."}), 404
+
+        announcement.is_active = False
+        db.session.commit()
+
+        return jsonify({"success": True, "message": "Announcement deleted."}), 200
+
+    except Exception:
+        db.session.rollback()
+        return api_error_response("Delete Announcement API Error", "Failed to delete announcement")
