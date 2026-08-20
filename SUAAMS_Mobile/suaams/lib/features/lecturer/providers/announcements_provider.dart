@@ -92,4 +92,28 @@ class AnnouncementsNotifier extends Notifier<AnnouncementsState> {
       return false;
     }
   }
+
+  // Same true/false + reload-after-mutate convention as postAnnouncement
+  // above. Reloading (rather than removing the id locally) keeps this in
+  // sync with the server's is_active filter as the source of truth, same
+  // reasoning as CourseRegistrationNotifier only flipping its local
+  // `enrolled` flag after the server confirms the mutation.
+  Future<bool> deleteAnnouncement(int announcementId) async {
+    try {
+      final lecturerService = ref.read(lecturerServiceProvider);
+      await withAuthRetry(
+        ref,
+        (token) => lecturerService.deleteAnnouncement(token, announcementId),
+      );
+      await loadAnnouncements();
+      return true;
+    } catch (e) {
+      if (ref.mounted) {
+        state = state.copyWith(
+          errorMessage: e.toString().replaceAll('Exception: ', ''),
+        );
+      }
+      return false;
+    }
+  }
 }

@@ -300,4 +300,29 @@ class LecturerService {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
+
+  Future<void> deleteAnnouncement(String token, int announcementId) async {
+    try {
+      final response = await http.delete(
+        Uri.parse(ApiConstants.deleteAnnouncementEndpoint(announcementId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (!(response.statusCode == 200 && responseData['success'] == true)) {
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
 }
