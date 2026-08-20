@@ -15,6 +15,20 @@ class AnnouncementsListScreen extends ConsumerWidget {
     final state = ref.watch(announcementsProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
+    // Delete failures (e.g. a network drop, or the announcement having
+    // already been removed) surface as a SnackBar -- same convention as
+    // course_registration_screen.dart's mutation errors. The list itself
+    // is still valid either way, only the one delete attempt failed.
+    ref.listen(announcementsProvider, (previous, next) {
+      if (next.errorMessage != null &&
+          next.errorMessage != previous?.errorMessage &&
+          !next.isLoading) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.errorMessage!)),
+        );
+      }
+    });
+
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
@@ -109,14 +123,43 @@ class AnnouncementsListScreen extends ConsumerWidget {
   }
 }
 
-class _AnnouncementCard extends StatelessWidget {
+class _AnnouncementCard extends ConsumerWidget {
   final AnnouncementItem item;
   final ColorScheme colorScheme;
 
   const _AnnouncementCard({required this.item, required this.colorScheme});
 
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colorScheme.surfaceContainer,
+        title: const Text('Delete Announcement', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Delete "${item.title}"? This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('CANCEL', style: TextStyle(color: colorScheme.onSurface)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.error,
+              foregroundColor: colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('DELETE'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      ref.read(announcementsProvider.notifier).deleteAnnouncement(item.id);
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -135,7 +178,7 @@ class _AnnouncementCard extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
               ),
-              if (item.courseCode != null)
+              if (item.courseCode != null) ...[
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -155,6 +198,17 @@ class _AnnouncementCard extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(width: 4),
+              ],
+              IconButton(
+                onPressed: () => _confirmDelete(context, ref),
+                icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                color: colorScheme.onSurface.withValues(alpha: 0.4),
+                tooltip: 'Delete announcement',
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
             ],
           ),
           const SizedBox(height: 8),
