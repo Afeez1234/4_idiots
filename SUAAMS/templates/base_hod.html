@@ -46,17 +46,33 @@
                 </div>
             </div>
 
-            <!-- Nav: deliberately minimal -- this is a read-only oversight
-                 portal, not a management console, so there's just one page
-                 for now. Add sections here as HOD-specific features grow. -->
+            <!-- Nav -->
             <nav class="flex-1 overflow-y-auto no-scrollbar px-3 py-5 space-y-6">
                 <div>
-                    <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Overview</p>
+                    <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Oversight</p>
                     <div class="space-y-1">
                         <a href="{{ url_for('hod.dashboard') }}"
                            class="nav-link {{ 'nav-link-active' if active_page == 'dashboard' else '' }}">
                             <span class="material-symbols-rounded text-[20px]">dashboard</span>
                             <span>Dashboard</span>
+                        </a>
+                        <a href="{{ url_for('hod.levels') }}"
+                           class="nav-link {{ 'nav-link-active' if active_page == 'levels' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">layers</span>
+                            <span>Levels 100&ndash;500</span>
+                        </a>
+                        <a href="{{ url_for('hod.students') }}"
+                           class="nav-link {{ 'nav-link-active' if active_page == 'students' else '' }}">
+                            <span class="material-symbols-rounded text-[20px]">groups_2</span>
+                            <span>Students &amp; Attendance</span>
+                        </a>
+                        <a href="{{ url_for('hod.signoffs') }}"
+                           class="nav-link {{ 'nav-link-active' if active_page == 'signoffs' else '' }} justify-between">
+                            <span class="flex items-center gap-3">
+                                <span class="material-symbols-rounded text-[20px]">draw</span>
+                                <span>Sign-offs</span>
+                            </span>
+                            <span class="text-[10px] font-bold uppercase tracking-wide text-muted bg-surface border border-border rounded-full px-2 py-0.5">Soon</span>
                         </a>
                     </div>
                 </div>

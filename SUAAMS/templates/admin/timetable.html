@@ -117,7 +117,73 @@
             </div>
 
             {% if timetable_entries %}
-            <div class="overflow-x-auto border-t border-border custom-scrollbar">
+            <!-- ============ MOBILE AGENDA (below sm) ============
+                 The 7-day grid needs ~900px to read at a glance -- on a
+                 phone that's mostly horizontal panning to find any given
+                 day, so below `sm` it's replaced entirely by a day-tab +
+                 agenda-list view built from the same grid.placed data (so
+                 the "Live now" status/present-count stays in sync with the
+                 desktop grid, not a second independent query). -->
+            <div class="sm:hidden border-t border-border">
+                <div class="flex gap-2 overflow-x-auto no-scrollbar px-4 pt-4 pb-1">
+                    {% for day in weekday_names %}
+                        <button type="button"
+                                class="day-tab shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
+                                       {{ 'bg-accent text-white border-accent' if loop.index0 == grid.today_weekday else 'border-border text-secondary' }}"
+                                data-day="{{ loop.index0 }}">
+                            {{ day[:3] }}
+                        </button>
+                    {% endfor %}
+                </div>
+
+                <div class="px-4 pb-4">
+                    {% for day_idx in range(7) %}
+                        {% set day_entries = grid.placed|selectattr('entry.day_of_week', 'equalto', day_idx)|sort(attribute='entry.start_time')|list %}
+                        <div class="day-agenda space-y-2 pt-3 {{ '' if day_idx == grid.today_weekday else 'hidden' }}" data-day="{{ day_idx }}">
+                            {% for p in day_entries %}
+                                {% set entry = p.entry %}
+                                <button type="button"
+                                        class="timetable-chip w-full text-left rounded-xl border border-border bg-surface/60 p-3 hover:border-accent transition-colors"
+                                        data-id="{{ entry.id }}"
+                                        data-course-id="{{ entry.course_id }}"
+                                        data-course-code="{{ entry.course.course_code if entry.course else '' }}"
+                                        data-course-title="{{ entry.course.course_title if entry.course else '' }}"
+                                        data-lecturer="{{ entry.course.lecturer.full_name if entry.course and entry.course.lecturer else '' }}"
+                                        data-room="{{ entry.room or '' }}"
+                                        data-day="{{ entry.day_of_week }}"
+                                        data-day-name="{{ weekday_names[entry.day_of_week] }}"
+                                        data-start="{{ entry.start_time.strftime('%H:%M') }}"
+                                        data-end="{{ entry.end_time.strftime('%H:%M') }}"
+                                        data-semester-id="{{ entry.semester_id }}"
+                                        data-semester-name="{{ entry.semester.name if entry.semester else '' }}"
+                                        data-type="{{ entry.type }}"
+                                        data-today-status="{{ p.today_status.status if p.today_status else '' }}"
+                                        data-today-present="{{ p.today_status.present_count if p.today_status and p.today_status.present_count is not none else '' }}">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <p class="text-sm font-bold truncate">{{ entry.course.course_code if entry.course else 'Unknown' }}</p>
+                                        <span class="text-[11px] text-muted shrink-0">{{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}</span>
+                                    </div>
+                                    <p class="text-xs text-secondary mt-1 truncate">
+                                        {{ entry.course.course_title if entry.course else '' }}{% if entry.room %} &middot; {{ entry.room }}{% endif %}
+                                    </p>
+                                    {% if p.today_status %}
+                                        <span class="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-[10px] font-semibold
+                                                    {{ 'bg-success/10 text-success' if p.today_status.status == 'live' else 'bg-muted/10 text-muted' }}">
+                                            <span class="w-1.5 h-1.5 rounded-full {{ 'bg-success' if p.today_status.status == 'live' else 'bg-muted' }}"></span>
+                                            {{ 'Live now' if p.today_status.status == 'live' else 'Ended' if p.today_status.status == 'ended' else 'Not started yet' }}
+                                            {% if p.today_status.present_count is not none %} &middot; {{ p.today_status.present_count }} present{% endif %}
+                                        </span>
+                                    {% endif %}
+                                </button>
+                            {% else %}
+                                <p class="text-sm text-muted text-center py-8">No classes scheduled.</p>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="hidden sm:block overflow-x-auto border-t border-border custom-scrollbar">
                 <div class="grid" style="grid-template-columns: 64px repeat(7, minmax(112px, 1fr)); grid-template-rows: 34px repeat({{ grid.total_rows }}, 26px); min-width: 900px;">
 
                     <div class="border-b border-r border-border bg-surface/60 sticky top-0" style="grid-column:1; grid-row:1;"></div>
@@ -396,6 +462,23 @@
             if (window.confirm('Remove this timetable slot (' + courseCode + ')?')) {
                 document.getElementById('slot-delete-form').submit();
             }
+        });
+
+        // ---------- mobile agenda day-tab switcher ----------
+        document.querySelectorAll('.day-tab').forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                var day = tab.dataset.day;
+                document.querySelectorAll('.day-tab').forEach(function (t) {
+                    t.classList.toggle('bg-accent', t === tab);
+                    t.classList.toggle('text-white', t === tab);
+                    t.classList.toggle('border-accent', t === tab);
+                    t.classList.toggle('border-border', t !== tab);
+                    t.classList.toggle('text-secondary', t !== tab);
+                });
+                document.querySelectorAll('.day-agenda').forEach(function (panel) {
+                    panel.classList.toggle('hidden', panel.dataset.day !== day);
+                });
+            });
         });
 
         // ---------- "Happening Now" banner ----------

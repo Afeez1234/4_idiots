@@ -700,6 +700,10 @@ def _build_timetable_grid(entries):
         'placed': placed,
         'hour_labels': hour_labels,
         'total_rows': (end_hour - start_hour) * _UNITS_PER_HOUR,
+        # Exposed for the mobile agenda view's default day-tab selection
+        # (templates/admin/timetable.html) -- the desktop grid doesn't need
+        # it since every day column is visible at once.
+        'today_weekday': today_weekday,
     }
 
 
