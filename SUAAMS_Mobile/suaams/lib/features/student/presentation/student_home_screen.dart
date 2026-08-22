@@ -205,6 +205,25 @@ class _DashboardHeader extends ConsumerWidget {
                     : 'Switch to dark mode',
               ),
               const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => context.push('/student/home/announcements'),
+                style: IconButton.styleFrom(
+                  backgroundColor: colorScheme.surfaceContainer,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  side: BorderSide(
+                    color: colorScheme.outline.withValues(alpha: 0.15),
+                  ),
+                ),
+                icon: Icon(
+                  Icons.campaign_rounded,
+                  color: colorScheme.primary,
+                  size: 20,
+                ),
+                tooltip: 'Announcements',
+              ),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => _showLogoutDialog(context, ref),
                 child: CircleAvatar(

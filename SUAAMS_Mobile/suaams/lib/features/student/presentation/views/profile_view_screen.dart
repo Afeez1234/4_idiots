@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:local_auth/local_auth.dart';
 import '../../../../../core/providers/theme_provider.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../providers/student_provider.dart';
@@ -44,6 +45,65 @@ class ProfileView extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  // Guards the voluntary "Update password" tap: a confirmation dialog (so
+  // a mis-tap can be backed out of before anything happens) followed by a
+  // biometric/device-credential check (so an unlocked phone left lying
+  // around isn't enough to change the account owner's password out from
+  // under them -- same threat model as the NFC check-in gate in
+  // nfc_provider.dart). Only reached voluntarily; the forced first-login
+  // reset (app_router.dart's redirect guard) skips this entirely.
+  Future<void> _confirmAndOpenChangePassword(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: colorScheme.surfaceContainer,
+        title: const Text(
+          'Change Password',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          "You're about to change your account password. Continue?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'CANCEL',
+              style: TextStyle(color: colorScheme.onSurface),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('CONTINUE'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    bool authenticated = false;
+    try {
+      authenticated = await LocalAuthentication().authenticate(
+        localizedReason: 'Verify identity to change your password',
+      );
+    } catch (_) {
+      authenticated = false;
+    }
+    if (!context.mounted) return;
+
+    if (!authenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Identity verification failed.')),
+      );
+      return;
+    }
+
+    context.push('/change-password', extra: false);
   }
 
   @override
@@ -126,12 +186,11 @@ class ProfileView extends ConsumerWidget {
             colorScheme: colorScheme,
             // Reuses the existing ChangePasswordScreen (already fully
             // working -- it's also used for the forced first-login flow at
-            // app_router.dart). Uses push (not go) deliberately: go replaces
-            // the whole nav stack, which is right for the forced-login case
-            // but would leave a voluntary visit here with no way back if the
-            // student changes their mind. push keeps this screen underneath,
-            // so the OS back gesture/button returns to Profile.
-            onTap: () => context.push('/change-password'),
+            // app_router.dart). _confirmAndOpenChangePassword() confirms
+            // intent, verifies identity, then pushes with extra: false so
+            // ChangePasswordScreen shows a visible back button -- push alone
+            // wasn't enough; the screen had no back-button UI of its own.
+            onTap: () => _confirmAndOpenChangePassword(context, colorScheme),
           ),
 
           const SizedBox(height: 48),

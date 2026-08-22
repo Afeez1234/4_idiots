@@ -107,6 +107,12 @@ abstract final class ApiConstants {
   static const String lecturerAnnouncementsEndpoint =
       '$baseUrl/lecturer/announcements';
 
+  // Read-only feed for the student side -- university/department/course
+  // announcements that apply to the signed-in student. See
+  // get_student_announcements in api/student.py.
+  static const String studentAnnouncementsEndpoint =
+      '$baseUrl/student/announcements';
+
   static String createAnnouncementEndpoint(int courseId) =>
       '$baseUrl/lecturer/course/$courseId/announcements';
 

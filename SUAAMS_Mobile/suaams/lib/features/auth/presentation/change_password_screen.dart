@@ -9,7 +9,17 @@ import '../providers/auth_provider.dart';
 import '../../../shared/utils/grid_overlay_painter.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
-  const ChangePasswordScreen({super.key});
+  // Two entry points share this one screen: the forced first-login reset
+  // (app_router.dart's redirect guard + splash_screen.dart, both via
+  // context.go() -- no previous route to go back to, and going back would
+  // let a user dodge a mandatory reset, so isMandatory defaults to true and
+  // no back button is shown) and a voluntary visit from Profile > Account
+  // Security (context.push() with isMandatory explicitly false). Only the
+  // voluntary case gets a back button -- that's the one users can land on
+  // by mistake.
+  final bool isMandatory;
+
+  const ChangePasswordScreen({super.key, this.isMandatory = true});
 
   @override
   ConsumerState<ChangePasswordScreen> createState() =>
@@ -88,6 +98,19 @@ class _ChangePasswordScreenState
     return Scaffold(
       backgroundColor: colorScheme.surface,
       resizeToAvoidBottomInset: true,
+      // Only the voluntary flow gets an AppBar/back button -- see the
+      // isMandatory doc comment on the widget above.
+      appBar: widget.isMandatory
+          ? null
+          : AppBar(
+              backgroundColor: colorScheme.surface,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.close_rounded),
+                tooltip: 'Cancel',
+                onPressed: () => context.pop(),
+              ),
+            ),
       body: Stack(
         // Prevents background layouts from clipping when the keyboard appears
         clipBehavior: Clip.none,
