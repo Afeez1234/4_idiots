@@ -72,15 +72,20 @@
                     <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <i data-lucide="lock" class="w-4 h-4 text-gray-500"></i>
                     </div>
-                    <input 
-                        type="password" 
-                        id="password" 
-                        name="password" 
-                        required 
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
                         placeholder="••••••••"
                         autocomplete="current-password"
-                        class="w-full bg-terminal-base border border-terminal-border text-white text-sm rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:border-terminal-accent focus:ring-1 focus:ring-terminal-accent transition-colors placeholder-gray-700 font-mono"
+                        class="w-full bg-terminal-base border border-terminal-border text-white text-sm rounded-xl pl-11 pr-11 py-3 focus:outline-none focus:border-terminal-accent focus:ring-1 focus:ring-terminal-accent transition-colors placeholder-gray-700 font-mono"
                     >
+                    <button type="button" id="toggle-password" tabindex="-1"
+                            class="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-gray-300 transition-colors">
+                        <i data-lucide="eye" class="w-4 h-4" id="icon-eye-password"></i>
+                        <i data-lucide="eye-off" class="w-4 h-4 hidden" id="icon-eye-off-password"></i>
+                    </button>
                 </div>
             </div>
 
@@ -102,6 +107,21 @@
 
     <script>
         lucide.createIcons();
+
+        function wirePasswordToggle(buttonId, inputId, eyeIconId, eyeOffIconId) {
+            var btn = document.getElementById(buttonId);
+            var input = document.getElementById(inputId);
+            var eyeIcon = document.getElementById(eyeIconId);
+            var eyeOffIcon = document.getElementById(eyeOffIconId);
+            if (!btn || !input) return;
+            btn.addEventListener('click', function () {
+                var willShow = input.type === 'password';
+                input.type = willShow ? 'text' : 'password';
+                eyeIcon.classList.toggle('hidden', willShow);
+                eyeOffIcon.classList.toggle('hidden', !willShow);
+            });
+        }
+        wirePasswordToggle('toggle-password', 'password', 'icon-eye-password', 'icon-eye-off-password');
     </script>
 </body>
 </html>
