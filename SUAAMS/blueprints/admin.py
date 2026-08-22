@@ -9,7 +9,7 @@ from models import (
     Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
 )
 from extensions import log_exception, logger
-from utils import resolve_current_course, session_status_for_course
+from utils import resolve_current_course, session_status_for_course, students_for_announcement
 from push_notifications import send_push_notification
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
@@ -1075,6 +1075,20 @@ def announcements_page():
             )
             db.session.add(announcement)
             db.session.commit()
+
+            # Best-effort push to every student this announcement reaches --
+            # same fire-after-commit, never-fail-the-request pattern as
+            # api/student.py's attendance-confirmation push. A student who
+            # never granted notification permission (or was offline) still
+            # sees it in-app, since send_push_notification always persists
+            # the Notification row before attempting FCM delivery.
+            preview = announcement.body if len(announcement.body) <= 120 else announcement.body[:117] + '...'
+            for student in students_for_announcement(announcement):
+                send_push_notification(
+                    student.user, 'announcement', announcement.title, preview,
+                    data={'announcement_id': announcement.id},
+                )
+
             flash(f"Announcement '{title}' posted successfully.", 'success')
         except Exception:
             db.session.rollback()

@@ -114,7 +114,7 @@ class LecturerProfileScreen extends ConsumerWidget {
               _PreferenceTile(
                 icon: Icons.security_rounded,
                 title: 'Account Security',
-                subtitle: 'Update authorization code',
+                subtitle: 'Update password',
                 colorScheme: colorScheme,
                 onTap: () => context.push('/change-password'),
               ),

@@ -8,7 +8,7 @@ from datetime import timedelta, date, datetime, timezone
 # Import db and our elegant SQLAlchemy models
 # (added Enrollment here for the check-in endpoints, Timetable for the
 # today's-schedule endpoint below)
-from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester
+from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester, Announcement
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from push_notifications import send_push_notification
 from utils import compute_attendance_status
@@ -642,6 +642,66 @@ def mark_notification_read(notification_id):
         db.session.commit()
 
     return jsonify({"success": True}), 200
+
+
+@api_student_bp.route('/announcements', methods=['GET'])
+@limiter.limit("30 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def get_student_announcements():
+    """Every announcement that applies to the signed-in student --
+    university-wide, their own department, or any course they're currently
+    enrolled in. Mirrors students_for_announcement() in utils.py (which
+    resolves the opposite direction: announcement -> students, used to fan
+    out push notifications when one is posted) -- keep both in sync if this
+    scoping rule ever changes.
+    """
+    claims = get_jwt()
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    try:
+        current_user_id = int(get_jwt_identity())
+        student = Student.query.filter_by(user_id=current_user_id).first()
+        if not student:
+            return jsonify({"error": "Student profile not found."}), 404
+
+        course_ids = [c.id for c in student.courses]
+
+        # Announcement.course_id.in_(course_ids) correctly evaluates to
+        # "false for every row" when course_ids is empty -- no special-case
+        # needed for a student with no enrollments yet.
+        announcements = (
+            Announcement.query
+            .filter(
+                Announcement.is_active == True,  # noqa: E712 -- SQLAlchemy comparator, not a Python bool check
+                db.or_(
+                    Announcement.scope == 'university',
+                    db.and_(Announcement.scope == 'department', Announcement.department_id == student.department_id),
+                    db.and_(Announcement.scope == 'course', Announcement.course_id.in_(course_ids)),
+                )
+            )
+            .order_by(Announcement.created_at.desc())
+            .all()
+        )
+
+        return jsonify({
+            "success": True,
+            "announcements": [{
+                "id": a.id,
+                "title": a.title,
+                "body": a.body,
+                "scope": a.scope,
+                "department_name": a.department.name if a.scope == 'department' and a.department else None,
+                "course_code": a.course.course_code if a.scope == 'course' and a.course else None,
+                # Same tzinfo-reattach fix as get_notifications() above --
+                # MySQL's DATETIME drops the UTC offset on read-back even
+                # though this column is always written UTC-aware.
+                "created_at": a.created_at.replace(tzinfo=timezone.utc).isoformat(),
+            } for a in announcements],
+        }), 200
+
+    except Exception:
+        return api_error_response("Student Announcements Error", "Failed to load announcements")
 
 
 @api_student_bp.route('/device-info', methods=['GET'])

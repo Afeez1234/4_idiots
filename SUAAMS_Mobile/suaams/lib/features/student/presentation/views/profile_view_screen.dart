@@ -122,7 +122,7 @@ class ProfileView extends ConsumerWidget {
           _buildPreferenceTile(
             icon: Icons.security_rounded,
             title: 'Account Security',
-            subtitle: 'Update authorization code',
+            subtitle: 'Update password',
             colorScheme: colorScheme,
             // Reuses the existing ChangePasswordScreen (already fully
             // working -- it's also used for the forced first-login flow at
