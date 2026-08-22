@@ -355,65 +355,6 @@ def end_session(course_id):
         return api_error_response("End Session API Error", "Failed to end session.")
 
 
-# ── 5. Live attendance ────────────────────────────────────────────────────────
-
-@api_lecturer_bp.route('/course/<int:course_id>/live-attendance', methods=['GET'])
-@jwt_required()
-def get_live_attendance(course_id):
-    lecturer, error_response, status = get_lecturer_or_403()
-    if error_response:
-        return error_response, status
-
-    try:
-        active_session = SessionModel.query.filter_by(
-            course_id=course_id,
-            is_active=True
-        ).first()
-        if not active_session:
-            return jsonify({"error": "No active session found."}), 404
-
-        # SCHEMA FIX: same Student.department -> Department.name join fix
-        # as get_course_workspace above.
-        records = db.session.query(
-            Student.full_name,
-            Student.matric_number,
-            Student.level,
-            Department.name,
-            Attendance.time_in,
-            Attendance.status,
-        ).join(Attendance, Attendance.student_id == Student.id)\
-         .join(Department, Student.department_id == Department.id)\
-         .filter(Attendance.session_id == active_session.id)\
-         .order_by(Attendance.time_in.asc()).all()
-
-        attendance_list = []
-        for full_name, matric, level, dept_name, time_in, att_status in records:
-            attendance_list.append({
-                'full_name': full_name,
-                'matric_number': matric,
-                'level': level,
-                'department': dept_name,
-                'time_in': time_in.strftime('%H:%M') if time_in else None,
-                'status': att_status,
-            })
-
-        enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
-
-        return jsonify({
-            "success": True,
-            "data": {
-                "session_id": active_session.id,
-                "present_count": len(attendance_list),
-                "enrolled_count": enrolled_count,
-                "absent_count": enrolled_count - len(attendance_list),
-                "attendance": attendance_list,
-            }
-        }), 200
-
-    except Exception:
-        return api_error_response("Live Attendance API Error", "Failed to load live attendance")
-
-
 # ── 6. Session history ────────────────────────────────────────────────────────
 
 @api_lecturer_bp.route('/course/<int:course_id>/history', methods=['GET'])
