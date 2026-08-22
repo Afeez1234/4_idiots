@@ -137,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                         const SizedBox(height: 24),
 
-                        _buildInputLabel('AUTHORIZATION CODE', colorScheme),
+                        _buildInputLabel('PASSWORD', colorScheme),
                         const SizedBox(height: 8),
                         
                         // OPTIMIZATION 3: Isolated Password Field inside its own RepaintBoundary.

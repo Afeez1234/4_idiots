@@ -126,7 +126,7 @@ class _ChangePasswordScreenState
                         ),
                         const SizedBox(height: 24),
                         Text(
-                          'SECURITY ALERT',
+                          'PASSWORD UPDATE REQUIRED',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
@@ -137,7 +137,7 @@ class _ChangePasswordScreenState
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'PLEASE UPDATE YOUR DEFAULT AUTHORIZATION CODE',
+                          'PLEASE UPDATE YOUR DEFAULT PASSWORD',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -149,7 +149,7 @@ class _ChangePasswordScreenState
 
                         SizedBox(height: screenHeight * 0.06),
 
-                        _buildInputLabel('NEW CODE', colorScheme),
+                        _buildInputLabel('NEW PASSWORD', colorScheme),
                         const SizedBox(height: 8),
                         
                         // OPTIMIZATION 2: Isolated TextFormField inside its own RepaintBoundary
@@ -172,7 +172,7 @@ class _ChangePasswordScreenState
 
                         const SizedBox(height: 24),
 
-                        _buildInputLabel('CONFIRM NEW CODE', colorScheme),
+                        _buildInputLabel('CONFIRM NEW PASSWORD', colorScheme),
                         const SizedBox(height: 8),
                         
                         // OPTIMIZATION 3: Isolated TextFormField inside its own RepaintBoundary
@@ -188,7 +188,7 @@ class _ChangePasswordScreenState
                                 return 'CONFIRMATION REQUIRED';
                               }
                               if (value != _newPasswordController.text) {
-                                return 'CODES DO NOT MATCH';
+                                return 'PASSWORDS DO NOT MATCH';
                               }
                               return null;
                             },
@@ -218,7 +218,7 @@ class _ChangePasswordScreenState
                                   ),
                                 )
                               : const Text(
-                                  'UPDATE PROTOCOL',
+                                  'UPDATE PASSWORD',
                                   style: TextStyle(
                                     letterSpacing: 3,
                                     fontWeight: FontWeight.bold,

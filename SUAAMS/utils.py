@@ -146,6 +146,34 @@ def compute_attendance_status(session, at=None):
     return 'late' if now > cutoff else 'present'
 
 
+def students_for_announcement(announcement):
+    """Every Student an Announcement applies to -- used to fan out push
+    notifications the moment one is posted (blueprints/admin.py,
+    blueprints/lecturer.py). Mirrors get_student_announcements() in
+    api/student.py, which resolves the opposite direction (student -> which
+    announcements apply to them); keep both in sync if this scoping rule
+    ever changes.
+    """
+    from models import Student, Enrollment
+
+    if announcement.scope == 'university':
+        return Student.query.all()
+    if announcement.scope == 'department':
+        if announcement.department_id is None:
+            return []
+        return Student.query.filter_by(department_id=announcement.department_id).all()
+    if announcement.scope == 'course':
+        if announcement.course_id is None:
+            return []
+        return (
+            Student.query
+            .join(Enrollment, Enrollment.student_id == Student.id)
+            .filter(Enrollment.course_id == announcement.course_id)
+            .all()
+        )
+    return []
+
+
 def resolve_timetable_slot_for_course(course_id, semester=None, on_date=None):
     """
     Course + today's weekday -> its scheduled Timetable slot, used to
