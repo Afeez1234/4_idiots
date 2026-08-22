@@ -8,6 +8,7 @@ import '../models/course_attendance_history_model.dart';
 import '../models/week_schedule_entry.dart';
 import '../models/device_info.dart';
 import '../models/available_course_model.dart';
+import '../models/student_announcement_model.dart';
 
 /// Result of a /checkin/status poll. `reason` distinguishes a definite,
 /// permanent failure ('not_enrolled') from a genuinely ambiguous "not
@@ -176,6 +177,38 @@ class StudentService {
       if (response.statusCode == 200 && responseData['success'] == true) {
         return (responseData['notifications'] as List)
             .map((entry) => NotificationItem.fromJson(entry))
+            .toList();
+      }
+
+      final errorMsg =
+          responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  // Backs the student Announcements screen -- see
+  // studentAnnouncementsEndpoint's doc-comment in api_constants.dart and
+  // get_student_announcements in api/student.py.
+  Future<List<StudentAnnouncement>> fetchAnnouncements(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.studentAnnouncementsEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return (responseData['announcements'] as List)
+            .map((entry) => StudentAnnouncement.fromJson(entry))
             .toList();
       }
 

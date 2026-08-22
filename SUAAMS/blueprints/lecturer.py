@@ -318,6 +318,16 @@ def announcements():
             )
             db.session.add(announcement)
             db.session.commit()
+
+            # Best-effort push to every enrolled student -- same pattern as
+            # admin.announcements_page()'s fan-out.
+            preview = announcement.body if len(announcement.body) <= 120 else announcement.body[:117] + '...'
+            for student in students_for_announcement(announcement):
+                send_push_notification(
+                    student.user, 'announcement', announcement.title, preview,
+                    data={'announcement_id': announcement.id},
+                )
+
             flash(f"Announcement '{title}' posted successfully.", 'success')
         except Exception:
             db.session.rollback()

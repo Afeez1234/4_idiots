@@ -22,6 +22,7 @@ import '../../features/student/presentation/views/student_id_card_screen.dart';
 import '../../features/student/presentation/views/student_profile_screen.dart';
 import '../../features/student/presentation/views/linked_devices_screen.dart';
 import '../../features/student/presentation/views/notification_settings_screen.dart';
+import '../../features/student/presentation/views/announcements_screen.dart';
 import 'package:suaams/features/student/presentation/views/course_registration_screen.dart';
 
 // Lecturer
@@ -104,7 +105,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/change-password',
-        builder: (context, state) => const ChangePasswordScreen(),
+        // Forced entries (redirect guard above, splash_screen.dart) don't
+        // pass `extra` and keep the default isMandatory: true. Voluntary
+        // entries (Profile > Account Security) pass extra: false to get a
+        // back button -- see ChangePasswordScreen's doc comment.
+        builder: (context, state) => ChangePasswordScreen(
+          isMandatory: state.extra as bool? ?? true,
+        ),
       ),
 
       // ============ STUDENT: 5-tab bottom nav ============
@@ -128,6 +135,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     builder: (context, state) => CourseDetailScreen(
                       courseId: int.parse(state.pathParameters['courseId']!),
                     ),
+                  ),
+                  GoRoute(
+                    path: 'announcements',
+                    builder: (context, state) => const AnnouncementsScreen(),
                   ),
                 ],
               ),
