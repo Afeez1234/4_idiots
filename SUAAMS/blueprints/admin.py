@@ -8,7 +8,7 @@ from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
     Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
 )
-from extensions import log_exception, logger
+from extensions import log_exception, logger, limiter
 from utils import resolve_current_course, session_status_for_course, students_for_announcement
 from push_notifications import send_push_notification
 
@@ -151,6 +151,7 @@ def dashboard():
 # ORGANIZATION (Faculties + Departments)
 # ==========================================
 @admin_bp.route('/organization', methods=['GET', 'POST'])
+@limiter.limit("10 per minute", methods=['POST'])
 def organization_page():
     if request.method == 'POST':
         action = request.form.get('action')
@@ -197,6 +198,7 @@ def organization_page():
 
 
 @admin_bp.route('/faculties/<int:faculty_id>/delete', methods=['POST'])
+@limiter.limit("10 per minute")
 def delete_faculty(faculty_id):
     """
     Deletes a Faculty and cascades to every Department beneath it (and
@@ -219,6 +221,7 @@ def delete_faculty(faculty_id):
 
 
 @admin_bp.route('/departments/<int:department_id>/delete', methods=['POST'])
+@limiter.limit("10 per minute")
 def delete_department(department_id):
     """Deletes a Department, cascading to its Students, Lecturers, and
     Courses. Same caveat as delete_faculty above."""
@@ -239,6 +242,7 @@ def delete_department(department_id):
 # LECTURERS
 # ==========================================
 @admin_bp.route('/lecturers', methods=['GET', 'POST'])
+@limiter.limit("10 per minute", methods=['POST'])
 def lecturers_page():
     if request.method == 'POST':
         full_name = request.form.get('full_name')
@@ -296,6 +300,7 @@ def lecturers_page():
 # STUDENTS
 # ==========================================
 @admin_bp.route('/students', methods=['GET', 'POST'])
+@limiter.limit("10 per minute", methods=['POST'])
 def students_page():
     if request.method == 'POST':
         full_name = request.form.get('full_name')
@@ -358,6 +363,7 @@ def students_page():
 
 
 @admin_bp.route('/students/bulk-enroll', methods=['POST'])
+@limiter.limit("10 per minute")
 def bulk_enroll_students():
     """
     Processes university-scale bulk enrollments from an uploaded CSV file.
@@ -470,6 +476,7 @@ def bulk_enroll_students():
 
 
 @admin_bp.route('/students/unbind/<int:student_id>', methods=['POST'])
+@limiter.limit("10 per minute")
 def reset_student_binding(student_id):
     """
     Resets the device binding of a student. Enables them to log in cleanly
@@ -508,6 +515,11 @@ def reset_student_binding(student_id):
 # COURSES
 # ==========================================
 @admin_bp.route('/courses', methods=['GET', 'POST'])
+# 20/min not 10 -- this route double-duties as both course creation AND
+# the enroll_student action (see action == 'enroll_student' below), which
+# an admin may legitimately submit several times in a row to enroll a
+# batch of students one at a time.
+@limiter.limit("20 per minute", methods=['POST'])
 def courses_page():
     if request.method == 'POST':
         # Same dual-action-on-one-route pattern organization_page() already
@@ -741,6 +753,9 @@ def _validate_timetable_slot(course, semester_id, day_of_week, start_time, end_t
 
 
 @admin_bp.route('/timetable', methods=['GET', 'POST'])
+# 20/min -- an admin setting up a semester's schedule adds many slots in
+# quick succession, same reasoning as courses_page's enroll_student burst.
+@limiter.limit("20 per minute", methods=['POST'])
 def timetable_page():
     if request.method == 'POST':
         action = request.form.get('action', 'create')
@@ -875,6 +890,7 @@ def timetable_current():
 # SEMESTERS
 # ==========================================
 @admin_bp.route('/semesters', methods=['GET', 'POST'])
+@limiter.limit("10 per minute", methods=['POST'])
 def semesters_page():
     if request.method == 'POST':
         action = request.form.get('action')
@@ -930,6 +946,7 @@ def semesters_page():
 # HODS
 # ==========================================
 @admin_bp.route('/hods', methods=['GET', 'POST'])
+@limiter.limit("10 per minute", methods=['POST'])
 def hods_page():
     if request.method == 'POST':
         action = request.form.get('action', 'create_new')
@@ -1052,6 +1069,7 @@ def hods_page():
 # ANNOUNCEMENTS
 # ==========================================
 @admin_bp.route('/announcements', methods=['GET', 'POST'])
+@limiter.limit("10 per minute", methods=['POST'])
 def announcements_page():
     if request.method == 'POST':
         title = request.form.get('title')
