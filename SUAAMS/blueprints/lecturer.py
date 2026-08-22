@@ -5,7 +5,7 @@ from datetime import date, datetime, timezone
 from utils import login_required, resolve_timetable_slot_for_course, students_for_announcement
 from push_notifications import send_push_notification
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement, HOD
-from extensions import log_exception
+from extensions import log_exception, limiter
 
 lecturer_bp = Blueprint('lecturer', __name__)
 

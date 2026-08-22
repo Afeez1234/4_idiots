@@ -231,19 +231,25 @@ def start_session(course_id):
     # regardless of whether a given MySQL driver happens to coerce it
     # silently. Parsing explicitly here so this works regardless of
     # backend -- confirmed by testing against a real SQLite DB.
+    # Returns (value, error_message) instead of raising -- avoids the
+    # str(e)-on-a-caught-exception pattern flagged elsewhere in this
+    # codebase (api/auth.py, api/student.py, blueprints/lecturer.py all have
+    # "SECURITY FIX" comments removing that pattern), even though the
+    # message here was always self-authored and never leaked anything from
+    # the exception itself.
     def _parse_time(value, field_name):
         if not value:
-            return None
+            return None, None
         try:
-            return datetime.strptime(value, '%H:%M').time()
+            return datetime.strptime(value, '%H:%M').time(), None
         except ValueError:
-            raise ValueError(f"{field_name} must be in HH:MM format")
+            return None, f"{field_name} must be in HH:MM format"
 
-    try:
-        planned_start = _parse_time(data.get('planned_start'), 'planned_start')
-        planned_end = _parse_time(data.get('planned_end'), 'planned_end')
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
+    planned_start, error_message = _parse_time(data.get('planned_start'), 'planned_start')
+    if error_message is None:
+        planned_end, error_message = _parse_time(data.get('planned_end'), 'planned_end')
+    if error_message:
+        return jsonify({"error": error_message}), 400
 
     try:
         course = Course.query.filter_by(
@@ -682,6 +688,7 @@ def create_lecturer_announcement(course_id):
 
 
 @api_lecturer_bp.route('/announcements/<int:announcement_id>', methods=['DELETE'])
+@limiter.limit("10 per minute", key_func=jwt_identity_or_ip)
 @jwt_required()
 def delete_lecturer_announcement(announcement_id):
     """Soft-delete (is_active=False), scoped to sender_id -- a lecturer can

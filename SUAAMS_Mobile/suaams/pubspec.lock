@@ -600,22 +600,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
-  ndef_record:
-    dependency: transitive
-    description:
-      name: ndef_record
-      sha256: "210ffb12284961cab9e44b99462143316d9a20cd992581170706069ef77d74a6"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.4.2"
-  nfc_manager:
-    dependency: "direct main"
-    description:
-      name: nfc_manager
-      sha256: "1b8d3788ed71bb34f59878a445e433891eb2268353289515c1542b2780151fe6"
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.2.1"
   node_preamble:
     dependency: transitive
     description:
@@ -752,14 +736,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.2"
-  riverpod_annotation:
-    dependency: "direct main"
-    description:
-      name: riverpod_annotation
-      sha256: dd043c75eb3cea2654f5dca51234413ac04bd092ccc73e747fd73cae37ac5360
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.0.6"
   shelf:
     dependency: transitive
     description:
