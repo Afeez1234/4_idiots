@@ -74,6 +74,7 @@ def login():
 
 
 @auth_bp.route('/change-password', methods=['GET', 'POST'])
+@limiter.limit("5 per minute", methods=['POST'])
 def web_change_password():
     # Ensure only logged-in users can hit this page
     if not session.get('user_id'):

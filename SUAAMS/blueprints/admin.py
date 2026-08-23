@@ -1128,6 +1128,7 @@ def announcements_page():
 
 
 @admin_bp.route('/announcements/<int:announcement_id>/delete', methods=['POST'])
+@limiter.limit("10 per minute")
 def delete_announcement(announcement_id):
     """Soft-delete: flips is_active rather than removing the row, so the
     announcement disappears from lecturer/mobile audience views immediately

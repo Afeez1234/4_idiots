@@ -6,11 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/services/notification_service.dart';
+import 'core/services/security_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Started before anything else touches the network or renders a screen --
+  // CLAUDE.md's threat model wants integrity-checking to run "on startup",
+  // and SecurityService.isCompromised needs to already be populated by the
+  // time a user could reach the check-in flow.
+  await SecurityService.instance.initialize();
   await Firebase.initializeApp();
   // Must be registered before runApp -- this is what lets FCM invoke
   // firebaseMessagingBackgroundHandler in its own isolate for messages that
