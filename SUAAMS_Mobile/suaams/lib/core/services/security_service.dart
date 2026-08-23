@@ -43,9 +43,9 @@ class SecurityService {
 
   Future<void> initialize() async {
     final config = TalsecConfig(
-      // Talsec's backend emails a security report here when a threat
-      // fires -- fill in an address you actually monitor before shipping a
-      // release build. Deliberately not defaulted to a real address here:
+      // TODO(release): set a real watcherMail before shipping a release
+      // build. Talsec's backend emails a security report here when a
+      // threat fires. Deliberately not defaulted to a real address:
       // this is the one field that leaves the device (Talsec's service
       // receives it), so it shouldn't be filled in silently.
       watcherMail: 'REPLACE_WITH_AN_EMAIL_YOU_MONITOR@example.com',
@@ -58,9 +58,9 @@ class SecurityService {
       androidConfig: AndroidConfig(
         // Matches android/app/build.gradle.kts's applicationId.
         packageName: 'com.suaams.mobile',
-        // REPLACE before a release build ships -- this needs your REAL
-        // release keystore's certificate hash, not this placeholder. Get
-        // it with:
+        // TODO(release): set the real release signing cert hash before
+        // shipping -- this needs your REAL release keystore's certificate
+        // hash, not this placeholder. Get it with:
         //   keytool -list -v -keystore <your-release>.jks -alias <your-alias>
         // then base64-encode the SHA-256 hex digest it prints (Talsec's
         // docs show the exact conversion). Left as a placeholder because
@@ -78,9 +78,10 @@ class SecurityService {
       ),
       iosConfig: IOSConfig(
         bundleIds: ['com.suaams.mobile'],
-        // No Apple Developer Team ID configured in this project yet
-        // (ios/Runner.xcodeproj has no DEVELOPMENT_TEAM set) -- fill in
-        // once/if this ships to a real iOS device or TestFlight.
+        // TODO(release): set the real Apple Team ID once/if this ships to
+        // a real iOS device or TestFlight -- no Team ID is configured in
+        // this project yet (ios/Runner.xcodeproj has no DEVELOPMENT_TEAM
+        // set).
         teamId: 'REPLACE_WITH_YOUR_APPLE_TEAM_ID',
       ),
     );
