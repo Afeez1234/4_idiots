@@ -278,6 +278,7 @@ def active_sessions():
 
 
 @lecturer_bp.route('/lecturer/announcements', methods=['GET', 'POST'])
+@limiter.limit("10 per minute", methods=['POST'])
 @login_required(('lecturer', 'hod'))
 def announcements():
     """Lecturer-scoped announcements: unlike admin's version (which can post
@@ -350,6 +351,7 @@ def announcements():
 
 
 @lecturer_bp.route('/lecturer/announcements/<int:announcement_id>/delete', methods=['POST'])
+@limiter.limit("10 per minute")
 @login_required(('lecturer', 'hod'))
 def delete_announcement(announcement_id):
     """Soft-delete, scoped to sender_id so a lecturer can only delete their
@@ -555,6 +557,7 @@ def export_reports():
 
 
 @lecturer_bp.route('/lecturer/course/<int:course_id>/start-session', methods=['POST'])
+@limiter.limit("10 per minute")
 @login_required(('lecturer', 'hod'))
 def start_session(course_id):
     user_id = session.get('user_id')
@@ -634,6 +637,7 @@ def start_session(course_id):
     
 
 @lecturer_bp.route('/lecturer/course/<int:course_id>/end-session', methods=['POST'])
+@limiter.limit("10 per minute")
 @login_required(('lecturer', 'hod'))
 def end_session_r(course_id):
     user_id = session.get('user_id')

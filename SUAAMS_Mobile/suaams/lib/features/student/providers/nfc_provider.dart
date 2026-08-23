@@ -10,6 +10,7 @@ import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/data/student_service.dart'
     show CheckinStatusResult;
 import 'package:suaams/core/network/auth_retry.dart';
+import 'package:suaams/core/services/security_service.dart';
 
 enum NfcCheckInStatus {
   idle,
@@ -133,6 +134,22 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     state = NfcCheckInState(status: NfcCheckInStatus.authenticating);
 
     try {
+      // 0. RASP gate -- runs before biometric auth, not after. A rooted
+      // device with a hooking framework attached (Frida/Xposed) can force
+      // local_auth's own authenticate() call below to report success
+      // regardless of the real fingerprint/face result, so checking
+      // biometrics FIRST would let a compromised device pass this whole
+      // flow. SecurityService.isCompromised is populated by
+      // main()'s startup RASP check (see security_service.dart);
+      // no-op (always false) on a debug build, since enforcement there is
+      // gated to release builds only.
+      if (SecurityService.instance.isCompromised) {
+        throw Exception(
+          'Security check failed: ${SecurityService.instance.threatDescription}. '
+          'Attendance check-in is disabled on this device.',
+        );
+      }
+
       // 1. Check OS hardware capability
       final canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
       final isDeviceSupported = await _localAuth.isDeviceSupported();
