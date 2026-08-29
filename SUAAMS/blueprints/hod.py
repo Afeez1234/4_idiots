@@ -59,29 +59,6 @@ def _student_attendance(student, course_ids):
     return overall, per_course
 
 
-@hod_bp.context_processor
-def inject_hod_context():
-    """Makes the signed-in HOD's department name available to every HOD
-    template, same pattern as lecturer's inject_lecturer_context().
-
-    has_lecturer_profile flags an HOD who also holds a Lecturer profile
-    under the same account (see login_required(('lecturer', 'hod')) on
-    blueprints/lecturer.py's routes) -- lets base_hod.html show a "My
-    Courses" link into the lecturer portal instead of them needing a
-    second login just to manage their own courses."""
-    user_id = session.get('user_id')
-    if not user_id or session.get('role') != 'hod':
-        return {}
-    hod = HOD.query.filter_by(user_id=user_id).first()
-    if not hod:
-        return {}
-    has_lecturer_profile = Lecturer.query.filter_by(user_id=user_id).first() is not None
-    return {
-        'hod_department': hod.department,
-        'has_lecturer_profile': has_lecturer_profile,
-    }
-
-
 def _require_hod():
     """Shared lookup used by every HOD route below. Returns the HOD profile,
     or None after already flashing + redirecting the caller should return."""

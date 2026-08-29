@@ -4,35 +4,10 @@ from flask import Blueprint, flash, render_template, redirect, request, session,
 from datetime import date, datetime, timezone
 from utils import login_required, resolve_timetable_slot_for_course, students_for_announcement
 from push_notifications import send_push_notification
-from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement, HOD
+from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
 from extensions import log_exception, limiter
 
 lecturer_bp = Blueprint('lecturer', __name__)
-
-
-@lecturer_bp.context_processor
-def inject_lecturer_context():
-    """Makes the signed-in lecturer's course list (for the sidebar's dynamic
-    'My Courses' section) and the active semester (sidebar pill, same pattern
-    as admin's inject_active_semester) available to every lecturer template.
-
-    Also reachable by role='hod' (see login_required(('lecturer', 'hod'))
-    on the routes below) for someone who holds both a Lecturer and an HOD
-    profile under the same account -- is_also_hod flags that case so
-    base_lecturer.html can show a link back to their Department Overview
-    instead of stranding them in the lecturer-only chrome."""
-    user_id = session.get('user_id')
-    if not user_id or session.get('role') not in ('lecturer', 'hod'):
-        return {}
-    lecturer = Lecturer.query.filter_by(user_id=user_id).first()
-    if not lecturer:
-        return {}
-    is_also_hod = HOD.query.filter_by(user_id=user_id).first() is not None
-    return {
-        'sidebar_courses': Course.query.filter_by(lecturer_id=lecturer.id).order_by(Course.course_code).all(),
-        'active_semester': Semester.query.filter_by(is_active=True).first(),
-        'is_also_hod': is_also_hod,
-    }
 
 
 @lecturer_bp.route('/lecturer/dashboard')

@@ -1,10 +1,10 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, session
 from datetime import timedelta
 from flask_migrate import Migrate
 import os
 import logging
 from flask_jwt_extended import JWTManager
-from models import db
+from models import db, HOD, Lecturer, Course, Semester
 from extensions import limiter, csrf
 from blueprints.auth import auth_bp
 from blueprints.admin import admin_bp
@@ -118,6 +118,36 @@ csrf.exempt(api_auth_bp)
 csrf.exempt(api_student_bp)
 csrf.exempt(api_lecturer_bp)
 csrf.exempt(api_hardware_bp)
+
+
+# Registered app-wide (not on hod_bp/lecturer_bp individually) because
+# base_portal.html -- the single shared shell for both roles -- needs both
+# the "Department" and "My Courses" sidebar sections available no matter
+# which blueprint actually rendered the current page. A blueprint-scoped
+# context_processor only fires for that blueprint's own routes, which is
+# exactly what broke the old two-portal layout: visiting a lecturer page
+# had no HOD data available to render an HOD nav section, and vice versa.
+# Replaces the old inject_hod_context() (hod.py) and inject_lecturer_context()
+# (lecturer.py), which this consolidates.
+@app.context_processor
+def inject_portal_context():
+    user_id = session.get('user_id')
+    if not user_id or session.get('role') not in ('lecturer', 'hod'):
+        return {}
+
+    hod = HOD.query.filter_by(user_id=user_id).first()
+    lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+
+    context = {
+        'has_hod_profile': hod is not None,
+        'has_lecturer_profile': lecturer is not None,
+    }
+    if hod:
+        context['hod_department'] = hod.department
+    if lecturer:
+        context['sidebar_courses'] = Course.query.filter_by(lecturer_id=lecturer.id).order_by(Course.course_code).all()
+        context['active_semester'] = Semester.query.filter_by(is_active=True).first()
+    return context
 
 
 # Keep-warm target for an external scheduler (e.g. an uptime-monitor ping or
