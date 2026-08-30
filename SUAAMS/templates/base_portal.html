@@ -54,14 +54,30 @@
                 </div>
             </div>
 
-            <!-- Department pill -- HOD's primary identity. Kept up top only;
-                 the active-semester pill (Lecturer side) moves down to sit
-                 next to "My Courses" instead of competing for header space. -->
-            {% if has_hod_profile %}
-                <div class="px-5 py-3 border-b border-border shrink-0">
-                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/10 border border-accent/20 text-[11px] font-semibold text-accent">
-                        <span class="material-symbols-rounded text-[14px]">account_tree</span>
-                        {{ hod_department.name if hod_department else 'Department' }}
+            {# Computed at this scope (not inside the `if` below) because
+               Jinja's `set` doesn't leak out of the block it's declared in --
+               both the toggle buttons AND the two nav-section `data-portal-
+               section` divs further down need to read this same value. #}
+            {% set show_hod_section = request.blueprint == 'hod' %}
+
+            {% if has_hod_profile and has_lecturer_profile %}
+                <!-- Promoted account: a role toggle replaces the single
+                     context pill. Switches which nav section below is
+                     visible client-side (see #portal-toggle's script at the
+                     bottom) -- no page reload, no persistence needed, since
+                     following an actual link into the other blueprint just
+                     lands you on a fresh page whose default already matches
+                     (show_hod_section is derived from request.blueprint). -->
+                <div class="px-3 py-3 border-b border-border shrink-0">
+                    <div id="portal-toggle" class="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface border border-border">
+                        <button type="button" data-portal-toggle="hod"
+                                class="portal-pill {{ 'portal-pill-active' if show_hod_section else '' }} text-[11px] font-semibold rounded-lg py-1.5 flex items-center justify-center gap-1.5">
+                            <span class="material-symbols-rounded text-[14px]">account_tree</span>HOD
+                        </button>
+                        <button type="button" data-portal-toggle="lecturer"
+                                class="portal-pill {{ '' if show_hod_section else 'portal-pill-active' }} text-[11px] font-semibold rounded-lg py-1.5 flex items-center justify-center gap-1.5">
+                            <span class="material-symbols-rounded text-[14px]">book</span>Lecturer
+                        </button>
                     </div>
                 </div>
             {% endif %}
@@ -70,8 +86,12 @@
             <nav class="flex-1 overflow-y-auto no-scrollbar px-3 py-5 space-y-6">
 
                 {% if has_hod_profile %}
+                    <div data-portal-section="hod" class="space-y-6 {{ '' if (not has_lecturer_profile) or show_hod_section else 'hidden' }}">
                     <div>
-                        <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Department</p>
+                        <div class="px-3 mb-2 flex items-center justify-between gap-2">
+                            <p class="text-[10px] font-bold uppercase tracking-widest text-muted">Department</p>
+                            <span class="text-[10px] text-muted truncate">{{ hod_department.name if hod_department else 'Department' }}</span>
+                        </div>
                         <div class="space-y-1">
                             <a href="{{ url_for('hod.dashboard') }}"
                                class="nav-link {{ 'nav-link-active' if request.blueprint == 'hod' and active_page == 'dashboard' else '' }}">
@@ -98,9 +118,11 @@
                             </a>
                         </div>
                     </div>
+                    </div>
                 {% endif %}
 
                 {% if has_lecturer_profile %}
+                    <div data-portal-section="lecturer" class="space-y-6 {{ '' if (not has_hod_profile) or not show_hod_section else 'hidden' }}">
                     <div>
                         <p class="px-3 mb-2 text-[10px] font-bold uppercase tracking-widest text-muted">Overview</p>
                         <div class="space-y-1">
@@ -171,6 +193,7 @@
                                 <span>Export</span>
                             </a>
                         </div>
+                    </div>
                     </div>
                 {% endif %}
 
@@ -255,6 +278,32 @@
         }
         toggleBtn.addEventListener('click', openSidebar);
         backdrop.addEventListener('click', closeSidebar);
+
+        // HOD/Lecturer role toggle (promoted accounts only -- the markup
+        // only exists when has_hod_profile and has_lecturer_profile are
+        // both true, so this is a no-op elsewhere). Purely client-side:
+        // no fetch, no localStorage. Following an actual nav link reloads
+        // the page anyway, and the server-rendered default (show_hod_section
+        // in base_portal.html) already matches whichever blueprint that new
+        // page belongs to, so there's nothing to persist across navigations.
+        const portalToggle = document.getElementById('portal-toggle');
+        if (portalToggle) {
+            const sections = {
+                hod: document.querySelector('[data-portal-section="hod"]'),
+                lecturer: document.querySelector('[data-portal-section="lecturer"]'),
+            };
+            portalToggle.querySelectorAll('[data-portal-toggle]').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const target = btn.dataset.portalToggle;
+                    portalToggle.querySelectorAll('[data-portal-toggle]').forEach((b) => {
+                        b.classList.toggle('portal-pill-active', b === btn);
+                    });
+                    Object.entries(sections).forEach(([key, el]) => {
+                        if (el) el.classList.toggle('hidden', key !== target);
+                    });
+                });
+            });
+        }
     </script>
 
     {% block extra_scripts %}{% endblock %}
