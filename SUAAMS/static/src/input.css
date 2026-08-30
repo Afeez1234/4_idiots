@@ -57,6 +57,22 @@
     @apply bg-accent/10 text-accent;
 }
 
+/* HOD/Lecturer role-toggle pills (base_portal.html, promoted accounts only)
+   -- a segmented control that shows/hides the two sidebar nav sections
+   client-side, no page reload. */
+.portal-pill {
+    @apply text-secondary transition-colors;
+}
+.portal-pill:hover {
+    @apply text-white;
+}
+.portal-pill-active {
+    @apply bg-accent/15 text-accent;
+}
+.portal-pill-active:hover {
+    @apply bg-accent/15 text-accent;
+}
+
 /* 4. Shared form input/select style -- matches templates/auth/login.html's
    actual input treatment (rounded-xl, plain border, accent border + ring
    on focus) so admin-portal forms are visually consistent with the login
