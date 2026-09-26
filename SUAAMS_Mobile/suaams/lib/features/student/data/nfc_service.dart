@@ -13,22 +13,39 @@ final nfcServiceProvider = Provider<NfcService>((ref) => NfcService());
 class NfcService {
   static const MethodChannel _channel = MethodChannel('suaams/hce');
 
-  /// Hands the freshly-minted beacon token to the native HCE service.
-  /// Called right after mint_checkin_beacon succeeds (see
-  /// nfc_provider.dart) -- native code holds this in memory only, it never
-  /// fetches or refreshes a token itself.
-  Future<void> startHceEmulation(String payload) async {
+  /// Hands the freshly-minted beacon to the native HCE service.
+  ///
+  /// [ttlSeconds] is the server's own `expires_in` from the mint response,
+  /// not a locally-guessed value. The native side arms its own deadline
+  /// from this, so the window it enforces is exactly the window Flask will
+  /// accept. Passing a guess here is how the app-side countdown and the
+  /// server-side expiry drift apart.
+  ///
+  /// The token is 32 ASCII characters (see beacon.py), so the native
+  /// service answers a reader with a single APDU exchange -- no chunking.
+  Future<void> startHceEmulation(String payload, {int? ttlSeconds}) async {
     try {
-      await _channel.invokeMethod('setBeaconToken', {'token': payload});
+      await _channel.invokeMethod('setBeaconToken', {
+        'token': payload,
+        // Null-aware element: the key is omitted entirely when we have no
+        // server-supplied TTL, so Kotlin's call.argument<Int> sees a
+        // missing key rather than an explicit null.
+        'ttlSeconds': ?ttlSeconds,
+      });
     } on PlatformException catch (e) {
       throw Exception('Hardware failure: ${e.message ?? e.code}');
     }
   }
 
-  /// Clears the token held natively. Called when the 3-second broadcast
-  /// window closes (or on any error before it starts) -- defense in depth
-  /// on top of the token's own short expiry, so a tap arriving after this
-  /// point gets a clean "no token" response instead of a stale one.
+  /// Asks the native side to drop the token now, rather than waiting out
+  /// its deadline.
+  ///
+  /// This is an optimisation, not the safety mechanism. The token's window
+  /// is enforced natively via a monotonic `SystemClock.elapsedRealtime()`
+  /// deadline plus a self-scheduling clear, so it closes correctly even if
+  /// this call never arrives -- which it previously could fail to do, when
+  /// the provider was disposed mid-flow and both this method and the state
+  /// write threw on an unmounted ref.
   Future<void> stopHceEmulation() async {
     try {
       await _channel.invokeMethod('clearBeaconToken');

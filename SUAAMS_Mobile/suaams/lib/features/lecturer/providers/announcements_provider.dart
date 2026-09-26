@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/announcement_model.dart';
+import 'package:suaams/features/lecturer/models/announcement_model.dart';
 import 'lecturer_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class AnnouncementsState {
   final bool isLoading;

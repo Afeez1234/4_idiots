@@ -86,8 +86,26 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   // LocalAuthentication() doesn't depend on anything only available inside
   // build() (no `ref`, no per-build state).
   final LocalAuthentication _localAuth = LocalAuthentication();
+
+  // Hoisted so the cleanup path never has to touch `ref`.
+  //
+  // This is the fix for the dispose race that used to leave a live beacon
+  // readable from native memory. Cleanup used to be written as
+  // `ref.read(nfcServiceProvider).stopHceEmulation()`, which throws
+  // UnmountedRefException once the provider is disposed -- and the two
+  // places that needed it (the catch block and the countdown timer) were
+  // both reachable AFTER disposal, precisely when it mattered. A plain
+  // object reference keeps working past disposal, so the wipe can no longer
+  // fail because of Riverpod's lifecycle.
+  //
+  // Deliberately not `final`: build() can re-run on the same instance, and
+  // a second final assignment would throw the same LateInitializationError
+  // described above.
+  NfcService? _nfcService;
+
   Timer? _broadcastTimer;
   Timer? _confirmationTimer;
+  Timer? _idleTimer;
 
   // Confirmation polling runs on its own clock, independent of the 3s
   // broadcast window. It starts the same moment broadcasting does, but
@@ -100,6 +118,11 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   // The anti-relay security window (matches BEACON_TOKEN_TTL_SECONDS in
   // api/student.py) -- NOT the same clock as _confirmationWindowSeconds
   // above. Broadcasting must stop at 3s regardless of confirmation state.
+  //
+  // This is now only the UI countdown. The window that actually secures
+  // the credential is enforced natively, from the server's own expires_in,
+  // via a monotonic deadline in SuaamsHceService. This constant no longer
+  // has to be exactly right for safety -- only for the displayed number.
   static const int _broadcastWindowSeconds = 3;
   int _confirmationTicks = 0;
 
@@ -114,16 +137,20 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     // selectors", _debugCallbackStack == 0), since onDispose already runs
     // as part of Riverpod's own internal teardown sequence and doesn't
     // permit calling back into the container while that's in progress.
-    // nfcServiceProvider is a plain Provider (always the same NfcService
-    // instance for this container's lifetime), so capturing it once here
-    // and closing over it below is both safe and sufficient.
-    final nfcService = ref.read(nfcServiceProvider);
+    // nfcServiceProvider is a plain (non-autoDispose) Provider, so the same
+    // NfcService instance lives for this container's lifetime and caching
+    // the reference here is safe as well as necessary.
+    _nfcService = ref.read(nfcServiceProvider);
 
     // Register auto-cleanup to prevent memory leaks when sheet is closed
     ref.onDispose(() {
       _broadcastTimer?.cancel();
       _confirmationTimer?.cancel();
-      nfcService.stopHceEmulation();
+      _idleTimer?.cancel();
+      // Note the field access rather than a local/ref.read -- this has to
+      // keep working after the provider is gone, which is exactly when
+      // dispose races land.
+      _nfcService?.stopHceEmulation();
     });
 
     return NfcCheckInState();
@@ -131,6 +158,29 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
   // Enforces biometric check-in and starts 3-second transmission window
   Future<void> initiateCheckInProtocol() async {
+    // Re-entrancy latch. There are two independent UI entry points
+    // (student_home_screen's check-in button and the ID-card screen's),
+    // each of which can open the sheet, and the sheet starts the protocol
+    // from a post-frame callback. Two of those landing together used to run
+    // the whole flow twice concurrently against one notifier: two
+    // authenticate() calls, two mints, two setBeaconToken calls -- where
+    // the second silently overwrote the first in native memory and the
+    // second's timer was the only one that survived. The first beacon was
+    // then orphaned with no wipe scheduled, the same leak as the dispose
+    // race. Refuse to start a second run rather than half-doing both.
+    if (state.status != NfcCheckInStatus.idle &&
+        state.status != NfcCheckInStatus.error) {
+      debugPrint(
+        '[NFC] ignoring check-in start: already ${state.status}',
+      );
+      return;
+    }
+
+    // Cancel any pending return-to-idle from a previous attempt, so a stale
+    // timer can't reset the state of the attempt we're about to begin.
+    _idleTimer?.cancel();
+    _idleTimer = null;
+
     state = NfcCheckInState(status: NfcCheckInStatus.authenticating);
 
     try {
@@ -154,6 +204,13 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       final canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
       final isDeviceSupported = await _localAuth.isDeviceSupported();
 
+      // The sheet can be dismissed (drag, back gesture, CANCEL) while any
+      // of these platform calls are in flight, which disposes this
+      // provider. Everything below -- including the catch block -- touches
+      // `ref`, so without this guard a perfectly ordinary cancel turns
+      // into UnmountedRefException.
+      if (!ref.mounted) return;
+
       if (!canAuthenticateWithBiometrics || !isDeviceSupported) {
         throw Exception(
           'Hardware security mismatch: Biometrics are disabled or unsupported.',
@@ -166,15 +223,24 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         localizedReason: 'Verify identity to activate attendance beacon',
       );
 
+      // THE critical guard. This await is the widest window in the whole
+      // flow: the student is looking at a system biometric prompt and may
+      // reasonably swipe the sheet away. Previously nothing checked for
+      // disposal here, so execution continued to push a beacon into native
+      // memory on a disposed provider, and then both the state write below
+      // and the catch block's cleanup threw -- leaving the token live and
+      // readable with no wipe ever scheduled.
+      if (!ref.mounted) return;
+
       if (!authenticated) {
         throw Exception('Identity verification failed.');
       }
 
-      // 3. Mint a short-lived beacon token, then broadcast THAT over HCE --
-      // not the long-lived session token. Broadcasting the session token
+      // 3. Mint a short-lived beacon, then broadcast THAT over HCE -- not
+      // the long-lived session token. Broadcasting the session token
       // directly would mean anything that captured/relayed the NFC signal
       // could replay it as a valid API credential indefinitely; the beacon
-      // token backend-mints with a 3s expiry (BEACON_TOKEN_TTL_SECONDS in
+      // is minted with a 3s expiry (BEACON_TOKEN_TTL_SECONDS in
       // api/student.py), matching the strict 3-second anti-relay window
       // CLAUDE.md documents as canonical.
       //
@@ -182,10 +248,12 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       // expire right as the student taps "check in" gets silently
       // refreshed and retried, instead of failing this whole attempt and
       // forcing them to back out and try again manually.
-      final beaconToken = await withAuthRetry(
+      final mint = await withAuthRetry(
         ref,
         (token) => ref.read(studentServiceProvider).mintCheckinBeacon(token),
       );
+
+      if (!ref.mounted) return;
 
       // BUG FIX: `state = ...broadcasting...` used to be set BEFORE this
       // await, not after. That line triggers an immediate UI rebuild (the
@@ -200,10 +268,21 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       debugPrint(
         '[NFC ${DateTime.now().millisecondsSinceEpoch}] Calling setBeaconToken...',
       );
-      await ref.read(nfcServiceProvider).startHceEmulation(beaconToken);
+
+      // Hand the server's own expires_in down so the native deadline
+      // matches the window Flask will actually accept. It used to be
+      // discarded on the Dart side, which is how the app's countdown and
+      // the server's real expiry could drift apart by the length of the
+      // mint round-trip.
+      await _nfcService?.startHceEmulation(
+        mint.beaconToken,
+        ttlSeconds: mint.expiresIn,
+      );
       debugPrint(
         '[NFC ${DateTime.now().millisecondsSinceEpoch}] setBeaconToken call completed.',
       );
+
+      if (!ref.mounted) return;
 
       state = NfcCheckInState(
         status: NfcCheckInStatus.broadcasting,
@@ -225,7 +304,11 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
           errorMessage: e.toString().replaceAll('Exception: ', ''),
         );
       }
-      ref.read(nfcServiceProvider).stopHceEmulation();
+      // Uses the hoisted field, not ref.read -- this line used to be the
+      // one that threw when the provider was already disposed, taking the
+      // wipe down with it. (And the native deadline is a further backstop
+      // that doesn't depend on this call at all.)
+      await _nfcService?.stopHceEmulation();
     }
   }
 
@@ -235,7 +318,13 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       // If confirmation polling already resolved this attempt, it cancels
       // this timer directly -- this guard is cheap insurance against both
       // timers firing in the same event-loop tick before that
-      // cancellation propagates.
+      // cancellation propagates. Checking `mounted` first matters: reading
+      // `state` on a disposed notifier throws.
+      if (!ref.mounted) {
+        timer.cancel();
+        return;
+      }
+
       if (state.status != NfcCheckInStatus.broadcasting) {
         timer.cancel();
         return;
@@ -246,8 +335,8 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
         // HCE is purely passive -- this is the only way to know whether
         // any reader was ever actually in range during the broadcast.
-        final tapped = await ref.read(nfcServiceProvider).wasTapDetected();
-        await ref.read(nfcServiceProvider).stopHceEmulation();
+        final tapped = await _nfcService?.wasTapDetected() ?? false;
+        await _nfcService?.stopHceEmulation();
 
         // Re-check after the awaits above: confirmation polling runs on
         // its own timer and may have already resolved this attempt while
@@ -282,6 +371,15 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     _confirmationTimer = Timer.periodic(const Duration(seconds: 1), (
       timer,
     ) async {
+      // Guard BEFORE the first await, not after. A callback that throws
+      // from a timer becomes an unhandled async error, and this callback
+      // previously dereferenced `ref` first thing -- so a sheet dismissed
+      // mid-poll turned into a crash rather than a clean teardown.
+      if (!ref.mounted) {
+        timer.cancel();
+        return;
+      }
+
       _confirmationTicks++;
 
       CheckinStatusResult? result;
@@ -291,20 +389,27 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
           (token) => ref.read(studentServiceProvider).checkCheckinStatus(token),
         );
       } catch (_) {
-        // A single failed poll (network blip, etc.) doesn't abort the
-        // whole confirmation attempt -- the actual check-in already
-        // happened over NFC; this loop is purely for UI feedback. Treat
-        // it the same as "not confirmed yet" and try again next tick.
-        // (withAuthRetry itself still gets its normal chance to silently
-        // refresh/logout on a genuine auth failure -- this catch just
-        // stops that from also killing the polling loop.)
+        // A single failed poll (network blip, a 5s timeout, etc.) doesn't
+        // abort the whole confirmation attempt -- the actual check-in
+        // already happened over NFC; this loop is purely for UI feedback.
+        // Treat it the same as "not confirmed yet" and try again next
+        // tick. (withAuthRetry itself still gets its normal chance to
+        // silently refresh on a genuine auth failure.)
         result = null;
+      }
+
+      // The await above means the provider may have been disposed (or the
+      // attempt resolved on another timer) while the request was in
+      // flight. Everything below touches ref/state, so re-check.
+      if (!ref.mounted) {
+        timer.cancel();
+        return;
       }
 
       if (result != null && result.checkedIn) {
         timer.cancel();
         _broadcastTimer?.cancel();
-        await ref.read(nfcServiceProvider).stopHceEmulation();
+        await _nfcService?.stopHceEmulation();
         if (ref.mounted) {
           state = state.copyWith(
             status: NfcCheckInStatus.success,
@@ -321,7 +426,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       if (result != null && result.reason == 'not_enrolled') {
         timer.cancel();
         _broadcastTimer?.cancel();
-        await ref.read(nfcServiceProvider).stopHceEmulation();
+        await _nfcService?.stopHceEmulation();
         if (ref.mounted) {
           state = state.copyWith(
             status: NfcCheckInStatus.notEnrolled,
@@ -335,7 +440,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       if (_confirmationTicks >= _confirmationWindowSeconds) {
         timer.cancel();
         _broadcastTimer?.cancel();
-        await ref.read(nfcServiceProvider).stopHceEmulation();
+        await _nfcService?.stopHceEmulation();
         if (ref.mounted) {
           state = state.copyWith(status: NfcCheckInStatus.unconfirmed);
           _scheduleReturnToIdle();
@@ -345,7 +450,12 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   }
 
   void _scheduleReturnToIdle() {
-    Future.delayed(const Duration(seconds: 3), () {
+    // Was an untracked Future.delayed. Two overlapping attempts left two
+    // of these pending, and whichever survived would reset state out from
+    // under the newer attempt -- e.g. knocking a fresh success back to idle
+    // a moment after it landed. Store it so it can be cancelled.
+    _idleTimer?.cancel();
+    _idleTimer = Timer(const Duration(seconds: 3), () {
       if (ref.mounted) {
         state = NfcCheckInState(status: NfcCheckInStatus.idle);
       }

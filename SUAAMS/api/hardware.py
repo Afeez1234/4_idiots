@@ -81,17 +81,25 @@ def get_active_sessions_by_course_id(course_id):
         }
     }), 200
 
-# Same reasoning as /api/v1/student/checkin in api/student.py: this is an
-# unauthenticated, ESP32-facing endpoint (no JWT to key by), so it's rate
-# limited per-IP. One reader posting a stream of card taps stays well under
-# 30/minute; this mainly caps abuse/DoS against an endpoint anyone can hit.
+# Legacy MFRC522/RFID capture route, retained only for the old card-reader
+# hardware. It is now gated by the same shared terminal secret as the HCE
+# check-in route -- see api/student.py's _check_terminal_auth().
 #
-# No @csrf.exempt needed here anymore -- app.py now exempts the whole
-# api_hardware_bp blueprint in one call, the same way it already does for
-# api_auth_bp/api_student_bp, instead of a one-off decorator on this route.
+# Previously this took RFID_UID straight from an unauthenticated request
+# body, which meant anyone who could reach the URL could mark any enrolled
+# student present by guessing or scraping a UID. That is a direct
+# buddy-punching hole and it was live.
+#
+# If the MFRC522 path is no longer needed, delete this route outright rather
+# than maintaining a second attendance-capture implementation.
 @api_hardware_bp.route('/attendance', methods=['POST'])
 @limiter.limit("30 per minute")
 def attendance():
+    from api.student import _check_terminal_auth
+
+    if not _check_terminal_auth():
+        return jsonify({"error": "Unauthorized terminal"}), 401
+
     data = request.get_json()
     RFID_UID = data.get('RFID_UID')
     if not RFID_UID:

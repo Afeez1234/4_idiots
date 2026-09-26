@@ -1,0 +1,8 @@
+# Local credentials for the ESP32 terminal. Keep secrets.h.example (which
+# has no real values) tracked; never commit the filled-in secrets.h.
+**/secrets.h
+secrets.h
+
+# .claude/settings.json can hold a live API token. settings.local.json is
+# already covered by the global gitignore; this file is not.
+.claude/settings.json

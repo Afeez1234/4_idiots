@@ -8,9 +8,9 @@
 // does automatically. courseId is then just a stored field, readable from
 // build() and every other method on the notifier.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/course_workspace_model.dart';
+import 'package:suaams/features/lecturer/models/course_workspace_model.dart';
 import 'lecturer_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class CourseWorkspaceState {
   final bool isLoading;

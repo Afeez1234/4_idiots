@@ -2,9 +2,9 @@
 // course_workspace_provider.dart (courseId is the constructor arg, not a
 // build() param, per Riverpod 3.x's family pattern).
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/session_history_model.dart';
+import 'package:suaams/features/lecturer/models/session_history_model.dart';
 import 'lecturer_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class SessionHistoryState {
   final bool isLoading;

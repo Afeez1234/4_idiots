@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/course_workspace_provider.dart';
-import '../../models/course_workspace_model.dart';
+import 'package:suaams/features/lecturer/providers/course_workspace_provider.dart';
+import 'package:suaams/features/lecturer/models/course_workspace_model.dart';
 
 class CourseWorkspaceScreen extends ConsumerStatefulWidget {
   final int courseId;

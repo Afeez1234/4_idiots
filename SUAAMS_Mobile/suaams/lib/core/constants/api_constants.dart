@@ -104,6 +104,11 @@ abstract final class ApiConstants {
   static String courseAnalyticsEndpoint(int courseId) =>
       '$baseUrl/lecturer/course/$courseId/analytics';
 
+  // Per-student attendance register CSV for one course -- see
+  // export_course_register in api/lecturer.py.
+  static String courseExportEndpoint(int courseId) =>
+      '$baseUrl/lecturer/course/$courseId/export';
+
   static const String lecturerAnnouncementsEndpoint =
       '$baseUrl/lecturer/announcements';
 

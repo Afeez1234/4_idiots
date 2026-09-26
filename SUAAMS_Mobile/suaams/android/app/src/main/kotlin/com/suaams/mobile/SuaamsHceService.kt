@@ -2,137 +2,177 @@ package com.suaams.mobile
 
 import android.nfc.cardemulation.HostApduService
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 
 /**
- * Broadcasts the short-lived beacon token (minted by
- * api/student.py's mint_checkin_beacon, ~300 bytes as a JWT) over NFC HCE
- * to the ESP32/PN532 terminal.
+ * Broadcasts the short-lived check-in beacon over NFC HCE to the
+ * ESP32/PN532 terminal.
  *
- * The token doesn't fit in a single APDU exchange -- the PN532 side (via
- * the Adafruit_PN532 Arduino library, patched PN532_PACKBUFFSIZ=255) caps
- * out around ~250 usable bytes per InDataExchange call. So this implements
- * the standard ISO 7816-4 idiom for "response bigger than one frame":
- * return as much as fits plus status word 61 xx (xx = bytes still
- * available), and answer a follow-up GET RESPONSE (00 C0 00 00 ...) with
- * the next slice, repeating until 90 00.
+ * The token is 32 ASCII characters (see beacon.py on the Flask side: a
+ * 12-byte payload + 12-byte truncated HMAC, base64url encoded), so it fits
+ * in a SINGLE APDU exchange -- 32 bytes plus a 2-byte status word, 34
+ * bytes total.
  *
- * beaconToken lives in the companion object (not as an instance field)
+ * This service used to be a chunked multi-exchange protocol: it served the
+ * token 64 bytes at a time using ISO 7816-4 `61 xx` status words and GET
+ * RESPONSE chaining, because the token was previously a ~360-byte JWT. That
+ * cost six round-trips and ~650ms of continuous RF coupling, which is what
+ * made taps unreliable -- the phone has to stay well-coupled for two-thirds
+ * of a second, and on this hardware the link was measured degrading after
+ * ~119 bytes of transfer. With a 34-byte response the whole exchange is a
+ * single frame, so the chunking machinery is gone: no `offset`, no
+ * `CHUNK_SIZE`, no GET RESPONSE. There is nothing left to get out of sync.
+ *
+ * The token lives in the companion object rather than an instance field
  * because it's written from a completely different component --
- * MainActivity's MethodChannel handler, which has no reference to whatever
- * live SuaamsHceService instance the NFC stack is currently holding. The
- * chunk offset stays a plain instance var: unlike the token itself, it's
- * only ever read/written from processCommandApdu/onDeactivated, both
- * always invoked on the one instance the system is currently driving.
+ * MainActivity's MethodChannel handler -- which has no reference to whatever
+ * live SuaamsHceService instance the NFC stack is currently holding.
  */
 class SuaamsHceService : HostApduService() {
 
     companion object {
-        // Logging is here specifically because we're skipping the
-        // isolated (second-phone) pre-test and going straight to real
-        // PN532 hardware -- if a tap fails end-to-end, this is the only
-        // visibility into what happened on the Android side specifically,
-        // as opposed to the ESP32/PN532 side or the Flask side. Every line
-        // carries both an epoch-ms timestamp (to line up against the
-        // ESP32's own serial log and the Flask server log, which use wall
-        // clock too) and an elapsed-since-SELECT figure (to see how long
-        // the exchange itself is taking, independent of clock sync issues
-        // between devices).
         private const val TAG = "SuaamsHceService"
 
-        // Originally 200 (margin below the ~250-byte PN532/Adafruit_PN532
-        // buffer ceiling). Dropped to 64 after real hardware testing showed
-        // 200-byte exchanges corrupting mid-transfer -- a hex dump of a
-        // failed read showed genuine JWT bytes for the first ~119 bytes,
-        // then the RF coupling apparently dropped, with the rest of the
-        // buffer coming back as padding (0x80 repeated) instead of real
-        // data or a real status word.
-        //
-        // 64 then proved fully reliable end-to-end (6/6 clean chunks, zero
-        // corruption on a real tap), but paid for that with round-trip
-        // count: ~6 exchanges for a ~360-byte token, and each APDU
-        // round-trip has fixed overhead on top of the RF transfer itself --
-        // that pushed total exchange time past 650ms, eating deep into
-        // BEACON_TOKEN_TTL_SECONDS's 3-second budget once the Flask POST
-        // (which can itself run 1-2s on a cold Render dyno, see /healthz in
-        // app.py) is added on top. Raised to 96 as a middle ground: still
-        // comfortably under the ~119-byte point where the 200-byte exchange
-        // is known to have destabilized, but cuts the same token down to
-        // ~4 round-trips instead of 6. Single named constant, same pattern
-        // as BEACON_TOKEN_TTL_SECONDS on the Flask side, so it's a one-line
-        // change if real-world testing says it needs to move again.
-        private const val CHUNK_SIZE = 64
-
+        // SELECT AID header (00 A4 04 00). Android's own AID routing in
+        // apduservice.xml has already matched the AID before delivering
+        // anything here, so we don't re-validate the AID bytes.
         private val SELECT_HEADER = byteArrayOf(0x00, 0xA4.toByte(), 0x04, 0x00)
-        private val GET_RESPONSE_HEADER = byteArrayOf(0x00, 0xC0.toByte(), 0x00, 0x00)
 
         private val SW_SUCCESS = byteArrayOf(0x90.toByte(), 0x00)
         // 6A 88 "Referenced data not found" -- returned when a reader taps
-        // while no beacon token has been set yet (fresh install) or after
-        // clearBeaconToken() ran, rather than crashing or returning
-        // garbage. The ESP32 gets an unambiguous "nothing to read" signal.
+        // while no live beacon exists: fresh install, after the window
+        // closed, or a stale tap arriving late. The terminal reads this as
+        // "nothing to record" rather than as a fault.
         private val SW_NO_TOKEN = byteArrayOf(0x6A, 0x88.toByte())
-        // 6D 00 "Instruction not supported" -- anything that isn't SELECT
-        // or GET RESPONSE. Also the fallback for a malformed/too-short
-        // command rather than risking an ArrayIndexOutOfBounds.
+        // 6D 00 "Instruction not supported" -- anything that isn't SELECT,
+        // and the fallback for a malformed/too-short command rather than
+        // risking an ArrayIndexOutOfBounds.
         private val SW_INS_NOT_SUPPORTED = byteArrayOf(0x6D, 0x00)
+
+        // Fallback window if Dart doesn't supply a TTL. Matches
+        // BEACON_TOKEN_TTL_SECONDS on the Flask side. Dart normally passes
+        // the server's own expires_in, so this is only a safety net.
+        const val DEFAULT_TTL_MILLIS = 3_000L
+
+        private val handler = Handler(Looper.getMainLooper())
 
         @Volatile
         private var beaconToken: ByteArray? = null
 
+        // Monotonic deadline (SystemClock.elapsedRealtime, not
+        // currentTimeMillis) at which the token above stops being valid.
+        //
+        // The expiry is enforced HERE, in the process that actually holds
+        // the token, rather than by a Dart Timer. That matters because the
+        // previous design relied on a Timer in nfc_provider.dart to call
+        // clearBeaconToken(), and there were several ways that never ran:
+        // the sheet could be dismissed while the biometric prompt was up
+        // (the provider disposes, so the timer's ref is dead and both the
+        // state write and the cleanup throw on an unmounted ref), or the
+        // isolate could be suspended when the app is backgrounded, or the
+        // OS could simply throttle the timer. In every one of those cases
+        // the token stayed readable in this process.
+        //
+        // SystemClock.elapsedRealtime() is immune to wall-clock changes and
+        // keeps counting while the device sleeps, so the window closes on
+        // time no matter what Dart is doing.
+        @Volatile
+        private var deadlineElapsedMs = 0L
+
         // HCE is purely passive/reactive -- the phone has no way to know
         // whether a reader is even nearby except by noticing it got asked
-        // something. Without this flag, "nothing nearby ever read this"
-        // and "something read it but the backend never confirmed" are
-        // indistinguishable from the Dart side, which otherwise has to
-        // wait out the full confirmation-poll window either way.
+        // something. Without this flag, "nothing nearby ever read this" and
+        // "something read it but the backend never confirmed" are
+        // indistinguishable from Dart, which would otherwise have to wait
+        // out the full confirmation-poll window either way.
         @Volatile
         private var tapDetected: Boolean = false
 
-        /** Called from MainActivity's MethodChannel handler right before
-         * each broadcast attempt (mirrors mint_checkin_beacon being called
-         * fresh per tap, not reused). JWTs are base64url + '.' separators,
-         * so plain ASCII encoding is exact -- no multi-byte concerns. */
-        fun setBeaconToken(token: String) {
+        private val expiryRunnable = Runnable { clearBeaconToken("deadline") }
+
+        /**
+         * Arm a beacon for [ttlMillis]. Called from MainActivity's
+         * MethodChannel handler right after the server mints one.
+         *
+         * JWTs are base64url + '.' separators, so plain ASCII encoding is
+         * exact -- no multi-byte concerns.
+         */
+        fun setBeaconToken(token: String, ttlMillis: Long = DEFAULT_TTL_MILLIS) {
+            // Cancel any pending self-clear from a previous attempt BEFORE
+            // installing the new token. Without this, a token minted a
+            // moment after the last one was cleared could be wiped by the
+            // previous window's still-queued runnable.
+            handler.removeCallbacks(expiryRunnable)
+
             beaconToken = token.toByteArray(Charsets.US_ASCII)
+            deadlineElapsedMs = SystemClock.elapsedRealtime() + ttlMillis
             tapDetected = false
-            Log.d(TAG, "Beacon token set: ${token.length} chars (t=${System.currentTimeMillis()})")
+            handler.postDelayed(expiryRunnable, ttlMillis)
+
+            Log.d(
+                TAG,
+                "Beacon armed: ${token.length} chars, ttl=${ttlMillis}ms " +
+                    "(t=${System.currentTimeMillis()})"
+            )
         }
 
-        /** Called from the same handler when the 3-second broadcast window
-         * closes, or on any error before that window starts. Defense in
-         * depth on top of the token's own short expiry -- a tap arriving
-         * after this point gets SW_NO_TOKEN instead of a stale token. */
-        fun clearBeaconToken() {
+        /**
+         * Drop the token. Called when the broadcast window closes, on any
+         * error before it opened, and -- critically -- by [expiryRunnable]
+         * when the deadline passes with no help from Dart at all.
+         */
+        fun clearBeaconToken(reason: String = "explicit") {
+            handler.removeCallbacks(expiryRunnable)
+
+            // Zero the bytes before dropping the reference. The array lives
+            // in a process-lifetime companion object, so nulling alone
+            // leaves the credential recoverable in the heap until GC runs.
+            val token = beaconToken
+            if (token != null) {
+                token.fill(0)
+            }
+
             beaconToken = null
-            Log.d(TAG, "Beacon token cleared (t=${System.currentTimeMillis()})")
+            deadlineElapsedMs = 0L
+            // Reset here too, not just in setBeaconToken. wasTapDetected()
+            // is read after the window closes, and the invariant "a fresh
+            // attempt starts with tapDetected == false" has to hold in one
+            // place or it silently breaks when a new field is added.
+            tapDetected = false
+
+            Log.d(TAG, "Beacon cleared (reason=$reason, t=${System.currentTimeMillis()})")
         }
 
-        /** True if any reader engaged our AID (i.e. processCommandApdu ran
-         * at all, for any command) since the last setBeaconToken() call.
-         * Checked once the 3-second broadcast window closes -- if false,
-         * there's nothing for confirmation polling to ever find, so the
-         * Dart side can skip straight to "no terminal detected" instead of
-         * waiting out its full poll window for something that could never
-         * have succeeded. */
+        /** Did any reader engage our AID since the last setBeaconToken()? */
         fun wasTapDetected(): Boolean = tapDetected
-    }
 
-    private var offset = 0
-    // Wall-clock time of the current session's SELECT AID, used only to
-    // compute "elapsed" in the per-chunk log lines below -- reset each time
-    // a new SELECT starts a session, same as offset.
-    private var sessionStartTime = 0L
+        /** Is a token live right now? Used by processCommandApdu. */
+        private fun liveToken(): ByteArray? {
+            val token = beaconToken ?: return null
+            if (SystemClock.elapsedRealtime() >= deadlineElapsedMs) {
+                // The Handler self-clear is the primary mechanism; this is
+                // the backstop for the case where it was delayed (main
+                // thread busy, process frozen). A reader must never be
+                // handed a credential past its window.
+                Log.w(TAG, "Deadline passed but token not yet cleared; refusing to serve it")
+                clearBeaconToken("deadline-backstop")
+                return null
+            }
+            return token
+        }
+    }
 
     override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray {
         val now = System.currentTimeMillis()
 
-        // Android only calls this once our AID has already been matched
-        // via apduservice.xml's routing -- reaching this line at all, for
-        // ANY command (even a malformed one), already proves a reader
-        // engaged specifically with us. Set unconditionally, before the
-        // malformed-command check below, so a garbled first command still
-        // counts as "something was there".
+        // Android only calls this once our AID has already been matched via
+        // apduservice.xml routing -- reaching this line at all, for ANY
+        // command, already proves a reader engaged specifically with us.
+        // Set before the malformed-command check so a garbled first command
+        // still counts as "something was there".
         tapDetected = true
 
         val commandStr = commandApdu?.joinToString("") { "%02X".format(it) } ?: "NULL"
@@ -144,76 +184,31 @@ class SuaamsHceService : HostApduService() {
         }
 
         val header = commandApdu.copyOfRange(0, 4)
-
-        return when {
-            header.contentEquals(SELECT_HEADER) -> {
-                // Android's own AID routing (apduservice.xml) already
-                // confirmed this SELECT matched our AID before delivering
-                // it here -- no need to re-validate the AID bytes.
-                offset = 0
-                sessionStartTime = now
-                val tokenLen = beaconToken?.size ?: -1
-                Log.d(TAG, "SELECT AID matched, token=$tokenLen bytes (t=$now, elapsed=0ms)")
-                nextChunk(now)
-            }
-            header.contentEquals(GET_RESPONSE_HEADER) -> nextChunk(now)
-            else -> {
-                Log.w(TAG, "Unrecognized APDU header ${header.joinToString("") { "%02X".format(it) }} (t=$now)")
-                SW_INS_NOT_SUPPORTED
-            }
+        if (!header.contentEquals(SELECT_HEADER)) {
+            Log.w(TAG, "Unrecognized APDU header (t=$now)")
+            return SW_INS_NOT_SUPPORTED
         }
-    }
 
-    private fun nextChunk(now: Long): ByteArray {
-        val elapsed = now - sessionStartTime
-        val token = beaconToken
+        val token = liveToken()
         if (token == null) {
-            Log.w(TAG, "No beacon token set, returning SW_NO_TOKEN (t=$now, elapsed=${elapsed}ms)")
+            Log.w(TAG, "SELECT with no live beacon -> SW_NO_TOKEN (t=$now)")
             return SW_NO_TOKEN
         }
 
-        val remaining = token.size - offset
-        if (remaining <= 0) {
-            // GET RESPONSE called again after the final chunk already went
-            // out -- shouldn't happen in a well-behaved exchange, but
-            // logged rather than silently returning success, since it
-            // would otherwise look identical to a normal final ACK.
-            Log.w(TAG, "GET RESPONSE with nothing left to send (t=$now, elapsed=${elapsed}ms)")
-            return SW_SUCCESS
-        }
-
-        val chunkLen = minOf(CHUNK_SIZE, remaining)
-        val chunkIndex = offset / CHUNK_SIZE
-        val chunk = token.copyOfRange(offset, offset + chunkLen)
-        offset += chunkLen
-
-        val stillRemaining = token.size - offset
-        return if (stillRemaining > 0) {
-            // SW2 can only represent up to 255 in one byte; 0x00 is the
-            // ISO 7816-4 sentinel for "256 or more bytes still available".
-            // Not reachable at today's ~300-byte token size with 64-byte
-            // chunks (max remainder is ~63), but correct if the token
-            // shape ever grows.
-            val sw2 = if (stillRemaining > 255) 0 else stillRemaining
-            Log.d(TAG, "Sent chunk #$chunkIndex: $chunkLen bytes, $stillRemaining remaining, more data follows (t=$now, elapsed=${elapsed}ms)")
-            chunk + byteArrayOf(0x61, sw2.toByte())
-        } else {
-            Log.d(TAG, "Sent chunk #$chunkIndex: $chunkLen bytes, final chunk (t=$now, elapsed=${elapsed}ms)")
-            chunk + SW_SUCCESS
-        }
+        // Single-shot: the whole token, plus 90 00. No 61xx, no GET
+        // RESPONSE, no offset to track.
+        Log.d(TAG, "SELECT -> serving ${token.size} bytes in one response (t=$now)")
+        return token + SW_SUCCESS
     }
 
     override fun onDeactivated(reason: Int) {
-        // Field lost (tap ended) or a new SELECT is about to start a fresh
-        // session -- either way, don't let a stale offset leak into the
-        // next exchange. The token itself isn't cleared here: that's
-        // clearBeaconToken()'s job, tied to the 3-second window closing,
-        // not to individual field-loss events (RF can drop and re-couple
-        // mid-tap on some hardware without the logical session ending).
-        val now = System.currentTimeMillis()
-        val elapsed = if (sessionStartTime > 0) now - sessionStartTime else -1
+        // The tap ended (field lost) or the card was deselected. The token
+        // is NOT cleared here: its lifetime is tied to the broadcast
+        // window, not to individual field-loss events -- RF can drop and
+        // re-couple mid-tap without the logical session ending, and
+        // wiping on every deactivation would strand a student mid-transfer.
+        // The native deadline is what actually bounds the window.
         val reasonName = if (reason == DEACTIVATION_LINK_LOSS) "LINK_LOSS" else "DESELECTED"
-        Log.d(TAG, "Deactivated: $reasonName, session lasted ${elapsed}ms (t=$now)")
-        offset = 0
+        Log.d(TAG, "Deactivated: $reasonName (t=${System.currentTimeMillis()})")
     }
 }

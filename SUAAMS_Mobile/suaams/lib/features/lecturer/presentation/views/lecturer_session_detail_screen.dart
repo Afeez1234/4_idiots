@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/session_detail_provider.dart';
-import '../../models/session_detail_model.dart';
+import 'package:suaams/features/lecturer/providers/session_detail_provider.dart';
+import 'package:suaams/features/lecturer/models/session_detail_model.dart';
 
 String _fmtTime(String? raw) {
   if (raw == null || raw.length < 5) return '--:--';

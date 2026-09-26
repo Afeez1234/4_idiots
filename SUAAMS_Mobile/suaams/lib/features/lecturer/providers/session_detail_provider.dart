@@ -4,9 +4,9 @@
 // lookup needs, so this works the same way a single-int family arg does
 // elsewhere in this codebase (see course_workspace_provider.dart).
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/session_detail_model.dart';
+import 'package:suaams/features/lecturer/models/session_detail_model.dart';
 import 'lecturer_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 typedef SessionDetailArgs = ({int courseId, int sessionId});
 

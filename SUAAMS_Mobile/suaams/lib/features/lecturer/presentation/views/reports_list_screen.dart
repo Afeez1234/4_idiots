@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/lecturer_provider.dart';
-import '../../models/lecturer_dashboard_model.dart';
+import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
+import 'package:suaams/features/lecturer/providers/course_export_provider.dart';
+import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 
 // Reports tab root -- reuses the already-loaded lecturerDashboardProvider
 // course list (same reasoning as ActiveSessionsScreen) rather than a
@@ -15,6 +16,7 @@ class ReportsListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(lecturerDashboardProvider);
     final colorScheme = Theme.of(context).colorScheme;
+    final exportingCourseId = ref.watch(courseExportProvider);
 
     if (state.isLoading && state.data == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -66,6 +68,18 @@ class ReportsListScreen extends ConsumerWidget {
                     child: _ReportCard(
                       course: course,
                       colorScheme: colorScheme,
+                      isExporting: exportingCourseId == course.id,
+                      onExport: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final error = await ref
+                            .read(courseExportProvider.notifier)
+                            .exportRegister(course.id, course.code);
+                        if (error != null) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text('Export failed: $error')),
+                          );
+                        }
+                      },
                       onTap: () =>
                           context.push('/lecturer/reports/course/${course.id}'),
                     ),
@@ -83,11 +97,15 @@ class _ReportCard extends StatelessWidget {
   final LecturerCourse course;
   final ColorScheme colorScheme;
   final VoidCallback onTap;
+  final VoidCallback onExport;
+  final bool isExporting;
 
   const _ReportCard({
     required this.course,
     required this.colorScheme,
     required this.onTap,
+    required this.onExport,
+    required this.isExporting,
   });
 
   @override
@@ -127,6 +145,21 @@ class _ReportCard extends StatelessWidget {
                 ],
               ),
             ),
+            // Per-student attendance register CSV (exam eligibility list).
+            isExporting
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  )
+                : IconButton(
+                    tooltip: 'Export attendance register (CSV)',
+                    icon: const Icon(Icons.download_rounded),
+                    onPressed: onExport,
+                  ),
             Icon(
               Icons.chevron_right_rounded,
               color: colorScheme.onSurface.withValues(alpha: 0.3),

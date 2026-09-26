@@ -1,8 +1,24 @@
 /*
   SUAAMS HCE Check-In Terminal
-  ESP32 + PN532: reads the short-lived beacon token an Android phone
-  broadcasts over NFC HCE (see mint_checkin_beacon in api/student.py and
-  SuaamsHceService.kt on the app side) and submits it to Flask.
+  ESP32 + PN532: reads the short-lived check-in beacon an Android phone
+  broadcasts over NFC HCE and submits it to Flask.
+
+  Single-exchange reader
+  ----------------------
+  The phone's HCE service (SuaamsHceService.kt) answers a SELECT with the
+  whole beacon plus a 90 00 status word -- 34 bytes, one frame. This sketch
+  used to be a chunked multi-exchange protocol: SELECT, then GET RESPONSE
+  in 64-byte slices following 61xx status words, six round-trips and ~650ms
+  of continuous RF coupling. That was needed only because the beacon used
+  to be a ~360-byte JWT. The link was measured degrading after ~119 bytes of
+  transfer, so a long multi-frame exchange meant the phone had to stay
+  well-coupled for two-thirds of a second -- which is why taps were
+  unreliable, and why detection looked intermittent.
+
+  With a 34-byte response the whole read is one frame, so all of that is
+  gone: no CHUNK_SIZE to tune, no GET RESPONSE loop, no 61xx to parse, no
+  offset to track, and roughly 13x more tolerance for the phone drifting
+  during the tap.
 */
 
 #include <Wire.h>
@@ -10,21 +26,18 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
-// ---------------- WiFi / Backend ----------------
 
-const char* ssid = "Abdul-Afeez's S24";
-const char* password = "vnix7920";
-const char* checkinUrl = "https://suaams.onrender.com/api/v1/student/checkin";
-
+#include "secrets.h"  // WiFi + terminal credentials. NOT in git.
 
 #define SDA_PIN 21
 #define SCL_PIN 22
+
 // ---------------- PN532 ----------------
 #define PN532_IRQ   -1
 #define PN532_RESET -1
 Adafruit_PN532 nfc(PN532_IRQ, PN532_RESET);
 
-// ---------------- Protocol constants ----------------
+// ---------------- Protocol ----------------
 // AID F0394148148100 -- must match apduservice.xml / SuaamsHceService.kt
 // exactly, or Android's own AID routing never delivers SELECT to our
 // service in the first place.
@@ -34,56 +47,206 @@ const uint8_t SELECT_APDU[] = {
   0x00
 };
 
-// Must match SuaamsHceService.kt's CHUNK_SIZE exactly. Originally 200
-// (margin below the uint8_t 255-byte ceiling inDataExchange() imposes),
-// dropped to 64 after real hardware testing showed 200-byte exchanges
-// corrupting mid-transfer -- a raw hex dump of a failed read showed real
-// JWT bytes for ~119 bytes, then the RF coupling apparently dropped, with
-// the rest of the buffer coming back as padding instead of real data or a
-// real status word.
-//
-// 64 then proved fully reliable on a real tap (6/6 clean chunks, 361 bytes
-// reassembled with zero corruption), but the resulting ~650ms exchange time
-// (6 round-trips, each with fixed APDU overhead on top of the RF transfer)
-// eats deep into BEACON_TOKEN_TTL_SECONDS's 3-second budget once the Flask
-// POST is added on top -- POST alone measured ~1.8s against a cold Render
-// dyno, enough on its own to expire the token before it's even validated
-// (see /healthz in app.py, added to keep that dyno warm). Raised to 96 as a
-// middle ground: still comfortably under the ~119-byte point where the
-// 200-byte exchange is known to have destabilized, but cuts the same token
-// down to ~4 round-trips instead of 6.
-const uint8_t CHUNK_SIZE = 64;
-const uint8_t RESPONSE_BUF_SIZE = CHUNK_SIZE + 2;
+// One response frame: 32-char beacon + 2-byte status word. Sized with
+// headroom rather than exactly, so a slightly longer future token can't
+// overflow the buffer.
+const uint8_t RESPONSE_BUF_SIZE = 64;
 
-// Safety cap on GET RESPONSE round-trips. At 96-byte chunks a ~360-byte
-// JWT needs ~4 exchanges (SELECT + ~3 GET RESPONSEs); capped well above
-// that for headroom rather than tuned tight to today's token size. This
-// guards against looping forever if a malformed/malicious response keeps
-// claiming "more data".
-const uint8_t MAX_EXCHANGES = 15;
+// Status words
+const uint8_t SW1_SUCCESS  = 0x90;
+const uint8_t SW2_SUCCESS  = 0x00;
+const uint8_t SW1_NO_TOKEN = 0x6A;
+const uint8_t SW2_NO_TOKEN = 0x88;
 
-// No stable per-tap identity to debounce by (a fresh token exists every
-// tap, unlike the MFRC522 flow's static card UID) -- throttle by attempt
-// cadence instead: don't start a new read cycle until this cooldown has
-// elapsed since the last one FINISHED (success, failure, or no-token).
-// Actual duplicate-attendance prevention is the backend's
-// already_recorded check, not this.
+// Throttle repeated reads of one held phone. This is only a cadence guard
+// -- it is NOT the duplicate-attendance defence, which is the backend's
+// already_recorded check.
 const uint16_t READ_COOLDOWN_MS = 2000;
 unsigned long lastAttemptEnd = 0;
 
-// Status words
-const uint8_t SW_MORE_DATA  = 0x61;
-const uint8_t SW1_SUCCESS   = 0x90;
-const uint8_t SW2_SUCCESS   = 0x00;
-const uint8_t SW1_NO_TOKEN  = 0x6A;
-const uint8_t SW2_NO_TOKEN  = 0x88;
+// WiFi must not be able to brick the terminal at boot. The old code
+// looped `while (WiFi.status() != WL_CONNECTED)` forever inside setup(),
+// so an AP outage at power-on wedged the board until someone physically
+// power-cycled it, and it re-wedged on every subsequent outage. Now:
+// bounded wait, then carry on in a degraded state, with a non-blocking
+// reconnect in loop().
+const unsigned long WIFI_CONNECT_TIMEOUT_MS = 20000;
+const unsigned long WIFI_RETRY_INTERVAL_MS = 5000;
+unsigned long lastWifiAttempt = 0;
+bool wifiReady = false;
+
+// ---------------- Helpers ----------------
+
+void printHexDump(const char* label, uint8_t* buf, uint8_t len) {
+  Serial.print(label);
+  Serial.print(" (");
+  Serial.print(len);
+  Serial.print(" bytes): ");
+  for (uint8_t i = 0; i < len; i++) {
+    if (buf[i] < 0x10) Serial.print('0');
+    Serial.print(buf[i], HEX);
+    Serial.print(' ');
+  }
+  Serial.println();
+}
+
+bool connectWifi() {
+  Serial.print("[WIFI] Connecting");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  unsigned long start = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - start < WIFI_CONNECT_TIMEOUT_MS) {
+    delay(250);
+    Serial.print('.');
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("[WIFI] Connected, IP ");
+    Serial.println(WiFi.localIP());
+    wifiReady = true;
+    return true;
+  }
+
+  // Not fatal. The terminal still scans for taps; the POST will simply be
+  // skipped until WiFi comes back, and the app will report "could not
+  // confirm" rather than a false success.
+  Serial.println("[WIFI] Connect timed out -- continuing offline, will retry in background");
+  wifiReady = false;
+  return false;
+}
+
+// Keeps WiFi alive without ever blocking the NFC loop. Called on every
+// pass through loop(); returns immediately unless a retry is due.
+void maintainWifi() {
+  if (WiFi.status() == WL_CONNECTED) {
+    wifiReady = true;
+    return;
+  }
+
+  wifiReady = false;
+  if (millis() - lastWifiAttempt < WIFI_RETRY_INTERVAL_MS) {
+    return;
+  }
+  lastWifiAttempt = millis();
+
+  Serial.println("[WIFI] Link down, reconnecting...");
+  WiFi.reconnect();
+}
+
+// Runs SELECT and reads the beacon in a SINGLE exchange. Returns false for
+// a failed read or the legitimate "phone has no beacon armed" case --
+// the caller doesn't need to tell those apart beyond "nothing to POST".
+bool readBeacon(String &outToken) {
+  uint8_t response[RESPONSE_BUF_SIZE];
+  uint8_t responseLength = sizeof(response);
+
+  Serial.println("[APDU] -> SELECT AID");
+  bool ok = nfc.inDataExchange((uint8_t*)SELECT_APDU, sizeof(SELECT_APDU), response, &responseLength);
+
+  if (!ok || responseLength < 2) {
+    Serial.print("[APDU] SELECT failed (ok=");
+    Serial.print(ok);
+    Serial.print(", len=");
+    Serial.print(responseLength);
+    Serial.println(")");
+    return false;
+  }
+
+  printHexDump("[APDU] raw response", response, responseLength);
+
+  uint8_t sw1 = response[responseLength - 2];
+  uint8_t sw2 = response[responseLength - 1];
+  uint8_t dataLen = responseLength - 2;
+
+  if (sw1 == SW1_NO_TOKEN && sw2 == SW2_NO_TOKEN) {
+    Serial.println("[APDU] No beacon armed on phone right now (not an error)");
+    return false;
+  }
+
+  if (sw1 != SW1_SUCCESS || sw2 != SW2_SUCCESS) {
+    Serial.print("[APDU] Unexpected status word: ");
+    Serial.print(sw1, HEX);
+    Serial.print(' ');
+    Serial.println(sw2, HEX);
+    return false;
+  }
+
+  outToken = "";
+  for (uint8_t i = 0; i < dataLen; i++) {
+    outToken += (char)response[i];
+  }
+
+  Serial.print("[APDU] Beacon read in ONE exchange: ");
+  Serial.print(outToken.length());
+  Serial.println(" bytes");
+  return true;
+}
+
+void submitBeaconToken(const String &token) {
+  if (!wifiReady || WiFi.status() != WL_CONNECTED) {
+    // Previously this returned silently, so a tap during a WiFi blip
+    // vanished with no trace and the student was told nothing. Say it
+    // loudly -- the check-in genuinely did not happen.
+    Serial.println("[POST] SKIPPED: no WiFi. This tap was NOT recorded.");
+    return;
+  }
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  http.begin(client, CHECKIN_URL);
+  http.addHeader("Content-Type", "application/json");
+  // Terminal identity. The submit endpoint is unauthenticated by design
+  // (the ESP32 has no login session), which previously meant ANY client
+  // that could reach the URL could post a beacon. These headers let the
+  // server at least attribute and gate the request.
+  http.addHeader("X-Terminal-Id", TERMINAL_ID);
+  http.addHeader("X-Terminal-Secret", TERMINAL_SECRET);
+
+  String payload = "{\"beacon_token\":\"" + token + "\"}";
+
+  Serial.println("[POST] Submitting beacon to /api/v1/student/checkin");
+  unsigned long postStart = millis();
+  int httpResponseCode = http.POST(payload);
+  unsigned long postDuration = millis() - postStart;
+
+  String responseBody = http.getString();
+
+  Serial.print("[POST] Completed in ");
+  Serial.print(postDuration);
+  Serial.println("ms");
+  Serial.print("[POST] HTTP ");
+  Serial.print(httpResponseCode);
+  Serial.print(": ");
+  Serial.println(responseBody);
+
+  if (httpResponseCode < 200 || httpResponseCode >= 300) {
+    Serial.println("[POST] REJECTED -- check backend logs; token may have expired in transit");
+  }
+
+  http.end();
+}
+
+// ---------------- Setup / loop ----------------
 
 void setup() {
   Serial.begin(115200);
   delay(1000);
   Serial.println("[BOOT] SUAAMS HCE terminal starting...");
 
-  Wire.begin(SDA_PIN,SCL_PIN);
+  Wire.begin(SDA_PIN, SCL_PIN);
+
+  // 100kHz. The bring-up sketch (PN532_DetectTest.ino) sets this and notes
+  // it as a knob to turn when the hit rate is poor, but this sketch never
+  // did -- so it has been running the I2C bus at the Wire default (usually
+  // 400kHz) the whole time. The PN532 is the slower device on the bus, so
+  // the faster clock buys nothing and can drop bytes. Free change, strong
+  // prior that it's part of the intermittent read failures.
+  Wire.setClock(100000);
+
   nfc.begin();
 
   uint32_t versiondata = nfc.getFirmwareVersion();
@@ -100,33 +263,36 @@ void setup() {
 
   nfc.SAMConfig();
 
-  WiFi.begin(ssid, password);
-  Serial.print("[BOOT] Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print('.');
-  }
-  Serial.println();
-  Serial.print("[BOOT] WiFi connected, IP ");
-  Serial.println(WiFi.localIP());
-  Serial.println("[BOOT] Ready, waiting for taps...");
+  connectWifi();
+  Serial.printf("[BOOT] Terminal %s ready, waiting for taps...\n", TERMINAL_ID);
 }
 
 void loop() {
+  // Never block on connectivity -- the NFC scan must keep running.
+  maintainWifi();
+
   if (millis() - lastAttemptEnd < READ_COOLDOWN_MS) {
+    delay(1);
     return;
   }
 
-  bool targetFound = nfc.inListPassiveTarget();
-  if (!targetFound) {
-    return; // nothing in the field right now
+  // inListPassiveTarget() is the right call for an Android HCE phone: a
+  // phone is an ISO14443-4 Type 4 tag with a random CL_RANDOM UID, not a
+  // MIFARE target. (The bring-up sketch used
+  // readPassiveTargetID(PN532_MIFARE_ISO14443A), which is a different --
+  // and for HCE, less appropriate -- path; a "phone never detected"
+  // result measured that way should be re-confirmed here.)
+  if (!nfc.inListPassiveTarget()) {
+    // Small delay so an idle terminal isn't hammering I2C at full speed.
+    delay(1);
+    return;
   }
 
-  Serial.println("[TAP] Target detected, starting exchange...");
+  Serial.println("[TAP] Target detected, reading beacon...");
   unsigned long exchangeStart = millis();
 
   String token = "";
-  bool gotToken = performCheckInExchange(token);
+  bool gotToken = readBeacon(token);
 
   unsigned long exchangeDuration = millis() - exchangeStart;
   Serial.print("[TAP] Exchange finished in ");
@@ -138,152 +304,4 @@ void loop() {
   }
 
   lastAttemptEnd = millis();
-}
-
-// Diagnostic-only: dumps the raw bytes of a response exactly as received,
-// before any interpretation. Added specifically to check whether the
-// trailing two bytes we're reading as SW1/SW2 really are what's arriving
-// over the air, or whether something upstream (PN532 framing, buffer
-// indexing) is shifting/truncating the response -- a computed SW=8080
-// doesn't match anything SuaamsHceService.kt can send (61 xx / 90 00 /
-// 6A 88), so seeing the raw bytes is the fastest way to tell "wrong bytes
-// arrived" apart from "right bytes, misread".
-void printHexDump(const char* label, uint8_t* buf, uint8_t len) {
-  Serial.print(label);
-  Serial.print(" (");
-  Serial.print(len);
-  Serial.print(" bytes): ");
-  for (uint8_t i = 0; i < len; i++) {
-    if (buf[i] < 0x10) Serial.print('0');
-    Serial.print(buf[i], HEX);
-    Serial.print(' ');
-  }
-  Serial.println();
-}
-
-// Runs SELECT AID, then follows the phone's 61xx/90 00 status words with
-// GET RESPONSE calls until the token is fully reassembled. Returns false
-// (with a logged reason) for a failed exchange OR the legitimate "no
-// token set on the phone right now" case -- the caller doesn't need to
-// tell those apart beyond "nothing to POST".
-bool performCheckInExchange(String &outToken) {
-  uint8_t response[RESPONSE_BUF_SIZE];
-  uint8_t responseLength = sizeof(response);
-
-  Serial.println("[APDU] -> SELECT AID");
-  bool ok = nfc.inDataExchange((uint8_t*)SELECT_APDU, sizeof(SELECT_APDU), response, &responseLength);
-
-  if (!ok || responseLength < 2) {
-    Serial.println("[APDU] SELECT failed or returned a malformed response");
-    return false;
-  }
-
-  outToken = "";
-  uint8_t exchangeCount = 0;
-
-  while (true) {
-    if (exchangeCount >= MAX_EXCHANGES) {
-      Serial.println("[APDU] Exceeded max exchange count, aborting (possible malformed peer)");
-      return false;
-    }
-
-    if (responseLength < 2) {
-      Serial.println("[APDU] Response too short to contain a status word, aborting");
-      return false;
-    }
-
-    printHexDump("[APDU] raw response", response, responseLength);
-
-    uint8_t sw1 = response[responseLength - 2];
-    uint8_t sw2 = response[responseLength - 1];
-    uint8_t dataLen = responseLength - 2;
-
-    Serial.print("[APDU] chunk ");
-    Serial.print(exchangeCount);
-    Serial.print(": ");
-    Serial.print(dataLen);
-    Serial.print(" bytes, SW=");
-    Serial.print(sw1, HEX);
-    Serial.println(sw2, HEX);
-
-    if (sw1 == SW1_NO_TOKEN && sw2 == SW2_NO_TOKEN) {
-      Serial.println("[APDU] No beacon token set on phone right now (not an error)");
-      return false;
-    }
-
-    for (uint8_t i = 0; i < dataLen; i++) {
-      outToken += (char)response[i];
-    }
-    exchangeCount++;
-
-    if (sw1 == SW1_SUCCESS && sw2 == SW2_SUCCESS) {
-      Serial.print("[APDU] Reassembly complete, ");
-      Serial.print(outToken.length());
-      Serial.println(" bytes");
-      return true;
-    }
-
-    if (sw1 == SW_MORE_DATA) {
-      // sw2 == 0x00 would be the ISO 7816-4 sentinel for ">=256 bytes
-      // remain" -- not reachable at today's ~300-byte token with 64-byte
-      // chunks (max remainder ~63), and Le=0x00 in a GET RESPONSE
-      // conventionally means "as many bytes as available" anyway, so no
-      // special-case handling needed even if it were hit.
-      uint8_t remaining = sw2;
-      Serial.print("[APDU] -> GET RESPONSE, Le=");
-      Serial.println(remaining);
-
-      uint8_t getResponseApdu[] = {0x00, 0xC0, 0x00, 0x00, remaining};
-      responseLength = sizeof(response); // reset capacity before reuse
-      ok = nfc.inDataExchange(getResponseApdu, sizeof(getResponseApdu), response, &responseLength);
-
-      if (!ok) {
-        Serial.println("[APDU] GET RESPONSE failed");
-        return false;
-      }
-      continue;
-    }
-
-    Serial.println("[APDU] Unexpected status word, aborting exchange");
-    return false;
-  }
-}
-
-void submitBeaconToken(const String &token) {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[POST] WiFi not connected, dropping this attempt");
-    return;
-  }
-
-  // Create a secure client and tell it to bypass SSL certificate validation
-  WiFiClientSecure client;
-  client.setInsecure(); 
-  
-  HTTPClient http;
-  http.begin(client,checkinUrl);
-  http.addHeader("Content-Type", "application/json");
-
-  String payload = "{\"beacon_token\":\"" + token + "\"}";
-
-  // Timed separately from the APDU exchange above on purpose: a slow
-  // Render free-tier cold start (multi-second) shows up here as a large
-  // [POST] duration, not folded into [TAP] exchange timing -- if a beacon
-  // token expires (3s TTL) and THIS number is the large one, that's a
-  // cold-start/network issue, not a chunking bug.
-  Serial.println("[POST] Submitting beacon_token to /api/v1/student/checkin");
-  unsigned long postStart = millis();
-  int httpResponseCode = http.POST(payload);
-  unsigned long postDuration = millis() - postStart;
-
-  String responseBody = http.getString();
-
-  Serial.print("[POST] Completed in ");
-  Serial.print(postDuration);
-  Serial.println("ms");
-  Serial.print("[POST] HTTP ");
-  Serial.print(httpResponseCode);
-  Serial.print(": ");
-  Serial.println(responseBody);
-
-  http.end();
 }
