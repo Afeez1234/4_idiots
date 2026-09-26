@@ -138,12 +138,15 @@ class StudentService {
               'Authorization': 'Bearer $token',
             },
           )
-          // Short timeout on purpose: this is polled roughly once a second
-          // inside a ~10s confirmation window. A poll that hangs for longer
-          // than the window is worthless anyway, and a hung future is worse
-          // than a failed one -- the caller's timer would stack up behind
-          // it instead of moving on to the next tick.
-          .timeout(const Duration(seconds: 5));
+          // Must be comfortably longer than a real response, not shorter.
+          // This was 5s, which a slow Render free-tier dyno exceeded on a
+          // routine check -- every poll timed out, so a check-in that had
+          // genuinely been recorded was reported to the student as
+          // "could not confirm". 12s still bounds a genuinely hung socket
+          // (and NfcCheckInNotifier skips a new poll while one is in flight,
+          // so this can't stack up), while giving a cold backend room to
+          // actually answer.
+          .timeout(const Duration(seconds: 12));
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 

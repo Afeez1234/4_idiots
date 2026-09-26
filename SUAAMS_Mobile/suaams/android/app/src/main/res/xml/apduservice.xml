@@ -8,8 +8,14 @@
      requireDeviceUnlock="true": check-in requires the app open with a fresh
      biometric, so the device is always unlocked when a legitimate tap
      happens. This was "false", which meant the service answered SELECTs
-     even on a locked screen -- unnecessary exposure, since a locked phone
-     is never mid-check-in. -->
+     even on a locked screen: unnecessary exposure, since a locked phone
+     is never mid-check-in.
+
+     NOTE: this comment must never contain a double hyphen. XML forbids
+     one inside a comment body and AAPT2 enforces it: a violation fails
+     :app:parseDebugLocalResources with "The string ... is not permitted
+     within comments", which is a confusing error to trace back to a prose
+     comment. Use a colon or an em dash instead. -->
 <host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/hce_service_desc"
     android:requireDeviceUnlock="true">
