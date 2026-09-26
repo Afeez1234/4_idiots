@@ -5,8 +5,15 @@ import 'package:local_auth/local_auth.dart';
 import 'package:suaams/features/student/data/nfc_service.dart';
 // studentServiceProvider already exists here (used for the dashboard
 // fetch) -- reusing it instead of creating a second StudentService
-// instance/provider just for the beacon mint call.
+// instance/provider just for the beacon mint call. studentDashboardProvider
+// is imported for the same reason: a confirmed check-in has to invalidate
+// it or the attendance tab keeps showing pre-check-in data.
 import 'package:suaams/features/student/providers/student_provider.dart';
+// The home screen's "TODAY'S PROTOCOL" list and the per-course attendance
+// history view. Both show attendance and both are cached, so both need
+// invalidating when a check-in lands.
+import 'package:suaams/features/student/providers/today_schedule_provider.dart';
+import 'package:suaams/features/student/providers/course_attendance_history_provider.dart';
 import 'package:suaams/features/student/data/student_service.dart'
     show CheckinStatusResult;
 import 'package:suaams/core/network/auth_retry.dart';
@@ -109,11 +116,24 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
   // Confirmation polling runs on its own clock, independent of the 3s
   // broadcast window. It starts the same moment broadcasting does, but
-  // keeps going for longer than the broadcast itself -- specifically to
-  // absorb a slow/cold-starting Flask response (Render free-tier cold
-  // starts can run several seconds) without mistaking that for a failed
-  // check-in.
-  static const int _confirmationWindowSeconds = 10;
+  // keeps going for longer than the broadcast itself.
+  //
+  // This has to outlast the TERMINAL's own round-trip, not just the phone's
+  // broadcast. By the time a tap is confirmed, the data path is
+  // phone -> ESP32 -> Flask -> MySQL -> Flask -> phone, and the ESP32's
+  // POST is the slow leg: measured at 5.0-5.3s against a Render free-tier
+  // dyno, which is on its own longer than the whole window this used to
+  // allow. The app therefore reported "could not confirm" for taps that had
+  // in fact been recorded. 25s leaves comfortable headroom over a slow
+  // terminal without leaving the sheet hanging for long.
+  static const int _confirmationWindowSeconds = 25;
+
+  // Guards against overlapping polls. The timer fires every second, but each
+  // poll is an async HTTP call that can outlive its tick -- against a slow
+  // backend it can take seconds. Without this, ticks pile up and issue
+  // several concurrent requests for what should be one question, which
+  // makes the backend slower still and the tick count meaningless.
+  bool _pollInFlight = false;
 
   // The anti-relay security window (matches BEACON_TOKEN_TTL_SECONDS in
   // api/student.py) -- NOT the same clock as _confirmationWindowSeconds
@@ -380,7 +400,15 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         return;
       }
 
+      // A previous poll is still outstanding -- don't stack another request
+      // behind it. Skipping this tick is free; the outstanding one will
+      // still resolve the attempt.
+      if (_pollInFlight) {
+        return;
+      }
+
       _confirmationTicks++;
+      _pollInFlight = true;
 
       CheckinStatusResult? result;
       try {
@@ -389,13 +417,15 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
           (token) => ref.read(studentServiceProvider).checkCheckinStatus(token),
         );
       } catch (_) {
-        // A single failed poll (network blip, a 5s timeout, etc.) doesn't
-        // abort the whole confirmation attempt -- the actual check-in
-        // already happened over NFC; this loop is purely for UI feedback.
-        // Treat it the same as "not confirmed yet" and try again next
-        // tick. (withAuthRetry itself still gets its normal chance to
-        // silently refresh on a genuine auth failure.)
+        // A single failed poll (network blip, a timeout, etc.) doesn't abort
+        // the whole confirmation attempt -- the actual check-in already
+        // happened over NFC; this loop is purely for UI feedback. Treat it
+        // the same as "not confirmed yet" and try again next tick.
+        // (withAuthRetry itself still gets its normal chance to silently
+        // refresh on a genuine auth failure.)
         result = null;
+      } finally {
+        _pollInFlight = false;
       }
 
       // The await above means the provider may have been disposed (or the
@@ -416,6 +446,16 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
             courseCode: result.courseCode,
           );
           _scheduleReturnToIdle();
+          // Refresh everything that displays attendance.
+          //
+          // Without this, the check-in succeeds but the UI doesn't change:
+          // records_view watches studentDashboardProvider, and the home
+          // screen's "TODAY'S PROTOCOL" list watches todayScheduleProvider.
+          // Both are cached Riverpod providers that only refetch when
+          // something invalidates them, so attendance recorded by the
+          // terminal would stay invisible until the student pulled to
+          // refresh or restarted the app.
+          _invalidateAttendanceViews();
         }
         return;
       }
@@ -447,6 +487,18 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         }
       }
     });
+  }
+
+  /// Drop the cached state of every view that shows attendance, so they
+  /// refetch on next read.
+  ///
+  /// Called after the server confirms a check-in. These are autoDispose
+  /// providers, so invalidating one that's already been disposed is a
+  /// no-op rather than an error -- safe to call unconditionally.
+  void _invalidateAttendanceViews() {
+    ref.invalidate(studentDashboardProvider);
+    ref.invalidate(todayScheduleProvider);
+    ref.invalidate(courseAttendanceHistoryProvider);
   }
 
   void _scheduleReturnToIdle() {

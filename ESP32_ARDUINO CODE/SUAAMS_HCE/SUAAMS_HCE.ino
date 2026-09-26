@@ -64,6 +64,40 @@ const uint8_t SW2_NO_TOKEN = 0x88;
 const uint16_t READ_COOLDOWN_MS = 2000;
 unsigned long lastAttemptEnd = 0;
 
+// Transport-level retry for the POST. HTTPClient returns -1 when the
+// connection or TLS handshake fails outright, which a marginal WiFi link
+// produces regularly enough to lose real taps. Safe to retry because the
+// submit endpoint is idempotent -- the same beacon replays as "Attendance
+// already marked" rather than double-recording.
+const uint8_t POST_ATTEMPTS = 2;
+
+// Socket/TLS timeout. Set deliberately ABOVE the 3s beacon window: the
+// window is enforced server-side against the token's own expiry, and we
+// would rather have the server look at a token and reject it than have the
+// client abandon the connection before the answer exists.
+const uint16_t HTTP_TIMEOUT_MS = 15000;
+
+// ---- Keep-warm ping -------------------------------------------------------
+// A Render free-tier dyno spins down after a period without traffic, and
+// the next request pays the full boot cost. Measured on this project's
+// deployment: 8.5s cold (beacon rejected), 5.0-5.3s barely-warm (accepted
+// by luck). The beacon acceptance window is 3s, so a cold backend means the
+// student's tap is silently lost -- the app reports "could not confirm" and
+// the record never appears.
+//
+// So the terminal keeps the backend awake itself, rather than relying on an
+// external uptime service: it is already powered and networked at the
+// venue, needs no account or third-party dependency, and can't be
+// forgotten when the demo moves somewhere new.
+const unsigned long WARM_PING_INTERVAL_MS = 4UL * 60UL * 1000UL;  // 4 minutes
+const uint16_t WARM_PING_TIMEOUT_MS = 5000;
+unsigned long lastWarmPing = 0;
+
+// When the last /healthz ping succeeded. Reported alongside every tap so a
+// slow POST during a demo can be attributed to a cold start rather than
+// guessed at.
+unsigned long lastWarmPingOk = 0;
+
 // WiFi must not be able to brick the terminal at boot. The old code
 // looped `while (WiFi.status() != WL_CONNECTED)` forever inside setup(),
 // so an AP outage at power-on wedged the board until someone physically
@@ -135,6 +169,51 @@ void maintainWifi() {
   WiFi.reconnect();
 }
 
+// Pings /healthz on a timer to stop the backend spinning down.
+//
+// Only ever called when the NFC field is EMPTY (see loop()), so it can never
+// steal scan time from a student mid-tap. The ping is a synchronous TLS
+// request costing a few hundred ms, which is a fine trade for a field with
+// nothing in it and a real problem when it has a student in it.
+void maybeKeepBackendWarm() {
+  if (millis() - lastWarmPing < WARM_PING_INTERVAL_MS) {
+    return;
+  }
+  lastWarmPing = millis();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[WARM] Skipped: no WiFi");
+    return;
+  }
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  http.begin(client, HEALTHZ_URL);
+  http.setTimeout(WARM_PING_TIMEOUT_MS);
+
+  unsigned long t0 = millis();
+  int code = http.GET();
+  unsigned long dur = millis() - t0;
+
+  http.end();
+
+  if (code == 200) {
+    lastWarmPingOk = millis();
+    Serial.print("[WARM] /healthz 200 in ");
+    Serial.print(dur);
+    Serial.println("ms -- backend warm");
+  } else {
+    // Not fatal. The next attempt, and the next tap, will just be slower.
+    Serial.print("[WARM] /healthz returned ");
+    Serial.print(code);
+    Serial.print(" in ");
+    Serial.print(dur);
+    Serial.println("ms -- backend may be cold");
+  }
+}
+
 // Runs SELECT and reads the beacon in a SINGLE exchange. Returns false for
 // a failed read or the legitimate "phone has no beacon armed" case --
 // the caller doesn't need to tell those apart beyond "nothing to POST".
@@ -193,41 +272,86 @@ void submitBeaconToken(const String &token) {
     return;
   }
 
-  WiFiClientSecure client;
-  client.setInsecure();
-
-  HTTPClient http;
-  http.begin(client, CHECKIN_URL);
-  http.addHeader("Content-Type", "application/json");
-  // Terminal identity. The submit endpoint is unauthenticated by design
-  // (the ESP32 has no login session), which previously meant ANY client
-  // that could reach the URL could post a beacon. These headers let the
-  // server at least attribute and gate the request.
-  http.addHeader("X-Terminal-Id", TERMINAL_ID);
-  http.addHeader("X-Terminal-Secret", TERMINAL_SECRET);
-
   String payload = "{\"beacon_token\":\"" + token + "\"}";
 
-  Serial.println("[POST] Submitting beacon to /api/v1/student/checkin");
-  unsigned long postStart = millis();
-  int httpResponseCode = http.POST(payload);
-  unsigned long postDuration = millis() - postStart;
-
-  String responseBody = http.getString();
-
-  Serial.print("[POST] Completed in ");
-  Serial.print(postDuration);
-  Serial.println("ms");
-  Serial.print("[POST] HTTP ");
-  Serial.print(httpResponseCode);
-  Serial.print(": ");
-  Serial.println(responseBody);
-
-  if (httpResponseCode < 200 || httpResponseCode >= 300) {
-    Serial.println("[POST] REJECTED -- check backend logs; token may have expired in transit");
+  // Report how long since the backend last confirmed itself warm. If a POST
+  // is about to run slow, this line tells you whether it's a cold start or
+  // something else -- which is the difference between "wait and retry" and
+  // "the network is bad".
+  if (lastWarmPingOk == 0) {
+    Serial.println("[WARM] No successful /healthz ping yet this boot");
+  } else {
+    Serial.print("[WARM] Last successful ping was ");
+    Serial.print((millis() - lastWarmPingOk) / 1000);
+    Serial.println("s ago");
   }
 
-  http.end();
+  // Retry the transport-level failures. A single attempt is fragile here:
+  // HTTPClient returns -1 (not an HTTP status -- no response at all) when
+  // connect() or the TLS handshake fails, which on a marginal WiFi link
+  // happens often enough to lose real taps. Retrying is only safe because
+  // the submit endpoint is idempotent: replaying the same beacon returns
+  // "Attendance already marked" rather than double-recording.
+  //
+  // Deliberately NOT retried on a 4xx/5xx -- those are real answers from a
+  // reachable server (expired token, unauthorized terminal), and repeating
+  // them just wastes the student's remaining window.
+  for (uint8_t attempt = 1; attempt <= POST_ATTEMPTS; attempt++) {
+    WiFiClientSecure client;
+    client.setInsecure();
+
+    HTTPClient http;
+    http.begin(client, CHECKIN_URL);
+    http.setTimeout(HTTP_TIMEOUT_MS);
+    http.addHeader("Content-Type", "application/json");
+    // Terminal identity. The submit endpoint is unauthenticated by design
+    // (the ESP32 has no login session), which previously meant ANY client
+    // that could reach the URL could post a beacon. These headers let the
+    // server at least attribute and gate the request.
+    http.addHeader("X-Terminal-Id", TERMINAL_ID);
+    http.addHeader("X-Terminal-Secret", TERMINAL_SECRET);
+
+    Serial.print("[POST] Submitting beacon (attempt ");
+    Serial.print(attempt);
+    Serial.print(" of ");
+    Serial.print(POST_ATTEMPTS);
+    Serial.println(")...");
+
+    unsigned long postStart = millis();
+    int httpResponseCode = http.POST(payload);
+    unsigned long postDuration = millis() - postStart;
+
+    String responseBody = http.getString();
+
+    Serial.print("[POST] Completed in ");
+    Serial.print(postDuration);
+    Serial.println("ms");
+    Serial.print("[POST] HTTP ");
+    Serial.print(httpResponseCode);
+    Serial.print(": ");
+    Serial.println(responseBody);
+
+    http.end();
+
+    // -1 means no response at all: connection refused, DNS failure, or a
+    // TLS handshake that didn't complete. Worth another go.
+    if (httpResponseCode == -1) {
+      Serial.println("[POST] No response (transport failure) -- will retry");
+      // Back off briefly so we don't hammer a link that's already struggling.
+      delay(1500);
+      continue;
+    }
+
+    if (httpResponseCode < 200 || httpResponseCode >= 300) {
+      Serial.println("[POST] REJECTED by server -- not retrying. If this was 401,");
+      Serial.println("[POST] the beacon likely expired before the server saw it.");
+      Serial.println("[POST] Check: is the Render dyno warm? A cold start costs 5-9s,");
+      Serial.println("[POST] and the acceptance window is only 3s.");
+    }
+    return;
+  }
+
+  Serial.println("[POST] GAVE UP after all attempts. This tap was NOT recorded.");
 }
 
 // ---------------- Setup / loop ----------------
@@ -271,18 +395,27 @@ void loop() {
   // Never block on connectivity -- the NFC scan must keep running.
   maintainWifi();
 
+  // inListPassiveTarget() is the right call for an Android HCE phone: a
+  // phone is an ISO14443-4 Type 4 tag, not a MIFARE target. (The bring-up
+  // sketch originally measured with readPassiveTargetID(PN532_MIFARE_ISO14443A),
+  // which does not detect HCE phones at all -- a real bench run confirmed
+  // it reported card=n on every successful tap.)
+  bool targetInField = nfc.inListPassiveTarget();
+
+  // Keep the backend warm, but ONLY when nothing is in the field. A warm
+  // ping is a synchronous TLS request costing a few hundred ms; doing that
+  // while a student is mid-tap risks missing their read entirely. With an
+  // empty field there's nothing to lose.
+  if (!targetInField) {
+    maybeKeepBackendWarm();
+  }
+
   if (millis() - lastAttemptEnd < READ_COOLDOWN_MS) {
     delay(1);
     return;
   }
 
-  // inListPassiveTarget() is the right call for an Android HCE phone: a
-  // phone is an ISO14443-4 Type 4 tag with a random CL_RANDOM UID, not a
-  // MIFARE target. (The bring-up sketch used
-  // readPassiveTargetID(PN532_MIFARE_ISO14443A), which is a different --
-  // and for HCE, less appropriate -- path; a "phone never detected"
-  // result measured that way should be re-confirmed here.)
-  if (!nfc.inListPassiveTarget()) {
+  if (!targetInField) {
     // Small delay so an idle terminal isn't hammering I2C at full speed.
     delay(1);
     return;

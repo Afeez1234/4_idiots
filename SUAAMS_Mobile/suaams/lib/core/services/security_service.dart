@@ -10,13 +10,22 @@
 // verification -- it's a separate, lower-level check than local_auth's own.
 //
 // API verified directly against the installed package source (freerasp
-// 5.0.4's lib/src/*.dart) rather than its published docs/examples, which
-// describe a materially different (newer, 8.x-line) API surface --
-// killOnBypass and several ThreatCallback fields referenced there
-// (onMalware, onSystemVPN, onDevMode, onADBEnabled, etc.) don't exist in
-// 5.0.4 at all. Pinned to ^5.0.4 in pubspec.yaml; a much newer major (8.x)
-// is available on pub.dev with a richer callback set, if this ever gets
-// revisited.
+// 8.2.2's lib/src/*.dart) rather than its published docs/examples.
+//
+// Was pinned to ^5.0.4, then moved to ^8.2.2. The config surface
+// (TalsecConfig / AndroidConfig / IOSConfig, including the unconditional
+// ConfigVerifier.verifyAndroid() base64 check on signingCertHashes) is
+// unchanged between the two. ThreatCallback is not: 8.x drops onOverlay
+// outright -- Talsec removed overlay detection from the threat set rather
+// than renaming it, so there is no like-for-like replacement. 8.x adds
+// onAutomation, onMultiInstance, onTimeSpoofing, onLocationSpoofing,
+// onBootloader, onDevMode, onADBEnabled, onSystemVPN, onMalware,
+// onScreenshot, onScreenRecording, onUnsecureWiFi, onObfuscationIssues,
+// and killOnBypass.
+//
+// The threat-to-tier mapping below is a judgement call about this app's
+// threat model, not something the package dictates -- if you upgrade again,
+// re-read it rather than assuming the tiers carry over.
 //
 // Kept as a plain singleton (not a Riverpod provider), same reasoning as
 // NotificationService: NfcCheckInNotifier just needs a synchronous yes/no
@@ -61,6 +70,30 @@ class SecurityService {
   /// way through still leaves us in the "tried but didn't arm" state
   /// rather than the indistinguishable "never ran" one.
   bool _initialized = false;
+
+  /// Whether Talsec reported that its checks actually RAN to completion,
+  /// as opposed to merely having a live process after start() returned.
+  ///
+  /// Deliberately NOT part of the isCompromised verdict. start() returning
+  /// without throwing proves the native side is up; it does not prove the
+  /// checks executed and reported. Gating _isArmed on this instead would
+  /// be the more principled design, but the failure mode is unacceptable:
+  /// if the execution-state event never arrives (Play Services absent, a
+  /// native-side fault that leaves the channel silent), check-in would be
+  /// permanently blocked in release builds with no way to tell "threat
+  /// detected" apart from "checker never reported back" -- the exact
+  /// ambiguity _isArmed was introduced to eliminate, reintroduced one
+  /// level up.
+  ///
+  /// So it is strictly additive: better diagnostics when it fires, and no
+  /// change to the verdict when it doesn't. Read it in logs to tell a
+  /// genuinely clean device from a checker that never reported.
+  bool _checksCompleted = false;
+
+  /// Exposed for the same diagnostic reason as _checksCompleted. Getters
+  /// can't be meaningfully widened to UI right now -- nothing consumes
+  /// them, and adding surface invites someone to wire it into isCompromised.
+  bool get checksCompleted => _checksCompleted;
 
   /// Human-readable reason, surfaced in the check-in screen's error state
   /// when isCompromised is true.
@@ -111,8 +144,8 @@ class SecurityService {
       ),
     );
 
-    // Only the fields this package version (5.0.4) actually defines --
-    // see ThreatCallback in lib/src/threat_callback.dart.
+    // Only the fields this package version (8.2.2) actually defines --
+    // see ThreatCallback in lib/src/callbacks/threat_callback.dart.
     final callback = ThreatCallback(
       // ── Blocking: these directly match CLAUDE.md's stated threat ──────
       onPrivilegedAccess: () => _handleThreat(
@@ -131,6 +164,32 @@ class SecurityService {
         'Debugger attached to a running process',
         blocking: true,
       ),
+      // Took the blocking slot that onOverlay held before the 8.x upgrade.
+      // Talsec dropped overlay detection from the threat set entirely, so
+      // there is no rename to chase -- this is a substitution, and the
+      // reasoning is that it covers a superset of what overlay threatened.
+      // An overlay needed a human to be induced into tapping the check-in
+      // sheet at an attacker's chosen moment; automation supplies that tap
+      // directly, with no human in the loop at all. Both are tapjacking-
+      // class attacks against a broadcast attendance credential, and the
+      // emulator / unofficial-store checks above remain rightly
+      // non-blocking while this has no innocent explanation on a device
+      // about to mint one.
+      onAutomation: () => _handleThreat(
+        'UI automation detected (scripted input, e.g. Appium/UIAutomator)',
+        blocking: true,
+      ),
+      // An unlocked/compromised bootloader is the same class of problem as
+      // onPrivilegedAccess above: the OS's integrity is gone, so anything
+      // the OS tells us -- including local_auth's own answer -- is
+      // untrustworthy. Android-only in the SDK. Blocking is safe here in a
+      // way it wouldn't be for onDevMode/onADBEnabled below: a bootloader
+      // unlock is not part of a legitimate NFC/PN532 tap test, whereas ADB
+      // and dev mode genuinely are while bench-testing that flow.
+      onBootloader: () => _handleThreat(
+        'Bootloader is unlocked or compromised',
+        blocking: true,
+      ),
 
       // ── Logged only: real signals, but not the biometric-bypass vector,
       // and onUnofficialStore especially must NOT block -- a side-loaded
@@ -142,22 +201,38 @@ class SecurityService {
       onPasscode: () => _handleThreat('No device passcode/screen lock set'),
       onDeviceID: () => _handleThreat('App was reinstalled (iOS only)'),
       onDeviceBinding: () => _handleThreat('Device binding check failed'),
-      // Blocking, unlike its neighbours above. An overlay capability is
-      // the precondition for a tapjacking attack: something else draws
-      // over the check-in sheet and induces a tap at a chosen moment. The
-      // emulator / unofficial-store checks are rightly non-blocking (a
-      // side-loaded demo APK is by definition unofficial, and devs run
-      // emulators legitimately), but this has no innocent explanation on a
-      // device that is about to broadcast an attendance credential.
-      onOverlay: () => _handleThreat(
-        'Screen overlay detected (Android only)',
-        blocking: true,
-      ),
+      // Ties to the relay-attack defence in CLAUDE.md, where the 3-second
+      // acceptance window is load-bearing. Logged rather than blocking, and
+      // the distinction matters: the server validates exp_unix against its
+      // OWN clock, so a device with a manipulated clock still cannot forge
+      // a live token. What it CAN do is make this app's local expiry UI lie
+      // about how long the broadcast window is open -- which is a confusing
+      // failure mode to debug, not an authentication bypass.
+      onTimeSpoofing: () =>
+          _handleThreat('Device clock appears to have been manipulated'),
       onSecureHardwareNotAvailable: () =>
           _handleThreat('Secure hardware-backed keystore unavailable'),
     );
 
     Talsec.instance.attachListener(callback);
+
+    // Separate from the threat listener: this reports that the checks RAN
+    // to completion, as opposed to a threat firing. See _checksCompleted --
+    // it deliberately does not feed the isCompromised verdict, only the
+    // diagnostics. Attached before start() so an event that lands during
+    // startup isn't dropped.
+    Talsec.instance.attachExecutionStateListener(
+      RaspExecutionStateCallback(
+        onAllChecksFinished: () {
+          _checksCompleted = true;
+          debugPrint(
+            '[SecurityService] All integrity checks finished '
+            '(armed=$_isArmed, compromised=$_isCompromised)',
+          );
+        },
+      ),
+    );
+
     // Set before start(), not after: if start() throws, we still want
     // initialize() to have marked us as "tried" so isCompromised reports
     // the failure-closed state rather than looking un-started.
