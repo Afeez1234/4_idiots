@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../../shared/widgets/app_bottom_nav.dart';
+import 'package:suaams/shared/widgets/app_bottom_nav.dart';
 
 // Hosts the 5-tab lecturer bottom nav (Home, Sessions, Reports, Announce,
 // Profile). Mirrors StudentShellScreen -- see its comment for why

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/course_analytics_provider.dart';
-import '../../models/course_analytics_model.dart';
+import 'package:suaams/features/lecturer/providers/course_analytics_provider.dart';
+import 'package:suaams/features/lecturer/models/course_analytics_model.dart';
 
 class CourseAnalyticsScreen extends ConsumerWidget {
   final int courseId;

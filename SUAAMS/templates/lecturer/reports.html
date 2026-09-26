@@ -26,6 +26,7 @@
                         <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Enrolled</th>
                         <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Sessions Run</th>
                         <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Average Attendance</th>
+                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Register</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -50,10 +51,18 @@
                                     {{ pct }}%
                                 </span>
                             </td>
+                            <td class="px-6 py-3.5">
+                                {# Per-student register (exam eligibility list) for this course #}
+                                <a href="{{ url_for('lecturer.export_course_register', course_id=row.course.id) }}"
+                                   class="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline">
+                                    <span class="material-symbols-rounded text-[16px]">download</span>
+                                    CSV
+                                </a>
+                            </td>
                         </tr>
                     {% else %}
                         <tr class="border-t border-border">
-                            <td colspan="4" class="px-6 py-10 text-center text-sm text-muted">No courses assigned yet.</td>
+                            <td colspan="5" class="px-6 py-10 text-center text-sm text-muted">No courses assigned yet.</td>
                         </tr>
                     {% endfor %}
                 </tbody>

@@ -1,9 +1,9 @@
 // Per-course analytics -- .family by courseId, same reasoning as
 // course_workspace_provider.dart / session_history_provider.dart.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/course_analytics_model.dart';
+import 'package:suaams/features/lecturer/models/course_analytics_model.dart';
 import 'lecturer_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class CourseAnalyticsState {
   final bool isLoading;

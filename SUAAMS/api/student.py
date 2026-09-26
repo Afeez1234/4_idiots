@@ -1,9 +1,10 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
+import hmac
+import os
 from flask_jwt_extended import (
     jwt_required, get_jwt_identity, get_jwt,
-    create_access_token, decode_token,
 )
-from datetime import timedelta, date, datetime, timezone
+from datetime import date, datetime, timezone
 
 # Import db and our elegant SQLAlchemy models
 # (added Enrollment here for the check-in endpoints, Timetable for the
@@ -12,19 +13,80 @@ from models import db, Student, Course, Session as SessionModel, Attendance, Enr
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from push_notifications import send_push_notification
 from utils import compute_attendance_status
+# Compact HCE beacon minting/verification. See beacon.py for why the
+# credential is a 32-char signed handle rather than a ~360-byte JWT.
+from beacon import (
+    mint_beacon, verify_beacon, BeaconError,
+    BEACON_TOKEN_TTL_SECONDS,
+)
 
 # Create the API blueprint for student mobile endpoints
 api_student_bp = Blueprint('api_student', __name__, url_prefix='/api/v1/student')
 
-# How long a minted HCE "beacon" token stays valid. Deliberately short --
-# this is NOT the student's login session JWT, which lives for the whole
-# session. CLAUDE.md's threat model calls 3 seconds the canonical, strict
-# handshake-acceptance window for HCE/BLE proximity tokens; this constant
-# must stay at 3 to match (previously set to 5, which allowed a longer
-# replay window than the documented threat model permits). Reusing the
-# long-lived session token here instead of a short-lived one would defeat
-# the anti-relay requirement entirely.
-BEACON_TOKEN_TTL_SECONDS = 3
+
+def _check_terminal_auth():
+    """Validate the ESP32 terminal's shared secret.
+
+    The submit endpoint is unauthenticated by design -- the terminal has no
+    login session, it just relays what it physically read. But that left it
+    completely open: without this check, any client that could reach the URL
+    could POST a (stolen or minted) beacon and record anyone's attendance.
+
+    This is a shared-secret header check, not a signature. It authenticates
+    the terminal rather than the request, so a captured secret could be
+    replayed -- which is why it only meaningfully helps alongside real TLS.
+    The firmware currently uses client.setInsecure(), so treat this as
+    attribution plus a meaningful hurdle, not as a complete fix. Pinning a
+    CA bundle on the ESP32 is the follow-up.
+
+    Fails closed when unconfigured, for the same reason as
+    BEACON_SIGNING_SECRET: a missing secret must disable the route, not
+    silently authenticate everyone.
+    """
+    expected_id = os.environ.get("TERMINAL_ID", "").strip()
+    expected_secret = os.environ.get("TERMINAL_SECRET", "").strip()
+    if not expected_id or not expected_secret:
+        current_app.logger.error(
+            "TERMINAL_ID/TERMINAL_SECRET not configured; rejecting terminal check-in."
+        )
+        return False
+
+    supplied_id = request.headers.get("X-Terminal-Id", "")
+    supplied_secret = request.headers.get("X-Terminal-Secret", "")
+
+    # Constant-time on the secret so a wrong value can't be discovered a
+    # byte at a time from response timing.
+    if not hmac.compare_digest(supplied_secret, expected_secret):
+        return False
+    return hmac.compare_digest(supplied_id, expected_id)
+
+
+def _active_session_for_student(student):
+    """The active session this student should be checked into, or None.
+
+    Scoped to courses the student is actually enrolled in. Both the mint
+    endpoint and the confirmation-status endpoint resolve the session
+    through this one helper, because they MUST agree: mint binds a
+    session_id into the token, and if status then looked up a different
+    session, the student's attendance would land correctly while the app
+    polled forever and never showed confirmation. Keeping the resolution
+    in a single function is what stops those two drifting apart again.
+
+    Where a student is enrolled in two concurrently-running sessions we
+    take the most recently started -- same tie-break as before, minus the
+    "across all courses" behaviour that could target a course they weren't
+    enrolled in.
+    """
+    return (
+        SessionModel.query
+        .join(Enrollment, Enrollment.course_id == SessionModel.course_id)
+        .filter(
+            Enrollment.student_id == student.id,
+            SessionModel.is_active.is_(True),
+        )
+        .order_by(SessionModel.id.desc())
+        .first()
+    )
 
 @api_student_bp.route('/dashboard', methods=['GET'])
 @jwt_required()
@@ -219,9 +281,18 @@ def mint_checkin_beacon():
     """
     Step 1 of the HCE check-in flow. Called by the Flutter app, over its
     normal authenticated connection, right after the student passes the
-    in-app biometric prompt. Returns a short-lived token to broadcast over
-    NFC HCE -- see BEACON_TOKEN_TTL_SECONDS above for why this is a
-    separate token from the login session JWT rather than reusing it.
+    in-app biometric prompt. Returns a short-lived 32-char handle to
+    broadcast over NFC HCE -- small enough that the terminal needs
+    exactly one APDU exchange (see beacon.py for the reasoning).
+
+    The active session is resolved HERE and bound into the token, rather
+    than being looked up at submit time. The terminal doesn't know which
+    course it belongs to today, so the previous implementation took
+    "the most recently started active session across all courses" when
+    the terminal's POST arrived. With two lecturers running concurrent
+    sessions that meant a tap at a room-A terminal could be credited to
+    a room-B session. Resolving early also lets the student get a clear
+    "no session running" message immediately, instead of after the tap.
     """
     claims = get_jwt()
 
@@ -232,14 +303,29 @@ def mint_checkin_beacon():
 
     current_user_id = get_jwt_identity()
 
-    # additional_claims={"purpose": "checkin_beacon"} tags this token so the
-    # verification endpoint below can reject a normal session token (or any
-    # other token type) if one is mistakenly/maliciously submitted there.
-    beacon_token = create_access_token(
-        identity=str(current_user_id),
-        additional_claims={"purpose": "checkin_beacon"},
-        expires_delta=timedelta(seconds=BEACON_TOKEN_TTL_SECONDS),
-    )
+    student = Student.query.filter_by(user_id=current_user_id).first()
+    if not student:
+        return jsonify({"error": "Student profile not found"}), 404
+
+    # Only consider sessions for courses this student is actually
+    # enrolled in, so we never mint a handle bound to a session they
+    # couldn't be marked into anyway.
+    active_session = _active_session_for_student(student)
+    if not active_session:
+        return jsonify({"error": "No active session for you right now"}), 404
+
+    try:
+        beacon_token = mint_beacon(
+            student_id=student.id,
+            session_id=active_session.id,
+            ttl_seconds=BEACON_TOKEN_TTL_SECONDS,
+        )
+    except BeaconError as e:
+        # Server misconfiguration (missing BEACON_SIGNING_SECRET), not a
+        # client error. Log loudly, return a generic 500 so the student
+        # isn't told their credentials are bad.
+        current_app.logger.error("Beacon mint failed: %s", e)
+        return jsonify({"error": "Check-in is temporarily unavailable"}), 503
 
     return jsonify({
         "success": True,
@@ -265,34 +351,44 @@ def submit_checkin_beacon():
     is posted to directly by ESP32 hardware the same way.
     """
     data = request.get_json()
+
+    # Gate the terminal before doing anything with the payload. Without
+    # this, the endpoint is open to anyone who can reach it.
+    if not _check_terminal_auth():
+        return jsonify({"error": "Unauthorized terminal"}), 401
+
     beacon_token = data.get('beacon_token') if data else None
     if not beacon_token:
         return jsonify({"error": "beacon_token is required"}), 400
 
-    # Manually decode instead of @jwt_required(): this token arrives in the
-    # request body (relayed by hardware), not as a normal Authorization
-    # header from a logged-in client. decode_token() verifies the signature
-    # and expiry for us, so an expired or forged beacon is rejected here.
+    # Verified in beacon.py rather than via @jwt_required(): this arrives
+    # in the request body (relayed by hardware), not as an Authorization
+    # header. verify_beacon() checks the HMAC in constant time and
+    # rejects anything expired, malformed, or forged.
     try:
-        decoded = decode_token(beacon_token)
-    except Exception:
+        student_id, session_id = verify_beacon(beacon_token)
+    except BeaconError:
+        # Deliberately vague: the endpoint should not be an oracle that
+        # tells an attacker *which* check failed.
         return jsonify({"error": "Invalid or expired beacon token"}), 401
 
-    if decoded.get("purpose") != "checkin_beacon":
-        return jsonify({"error": "Token is not a valid check-in beacon"}), 401
-
-    student = Student.query.filter_by(user_id=int(decoded["sub"])).first()
+    student = Student.query.get(student_id)
     if not student:
         return jsonify({"error": "Student profile not found"}), 404
 
-    # The terminal doesn't know which course it belongs to today, so -- same
-    # simplification the existing RFID /attendance flow makes in app.py's
-    # get_active_sesh() -- we take the most recently started active session
-    # across all courses.
-    active_session = SessionModel.query.filter_by(is_active=True).order_by(SessionModel.id.desc()).first()
+    # Use the session bound into the token at mint time. Do NOT fall back
+    # to "newest active session" here -- that reintroduces the
+    # cross-session miscrediting bug this design exists to fix.
+    active_session = SessionModel.query.get(session_id)
     if not active_session:
-        return jsonify({"error": "No active session"}), 404
-#testing something
+        return jsonify({"error": "Session no longer exists"}), 404
+
+    # The session can legitimately end inside the 3-second window (a
+    # lecturer ending class as the last student taps), so re-check that
+    # it's still running rather than trusting the mint-time snapshot.
+    if not active_session.is_active:
+        return jsonify({"error": "That session has ended"}), 409
+
     enrolled = Enrollment.query.filter_by(
         student_id=student.id, course_id=active_session.course_id
     ).first()
@@ -346,9 +442,12 @@ def get_checkin_status():
     other way to know this, since the beacon broadcast itself is one-way
     (phone -> ESP32 -> Flask; nothing comes back to the phone over NFC).
 
-    Resolves "the active session" with the EXACT same query
-    submit_checkin_beacon uses above -- has to check the same session the
-    beacon flow would have targeted, not just any active session.
+    Resolves "the active session" via the shared
+    _active_session_for_student() helper -- the same one mint_checkin_beacon
+    uses to bind a session_id into the token. This has to agree with what
+    was minted: if it checked a different session, attendance would land
+    correctly but the app would poll to "unconfirmed" and tell the student
+    their tap failed when it hadn't.
 
     checked_in=False alone doesn't say WHY -- "not enrolled in this
     course" is a definite, permanent failure (waiting longer never fixes
@@ -369,7 +468,7 @@ def get_checkin_status():
     if not student:
         return jsonify({"error": "Student profile not found"}), 404
 
-    active_session = SessionModel.query.filter_by(is_active=True).order_by(SessionModel.id.desc()).first()
+    active_session = _active_session_for_student(student)
     if not active_session:
         return jsonify({"success": True, "checked_in": False, "reason": "no_active_session"}), 200
 

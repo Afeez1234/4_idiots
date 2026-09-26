@@ -22,6 +22,27 @@ class CheckinStatusResult {
   CheckinStatusResult({required this.checkedIn, this.reason, this.courseCode});
 }
 
+/// Result of a `/checkin/beacon` mint.
+///
+/// Carries the server's `expires_in` alongside the beacon so the native
+/// HCE service can arm its own expiry deadline from the authoritative
+/// window. The native side is what actually enforces the window (a
+/// monotonic `SystemClock.elapsedRealtime()` deadline plus a self-clear),
+/// so feeding it Flask's own number keeps the app's countdown, the reader's
+/// behaviour, and the server's acceptance window from drifting apart.
+class BeaconMintResult {
+  /// The beacon itself — 32 ASCII characters, small enough for the HCE
+  /// service to answer a reader in a single APDU exchange.
+  final String beaconToken;
+
+  /// Seconds the server will accept this beacon for. Null if the server
+  /// omitted it, in which case the native side falls back to its own
+  /// default matching BEACON_TOKEN_TTL_SECONDS.
+  final int? expiresIn;
+
+  BeaconMintResult({required this.beaconToken, this.expiresIn});
+}
+
 class StudentService {
   // 1. Receive the token directly from RAM to avoid hardware storage race conditions
   Future<StudentDashboardModel> fetchDashboardData(String token) async {
@@ -62,20 +83,31 @@ class StudentService {
   // checkinBeaconEndpoint doc-comment in api_constants.dart, and
   // BEACON_TOKEN_TTL_SECONDS in api/student.py for why this token is
   // separate from the long-lived session token passed in here).
-  Future<String> mintCheckinBeacon(String token) async {
+  Future<BeaconMintResult> mintCheckinBeacon(String token) async {
     try {
-      final response = await http.post(
-        Uri.parse(ApiConstants.checkinBeaconEndpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await http
+          .post(
+            Uri.parse(ApiConstants.checkinBeaconEndpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          // A hung socket while Render is cold-starting used to leave the
+          // UI stuck in `authenticating`, with no cancel that could
+          // actually unblock it -- and force-quitting the app was
+          // precisely what triggered the dispose race this flow used to
+          // have. Fail fast instead: a 3-second-window beacon minted more
+          // than 10 seconds ago is worthless anyway.
+          .timeout(const Duration(seconds: 10));
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200 && responseData['success'] == true) {
-        return responseData['beacon_token'] as String;
+        return BeaconMintResult(
+          beaconToken: responseData['beacon_token'] as String,
+          expiresIn: responseData['expires_in'] as int?,
+        );
       }
 
       final errorMsg =
@@ -98,13 +130,20 @@ class StudentService {
   // actual check-in already happened over NFC.
   Future<CheckinStatusResult> checkCheckinStatus(String token) async {
     try {
-      final response = await http.get(
-        Uri.parse(ApiConstants.checkinStatusEndpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final response = await http
+          .get(
+            Uri.parse(ApiConstants.checkinStatusEndpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          // Short timeout on purpose: this is polled roughly once a second
+          // inside a ~10s confirmation window. A poll that hangs for longer
+          // than the window is worthless anyway, and a hung future is worse
+          // than a failed one -- the caller's timer would stack up behind
+          // it instead of moving on to the next tick.
+          .timeout(const Duration(seconds: 5));
 
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 

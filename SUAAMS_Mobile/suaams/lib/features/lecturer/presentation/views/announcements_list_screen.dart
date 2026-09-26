@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/announcements_provider.dart';
-import '../../models/announcement_model.dart';
+import 'package:suaams/features/lecturer/providers/announcements_provider.dart';
+import 'package:suaams/features/lecturer/models/announcement_model.dart';
 
 // Announce tab root. Course-scoped announcements only (scope='university'/
 // 'department' stay admin-only, see get_lecturer_announcements's

@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../../core/constants/api_constants.dart';
-import '../models/lecturer_dashboard_model.dart';
-import '../models/course_workspace_model.dart';
-import '../models/session_history_model.dart';
-import '../models/session_detail_model.dart';
-import '../models/announcement_model.dart';
-import '../models/course_analytics_model.dart';
+import 'package:suaams/core/constants/api_constants.dart';
+import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
+import 'package:suaams/features/lecturer/models/course_workspace_model.dart';
+import 'package:suaams/features/lecturer/models/session_history_model.dart';
+import 'package:suaams/features/lecturer/models/session_detail_model.dart';
+import 'package:suaams/features/lecturer/models/announcement_model.dart';
+import 'package:suaams/features/lecturer/models/course_analytics_model.dart';
 
 class LecturerService {
   Future<LecturerDashboardModel> fetchDashboardData(String token) async {
@@ -321,6 +321,31 @@ class LecturerService {
             'Server returned status ${response.statusCode}';
         throw Exception(errorMsg);
       }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  // Returns the raw CSV bytes for one course's attendance register. Errors
+  // come back as JSON ({"error": ...}) with a non-200 status, so only parse
+  // the body as JSON on the failure path.
+  Future<List<int>> downloadCourseRegister(String token, int courseId) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.courseExportEndpoint(courseId)),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        return response.bodyBytes;
+      }
+
+      String errorMsg = 'Server returned status ${response.statusCode}';
+      try {
+        final Map<String, dynamic> body = jsonDecode(response.body);
+        errorMsg = body['error'] ?? body['msg'] ?? body['message'] ?? errorMsg;
+      } catch (_) {}
+      throw Exception(errorMsg);
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }

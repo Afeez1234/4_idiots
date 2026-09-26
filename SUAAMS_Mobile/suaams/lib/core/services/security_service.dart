@@ -31,11 +31,36 @@ class SecurityService {
   bool _isCompromised = false;
   String? _threatDescription;
 
-  /// True once a blocking threat has fired. Checked by
+  /// Whether Talsec actually started and is listening for threats.
+  ///
+  /// Without this, there were only two states -- "a threat fired" and "no
+  /// threat fired" -- and a FreeRASP integration that failed silently was
+  /// indistinguishable from a clean device. That fails OPEN: no Play
+  /// Services, a missing native lib, or a thrown PlatformException during
+  /// start() all left _isCompromised false, and check-in proceeded as
+  /// though integrity had been verified. Check-in now fails closed unless
+  /// we can positively confirm the checker is running.
+  bool _isArmed = false;
+
+  /// True when the integrity checker is running and reported no blocking
+  /// threat. Only meaningful once [isArmed] is true.
+  bool get isArmed => _isArmed;
+
+  /// True once a blocking threat has fired, OR when integrity checking
+  /// never successfully armed. Checked by
   /// NfcCheckInNotifier.initiateCheckInProtocol() before doing anything else
   /// -- biometric auth included, since a compromised OS is exactly what
   /// could fake that auth's result.
-  bool get isCompromised => _isCompromised;
+  ///
+  /// Fails closed by design: an unarmed checker is treated as
+  /// untrustworthy rather than as a pass.
+  bool get isCompromised =>
+      _isCompromised || (_initialized && !_isArmed);
+
+  /// Set as soon as initialize() is entered, so a checker that throws part
+  /// way through still leaves us in the "tried but didn't arm" state
+  /// rather than the indistinguishable "never ran" one.
+  bool _initialized = false;
 
   /// Human-readable reason, surfaced in the check-in screen's error state
   /// when isCompromised is true.
@@ -114,17 +139,33 @@ class SecurityService {
       onSimulator: () => _handleThreat('Running on an emulator/simulator'),
       onUnofficialStore: () =>
           _handleThreat('App was not installed from the configured store'),
-      onOverlay: () =>
-          _handleThreat('Screen overlay detected (Android only)'),
       onPasscode: () => _handleThreat('No device passcode/screen lock set'),
       onDeviceID: () => _handleThreat('App was reinstalled (iOS only)'),
       onDeviceBinding: () => _handleThreat('Device binding check failed'),
+      // Blocking, unlike its neighbours above. An overlay capability is
+      // the precondition for a tapjacking attack: something else draws
+      // over the check-in sheet and induces a tap at a chosen moment. The
+      // emulator / unofficial-store checks are rightly non-blocking (a
+      // side-loaded demo APK is by definition unofficial, and devs run
+      // emulators legitimately), but this has no innocent explanation on a
+      // device that is about to broadcast an attendance credential.
+      onOverlay: () => _handleThreat(
+        'Screen overlay detected (Android only)',
+        blocking: true,
+      ),
       onSecureHardwareNotAvailable: () =>
           _handleThreat('Secure hardware-backed keystore unavailable'),
     );
 
     Talsec.instance.attachListener(callback);
+    // Set before start(), not after: if start() throws, we still want
+    // initialize() to have marked us as "tried" so isCompromised reports
+    // the failure-closed state rather than looking un-started.
+    _initialized = true;
     await Talsec.instance.start(config);
+    // Only now, with the checker actually running, is "no threat yet" a
+    // meaningful pass rather than an absence of evidence.
+    _isArmed = true;
   }
 
   void _handleThreat(String description, {bool blocking = false}) {

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/lecturer_provider.dart';
-import '../../models/lecturer_dashboard_model.dart';
+import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
+import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 
 // Sessions tab root. Reuses the already-loaded lecturerDashboardProvider
 // (LecturerCourse.hasActiveSession/activeSessionId) instead of a separate

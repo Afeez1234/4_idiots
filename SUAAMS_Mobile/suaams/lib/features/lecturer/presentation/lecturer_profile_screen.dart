@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
-import '../../../core/providers/theme_provider.dart';
-import '../../auth/providers/auth_provider.dart';
-import '../providers/lecturer_provider.dart' show lecturerDashboardProvider;
-import '../models/lecturer_dashboard_model.dart';
+import 'package:suaams/core/providers/theme_provider.dart';
+import 'package:suaams/features/auth/providers/auth_provider.dart';
+import 'package:suaams/features/lecturer/providers/lecturer_provider.dart' show lecturerDashboardProvider;
+import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 
 // Profile tab -- new screen (the lecturer side previously only had logout
 // tucked into the dashboard header's avatar tap). Mirrors the student

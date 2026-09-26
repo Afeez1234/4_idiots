@@ -31,7 +31,14 @@ class MainActivity : FlutterFragmentActivity() {
                         if (token.isNullOrEmpty()) {
                             result.error("INVALID_ARGUMENT", "token is required", null)
                         } else {
-                            SuaamsHceService.setBeaconToken(token)
+                            // Dart passes the server's own expires_in (in
+                            // seconds) so the native deadline matches the
+                            // window Flask will actually accept, rather than
+                            // a locally-guessed one that could disagree.
+                            val ttlSeconds = call.argument<Int>("ttlSeconds")
+                            val ttlMillis = (ttlSeconds?.toLong()
+                                ?: (SuaamsHceService.DEFAULT_TTL_MILLIS / 1000L)) * 1000L
+                            SuaamsHceService.setBeaconToken(token, ttlMillis)
                             result.success(null)
                         }
                     }

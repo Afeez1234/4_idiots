@@ -2,7 +2,7 @@ import csv
 import io
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response
 from datetime import date, datetime, timezone
-from utils import login_required, resolve_timetable_slot_for_course, students_for_announcement
+from utils import login_required, resolve_timetable_slot_for_course, students_for_announcement, build_course_register_csv
 from push_notifications import send_push_notification
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
 from extensions import log_exception, limiter
@@ -528,6 +528,39 @@ def export_reports():
         output.getvalue(),
         mimetype='text/csv',
         headers={'Content-Disposition': 'attachment; filename=attendance_report.csv'},
+    )
+
+
+@lecturer_bp.route('/lecturer/course/<int:course_id>/export')
+@login_required(('lecturer', 'hod'))
+def export_course_register(course_id):
+    """Per-student attendance register CSV for one course (exam eligibility list)."""
+    user_id = session.get('user_id')
+
+    try:
+        lecturer = Lecturer.query.filter_by(user_id=user_id).first()
+        if not lecturer:
+            flash('Lecturer profile not found.', 'error')
+            return redirect(url_for('auth.login'))
+
+        # Ownership check: a lecturer may only export their own courses.
+        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        if not course:
+            flash('Course not found or access denied.', 'error')
+            return redirect(url_for('lecturer.reports'))
+
+        csv_text = build_course_register_csv(course)
+        filename = f"{course.course_code}_attendance_register.csv".replace(' ', '_')
+
+    except Exception:
+        log_exception("Lecturer Course Register Export Error")
+        flash('Failed to export course attendance register.', 'error')
+        return redirect(url_for('lecturer.reports'))
+
+    return Response(
+        csv_text,
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename={filename}'},
     )
 
 

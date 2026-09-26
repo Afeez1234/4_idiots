@@ -109,36 +109,6 @@ Verify new code and flows against these anti-spoofing vectors:
   `freerasp`) and refuse to generate transaction payloads if the OS is
   compromised — closes the runtime-injection bypass of the biometric check.
 
-### Check-in beacon format (rebuilt 2026-09-25)
-
-The beacon is **not** a JWT. It is a compact stateless HMAC handle defined in
-`SUAAMS/beacon.py`:
-
-```
-payload = student_id(4B) || session_id(4B) || exp_unix(4B)   # 12 bytes
-sig     = HMAC-SHA256(BEACON_SIGNING_SECRET, payload)[:12]  # 12 bytes
-token   = base64url(payload || sig)                          # 32 chars
-```
-
-It replaces a ~360-byte Flask JWT that had to be chunked across six
-`61xx`/GET RESPONSE round-trips (~650ms) to cross the PN532 radio link. The
-link was measured degrading after ~119 bytes, so taps were unreliable. At
-34 bytes the whole read is **one APDU exchange** — do not reintroduce
-chunking; `tests/test_beacon.py` fails if the token outgrows a single frame.
-
-Three rules that are load-bearing:
-- **`BEACON_SIGNING_SECRET` and `TERMINAL_ID`/`TERMINAL_SECRET` have no
-  defaults.** Unset means disabled, not weak. Never give them a fallback
-  literal — that pattern is what made the guard in `app.py` dead code.
-- **The session is bound at mint time**, not looked up at submit time. Both
-  the mint and `/checkin/status` endpoints resolve it through
-  `_active_session_for_student()`; they must agree or the app polls forever
-  while attendance lands correctly.
-- **The expiry is enforced natively** (`SystemClock.elapsedRealtime()`
-  deadline in `SuaamsHceService`), not by a Dart `Timer`. Dart timers are
-  throttled, don't fire when backgrounded, and used to be skipped entirely
-  when the provider was disposed mid-flow.
-
 ## Core differentiator (production vision)
 Smart ID via Android NFC HCE, with PN532 replacing MFRC522 as reader hardware.
 Treat this as first-class whenever touching attendance/ID-related code.

@@ -1,9 +1,9 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, Response
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, timezone
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Announcement
 from extensions import limiter, jwt_identity_or_ip, api_error_response
-from utils import resolve_timetable_slot_for_course
+from utils import resolve_timetable_slot_for_course, build_course_register_csv
 
 api_lecturer_bp = Blueprint('api_lecturer', __name__, url_prefix='/api/v1/lecturer')
 
@@ -595,6 +595,32 @@ def get_course_analytics(course_id):
 
     except Exception:
         return api_error_response("Course Analytics API Error", "Failed to load course analytics")
+
+
+@api_lecturer_bp.route('/course/<int:course_id>/export', methods=['GET'])
+@jwt_required()
+def export_course_register(course_id):
+    """Per-student attendance register CSV for one course (exam eligibility list)."""
+    lecturer, error_response, status = get_lecturer_or_403()
+    if error_response:
+        return error_response, status
+
+    try:
+        # Ownership check: a lecturer may only export their own courses.
+        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        if not course:
+            return jsonify({"error": "Course not found or access denied."}), 404
+
+        csv_text = build_course_register_csv(course)
+        filename = f"{course.course_code}_attendance_register.csv".replace(' ', '_')
+        return Response(
+            csv_text,
+            mimetype='text/csv',
+            headers={'Content-Disposition': f'attachment; filename={filename}'},
+        )
+
+    except Exception:
+        return api_error_response("Course Register Export API Error", "Failed to export attendance register")
 
 
 # ── 9. Announcements ──────────────────────────────────────────────────────────

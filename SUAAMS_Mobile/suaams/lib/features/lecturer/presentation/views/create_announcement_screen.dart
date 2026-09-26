@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/lecturer_provider.dart';
-import '../../providers/announcements_provider.dart';
+import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
+import 'package:suaams/features/lecturer/providers/announcements_provider.dart';
 
 // Reuses the already-loaded lecturerDashboardProvider for the course
 // picker -- same reasoning as ActiveSessionsScreen -- rather than a

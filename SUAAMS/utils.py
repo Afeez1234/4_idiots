@@ -208,3 +208,92 @@ def resolve_timetable_slot_for_course(course_id, semester=None, on_date=None):
         .first()
     )
 
+
+
+# Minimum attendance % to sit the exam. Single knob for the per-course
+# register export (web + mobile API) -- change here, not in the routes.
+EXAM_ELIGIBILITY_THRESHOLD = 75
+
+
+def _csv_safe(value):
+    """Neutralise spreadsheet formula injection: a name/matric starting with
+    = + - @ (or tab/CR) would be executed by Excel when the CSV is opened, so
+    prefix it with a quote to force it to plain text."""
+    text = '' if value is None else str(value)
+    if text and text[0] in ('=', '+', '-', '@', '\t', '\r'):
+        return "'" + text
+    return text
+
+
+def build_course_register_csv(course):
+    """
+    Per-course attendance register as CSV text -- one row per enrolled
+    student, one column per completed session, plus totals and an exam
+    eligibility flag. Shared by the web route and the mobile API so the two
+    downloads can't drift apart.
+
+    Starts from Enrollment (not Attendance) so students who never tapped in
+    still get a row, all-absent. Only completed sessions (is_active=False)
+    count, matching the analytics endpoint -- an open session would
+    otherwise make everyone look absent. Attended = present + late.
+    Three bulk queries total, no per-student queries (connection safety).
+    """
+    import csv
+    import io
+    from models import Session as SessionModel, Attendance, Student, Enrollment
+
+    sessions = (
+        SessionModel.query
+        .filter_by(course_id=course.id, is_active=False)
+        .order_by(SessionModel.session_date.asc(), SessionModel.id.asc())
+        .all()
+    )
+    students = (
+        Student.query
+        .join(Enrollment, Enrollment.student_id == Student.id)
+        .filter(Enrollment.course_id == course.id)
+        .order_by(Student.matric_number.asc())
+        .all()
+    )
+
+    # (student_id, session_id) -> status
+    status_by_key = {}
+    if sessions:
+        rows = (
+            Attendance.query
+            .filter(Attendance.session_id.in_([s.id for s in sessions]))
+            .with_entities(Attendance.student_id, Attendance.session_id, Attendance.status)
+            .all()
+        )
+        status_by_key = {(r[0], r[1]): r[2] for r in rows}
+
+    symbol = {'present': 'P', 'late': 'L', 'excused': 'E', 'absent': 'A'}
+    total = len(sessions)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([f'{course.course_code} - {course.course_title}'])
+    writer.writerow([f'Eligibility threshold: {EXAM_ELIGIBILITY_THRESHOLD}%',
+                     'P=Present L=Late E=Excused A=Absent'])
+    writer.writerow(
+        ['S/N', 'Matric Number', 'Full Name', 'Level']
+        + [s.session_date.strftime('%d-%b-%Y') if s.session_date else f'Session {s.id}' for s in sessions]
+        + ['Attended', 'Total Sessions', 'Attendance (%)', 'Exam Eligible']
+    )
+
+    for index, student in enumerate(students, start=1):
+        marks = []
+        attended = 0
+        for s in sessions:
+            status = status_by_key.get((student.id, s.id))
+            marks.append(symbol.get(status, 'A'))
+            if status in ('present', 'late'):
+                attended += 1
+        pct = round(attended / total * 100, 1) if total else 0
+        eligible = 'YES' if total and pct >= EXAM_ELIGIBILITY_THRESHOLD else 'NO'
+        writer.writerow(
+            [index, _csv_safe(student.matric_number), _csv_safe(student.full_name), _csv_safe(student.level)]
+            + marks + [attended, total, pct, eligible]
+        )
+
+    return output.getvalue()

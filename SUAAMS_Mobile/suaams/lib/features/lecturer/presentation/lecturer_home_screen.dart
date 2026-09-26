@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/providers/theme_provider.dart';
-import '../../../shared/widgets/dashboard_background.dart';
-import '../../auth/providers/auth_provider.dart';
-import '../providers/lecturer_provider.dart';
-import '../models/lecturer_dashboard_model.dart';
+import 'package:suaams/core/providers/theme_provider.dart';
+import 'package:suaams/shared/widgets/dashboard_background.dart';
+import 'package:suaams/features/auth/providers/auth_provider.dart';
+import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
+import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 
 // Home tab of the lecturer bottom nav. Was LecturerDashboardScreen, the
 // only screen on the lecturer side before this redesign -- renamed since

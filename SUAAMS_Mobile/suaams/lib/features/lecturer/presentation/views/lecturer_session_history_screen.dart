@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../providers/session_history_provider.dart';
-import '../../models/session_history_model.dart';
+import 'package:suaams/features/lecturer/providers/session_history_provider.dart';
+import 'package:suaams/features/lecturer/models/session_history_model.dart';
 
 // "HH:MM:SS" (Python str(time)) -> "HH:MM", or a placeholder if unset.
 String _fmtTime(String? raw) {
