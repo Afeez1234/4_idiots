@@ -9,19 +9,25 @@ from datetime import date, datetime, timezone
 # Import db and our elegant SQLAlchemy models
 # (added Enrollment here for the check-in endpoints, Timetable for the
 # today's-schedule endpoint below)
-from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester, Announcement
+from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester, Announcement, OfflineCheckinLog
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from push_notifications import send_push_notification
 from utils import compute_attendance_status
 # Compact HCE beacon minting/verification. See beacon.py for why the
 # credential is a 32-char signed handle rather than a ~360-byte JWT.
 from beacon import (
-    mint_beacon, verify_beacon, BeaconError,
+    mint_beacon, verify_beacon, verify_beacon_signature, BeaconError,
     BEACON_TOKEN_TTL_SECONDS,
 )
 
 # Create the API blueprint for student mobile endpoints
 api_student_bp = Blueprint('api_student', __name__, url_prefix='/api/v1/student')
+
+# Cap on a single offline backlog batch. The terminal's own flash queue is
+# the real bound (see MAX_OFFLINE_QUEUE in SUAAMS_HCE.ino); this is a second
+# line of defence so a malfunctioning or compromised terminal can't turn
+# the endpoint into a bulk-insert DoS against the attendance DB.
+MAX_OFFLINE_BACKLOG_BATCH = 50
 
 
 def _check_terminal_auth():
@@ -551,16 +557,40 @@ def get_today_schedule():
         ).order_by(Timetable.start_time.asc()).all()
 
         today_protocol = []
+        # Courses already covered by a Timetable row above. Used below to
+        # work out which active sessions are "ad-hoc" (no scheduled slot
+        # today) and therefore still need an entry.
+        covered_course_ids = set()
         for entry in timetable_entries:
             course = courses_by_id.get(entry.course_id)
             if course is None:
                 continue
+            covered_course_ids.add(entry.course_id)
 
             session_today = SessionModel.query.filter_by(
                 course_id=entry.course_id, session_date=today
             ).order_by(SessionModel.id.desc()).first()
 
             status = 'PENDING'
+            # Whether a check-in would actually succeed right now: a Session
+            # row exists for today, is still active, and this student hasn't
+            # already checked into it.
+            #
+            # This is separate from `status` on purpose. `status` defaults to
+            # 'PENDING' and is ONLY narrowed once a session_today row exists,
+            # so 'PENDING' collapses two very different situations the client
+            # must not treat alike:
+            #   1. a session is live and the student can check in, versus
+            #   2. the lecturer hasn't started anything yet (the common case
+            #      all morning, for a 2pm lecture).
+            # A client gating its check-in UI on status == 'PENDING' alone
+            # therefore invites a tap that is guaranteed to be rejected
+            # server-side, and can even claim a session is "live" when none
+            # exists. Note the timetable's own start_time is deliberately not
+            # used for this -- lecturers routinely start late or early, and
+            # the Session row is the only authority on what is really running.
+            session_live = False
+
             # Default to the recurring Timetable slot; overridden below by
             # the actual Session's own planned_start/planned_end if one
             # exists for today (a lecturer may have adjusted the time when
@@ -582,6 +612,7 @@ def get_today_schedule():
                     status = 'ABSENT'
                 # else: session is live and student hasn't checked in yet
                 # -- status stays 'PENDING'.
+                session_live = session_today.is_active and not attended
 
             today_protocol.append({
                 'course_id': course.id,
@@ -589,9 +620,92 @@ def get_today_schedule():
                 'course_name': course.course_title,
                 'course_code': course.course_code,
                 'status': status,
+                # Narrows the PENDING ambiguity described above. Consumed by
+                # the dashboard's check-in card to decide whether the tap
+                # target is armed -- see TodayProtocolEntry in the Flutter app.
+                'session_live': session_live,
                 'start_time': start_time.strftime('%H:%M') if start_time else None,
                 'end_time': end_time.strftime('%H:%M') if end_time else None,
                 'room': entry.room,
+            })
+
+        # ---- Ad-hoc / unscheduled sessions -------------------------------
+        # A lecturer can start a session for ANY course they own at any
+        # time -- start_session() in blueprints/lecturer.py has no timetable
+        # check, and resolve_timetable_slot_for_course() simply returns None
+        # when there's no slot today, leaving planned_start/end NULL. That's
+        # how a make-up class or an extra lab works.
+        #
+        # The loop above only ever looks at courses that HAVE a Timetable row
+        # for today's weekday, so an ad-hoc session for a course with no
+        # scheduled slot today never appears at all -- the student would see
+        # "No Upcoming Sessions" while a real, checkable session ran. Worse,
+        # this is reachable in the check-in path independently: the beacon
+        # mint resolves the session through _active_session_for_student(),
+        # which filters on is_active and enrollment only and never consults
+        # Timetable at all. So the session was always mintable; it was purely
+        # invisible in the UI.
+        #
+        # Union it in so an ad-hoc session is as checkable as a scheduled
+        # one. Scoped to the student's enrolled courses (same enrollment
+        # join as _active_session_for_student), so this can't surface
+        # someone else's class.
+        adhoc_sessions = (
+            SessionModel.query
+            .join(Enrollment, Enrollment.course_id == SessionModel.course_id)
+            .filter(
+                Enrollment.student_id == student.id,
+                SessionModel.session_date == today,
+                SessionModel.is_active.is_(True),
+                # Excluded above already -- otherwise a scheduled course
+                # with a live session would be appended twice.
+                SessionModel.course_id.notin_(covered_course_ids),
+            )
+            .order_by(SessionModel.start_time.asc())
+            .all()
+        )
+
+        for session in adhoc_sessions:
+            course = courses_by_id.get(session.course_id)
+            if course is None:
+                continue
+
+            attended = Attendance.query.filter_by(
+                session_id=session.id, student_id=student.id
+            ).first()
+
+            # An ad-hoc session that's still active and not yet attended is
+            # exactly the "live, go check in" case. If the student somehow
+            # already has attendance on it, report PRESENT rather than
+            # advertising a check-in they no longer need.
+            session_live = session.is_active and not attended
+
+            today_protocol.append({
+                'course_id': course.id,
+                'course_name': course.course_title,
+                'course_code': course.course_code,
+                'status': 'PRESENT' if attended else 'PENDING',
+                'session_live': session_live,
+                # Fall back to the real start time the lecturer recorded
+                # (set in start_session()), since there's no scheduled slot
+                # to read from. end_time stays None -- an ad-hoc session has
+                # no defined finish.
+                'start_time': (
+                    (session.planned_start or session.start_time).strftime('%H:%M')
+                    if (session.planned_start or session.start_time)
+                    else None
+                ),
+                'end_time': (
+                    session.planned_end.strftime('%H:%M')
+                    if session.planned_end
+                    else None
+                ),
+                # No Timetable row means no room to report.
+                'room': None,
+                # Marks this as unscheduled so the Flutter client can label it
+                # differently from an ordinary "not started yet" class. Purely
+                # informational -- the check-in path ignores it.
+                'ad_hoc': True,
             })
 
         return jsonify({"success": True, "today_protocol": today_protocol}), 200
@@ -950,3 +1064,133 @@ def drop_course(course_id):
     except Exception:
         db.session.rollback()
         return api_error_response("Course Drop Error", "Failed to drop course")
+
+# Offline backlog sync. Deliberately a SEPARATE route from /checkin, and
+# deliberately incapable of crediting attendance -- see the OfflineCheckinLog
+# docstring in models.py for the full reasoning.
+#
+# The short version: a beacon is only valid for 3 seconds, so anything a
+# terminal queued while offline has always expired by the time it arrives.
+# The server verifies the HMAC anyway, which proves the token was genuinely
+# ours and not forged, and reads the student/session binding out of the
+# payload -- but it records provenance for a human to review rather than
+# writing an Attendance row. Crediting them would reinstate exactly the
+# relay/buddy-punching hole the 3-second window exists to close.
+@api_student_bp.route('/checkin/backlog', methods=['POST'])
+@limiter.limit("30 per minute")
+def sync_offline_checkin_backlog():
+    """Accept a batch of beacons a terminal captured while it was offline.
+
+    Body: {"records": [{"beacon_token": "<32 chars>"}, ...]}
+
+    The terminal sends no timestamps. It has no RTC and cannot know
+    wall-clock time while disconnected, so the capture time is derived here
+    from the beacon's own `exp` field (minus the TTL) -- the only clock
+    involved is the server's, which is the one that matters.
+    """
+    if not _check_terminal_auth():
+        return jsonify({"error": "Unauthorized terminal"}), 401
+
+    data = request.get_json()
+    records = (data or {}).get('records')
+    if not isinstance(records, list) or not records:
+        return jsonify({"error": "records must be a non-empty list"}), 400
+
+    # Bound the batch. A terminal with a full queue sends at most
+    # MAX_OFFLINE_QUEUE; the cap is a second line of defence so a
+    # compromised or malfunctioning terminal can't turn this into a
+    # bulk-insert DoS against the attendance DB.
+    if len(records) > MAX_OFFLINE_BACKLOG_BATCH:
+        return jsonify({"error": f"Too many records (max {MAX_OFFLINE_BACKLOG_BATCH})"}), 400
+
+    results = []
+    accepted = 0
+
+    for record in records:
+        token = record.get('beacon_token') if isinstance(record, dict) else None
+        entry = {"beacon_token": token}
+
+        if not token:
+            entry.update(status="rejected", reason="missing beacon_token")
+            results.append(entry)
+            continue
+
+        # Signature is checked exactly as it is for a live check-in, so a
+        # terminal cannot fabricate a capture. verify_beacon_signature()
+        # deliberately does NOT reject an expired token -- every offline
+        # capture is expired by definition, and expiry is the expected case
+        # here rather than a failure. What it guarantees is that the token
+        # is genuinely ours and that the student/session binding is real.
+        try:
+            student_id, session_id, expires_at = verify_beacon_signature(token)
+        except BeaconError as e:
+            entry.update(status="rejected", reason=str(e)[:60])
+            results.append(entry)
+            continue
+
+        # Capture time = the moment the beacon was minted, which is when the
+        # student was tapping. Everything after that (RF transfer, the
+        # terminal's failed POST) is within a few hundred ms.
+        captured_at = datetime.fromtimestamp(
+            expires_at - BEACON_TOKEN_TTL_SECONDS, tz=timezone.utc
+        )
+
+        student = Student.query.get(student_id)
+        session = SessionModel.query.get(session_id)
+        if not student or not session:
+            entry.update(status="rejected", reason="student or session no longer exists")
+            results.append(entry)
+            continue
+
+        # Idempotent: (student, session) is unique, so a re-flushed queue
+        # updates the existing row instead of erroring.
+        existing = OfflineCheckinLog.query.filter_by(
+            student_id=student_id, session_id=session_id
+        ).first()
+        if existing:
+            entry.update(status=existing.status, reason="already recorded",
+                         captured_at=captured_at.isoformat())
+            results.append(entry)
+            continue
+
+        # If attendance already landed live while this sat in the queue,
+        # the backlog entry is redundant -- note that rather than filing a
+        # record a lecturer would have to dismiss for no reason.
+        already_present = Attendance.query.filter_by(
+            student_id=student_id, session_id=session_id
+        ).first()
+        status = 'superseded' if already_present else 'pending_verification'
+
+        log = OfflineCheckinLog(
+            student_id=student_id,
+            session_id=session_id,
+            terminal_id=request.headers.get('X-Terminal-Id', 'unknown'),
+            captured_at=captured_at,
+            status=status,
+        )
+        db.session.add(log)
+        accepted += 1
+
+        entry.update(
+            status=status,
+            student_id=student_id,
+            session_id=session_id,
+            full_name=student.full_name,
+            course_code=session.course.course_code if session.course else None,
+            captured_at=captured_at.isoformat(),
+        )
+        results.append(entry)
+
+    db.session.commit()
+
+    current_app.logger.info(
+        "Offline backlog sync from terminal %s: %d record(s), %d newly stored",
+        request.headers.get('X-Terminal-Id', 'unknown'), len(records), accepted
+    )
+
+    return jsonify({
+        "success": True,
+        "accepted": accepted,
+        "received": len(records),
+        "results": results,
+    }), 200

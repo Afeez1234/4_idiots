@@ -26,38 +26,76 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
 )
-DB_CONFIG = {
-    'host': os.environ.get('DB_HOST', 'bikxczmqtd1kynudsfrp-mysql.services.clever-cloud.com'),
-    'user': os.environ.get('DB_USER', 'uo5woagbfvcducyy'),
-    'password': os.environ.get('DB_PASSWORD', 'edVtI3biNQmhQrfJwRe8'),
-    'database': os.environ.get('DB_NAME', 'bikxczmqtd1kynudsfrp'),
-    'port': int(os.environ.get('DB_PORT', 3306))
-}
+# Load a local .env if python-dotenv is available. Guarded so a production
+# deploy that supplies everything through real environment variables isn't
+# broken by the optional import, and so `python app.py` works from a checkout
+# the same way `flask run` does.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'suaams_secret_key_2025')
+
+def _require_env(name):
+    """Fetch a required environment variable, failing loudly if absent.
+
+    There is deliberately no `default` parameter, and that is the whole
+    point. This function used to be a set of os.environ.get(NAME, <literal>)
+    calls holding the real production Clever Cloud host, user, password and
+    database, plus the session and JWT signing keys. Two things were wrong
+    with that:
+
+      1. Those credentials sat in version control for months, in five
+         separate commits, and are still in the history now.
+      2. The "_missing = [k for k, v in _required.items() if not v]" check
+         below them could NEVER fire. os.environ.get had already returned
+         the non-empty hardcoded fallback, so every value was truthy. The
+         check read like enforcement and enforced nothing -- which is how a
+         misconfigured deploy could silently run on published credentials.
+
+    A credential has no safe default. Absent means the app refuses to start.
+    """
+    value = os.environ.get(name, '').strip()
+    if not value:
+        raise RuntimeError(
+            f"Required environment variable {name} is not set. "
+            "Set it in your environment or a local .env file (see .env.example). "
+            "Do not hardcode credentials in source."
+        )
+    return value
 
 
+# Session-cookie and JWT signing keys. Both are load-bearing for
+# authentication: SECRET_KEY signs the web portal's session cookie, and
+# JWT_SECRET_KEY signs every mobile API token. A value published in the repo
+# lets anyone mint an admin session or a valid JWT.
+SECRET_KEY = _require_env('SECRET_KEY')
+JWT_SECRET = _require_env('JWT_SECRET_KEY')
 
-SECRET_KEY = os.environ.get('SECRET_KEY', 'suaams_secret_key_2025')
-JWT_SECRET = os.environ.get('JWT_SECRET_KEY', 'suaams_jwt_secret_key_2025')
-
-# Database connection string for SQLAlchemy
-DB_HOST = os.environ.get('DB_HOST', 'bikxczmqtd1kynudsfrp-mysql.services.clever-cloud.com')
-DB_USER = os.environ.get('DB_USER', 'uo5woagbfvcducyy')
-DB_PASSWORD = os.environ.get('DB_PASSWORD', 'edVtI3biNQmhQrfJwRe8')
-DB_NAME = os.environ.get('DB_NAME', 'bikxczmqtd1kynudsfrp')
+# Database connection settings.
+DB_HOST = _require_env('DB_HOST')
+DB_USER = _require_env('DB_USER')
+DB_PASSWORD = _require_env('DB_PASSWORD')
+DB_NAME = _require_env('DB_NAME')
+# Port is not a credential, so a default is fine here.
 DB_PORT = os.environ.get('DB_PORT', '3306')
 
-_required = {
-    'SECRET_KEY': SECRET_KEY, 'JWT_SECRET_KEY': JWT_SECRET, 'DB_HOST': DB_HOST,
-    'DB_USER': DB_USER, 'DB_PASSWORD': DB_PASSWORD, 'DB_NAME': DB_NAME,
+# Kept because other modules read these keys. Every value is now sourced from
+# a required environment variable above -- the dict itself is no longer a
+# place secrets can hide.
+DB_CONFIG = {
+    'host': DB_HOST,
+    'user': DB_USER,
+    'password': DB_PASSWORD,
+    'database': DB_NAME,
+    'port': int(DB_PORT),
 }
-_missing = [k for k, v in _required.items() if not v]
-if _missing:
-    raise RuntimeError(
-        f"Missing required environment variables: {', '.join(_missing)}. "
-        "Set them in your environment or a local .env — do not hardcode credentials in source."
-    )
+
+# Beacon/terminal credentials are validated lazily where they're used (see
+# beacon._signing_secret and api/student._check_terminal_auth) rather than
+# here, so that a deployment without them still serves the rest of the app
+# and only check-in is disabled -- with a logged reason, not a crash loop.
 
 app = Flask(__name__)
 

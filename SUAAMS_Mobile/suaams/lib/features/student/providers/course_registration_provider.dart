@@ -6,6 +6,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/available_course_model.dart';
 import '../providers/student_provider.dart';
+import '../providers/today_schedule_provider.dart';
+import '../providers/week_schedule_provider.dart';
 import '../../../core/network/auth_retry.dart';
 
 class CourseRegistrationState {
@@ -91,6 +93,41 @@ class CourseRegistrationNotifier extends Notifier<CourseRegistrationState> {
         ref.read(studentServiceProvider).dropCourse(token, courseId),
   );
 
+  /// Drops the cached state of every view whose data is derived from the
+  /// student's enrollment set, so a register/drop is reflected without
+  /// needing a cold restart.
+  ///
+  /// All three are backed by endpoints that re-derive from
+  /// `student.courses` on the server, so there is no server-side cache to
+  /// clear -- the staleness here is purely client-side, and invalidating
+  /// makes each one refetch on its next read.
+  ///
+  /// The invalidation has to be explicit because of how the tab shell
+  /// works: this screen lives in the Attendance branch of a
+  /// `StatefulShellRoute.indexedStack`, which keeps *every* branch's
+  /// widget tree mounted at all times. That means the Timetable branch's
+  /// `ref.watch(weekScheduleProvider)` is never unmounted, so the
+  /// autoDispose provider is never disposed either and its one-shot
+  /// `Future.microtask` load in build() never re-runs. Switching tabs
+  /// looks like it should refetch and does not.
+  ///
+  /// Called only after the server confirms the mutation -- an earlier
+  /// version invalidated optimistically, which refetched three endpoints
+  /// on every tap and then landed stale data again if the call failed.
+  ///
+  /// Safe to call unconditionally: these are autoDispose, so invalidating
+  /// one that is currently disposed is a no-op, not an error. Mirrors
+  /// `_invalidateAttendanceViews` in nfc_provider.dart, which does the
+  /// same thing after a check-in.
+  void _invalidateEnrollmentViews() {
+    // Timetable tab + Day Detail.
+    ref.invalidate(weekScheduleProvider);
+    // "Today's Protocol" list on the dashboard Home tab.
+    ref.invalidate(todayScheduleProvider);
+    // Courses tab (CourseBreakdown list) + dashboard stats.
+    ref.invalidate(studentDashboardProvider);
+  }
+
   // Shared register/drop plumbing: marks the row pending, calls the
   // backend, and only flips `enrolled` locally once the server confirms it
   // (unlike notifications' markRead, a failed registration/drop needs to be
@@ -117,6 +154,10 @@ class CourseRegistrationNotifier extends Notifier<CourseRegistrationState> {
         ],
         pendingCourseIds: {...state.pendingCourseIds}..remove(courseId),
       );
+      // The flip above only updates *this* list. The timetable, today's
+      // protocol, and the courses tab are separate providers fed by
+      // separate endpoints, so they need telling.
+      _invalidateEnrollmentViews();
     } catch (e) {
       if (!ref.mounted) return;
       state = state.copyWith(

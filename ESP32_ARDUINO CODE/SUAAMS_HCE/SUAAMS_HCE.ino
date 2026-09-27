@@ -26,6 +26,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <Preferences.h>
 
 #include "secrets.h"  // WiFi + terminal credentials. NOT in git.
 
@@ -98,6 +99,32 @@ unsigned long lastWarmPing = 0;
 // guessed at.
 unsigned long lastWarmPingOk = 0;
 
+// ---- Offline backlog queue -----------------------------------------------
+// A beacon is only valid for 3 seconds, so a tap captured while this
+// terminal can't reach the backend has ALWAYS expired by the time it syncs.
+// The server therefore will not credit it -- by design. What it does with
+// it is record PROVENANCE for a lecturer to review: a genuine tap by a
+// genuine student, read at a real terminal, at a known time.
+//
+// The capture time isn't sent from here because the terminal has no RTC
+// and cannot know wall-clock time while disconnected. The server derives it
+// from the beacon's own expiry field instead, so the only clock in the
+// path is the server's.
+//
+// Bounded on purpose: this is a short buffer for a transient outage, not an
+// archive. Once full, the OLDEST entry is dropped, because the most recent
+// captures are the ones a lecturer is most likely to be reconciling.
+const uint8_t MAX_OFFLINE_QUEUE = 16;
+
+// How often to retry a failed flush. Short enough that a brief outage is
+// recovered from promptly, long enough not to retry-hammer a backend that
+// is genuinely down.
+const unsigned long BACKLOG_FLUSH_INTERVAL_MS = 30UL * 1000UL;
+unsigned long lastBacklogFlushAttempt = 0;
+
+Preferences prefs;
+String g_backlog = "";  // newline-separated 32-char beacons
+
 // WiFi must not be able to brick the terminal at boot. The old code
 // looped `while (WiFi.status() != WL_CONNECTED)` forever inside setup(),
 // so an AP outage at power-on wedged the board until someone physically
@@ -167,6 +194,131 @@ void maintainWifi() {
 
   Serial.println("[WIFI] Link down, reconnecting...");
   WiFi.reconnect();
+}
+
+// ---- Offline backlog queue ------------------------------------------------
+// Stored in NVS (ESP32's key/value flash store) so captures survive both a
+// power cycle and a reboot. A tap taken during a power cut is exactly the
+// one you least want to lose.
+
+uint8_t backlogCount() {
+  if (g_backlog.length() == 0) return 0;
+  uint8_t n = 1;
+  for (unsigned int i = 0; i < g_backlog.length(); i++) {
+    if (g_backlog[i] == '\n') n++;
+  }
+  return n;
+}
+
+void loadBacklog() {
+  prefs.begin("suaams", true);
+  g_backlog = prefs.getString("backlog", "");
+  prefs.end();
+  Serial.print("[QUEUE] Loaded ");
+  Serial.print(backlogCount());
+  Serial.print(" pending capture(s) from flash");
+  Serial.println();
+}
+
+void saveBacklog() {
+  prefs.begin("suaams", false);
+  prefs.putString("backlog", g_backlog);
+  prefs.end();
+}
+
+void appendToBacklog(const String &token) {
+  if (token.length() == 0) return;
+
+  // Drop the oldest entry when full. Trim the first line and its newline.
+  if (backlogCount() >= MAX_OFFLINE_QUEUE) {
+    int firstNewline = g_backlog.indexOf('\n');
+    if (firstNewline >= 0) {
+      g_backlog = g_backlog.substring(firstNewline + 1);
+    } else {
+      g_backlog = "";
+    }
+    Serial.print("[QUEUE] Full at ");
+    Serial.print(MAX_OFFLINE_QUEUE);
+    Serial.println(" -- dropped oldest capture");
+  }
+
+  if (g_backlog.length() > 0) g_backlog += '\n';
+  g_backlog += token;
+  saveBacklog();
+
+  Serial.print("[QUEUE] Queued capture offline (");
+  Serial.print(backlogCount());
+  Serial.print("/");
+  Serial.print(MAX_OFFLINE_QUEUE);
+  Serial.println(") -- will NOT become attendance, logged for review");
+}
+
+// POSTs the queue and clears it on success.
+//
+// Clears only when the server actually accepted the batch. A transport
+// failure leaves the queue intact so nothing is lost, and a 4xx/5xx clears
+// it too: the server gave a real answer, and re-sending an answer it has
+// already given us would just wedge the same entries in the queue forever.
+bool flushBacklog() {
+  if (g_backlog.length() == 0) return true;
+  if (WiFi.status() != WL_CONNECTED) return false;
+
+  String records;
+  records.reserve(g_backlog.length() + 64);
+  uint8_t count = 0;
+  int start = 0;
+  while (true) {
+    int nl = g_backlog.indexOf('\n', start);
+    String line = (nl >= 0) ? g_backlog.substring(start, nl) : g_backlog.substring(start);
+    if (line.length() > 0) {
+      if (count > 0) records += ',';
+      records += "{\"beacon_token\":\"" + line + "\"}";
+      count++;
+    }
+    if (nl < 0) break;
+    start = nl + 1;
+  }
+  if (count == 0) { g_backlog = ""; saveBacklog(); return true; }
+
+  String payload = "{\"records\":[" + records + "]}";
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  http.begin(client, BACKLOG_URL);
+  http.setTimeout(HTTP_TIMEOUT_MS);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-Terminal-Id", TERMINAL_ID);
+  http.addHeader("X-Terminal-Secret", TERMINAL_SECRET);
+
+  Serial.print("[QUEUE] Flushing ");
+  Serial.print(count);
+  Serial.print(" capture(s) to backlog endpoint...");
+  int code = http.POST(payload);
+  String body = http.getString();
+  http.end();
+
+  if (code == 200) {
+    g_backlog = "";
+    saveBacklog();
+    Serial.println(" accepted, queue cleared");
+    return true;
+  }
+
+  if (code == -1) {
+    Serial.println(" no response -- queue RETAINED, will retry later");
+  } else {
+    // Real answer from a reachable server. Keeping these would wedge the
+    // queue permanently, so drop them -- the server has the record either way.
+    g_backlog = "";
+    saveBacklog();
+    Serial.print(" server returned ");
+    Serial.print(code);
+    Serial.print(" -- queue cleared, server has the record: ");
+    Serial.println(body);
+  }
+  return false;
 }
 
 // Pings /healthz on a timer to stop the backend spinning down.
@@ -265,10 +417,11 @@ bool readBeacon(String &outToken) {
 
 void submitBeaconToken(const String &token) {
   if (!wifiReady || WiFi.status() != WL_CONNECTED) {
-    // Previously this returned silently, so a tap during a WiFi blip
-    // vanished with no trace and the student was told nothing. Say it
-    // loudly -- the check-in genuinely did not happen.
-    Serial.println("[POST] SKIPPED: no WiFi. This tap was NOT recorded.");
+    // No network at all. This is exactly the case the offline queue exists
+    // for -- queue it rather than dropping it, so a lecturer can at least
+    // see a genuine tap happened even though it can't become attendance.
+    Serial.println("[POST] No WiFi -- queuing capture for later sync");
+    appendToBacklog(token);
     return;
   }
 
@@ -334,7 +487,9 @@ void submitBeaconToken(const String &token) {
     http.end();
 
     // -1 means no response at all: connection refused, DNS failure, or a
-    // TLS handshake that didn't complete. Worth another go.
+    // TLS handshake that didn't complete. Worth another go, and if every
+    // attempt fails that is an outage from our point of view, so the
+    // capture gets queued for the backlog endpoint.
     if (httpResponseCode == -1) {
       Serial.println("[POST] No response (transport failure) -- will retry");
       // Back off briefly so we don't hammer a link that's already struggling.
@@ -348,10 +503,15 @@ void submitBeaconToken(const String &token) {
       Serial.println("[POST] Check: is the Render dyno warm? A cold start costs 5-9s,");
       Serial.println("[POST] and the acceptance window is only 3s.");
     }
+    // Any real HTTP status means the backend WAS reachable, so this isn't an
+    // outage and must not be queued -- the server has given its answer.
     return;
   }
 
-  Serial.println("[POST] GAVE UP after all attempts. This tap was NOT recorded.");
+  // Every attempt was a transport failure: the backend was unreachable, so
+  // treat this as offline rather than as a lost tap.
+  Serial.println("[POST] All attempts failed at the transport layer -- queuing capture");
+  appendToBacklog(token);
 }
 
 // ---------------- Setup / loop ----------------
@@ -387,6 +547,11 @@ void setup() {
 
   nfc.SAMConfig();
 
+  // Restore any captures queued before the last power cycle, BEFORE going
+  // live, so taps that happened during an outage aren't sitting in flash
+  // unaccounted for.
+  loadBacklog();
+
   connectWifi();
   Serial.printf("[BOOT] Terminal %s ready, waiting for taps...\n", TERMINAL_ID);
 }
@@ -408,6 +573,17 @@ void loop() {
   // empty field there's nothing to lose.
   if (!targetInField) {
     maybeKeepBackendWarm();
+
+    // Push any offline captures now that the backend is answering. Only
+    // attempted on an empty field, for the same reason as the warm ping: a
+    // flush is a synchronous TLS request and must never delay a real tap.
+    if (backlogCount() > 0) {
+      unsigned long age = millis() - lastBacklogFlushAttempt;
+      if (age > BACKLOG_FLUSH_INTERVAL_MS) {
+        lastBacklogFlushAttempt = millis();
+        flushBacklog();
+      }
+    }
   }
 
   if (millis() - lastAttemptEnd < READ_COOLDOWN_MS) {

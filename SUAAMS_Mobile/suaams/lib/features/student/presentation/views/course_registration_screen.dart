@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/student/models/available_course_model.dart';
 import 'package:suaams/features/student/providers/course_registration_provider.dart';
+import 'package:suaams/shared/widgets/confirm_dialog.dart';
 
 // Self-service course registration -- see get_available_courses/
 // register_course/drop_course in api/student.py. Scoped server-side to the
@@ -106,8 +107,23 @@ class CourseRegistrationScreen extends ConsumerWidget {
           colorScheme: colorScheme,
           onRegister: () =>
               ref.read(courseRegistrationProvider.notifier).register(course.id),
-          onDrop: () =>
-              ref.read(courseRegistrationProvider.notifier).drop(course.id),
+          // Drop is the one irreversible action on this screen: the
+          // enrollment is deleted server-side and there is no undo, so it
+          // gets a confirmation. The dialog is awaited here rather than
+          // inside the dialog builder, because popping the dialog and
+          // firing the mutation in the same frame races the pop animation.
+          onDrop: () async {
+            final confirmed = await showConfirmDialog(
+              context,
+              title: 'Drop ${course.courseCode}?',
+              message: 'You will be unregistered from '
+                  '${course.courseTitle}. This cannot be undone.',
+              confirmLabel: 'DROP',
+              destructive: true,
+            );
+            if (!confirmed || !context.mounted) return;
+            ref.read(courseRegistrationProvider.notifier).drop(course.id);
+          },
         );
       },
     );
@@ -119,7 +135,11 @@ class _CourseRow extends StatelessWidget {
   final bool isPending;
   final ColorScheme colorScheme;
   final VoidCallback onRegister;
-  final VoidCallback onDrop;
+  // Async because the drop path awaits a confirmation dialog before it
+  // mutates anything. Declared as Future<void> Function() rather than
+  // VoidCallback so the future is explicit -- a VoidCallback would still
+  // accept the closure, but would silently discard the Future.
+  final Future<void> Function() onDrop;
 
   const _CourseRow({
     required this.course,
@@ -212,7 +232,7 @@ class _ActionButton extends StatelessWidget {
   final bool enrolled;
   final bool isPending;
   final VoidCallback onRegister;
-  final VoidCallback onDrop;
+  final Future<void> Function() onDrop;
 
   const _ActionButton({
     required this.enrolled,

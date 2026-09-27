@@ -1,20 +1,16 @@
 @import "tailwindcss";
 
-/* 1. Define your custom Stealth Terminal theme directly in CSS */
+/* 1. The single design system for the whole web app. The old terminal-*
+   token set (base/card/border/accent/error) is gone as of 2026-09-26 --
+   auth/login.html and auth/change_password.html were its last two
+   consumers, and both now use these tokens. That removes the split where
+   the login screen was green-on-#0F0F0F while the portal it hands off to
+   was indigo-on-#0F1117. The old accent green survives below as
+   --color-success, which is the role it was always doing. */
 @theme {
 --font-sans: "Plus Jakarta Sans", sans-serif;
 --font-mono: "JetBrains Mono", monospace;
 
---color-terminal-base: #0F0F0F;
---color-terminal-card: #1C1C1C;
---color-terminal-border: #333333;
---color-terminal-accent: #10B981;
---color-terminal-error: #EF4444;
-
-/* 2. Dark SaaS design system tokens (portal rebuild) -- added alongside
-   the terminal-* tokens above, not replacing them, so existing pages
-   (lecturer dashboard, course workspace, etc.) keep rendering exactly as
-   they do today. New admin-portal pages should use these instead. */
 --color-surface: #0F1117;      /* page background */
 --color-sidebar: #111318;      /* sidebar background */
 --color-card: #1C1E26;         /* card surfaces */
@@ -27,12 +23,13 @@
 --color-muted: #4B5563;        /* muted text */
 }
 
-/* 2. Custom Scrollbar */
+/* 2. Custom Scrollbar -- now reads from the theme tokens above instead of
+   the literals it used to carry, which were the old terminal-* values. */
 @layer utilities {
 .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: #0F0F0F; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: #333333; border-radius: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #10B981; }
+.custom-scrollbar::-webkit-scrollbar-track { background: var(--color-surface); }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }
 
 /* Fully hidden scrollbar -- element still scrolls (wheel/touch/keyboard),
    the bar itself is just never painted. */
