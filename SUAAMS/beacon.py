@@ -134,6 +134,33 @@ def verify_beacon(token: str):
     the raw payload bytes BEFORE any field is parsed, so an attacker
     cannot get a field read out of a forged token.
     """
+    student_id, session_id, expires_at = verify_beacon_signature(token)
+
+    if time.time() > expires_at:
+        raise BeaconError("Beacon token has expired.")
+
+    return student_id, session_id
+
+
+def verify_beacon_signature(token: str):
+    """Verify a beacon's signature and return ``(student_id, session_id, expires_at)``.
+
+    Identical to verify_beacon() EXCEPT that it does not reject an expired
+    token. Expiry is returned rather than enforced, so the caller can see
+    when the token was minted.
+
+    This exists for one caller: the offline backlog sync, where every
+    record is necessarily expired and expiry is the expected case rather
+    than a failure. Splitting it out keeps the "ignore the expiry window"
+    behaviour explicit and named, instead of it being smuggled in as a
+    flag on verify_beacon that someone could pass on the live check-in
+    path by mistake -- which would hand out a 3-hour replay window.
+
+    A token that still has to pass the signature check is still safe to
+    trust for WHO and WHAT it is bound to; it is only the freshness
+    guarantee that's absent, and the caller is responsible for not
+    treating it as a live credential.
+    """
     if not token or not isinstance(token, str):
         raise BeaconError("Beacon token missing.")
 
@@ -153,9 +180,4 @@ def verify_beacon(token: str):
     if not hmac.compare_digest(signature, expected):
         raise BeaconError("Beacon signature does not match.")
 
-    student_id, session_id, expires_at = struct.unpack(">III", payload)
-
-    if time.time() > expires_at:
-        raise BeaconError("Beacon token has expired.")
-
-    return student_id, session_id
+    return struct.unpack(">III", payload)

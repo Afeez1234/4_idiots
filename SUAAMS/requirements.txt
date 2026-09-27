@@ -8,3 +8,7 @@ flask-migrate
 flask-limiter
 flask-wtf
 firebase-admin
+# Loads a local .env. Without this, app.py's documented .env workflow
+# silently does nothing and the app refuses to start for want of
+# credentials -- which is exactly what it is supposed to do.
+python-dotenv

@@ -416,3 +416,84 @@ class Notification(db.Model):
     data = db.Column(db.JSON, nullable=True)
     read_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+# ==========================================
+# 8. OFFLINE CHECK-IN LOG
+# ==========================================
+class OfflineCheckinLog(db.Model):
+    """Taps a terminal physically read while it could not reach the backend.
+
+    WHY THIS EXISTS, AND WHY IT CANNOT CREDIT ATTENDANCE
+    ---------------------------------------------------
+    The roadmap calls for terminals to log taps offline and push the
+    backlog when connectivity returns. That is implemented, but with one
+    hard limit baked in: a beacon is only valid for
+    BEACON_TOKEN_TTL_SECONDS (3), which is the anti-relay window CLAUDE.md
+    calls canonical. A beacon captured offline has therefore ALWAYS expired
+    by the time it syncs, and the server will not -- must not -- credit it.
+
+    So this table records PROVENANCE, not attendance: "a terminal
+    physically read a genuine beacon for this student and this session at
+    time T, but the backend was unreachable at the time." The signature is
+    still verified on arrival, which proves the token was minted by us and
+    not forged, and the student/session binding still comes out of the
+    token itself.
+
+    A lecturer can use this to reconcile a disputed tap. It deliberately
+    does NOT create an Attendance row, because doing so would let anyone
+    with a captured RF signal mark a peer present hours later -- exactly
+    the buddy-punching vector the 3-second window exists to prevent.
+
+    captured_at is derived server-side from the beacon's own `exp` field
+    (minus the TTL), not sent by the terminal. The ESP32 has no RTC and
+    cannot know wall-clock time while offline, so asking it to timestamp
+    a capture would mean recording a time it doesn't actually know.
+    """
+    __tablename__ = 'offline_checkin_logs'
+    id = db.Column(db.Integer, primary_key=True)
+
+    # Both bound from the beacon payload itself, not trusted from the
+    # terminal. A terminal cannot choose who a capture is attributed to.
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    session_id = db.Column(db.Integer, db.ForeignKey('sessions.id'), nullable=False)
+
+    # Which physical terminal produced this, for reconciliation ("terminal-02
+    # at the door reported this"). Attribution only -- not authentication;
+    # the terminal proves itself with X-Terminal-Secret on every request.
+    terminal_id = db.Column(db.String(64), nullable=False)
+
+    # When the terminal read the token off the phone, derived from the
+    # token's exp minus the TTL. The tap itself happened a few hundred ms
+    # before the terminal's POST, so this is accurate to roughly that.
+    captured_at = db.Column(db.DateTime, nullable=False)
+
+    # When the record reached the server. The gap between this and
+    # captured_at is the outage that caused the backlog.
+    synced_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    # pending_verification -- a genuine tap, no attendance recorded; needs a
+    #                        lecturer to look at it.
+    # superseded          -- attendance for this student/session was already
+    #                        recorded live, so this adds nothing.
+    # rejected            -- signature invalid, or the student/session no
+    #                        longer resolves. Kept for the audit trail.
+    status = db.Column(
+        db.Enum('pending_verification', 'superseded', 'rejected'),
+        default='pending_verification',
+        nullable=False,
+    )
+    # Why a record landed in 'rejected' -- kept short and human-readable so
+    # a lecturer reviewing the log sees a reason, not a stack trace.
+    reason = db.Column(db.String(120), nullable=True)
+
+    __table_args__ = (
+        # One row per student per session. The terminal may capture the
+        # same tap more than once (a student tapping twice at a door that
+        # was offline), and a second identical record tells a lecturer
+        # nothing new. This also makes the sync endpoint idempotent, so a
+        # retried flush can't duplicate rows.
+        db.UniqueConstraint('student_id', 'session_id', name='uq_offline_checkin_student_session'),
+        # Reconciliation queries filter by session then status.
+        db.Index('ix_offline_checkin_session_status', 'session_id', 'status'),
+    )

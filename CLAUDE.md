@@ -62,6 +62,21 @@ language conventions, custom SUAAMS logo via `CustomPainter`.
 
 ## Backend (`SUAAMS/`) standards
 
+**Credentials come from the environment, never from source.** `app.py` reads
+`SECRET_KEY`, `JWT_SECRET_KEY`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+through `_require_env()`, which **raises at startup if any is missing**. Copy
+`SUAAMS/.env.example` to `SUAAMS/.env` for local work; the real values live
+in Render's environment for production.
+
+Never reintroduce an `os.environ.get(NAME, '<literal>')` fallback for a
+credential. That pattern is what put the production database password and
+both signing keys into git history — and because the resolved value was never
+empty, the "missing environment variable" check beneath it could never fire.
+It read like enforcement and enforced nothing. `BEACON_SIGNING_SECRET`,
+`TERMINAL_ID` and `TERMINAL_SECRET` are checked lazily where they're used, so
+their absence disables check-in only, with a logged reason, rather than
+preventing the app from booting.
+
 **Database — ORM only.** Never execute raw SQL or open direct cursors
 (`cursor = connection.cursor()`). Always use SQLAlchemy ORM
 (`db.session.add(record)`, `User.query.filter_by(...)`). Raw cursors lead to
