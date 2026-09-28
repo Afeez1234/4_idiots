@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import '../../../../../core/providers/theme_provider.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../providers/student_provider.dart';
@@ -260,7 +261,7 @@ class ProfileView extends ConsumerWidget {
                 child: Text(
                   profile.fullName[0].toUpperCase(),
                   style: TextStyle(
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     fontSize: 20,
                     color: colorScheme.primary,
                   ),
@@ -307,11 +308,7 @@ class ProfileView extends ConsumerWidget {
         ),
         Text(
           value.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 12,
-            fontFamily: 'JetBrains Mono',
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTheme.accent(size: 12, weight: FontWeight.w700),
         ),
       ],
     );

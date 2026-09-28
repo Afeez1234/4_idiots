@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/device_info_provider.dart';
 
@@ -24,7 +25,15 @@ class LinkedDevicesScreen extends ConsumerWidget {
     if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Linked Devices')),
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title:
+              'Couldn'
+              't load your devices',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () => ref.read(deviceInfoProvider.notifier).loadDeviceInfo(),
+        ),
       );
     }
 
@@ -70,7 +79,7 @@ class LinkedDevicesScreen extends ConsumerWidget {
                         bound ? 'DEVICE LINKED' : 'NO DEVICE LINKED',
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: 1.5,
                           color: statusColor,
                         ),

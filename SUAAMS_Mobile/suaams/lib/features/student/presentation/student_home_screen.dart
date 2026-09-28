@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/providers/theme_provider.dart';
-import '../../../shared/widgets/dashboard_background.dart';
-import '../../auth/providers/auth_provider.dart';
-import '../providers/student_provider.dart';
-import '../providers/today_schedule_provider.dart';
-import '../models/student_dashboard_model.dart';
-import '../models/today_protocol_entry.dart';
-import 'views/nfc_broadcast_sheet.dart';
+import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/features/auth/providers/auth_provider.dart';
+import 'package:suaams/features/student/models/student_dashboard_model.dart';
+import 'package:suaams/features/student/models/today_protocol_entry.dart';
+import 'package:suaams/features/student/presentation/views/nfc_broadcast_sheet.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/features/student/providers/today_schedule_provider.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/shared/utils/date_label.dart';
+import 'package:suaams/features/student/providers/student_announcements_provider.dart';
+import 'package:suaams/shared/widgets/app_badge.dart';
+import 'package:suaams/shared/widgets/app_stat_box.dart';
+import 'package:suaams/shared/widgets/dashboard_background.dart';
 
 // The Home tab of the student bottom nav. This used to be one of four
 // manually-switched bodies inside StudentDashboardScreen (see git history);
@@ -69,8 +74,18 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
 
     final data = state.data;
     if (data == null) {
+      // The dashboard fetch failed and there is no cached data to fall back
+      // on. This is the state a student sees if they're at the door on a
+      // bad connection, so it gets a retry rather than a dead sentence.
       return Scaffold(
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title: "Couldn't load your dashboard",
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () =>
+              ref.read(studentDashboardProvider.notifier).loadDashboardData(),
+        ),
       );
     }
 
@@ -94,23 +109,30 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
                   _DashboardHeader(
                     profile: data.profile,
                     colorScheme: colorScheme,
-                    isDarkMode: isDarkMode,
                   ),
                   const SizedBox(height: 32),
 
                   _NextSessionCard(colorScheme: colorScheme),
                   const SizedBox(height: 20),
 
-                  _StatsGrid(stats: data.stats, colorScheme: colorScheme),
+                  _StatsGrid(stats: data.stats),
                   const SizedBox(height: 32),
 
-                  const Text(
+                  Text(
                     'TODAY\'S PROTOCOL',
-                    style: TextStyle(
-                      fontSize: 10,
-                      letterSpacing: 1.5,
-                      color: Colors.grey,
-                      fontWeight: FontWeight.bold,
+                    style: AppTheme.eyebrow(
+                      colorScheme.onSurface.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  // The schedule polls silently in the background, so
+                  // without this an app left open since yesterday is
+                  // indistinguishable from a current one. It is the only
+                  // staleness signal on the screen.
+                  Text(
+                    todayLabel(),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.45),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -130,13 +152,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
 class _DashboardHeader extends ConsumerWidget {
   final StudentProfile profile;
   final ColorScheme colorScheme;
-  final bool isDarkMode;
 
-  const _DashboardHeader({
-    required this.profile,
-    required this.colorScheme,
-    required this.isDarkMode,
-  });
+  const _DashboardHeader({required this.profile, required this.colorScheme});
 
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
@@ -185,80 +202,104 @@ class _DashboardHeader extends ConsumerWidget {
         : 'S';
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      // top rather than center: the name can now wrap to two lines, and
+      // centring would make a short name drift toward the middle of a tall
+      // box while a long one sat correctly against the top.
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'WELCOME BACK',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
+                style: AppTheme.eyebrow(
+                  colorScheme.onSurface.withValues(alpha: 0.55),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 fallbackName,
-                maxLines: 1,
+                // Two lines, not one. A Nigerian name -- Chukwuemeka
+                // Oluwatobi Adeyemi -- is around 380px at titleLarge, and
+                // this box has never had that much room on a 360dp phone.
+                // Ellipsising a person's name is worse than a tall header:
+                // the name is the subject of the screen. Two lines clears
+                // almost every real case, and the third would have been
+                // cut anyway.
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
                 ),
               ),
             ],
           ),
         ),
         const SizedBox(width: 12),
+        // The theme toggle that used to sit here was a duplicate: Profile
+        // already carries it, labelled "Stealth Mode" / "Blueprint Mode"
+        // (profile_view_screen.dart). Dropping the header copy reclaims
+        // 48px for the name and loses no function.
         FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
-                style: IconButton.styleFrom(
-                  backgroundColor: colorScheme.surfaceContainer,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(
-                    color: colorScheme.outline.withValues(alpha: 0.15),
-                  ),
-                ),
-                icon: Icon(
-                  isDarkMode
-                      ? Icons.light_mode_rounded
-                      : Icons.dark_mode_rounded,
-                  color: colorScheme.primary,
-                  size: 20,
-                ),
-                tooltip: isDarkMode
-                    ? 'Switch to light mode'
-                    : 'Switch to dark mode',
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () => context.push('/student/home/announcements'),
-                style: IconButton.styleFrom(
-                  backgroundColor: colorScheme.surfaceContainer,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(
-                    color: colorScheme.outline.withValues(alpha: 0.15),
-                  ),
-                ),
-                icon: Icon(
-                  Icons.campaign_rounded,
-                  color: colorScheme.primary,
-                  size: 20,
-                ),
-                tooltip: 'Announcements',
+              // Badge on the announcements button, not the bottom nav --
+              // announcements are only reachable from this header, so
+              // putting the count anywhere else would advertise something
+              // you can't get to from where you're standing.
+              //
+              // select() for the same reason as the shells' session dot: the
+              // announcements provider is autoDispose and refetched on
+              // rebuild, so watching the whole state would rebuild the
+              // header on every unrelated change to it.
+              Builder(
+                builder: (context) {
+                  final unread = ref.watch(
+                    studentAnnouncementsProvider.select(
+                      (s) => s.unreadCount,
+                    ),
+                  );
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        onPressed: () => context
+                            .push('/student/home/announcements'),
+                        style: IconButton.styleFrom(
+                          backgroundColor: colorScheme.surfaceContainer,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(
+                            color: colorScheme.outline.withValues(alpha: 0.15),
+                          ),
+                        ),
+                        icon: Icon(
+                          Icons.campaign_rounded,
+                          color: colorScheme.primary,
+                          size: 20,
+                        ),
+                        tooltip: unread > 0
+                            ? 'Announcements ($unread unread)'
+                            : 'Announcements',
+                      ),
+                      if (unread > 0)
+                        Positioned(
+                          right: -2,
+                          top: -2,
+                          child: AppBadge.count(
+                            count: unread,
+                            background: colorScheme.primary,
+                            borderColor: colorScheme.surface,
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(width: 8),
               GestureDetector(
@@ -374,8 +415,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
     // card. See the union block in api/student.py's get_today_schedule.
     final isAdHoc = display?.adHoc ?? false;
 
-    final hasTimeRange =
-        display?.startTime != null && display?.endTime != null;
+    final hasTimeRange = display?.startTime != null && display?.endTime != null;
     final timeRange = hasTimeRange
         ? '${display!.startTime} - ${display.endTime}'
               '${display.room != null ? ' · ${display.room}' : ''}'
@@ -424,9 +464,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border(
-                left: BorderSide(color: borderColor, width: 4),
-              ),
+              border: Border(left: BorderSide(color: borderColor, width: 4)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -474,9 +512,8 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                   const SizedBox(height: 4),
                   Text(
                     timeRange,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'JetBrains Mono',
+                    style: AppTheme.accent(
+                      size: 11,
                       color: colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
@@ -529,13 +566,36 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                 ),
                 if (isLive) ...[
                   const SizedBox(height: 10),
-                  Text(
-                    'Hold the back of your phone near the terminal.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colorScheme.onSurface.withValues(alpha: 0.45),
-                    ),
+                  // The biometric prompt is the single most surprising
+                  // moment in the app: tapping this card used to open the
+                  // sheet and then immediately throw an OS fingerprint
+                  // dialog with nothing on screen having warned you. That
+                  // prompt is not optional -- nfc_provider.dart throws
+                  // "Hardware security mismatch" without it -- so it is
+                  // named up front instead of arriving as a surprise.
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.fingerprint_rounded,
+                        size: 14,
+                        color: colorScheme.onSurface.withValues(alpha: 0.45),
+                      ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          "You'll confirm with your fingerprint, then hold "
+                          'your phone to the terminal.',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.45,
+                                ),
+                              ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ],
@@ -549,91 +609,20 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
 
 class _StatsGrid extends StatelessWidget {
   final DashboardStats stats;
-  final ColorScheme colorScheme;
 
-  const _StatsGrid({required this.stats, required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StatBox(
-          val: '${stats.overallRate}%',
-          label: 'OVERALL',
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(width: 12),
-        _StatBox(
-          val: '${stats.attendanceCount}',
-          label: 'SESSIONS',
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(width: 12),
-        _StatBox(
-          val: '${stats.atRiskCount}',
-          label: 'MISSED',
-          colorScheme: colorScheme,
-        ),
-      ],
-    );
-  }
-}
-
-class _StatBox extends StatelessWidget {
-  final String val;
-  final String label;
-  final ColorScheme colorScheme;
-
-  const _StatBox({
-    required this.val,
-    required this.label,
-    required this.colorScheme,
-  });
+  const _StatsGrid({required this.stats});
 
   @override
   Widget build(BuildContext context) {
-    final isWarning = label == 'MISSED';
-
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: isWarning
-              ? colorScheme.errorContainer.withValues(alpha: 0.12)
-              : colorScheme.surfaceContainer.withValues(alpha: 0.78),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isWarning
-                ? colorScheme.error.withValues(alpha: 0.35)
-                : colorScheme.outline.withValues(alpha: 0.14),
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              val,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: isWarning ? colorScheme.error : colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 8,
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-                color: isWarning
-                    ? colorScheme.error.withValues(alpha: 0.9)
-                    : colorScheme.onSurface.withValues(alpha: 0.55),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppStatRow([
+      AppStatValue('${stats.overallRate}%', 'OVERALL'),
+      AppStatValue('${stats.attendanceCount}', 'SESSIONS'),
+      // Was `final isWarning = label == 'MISSED'` inside the old private
+      // _StatBox -- the warning styling was keyed off this display string,
+      // so renaming the label would have silently dropped it. See
+      // AppStatTone in shared/widgets/app_stat_box.dart.
+      AppStatValue.warning('${stats.atRiskCount}', 'MISSED'),
+    ]);
   }
 }
 
@@ -660,16 +649,34 @@ class _ProtocolList extends ConsumerWidget {
     }
 
     if (scheduleState.errorMessage != null) {
-      return Text(
-        'Could not load today\'s schedule.',
-        style: TextStyle(color: colorScheme.error, fontSize: 12),
+      // Same reasoning as the dashboard-level failure: this is the one that
+      // happens on a bad connection, and a bare red sentence gave the
+      // student nothing to do about it. refreshTodaySchedule() restarts the
+      // poll as well as fetching once, so the retry doesn't leave the list
+      // frozen on a stale error.
+      return AppStateView(
+        kind: AppStateKind.error,
+        icon: Icons.event_busy_rounded,
+        title: "Couldn't load today's schedule",
+        message:
+            'Your check-in card is still shown above if a session is live.',
+        compact: true,
+        onRetry: () =>
+            ref.read(todayScheduleProvider.notifier).refreshTodaySchedule(),
       );
     }
 
     if (scheduleState.entries.isEmpty) {
-      return const Text(
-        'No protocols scheduled for today.',
-        style: TextStyle(color: Colors.grey),
+      // Genuinely empty -- nothing on the timetable today. No retry button
+      // here, because there is nothing to retry; the poll is already
+      // running and will populate this on its own.
+      return const AppStateView(
+        kind: AppStateKind.empty,
+        icon: Icons.beach_access_rounded,
+        title: 'No protocols scheduled today',
+        message:
+            'Enjoy the free day — check-in opens when a lecturer starts a session.',
+        compact: true,
       );
     }
 
@@ -756,11 +763,7 @@ class _ProtocolCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     time,
-                    style: const TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey,
-                      fontFamily: 'JetBrains Mono',
-                    ),
+                    style: AppTheme.accent(size: 10, color: Colors.grey),
                   ),
                 ],
               ),

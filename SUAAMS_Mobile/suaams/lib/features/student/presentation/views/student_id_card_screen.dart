@@ -1,3 +1,5 @@
+import 'package:suaams/shared/widgets/app_label_value_row.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/widgets/dashboard_background.dart';
@@ -161,7 +163,7 @@ class _DigitalIdCard extends StatelessWidget {
                 child: Text(
                   profile.fullName[0].toUpperCase(),
                   style: TextStyle(
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     fontSize: 28,
                     color: colorScheme.primary,
                   ),
@@ -175,17 +177,25 @@ class _DigitalIdCard extends StatelessWidget {
             profile.fullName.toUpperCase(),
             style: const TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               letterSpacing: 1.5,
             ),
           ),
           const SizedBox(height: 8),
 
-          _IdRow('MATRIC NO', profile.matricNumber, colorScheme),
+          AppLabelValueRow(
+            'MATRIC NO',
+            profile.matricNumber,
+            uppercaseValue: true,
+          ),
           const SizedBox(height: 8),
-          _IdRow('DEPARTMENT', profile.department, colorScheme),
+          AppLabelValueRow(
+            'DEPARTMENT',
+            profile.department,
+            uppercaseValue: true,
+          ),
           const SizedBox(height: 8),
-          _IdRow('LEVEL', profile.level, colorScheme),
+          AppLabelValueRow('LEVEL', profile.level, uppercaseValue: true),
 
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
@@ -210,10 +220,9 @@ class _DigitalIdCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     profile.rfidUid ?? 'UNASSIGNED',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'JetBrains Mono',
-                      fontWeight: FontWeight.bold,
+                    style: AppTheme.accent(
+                      size: 12,
+                      weight: FontWeight.w700,
                       color: profile.rfidUid == null
                           ? colorScheme.error
                           : colorScheme.primary,
@@ -231,40 +240,6 @@ class _DigitalIdCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _IdRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final ColorScheme colorScheme;
-
-  const _IdRow(this.label, this.value, this.colorScheme);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            color: colorScheme.onSurface.withValues(alpha: 0.5),
-          ),
-        ),
-        Text(
-          value.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 12,
-            fontFamily: 'JetBrains Mono',
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
     );
   }
 }

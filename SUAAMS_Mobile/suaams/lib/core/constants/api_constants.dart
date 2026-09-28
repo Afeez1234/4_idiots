@@ -118,6 +118,12 @@ abstract final class ApiConstants {
   static const String studentAnnouncementsEndpoint =
       '$baseUrl/student/announcements';
 
+  // PATCH, advances the student's read watermark. See
+  // mark_announcements_seen in api/student.py -- it only ever moves
+  // forward, so a stale request can't un-read anything.
+  static const String markAnnouncementsSeenEndpoint =
+      '$baseUrl/student/announcements/seen';
+
   static String createAnnouncementEndpoint(int courseId) =>
       '$baseUrl/lecturer/course/$courseId/announcements';
 

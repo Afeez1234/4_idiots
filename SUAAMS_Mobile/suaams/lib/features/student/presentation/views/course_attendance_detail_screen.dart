@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import '../../providers/course_attendance_history_provider.dart';
 import '../../models/course_attendance_history_model.dart';
 
@@ -27,7 +29,17 @@ class CourseAttendanceDetailScreen extends ConsumerWidget {
     if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Course Attendance')),
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title:
+              'Couldn'
+              't load attendance history',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () => ref
+              .read(courseAttendanceHistoryProvider(courseId).notifier)
+              .loadHistory(),
+        ),
       );
     }
 
@@ -50,29 +62,30 @@ class CourseAttendanceDetailScreen extends ConsumerWidget {
             children: [
               Text(
                 data.course.code,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono',
+                style: AppTheme.accent(
+                  size: 11,
                   letterSpacing: 1,
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 24),
               if (data.sessions.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(
-                    child: Text(
-                      'No past sessions for this course yet.',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
+                const AppStateView(
+                  kind: AppStateKind.empty,
+                  icon: Icons.history_rounded,
+                  title: 'No sessions yet',
+                  message:
+                      'Attendance appears here once this course has run a session.',
+                  compact: true,
                 )
               else
                 ...data.sessions.map(
                   (session) => Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _SessionRow(session: session, colorScheme: colorScheme),
+                    child: _SessionRow(
+                      session: session,
+                      colorScheme: colorScheme,
+                    ),
                   ),
                 ),
               const SizedBox(height: 32),
@@ -114,9 +127,8 @@ class _SessionRow extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 '${_fmtTime(session.plannedStart)} – ${_fmtTime(session.plannedEnd)}',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'JetBrains Mono',
+                style: AppTheme.accent(
+                  size: 10,
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
@@ -127,11 +139,7 @@ class _SessionRow extends StatelessWidget {
             children: [
               Text(
                 session.timeIn ?? '--:--',
-                style: const TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
+                style: AppTheme.accent(size: 12, weight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
               Text(

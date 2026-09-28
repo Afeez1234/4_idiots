@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
 import '../../providers/week_schedule_provider.dart';
 import '../../models/week_schedule_entry.dart';
 
@@ -39,9 +41,8 @@ class DayDetailScreen extends ConsumerWidget {
 
     final dayIndex = _dayNameToIndex[day];
     final dayEntries =
-        state.entries.where((e) => e.dayOfWeek == dayIndex).toList()..sort(
-          (a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''),
-        );
+        state.entries.where((e) => e.dayOfWeek == dayIndex).toList()
+          ..sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -56,14 +57,12 @@ class DayDetailScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (dayEntries.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 40),
-                child: Center(
-                  child: Text(
-                    'No classes scheduled for this day.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
+              const AppStateView(
+                kind: AppStateKind.empty,
+                icon: Icons.beach_access_rounded,
+                title: 'Nothing scheduled',
+                message: 'No protocols are assigned to this day.',
+                compact: true,
               )
             else
               ...dayEntries.map(
@@ -92,9 +91,7 @@ class _ClassCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          left: BorderSide(color: colorScheme.primary, width: 4),
-        ),
+        border: Border(left: BorderSide(color: colorScheme.primary, width: 4)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -112,9 +109,8 @@ class _ClassCard extends StatelessWidget {
                   entry.room != null
                       ? '${entry.courseCode} · ${entry.room}'
                       : entry.courseCode,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'JetBrains Mono',
+                  style: AppTheme.accent(
+                    size: 10,
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
@@ -123,11 +119,7 @@ class _ClassCard extends StatelessWidget {
           ),
           Text(
             '${entry.startTime ?? '--:--'} – ${entry.endTime ?? '--:--'}',
-            style: const TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-            ),
+            style: AppTheme.accent(size: 12, weight: FontWeight.w700),
           ),
         ],
       ),

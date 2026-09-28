@@ -389,7 +389,7 @@ def submit_checkin_beacon():
     if not active_session:
         return jsonify({"error": "Session no longer exists"}), 404
 
-    # The session can legitimately end inside the 3-second window (a
+    # The session can legitimately end inside the acceptance window (a
     # lecturer ending class as the last student taps), so re-check that
     # it's still running rather than trusting the mint-time snapshot.
     if not active_session.is_active:
@@ -899,6 +899,12 @@ def get_student_announcements():
 
         return jsonify({
             "success": True,
+            # Sent alongside the list so the nav badge can render without a
+            # second request. Deriving it here rather than in the app means
+            # the definition of "unread" lives in exactly one place.
+            "unread_count": sum(
+                1 for a in announcements if a.id > (student.last_seen_announcement_id or 0)
+            ),
             "announcements": [{
                 "id": a.id,
                 "title": a.title,
@@ -906,6 +912,9 @@ def get_student_announcements():
                 "scope": a.scope,
                 "department_name": a.department.name if a.scope == 'department' and a.department else None,
                 "course_code": a.course.course_code if a.scope == 'course' and a.course else None,
+                # Per-item flag so the list can visually mark read rows
+                # without the client having to know about the watermark.
+                "is_read": a.id <= (student.last_seen_announcement_id or 0),
                 # Same tzinfo-reattach fix as get_notifications() above --
                 # MySQL's DATETIME drops the UTC offset on read-back even
                 # though this column is always written UTC-aware.
@@ -915,6 +924,49 @@ def get_student_announcements():
 
     except Exception:
         return api_error_response("Student Announcements Error", "Failed to load announcements")
+
+
+@api_student_bp.route('/announcements/seen', methods=['PATCH'])
+@limiter.limit("30 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def mark_announcements_seen():
+    """Advance this student's announcement read watermark.
+
+    Called when the student opens the announcements screen. The client
+    sends the newest id it was shown; we only ever move the mark FORWARD,
+    so a stale request arriving out of order (an old screen resuming after
+    a newer one already marked) can't un-read anything.
+    """
+    claims = get_jwt()
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    try:
+        current_user_id = int(get_jwt_identity())
+        student = Student.query.filter_by(user_id=current_user_id).first()
+        if not student:
+            return jsonify({"error": "Student profile not found."}), 404
+
+        data = request.get_json(silent=True) or {}
+        try:
+            seen_id = int(data.get('announcement_id'))
+        except (TypeError, ValueError):
+            return jsonify({"error": "announcement_id must be an integer."}), 400
+
+        # Monotonic by construction -- see the column comment on
+        # Student.last_seen_announcement_id.
+        current = student.last_seen_announcement_id or 0
+        if seen_id > current:
+            student.last_seen_announcement_id = seen_id
+            db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "last_seen_announcement_id": student.last_seen_announcement_id,
+        }), 200
+
+    except Exception:
+        return api_error_response("Mark Seen Error", "Failed to update announcement read state")
 
 
 @api_student_bp.route('/device-info', methods=['GET'])
@@ -1069,13 +1121,13 @@ def drop_course(course_id):
 # deliberately incapable of crediting attendance -- see the OfflineCheckinLog
 # docstring in models.py for the full reasoning.
 #
-# The short version: a beacon is only valid for 3 seconds, so anything a
+# The short version: a beacon is only valid for a few seconds, so anything a
 # terminal queued while offline has always expired by the time it arrives.
 # The server verifies the HMAC anyway, which proves the token was genuinely
 # ours and not forged, and reads the student/session binding out of the
 # payload -- but it records provenance for a human to review rather than
 # writing an Attendance row. Crediting them would reinstate exactly the
-# relay/buddy-punching hole the 3-second window exists to close.
+# relay/buddy-punching hole the short window exists to close.
 @api_student_bp.route('/checkin/backlog', methods=['POST'])
 @limiter.limit("30 per minute")
 def sync_offline_checkin_backlog():

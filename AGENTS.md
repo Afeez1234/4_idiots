@@ -97,10 +97,17 @@ Verify new code and flows against these anti-spoofing vectors:
   passcode check — defends against the "add a classmate's print, let them
   check in, then delete it" exploit.
 - **Relay attacks**: HCE and BLE proximity tokens carry short-lived,
-  cryptographically signed timestamps. **3 seconds is the canonical, strict
+  cryptographically signed timestamps. **10 seconds is the current strict
   server-side acceptance window** — ESP32 and backend reject any handshake
   older than that, regardless of how long the phone kept broadcasting.
-  (`BEACON_TOKEN_TTL_SECONDS` in `api/student.py` must stay at 3 to match.)
+  (`BEACON_TOKEN_TTL_SECONDS` in `beacon.py` is the single source of truth;
+  it was 3 until 2026-09-27, when a hardware bench run showed the window was
+  being spent on the wrong thing — the student's walk-up to the terminal, not
+  the radio. See that constant for the full reasoning.)
+  A relay attacker must capture *and* present the token within this window and
+  be within NFC range (~4cm) to do it. For calibration, TOTP/dynamic-password
+  systems use 30s and Apple BLE proximity beacons run 5–30s, so this remains
+  a tight bound.
   The mobile app itself may keep the payload broadcasting a couple seconds
   longer as a UX/hardware buffer before wiping its buffers — those late reads
   are expected to fail server-side validation once the token has expired;

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/shared/widgets/app_label_value_row.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
 import '../../providers/student_provider.dart';
 import '../../models/student_dashboard_model.dart';
 
@@ -28,7 +30,16 @@ class SessionDetailScreen extends ConsumerWidget {
     if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Session Detail')),
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title:
+              'Couldn'
+              't load the session',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () =>
+              ref.read(studentDashboardProvider.notifier).loadDashboardData(),
+        ),
       );
     }
 
@@ -44,9 +55,7 @@ class SessionDetailScreen extends ConsumerWidget {
     if (record == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Session Detail')),
-        body: const Center(
-          child: Text('Record not found in recent history.'),
-        ),
+        body: const Center(child: Text('Record not found in recent history.')),
       );
     }
 
@@ -97,7 +106,7 @@ class SessionDetailScreen extends ConsumerWidget {
                         attendanceStatusLabel(record.status),
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: 1.5,
                           color: statusColor,
                         ),
@@ -105,50 +114,26 @@ class SessionDetailScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _DetailRow(label: 'Course', value: record.course),
-                  _DetailRow(label: 'Date', value: record.date),
-                  _DetailRow(label: 'Time', value: record.time),
+                  AppLabelValueRow(
+                    'Course',
+                    record.course,
+                    padding: const EdgeInsets.only(bottom: 12),
+                  ),
+                  AppLabelValueRow(
+                    'Date',
+                    record.date,
+                    padding: const EdgeInsets.only(bottom: 12),
+                  ),
+                  AppLabelValueRow(
+                    'Time',
+                    record.time,
+                    padding: const EdgeInsets.only(bottom: 12),
+                  ),
                 ],
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _DetailRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label.toUpperCase(),
-            style: const TextStyle(
-              fontSize: 10,
-              letterSpacing: 1,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'JetBrains Mono',
-            ),
-          ),
-        ],
       ),
     );
   }

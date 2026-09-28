@@ -1,11 +1,12 @@
 /* STREAMING_CHUNK: Importing core dependencies... */
 // This file handles the interactive, haptic-enabled NFC broadcast sheet.
-// It integrates native biometrics, runs a secure 3-second transmission countdown,
+// It integrates native biometrics, runs a secure transmission countdown,
 // and displays a high-fidelity pulsing radar animation.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import '../../providers/nfc_provider.dart';
 
 class NfcBroadcastSheet extends ConsumerStatefulWidget {
@@ -282,11 +283,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         const SizedBox(height: 32),
         Text(
           'BEAMING ATTENDANCE SIGNAL: ${state.secondsRemaining}s',
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-            fontFamily: 'JetBrains Mono',
-          ),
+          style: AppTheme.accent(weight: FontWeight.w700, letterSpacing: 2),
         ),
         const SizedBox(height: 8),
         Text(

@@ -236,7 +236,14 @@ class StudentService {
   // Backs the student Announcements screen -- see
   // studentAnnouncementsEndpoint's doc-comment in api_constants.dart and
   // get_student_announcements in api/student.py.
-  Future<List<StudentAnnouncement>> fetchAnnouncements(String token) async {
+  //
+  // Returns the unread count alongside the list rather than leaving the app
+  // to count `!isRead` itself. The server owns the definition of "unread"
+  // (via the last_seen_announcement_id watermark), and the nav badge is
+  // rendered on every screen, so deriving it in two places would be a
+  // standing invitation for them to disagree.
+  Future<({List<StudentAnnouncement> items, int unreadCount})>
+  fetchAnnouncements(String token) async {
     try {
       final response = await http.get(
         Uri.parse(ApiConstants.studentAnnouncementsEndpoint),
@@ -249,9 +256,15 @@ class StudentService {
       final Map<String, dynamic> responseData = jsonDecode(response.body);
 
       if (response.statusCode == 200 && responseData['success'] == true) {
-        return (responseData['announcements'] as List)
+        final items = (responseData['announcements'] as List)
             .map((entry) => StudentAnnouncement.fromJson(entry))
             .toList();
+        // Fall back to counting the list if the field is absent, so an
+        // older backend still produces a correct badge rather than a
+        // silently-zeroed one.
+        final unread = responseData['unread_count'] as int? ??
+            items.where((a) => !a.isRead).length;
+        return (items: items, unreadCount: unread);
       }
 
       final errorMsg =
@@ -260,6 +273,27 @@ class StudentService {
           responseData['message'] ??
           'Server returned status ${response.statusCode}';
       throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Advance the server-side read watermark. Fire-and-forget: the badge is
+  /// already cleared optimistically by the provider, so a failure here
+  /// costs nothing until the next fetch corrects it.
+  Future<void> markAnnouncementsSeen(String token, int announcementId) async {
+    try {
+      final response = await http.patch(
+        Uri.parse(ApiConstants.markAnnouncementsSeenEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'announcement_id': announcementId}),
+      );
+      if (response.statusCode != 200) {
+        throw Exception('Failed to mark announcements seen: ${response.statusCode}');
+      }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import '../../providers/student_provider.dart';
 import '../../models/student_dashboard_model.dart';
 
@@ -27,7 +29,16 @@ class CourseDetailScreen extends ConsumerWidget {
     if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Course Detail')),
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title:
+              'Couldn'
+              't load this course',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () =>
+              ref.read(studentDashboardProvider.notifier).loadDashboardData(),
+        ),
       );
     }
 
@@ -66,9 +77,8 @@ class CourseDetailScreen extends ConsumerWidget {
           children: [
             Text(
               course.code,
-              style: TextStyle(
-                fontSize: 11,
-                fontFamily: 'JetBrains Mono',
+              style: AppTheme.accent(
+                size: 11,
                 letterSpacing: 1,
                 color: colorScheme.onSurface.withValues(alpha: 0.5),
               ),
@@ -139,9 +149,12 @@ class CourseDetailScreen extends ConsumerWidget {
             const SizedBox(height: 16),
 
             if (relatedRecords.isEmpty)
-              const Text(
-                'No recent attendance records for this course.',
-                style: TextStyle(color: Colors.grey),
+              AppStateView(
+                kind: AppStateKind.empty,
+                icon: Icons.event_note_rounded,
+                title: 'No records yet',
+                message: 'Attendance for this course will appear here.',
+                compact: true,
               )
             else
               ...relatedRecords.map(
@@ -188,9 +201,8 @@ class _RecordCard extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 record.time,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'JetBrains Mono',
+                style: AppTheme.accent(
+                  size: 10,
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),

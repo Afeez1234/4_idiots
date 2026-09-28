@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:suaams/features/lecturer/providers/session_history_provider.dart';
 import 'package:suaams/features/lecturer/models/session_history_model.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 
 // "HH:MM:SS" (Python str(time)) -> "HH:MM", or a placeholder if unset.
 String _fmtTime(String? raw) {
@@ -28,7 +30,16 @@ class LecturerSessionHistoryScreen extends ConsumerWidget {
     if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Session History')),
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title:
+              'Couldn'
+              't load session history',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () =>
+              ref.read(sessionHistoryProvider(courseId).notifier).loadHistory(),
+        ),
       );
     }
 
@@ -50,23 +61,21 @@ class LecturerSessionHistoryScreen extends ConsumerWidget {
             children: [
               Text(
                 data.course.code,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono',
+                style: AppTheme.accent(
+                  size: 11,
                   letterSpacing: 1,
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 24),
               if (data.sessions.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(
-                    child: Text(
-                      'No past sessions yet.',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
+                const AppStateView(
+                  kind: AppStateKind.empty,
+                  icon: Icons.history_rounded,
+                  title: 'No past sessions',
+                  message:
+                      'Sessions you run for this course will be listed here.',
+                  compact: true,
                 )
               else
                 ...data.sessions.map(
@@ -111,9 +120,7 @@ class _SessionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colorScheme.outline.withValues(alpha: 0.1),
-          ),
+          border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
         ),
         child: Row(
           children: [
@@ -131,9 +138,8 @@ class _SessionCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${_fmtTime(session.plannedStart)} – ${_fmtTime(session.plannedEnd)}',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontFamily: 'JetBrains Mono',
+                    style: AppTheme.accent(
+                      size: 10,
                       color: colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
@@ -141,10 +147,7 @@ class _SessionCard extends StatelessWidget {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
                 color: const Color(0xFF10B981).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),

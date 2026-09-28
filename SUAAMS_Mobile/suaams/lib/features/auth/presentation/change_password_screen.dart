@@ -1,3 +1,4 @@
+import 'package:suaams/shared/widgets/dashboard_background.dart';
 /* STREAMING_CHUNK: Importing core dependencies... */
 // This screen is shown when a user logs in for the first time and needs to change their default password.
 // It follows the same terminal aesthetic as the login screen for visual consistency.
@@ -6,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
-import '../../../shared/utils/grid_overlay_painter.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
   // Two entry points share this one screen: the forced first-login reset
@@ -26,10 +26,8 @@ class ChangePasswordScreen extends ConsumerStatefulWidget {
       _ChangePasswordScreenState();
 }
 
-class _ChangePasswordScreenState
-    extends ConsumerState<ChangePasswordScreen> {
-  final TextEditingController _newPasswordController =
-      TextEditingController();
+class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
+  final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -122,13 +120,14 @@ class _ChangePasswordScreenState
             width: screenWidth,
             height: screenHeight,
             child: RepaintBoundary(
-              child: _ChangePasswordBackground(
+              child: DashboardBackground(
                 isDarkMode: isDarkMode,
                 colorScheme: colorScheme,
+                variant: AppBackgroundVariant.authAlert,
               ),
             ),
           ),
-          
+
           /* STREAMING_CHUNK: Rendering form fields... */
           Positioned.fill(
             child: SafeArea(
@@ -152,7 +151,7 @@ class _ChangePasswordScreenState
                           'PASSWORD UPDATE REQUIRED',
                           style: TextStyle(
                             fontSize: 24,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w700,
                             color: colorScheme.error,
                             letterSpacing: 4.0,
                           ),
@@ -174,7 +173,7 @@ class _ChangePasswordScreenState
 
                         _buildInputLabel('NEW PASSWORD', colorScheme),
                         const SizedBox(height: 8),
-                        
+
                         // OPTIMIZATION 2: Isolated TextFormField inside its own RepaintBoundary
                         RepaintBoundary(
                           child: _buildTextField(
@@ -187,7 +186,9 @@ class _ChangePasswordScreenState
                               if (value == null || value.isEmpty) {
                                 return 'PASSWORD REQUIRED';
                               }
-                              if (value.length < 6) return 'MINIMUM 6 CHARACTERS';
+                              if (value.length < 6) {
+                                return 'MINIMUM 6 CHARACTERS';
+                              }
                               return null;
                             },
                           ),
@@ -197,7 +198,7 @@ class _ChangePasswordScreenState
 
                         _buildInputLabel('CONFIRM NEW PASSWORD', colorScheme),
                         const SizedBox(height: 8),
-                        
+
                         // OPTIMIZATION 3: Isolated TextFormField inside its own RepaintBoundary
                         RepaintBoundary(
                           child: _buildTextField(
@@ -284,16 +285,19 @@ class _ChangePasswordScreenState
   }) {
     final borderStyle = OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
-      borderSide:
-          BorderSide(color: colorScheme.outline.withValues(alpha: 0.15)),
+      borderSide: BorderSide(
+        color: colorScheme.outline.withValues(alpha: 0.15),
+      ),
     );
 
     return TextFormField(
       controller: controller,
       obscureText: isPassword && !_isPasswordVisible,
       scrollPadding: const EdgeInsets.symmetric(vertical: 40),
-      style:
-          TextStyle(fontWeight: FontWeight.w600, color: colorScheme.onSurface),
+      style: TextStyle(
+        fontWeight: FontWeight.w600,
+        color: colorScheme.onSurface,
+      ),
       decoration: InputDecoration(
         filled: true,
         fillColor: colorScheme.surfaceContainer,
@@ -337,65 +341,3 @@ class _ChangePasswordScreenState
 }
 
 // STREAMING_CHUNK: Allocating pre-compiled background...
-class _ChangePasswordBackground extends StatelessWidget {
-  final bool isDarkMode;
-  final ColorScheme colorScheme;
-
-  // Added const constructor to allow full static memory allocation
-  const _ChangePasswordBackground({
-    required this.isDarkMode,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(color: colorScheme.surface),
-          ),
-        ),
-        Positioned(
-          top: -100,
-          right: -50,
-          child: Container(
-            width: 250,
-            height: 250,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDarkMode
-                  ? const Color(0xFF140A0A).withValues(alpha: 0.6)
-                  : const Color(0xFFFFE0E0).withValues(alpha: 0.75),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -80,
-          left: -60,
-          child: Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDarkMode
-                  ? const Color(0xFF100808).withValues(alpha: 0.65)
-                  : const Color(0xFFFEF3C7).withValues(alpha: 0.55),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(
-              // PERF FIX: const painter instance per branch (see
-              // grid_overlay_painter.dart) instead of allocating a new one.
-              painter: isDarkMode
-                  ? const GridOverlayPainter(color: Colors.white)
-                  : const GridOverlayPainter(color: Colors.black),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}

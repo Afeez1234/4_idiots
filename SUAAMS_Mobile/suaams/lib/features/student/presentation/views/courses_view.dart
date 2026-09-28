@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import '../../providers/student_provider.dart';
 import '../../models/student_dashboard_model.dart';
 
@@ -100,20 +101,15 @@ class CoursesView extends ConsumerWidget {
                   ),
                   child: Text(
                     course.code,
-                    style: const TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: AppTheme.accent(size: 12, weight: FontWeight.w700),
                   ),
                 ),
                 // Percentage Text
                 Text(
                   '${course.pct}%',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                  style: AppTheme.accent(
+                    size: 18,
+                    weight: FontWeight.w700,
                     color: healthColor,
                   ),
                 ),
@@ -143,10 +139,9 @@ class CoursesView extends ConsumerWidget {
                 ),
                 Text(
                   '${course.attended} / ${course.total} SESSIONS',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: FontWeight.bold,
+                  style: AppTheme.accent(
+                    size: 10,
+                    weight: FontWeight.w700,
                     color: colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),

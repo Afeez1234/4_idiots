@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/providers/course_analytics_provider.dart';
 import 'package:suaams/features/lecturer/models/course_analytics_model.dart';
+import 'package:suaams/shared/widgets/app_stat_box.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 
 class CourseAnalyticsScreen extends ConsumerWidget {
   final int courseId;
@@ -21,7 +24,14 @@ class CourseAnalyticsScreen extends ConsumerWidget {
     if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Course Analytics')),
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title: 'Couldn''t load analytics',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () =>
+              ref.read(courseAnalyticsProvider(courseId).notifier).loadAnalytics(),
+        ),
       );
     }
 
@@ -44,16 +54,11 @@ class CourseAnalyticsScreen extends ConsumerWidget {
             children: [
               Text(
                 data.course.code,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono',
-                  letterSpacing: 1,
-                  color: colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
+                style: AppTheme.accent(size: 11, letterSpacing: 1, color: colorScheme.onSurface.withValues(alpha: 0.5)),
               ),
               const SizedBox(height: 24),
 
-              _SummaryGrid(summary: data.summary, colorScheme: colorScheme),
+              _SummaryGrid(summary: data.summary),
               const SizedBox(height: 32),
 
               const Text(
@@ -67,10 +72,13 @@ class CourseAnalyticsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               if (data.trend.isEmpty)
-                const Text(
-                  'No completed sessions yet.',
-                  style: TextStyle(color: Colors.grey),
-                )
+                AppStateView(
+                    kind: AppStateKind.empty,
+                    icon: Icons.insights_rounded,
+                    title: 'No trend data yet',
+                    message: 'Trend appears after a session has been completed.',
+                    compact: true,
+                  )
               else
                 ...data.trend.map(
                   (point) => Padding(
@@ -91,10 +99,13 @@ class CourseAnalyticsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               if (data.students.isEmpty)
-                const Text(
-                  'No students enrolled yet.',
-                  style: TextStyle(color: Colors.grey),
-                )
+                AppStateView(
+                    kind: AppStateKind.empty,
+                    icon: Icons.groups_rounded,
+                    title: 'No students enrolled',
+                    message: 'Students appear here once they register for the course.',
+                    compact: true,
+                  )
               else
                 ...data.students.map(
                   (student) => Padding(
@@ -116,100 +127,22 @@ class CourseAnalyticsScreen extends ConsumerWidget {
 
 class _SummaryGrid extends StatelessWidget {
   final AnalyticsSummary summary;
-  final ColorScheme colorScheme;
 
-  const _SummaryGrid({required this.summary, required this.colorScheme});
+  const _SummaryGrid({required this.summary});
 
   @override
   Widget build(BuildContext context) {
     final isLow = summary.avgAttendance < 75;
-    return Row(
-      children: [
-        _StatBox(
-          val: '${summary.enrolledCount}',
-          label: 'ENROLLED',
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(width: 12),
-        _StatBox(
-          val: '${summary.totalSessions}',
-          label: 'SESSIONS',
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(width: 12),
-        _StatBox(
-          val: '${summary.avgAttendance}%',
-          label: 'AVG ATTENDANCE',
-          colorScheme: colorScheme,
-          highlight: !isLow,
-          warning: isLow,
-        ),
-      ],
-    );
-  }
-}
-
-class _StatBox extends StatelessWidget {
-  final String val;
-  final String label;
-  final ColorScheme colorScheme;
-  final bool highlight;
-  final bool warning;
-
-  const _StatBox({
-    required this.val,
-    required this.label,
-    required this.colorScheme,
-    this.highlight = false,
-    this.warning = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final accentColor = warning ? colorScheme.error : const Color(0xFF10B981);
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: (highlight || warning)
-              ? accentColor.withValues(alpha: 0.12)
-              : colorScheme.surfaceContainer.withValues(alpha: 0.78),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: (highlight || warning)
-                ? accentColor.withValues(alpha: 0.35)
-                : colorScheme.outline.withValues(alpha: 0.14),
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              val,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: (highlight || warning)
-                    ? accentColor
-                    : colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 8,
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-                color: (highlight || warning)
-                    ? accentColor.withValues(alpha: 0.9)
-                    : colorScheme.onSurface.withValues(alpha: 0.55),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppStatRow([
+      AppStatValue('${summary.enrolledCount}', 'ENROLLED'),
+      AppStatValue('${summary.totalSessions}', 'SESSIONS'),
+      // Sub-75% average is the warning state; at or above it reads as good.
+      // The old copy could only express this as `highlight` plus `warning`
+      // booleans that both fed one accent colour.
+      isLow
+          ? AppStatValue.warning('${summary.avgAttendance}%', 'AVG ATTENDANCE')
+          : AppStatValue.success('${summary.avgAttendance}%', 'AVG ATTENDANCE'),
+    ]);
   }
 }
 
@@ -231,11 +164,7 @@ class _TrendRow extends StatelessWidget {
           width: 84,
           child: Text(
             point.date ?? '--',
-            style: TextStyle(
-              fontSize: 10,
-              fontFamily: 'JetBrains Mono',
-              color: colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
+            style: AppTheme.accent(size: 10, color: colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
         ),
         Expanded(
@@ -254,12 +183,7 @@ class _TrendRow extends StatelessWidget {
           child: Text(
             '${point.pct}% · ${point.presentCount}/${point.enrolledCount}',
             textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.bold,
-              fontFamily: 'JetBrains Mono',
-              color: barColor,
-            ),
+            style: AppTheme.accent(size: 9, weight: FontWeight.w700, color: barColor),
           ),
         ),
       ],
@@ -299,11 +223,7 @@ class _StudentRow extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   student.matricNumber,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'JetBrains Mono',
-                    color: colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
+                  style: AppTheme.accent(size: 10, color: colorScheme.onSurface.withValues(alpha: 0.5)),
                 ),
               ],
             ),
@@ -322,11 +242,7 @@ class _StudentRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 '${student.attended}/${student.total}',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontFamily: 'JetBrains Mono',
-                  color: colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
+                style: AppTheme.accent(size: 9, color: colorScheme.onSurface.withValues(alpha: 0.5)),
               ),
             ],
           ),

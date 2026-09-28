@@ -210,12 +210,26 @@ class TestFailsClosedWithoutSecret(BeaconTestCase):
 
 
 class TestExpiryWindow(BeaconTestCase):
-    """The 3-second window is the anti-relay guarantee -- pin it."""
+    """The acceptance window is the anti-relay guarantee -- pin it."""
 
-    def test_default_ttl_is_three_seconds(self):
-        # CLAUDE.md names 3s as the canonical, strict server-side
-        # acceptance window. Changing this silently weakens relay defence.
-        self.assertEqual(beacon.BEACON_TOKEN_TTL_SECONDS, 3)
+    def test_default_ttl_is_ten_seconds(self):
+        # Raised from 3s to 10s on 2026-09-27 after a hardware bench run:
+        # the warm-server budget is ~0.5s (APDU read 0.12s + TLS/POST 0.3s +
+        # write 0.1s), so at 3s essentially the whole window was being spent
+        # on the student walking up to the terminal. ~2.5s of slack for that
+        # made any student not already at the terminal fail deterministically.
+        #
+        # At 10s an attacker must relay within 10s AND be within NFC range
+        # (~4cm). For calibration, TOTP/dynamic-password systems use 30s and
+        # Apple BLE proximity beacons run 5-30s, so 3s was unusually strict.
+        #
+        # This test exists to make the number a DELIBERATE change. Editing
+        # BEACON_TOKEN_TTL_SECONDS without reading the reasoning here is
+        # exactly how the anti-relay bound gets weakened by accident. If you
+        # are raising it past 30s, or lowering it back to 3s without fixing
+        # the mint timing (the window starts at mint, before the student does
+        # anything), this assertion should fail and you should have a reason.
+        self.assertEqual(beacon.BEACON_TOKEN_TTL_SECONDS, 10)
 
     def test_token_expires_at_the_announced_second(self):
         before = int(time.time())
