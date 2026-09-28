@@ -53,9 +53,12 @@ class SuaamsHceService : HostApduService() {
         private val SW_INS_NOT_SUPPORTED = byteArrayOf(0x6D, 0x00)
 
         // Fallback window if Dart doesn't supply a TTL. Matches
-        // BEACON_TOKEN_TTL_SECONDS on the Flask side. Dart normally passes
-        // the server's own expires_in, so this is only a safety net.
-        const val DEFAULT_TTL_MILLIS = 3_000L
+        // BEACON_TOKEN_TTL_SECONDS on the Flask side -- raised 3s -> 10s on
+        // 2026-09-27, so keep the two in step if it moves again. Dart
+        // normally passes the server's own expires_in, so this is only a
+        // safety net: it is never the value that actually bounds a real
+        // broadcast. The deadline below is what enforces the window.
+        const val DEFAULT_TTL_MILLIS = 10_000L
 
         private val handler = Handler(Looper.getMainLooper())
 

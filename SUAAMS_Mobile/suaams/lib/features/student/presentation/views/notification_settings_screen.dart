@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import '../../models/notification_item.dart';
 import '../../providers/notifications_provider.dart';
 
@@ -29,7 +30,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
         elevation: 0,
       ),
       body: RefreshIndicator(
-        onRefresh: () => ref.read(notificationsProvider.notifier).loadNotifications(),
+        onRefresh: () =>
+            ref.read(notificationsProvider.notifier).loadNotifications(),
         child: _buildBody(context, ref, state, colorScheme),
       ),
     );
@@ -62,7 +64,9 @@ class NotificationSettingsScreen extends ConsumerWidget {
                 Text(
                   state.errorMessage!,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                  style: TextStyle(
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
                 ),
               ],
             ),
@@ -87,10 +91,9 @@ class NotificationSettingsScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 Text(
                   'NO NOTIFICATIONS YET',
-                  style: TextStyle(
-                    fontFamily: 'JetBrains Mono',
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                  style: AppTheme.accent(
+                    size: 12,
+                    weight: FontWeight.w700,
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
@@ -111,7 +114,8 @@ class NotificationSettingsScreen extends ConsumerWidget {
         return _NotificationTile(
           item: item,
           colorScheme: colorScheme,
-          onTap: () => ref.read(notificationsProvider.notifier).markRead(item.id),
+          onTap: () =>
+              ref.read(notificationsProvider.notifier).markRead(item.id),
         );
       },
     );
@@ -186,7 +190,9 @@ class _NotificationTile extends StatelessWidget {
                         child: Text(
                           item.title,
                           style: TextStyle(
-                            fontWeight: item.read ? FontWeight.w600 : FontWeight.bold,
+                            fontWeight: item.read
+                                ? FontWeight.w600
+                                : FontWeight.bold,
                             fontSize: 14,
                           ),
                         ),
@@ -214,9 +220,8 @@ class _NotificationTile extends StatelessWidget {
                   const SizedBox(height: 8),
                   Text(
                     _relativeTime(item.createdAt),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontFamily: 'JetBrains Mono',
+                    style: AppTheme.accent(
+                      size: 10,
                       color: colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
                   ),

@@ -13,7 +13,6 @@ dependencies:
   go_router: ^17.3.0
   flutter_secure_storage: ^10.3.1
   http: ^1.2.0 # or dio for advanced interceptors
-  google_fonts: ^8.1.0
   jwt_decoder: ^2.0.1
   device_info_plus: ^13.2.0
   android_id: ^0.4.0
@@ -40,3 +39,30 @@ flutter_launcher_icons:
 
 flutter:
   uses-material-design: true
+
+  # Fonts are BUNDLED, not fetched at runtime. `google_fonts` downloads
+  # families over the network on first use and caches them; in a lecture
+  # hall with unreliable wifi a failed first-run fetch silently drops the
+  # whole app back to the platform typeface, and it reproduces fine on a
+  # dev machine with good signal. Declaring the families here means
+  # ThemeData(fontFamily: ...) and raw TextStyle(fontFamily: ...) both
+  # resolve against the asset, with no network path at all.
+  #
+  # Plex Sans is the UI face. Plex Mono is the ACCENT face -- reserved for
+  # data that has the shape of machine output (time ranges, session/course
+  # codes, terminal status strings), not for labels or controls.
+  fonts:
+    - family: IBMPlexSans
+      fonts:
+        - asset: assets/fonts/IBMPlexSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexSans-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/IBMPlexSans-Bold.ttf
+          weight: 700
+    - family: IBMPlexMono
+      fonts:
+        - asset: assets/fonts/IBMPlexMono-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/IBMPlexMono-Bold.ttf
+          weight: 700

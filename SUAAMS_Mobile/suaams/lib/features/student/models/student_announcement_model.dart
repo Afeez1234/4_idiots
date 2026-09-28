@@ -12,6 +12,12 @@ class StudentAnnouncement {
   final String? courseCode;
   final String? createdAt;
 
+  /// Whether the student has already seen this one, per the server's
+  /// last_seen_announcement_id watermark. Defaults to false when absent so
+  /// a response from an older backend shows everything as unread rather than
+  /// silently hiding the badge.
+  final bool isRead;
+
   StudentAnnouncement({
     required this.id,
     required this.title,
@@ -20,6 +26,7 @@ class StudentAnnouncement {
     this.departmentName,
     this.courseCode,
     this.createdAt,
+    this.isRead = false,
   });
 
   factory StudentAnnouncement.fromJson(Map<String, dynamic> json) {
@@ -31,6 +38,7 @@ class StudentAnnouncement {
       departmentName: json['department_name'] as String?,
       courseCode: json['course_code'] as String?,
       createdAt: json['created_at'] as String?,
+      isRead: json['is_read'] as bool? ?? false,
     );
   }
 }

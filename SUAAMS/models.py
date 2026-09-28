@@ -121,6 +121,20 @@ class Student(db.Model):
         server_default=db.func.now(),
         nullable=False,
     )
+    # Read watermark for the announcements badge. An announcement counts as
+    # unread for this student while its id is greater than this value.
+    #
+    # A watermark rather than a per-announcement read receipt (a join table
+    # of student x announcement) on purpose: the list is ordered newest-first
+    # and shown in full, so "everything above this line has been seen" is the
+    # only distinction the UI actually needs. A receipt table would grow
+    # unboundedly for no visible gain.
+    #
+    # Null means "has never opened the list" -- every announcement is
+    # unread, which is the correct default for a new install. It is also
+    # what makes the behaviour safe if this column is added to an existing
+    # table: nobody silently loses a badge they should have seen.
+    last_seen_announcement_id = db.Column(db.Integer, nullable=True)
 
     # Direct many-to-many relationship helper to keep student.courses loops
     # fully backward-compatible. viewonly=True (on both this side and the

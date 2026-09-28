@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:suaams/core/providers/theme_provider.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
-import 'package:suaams/features/lecturer/providers/lecturer_provider.dart' show lecturerDashboardProvider;
+import 'package:suaams/features/lecturer/providers/lecturer_provider.dart'
+    show lecturerDashboardProvider;
+import 'package:suaams/shared/widgets/app_label_value_row.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 
 // Profile tab -- new screen (the lecturer side previously only had logout
@@ -252,7 +254,7 @@ class _PersonalInfoCard extends StatelessWidget {
                       ? profile.fullName[0].toUpperCase()
                       : 'L',
                   style: TextStyle(
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     fontSize: 20,
                     color: colorScheme.primary,
                   ),
@@ -274,47 +276,13 @@ class _PersonalInfoCard extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Divider(height: 1, thickness: 1),
           ),
-          _InfoRow('STAFF ID', profile.staffId, colorScheme),
+          AppLabelValueRow('STAFF ID', profile.staffId),
           if (profile.department != null) ...[
             const SizedBox(height: 8),
-            _InfoRow('DEPARTMENT', profile.department!, colorScheme),
+            AppLabelValueRow('DEPARTMENT', profile.department!),
           ],
         ],
       ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final ColorScheme colorScheme;
-
-  const _InfoRow(this.label, this.value, this.colorScheme);
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            color: colorScheme.onSurface.withValues(alpha: 0.5),
-          ),
-        ),
-        Text(
-          value.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 12,
-            fontFamily: 'JetBrains Mono',
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
     );
   }
 }

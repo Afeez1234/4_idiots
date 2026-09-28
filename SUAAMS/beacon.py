@@ -51,11 +51,39 @@ import struct
 import time
 
 # How long a minted beacon stays valid. Deliberately short -- this is NOT
-# the student's login session JWT. CLAUDE.md's threat model calls 3
-# seconds the canonical, strict handshake-acceptance window for HCE/BLE
-# proximity tokens; this must stay at 3 to match. Reusing the long-lived
-# session token here would defeat the anti-relay requirement entirely.
-BEACON_TOKEN_TTL_SECONDS = 3
+# the student's login session JWT. Reusing the long-lived session token
+# here would defeat the anti-relay requirement entirely.
+#
+# RAISED from 3s to 10s on 2026-09-27 after a hardware bench run showed the
+# window was being spent on the wrong thing.
+#
+# The measured budget for a warm server: APDU read ~0.12s, TLS + POST
+# ~0.3s, server write ~0.1s -- about 0.5s total. Essentially ALL of the
+# original 3s window was being consumed by the student walking up to the
+# terminal and holding their phone still, which is human time we don't
+# control. At 3s the slack for that was ~2.5s, so any student not already
+# standing at the terminal had a guaranteed rejection.
+#
+# What this costs: 10s is the window in which a captured token stays
+# useful to someone running a relay attack. For calibration, TOTP codes
+# and most dynamic-password systems use 30s, and Apple BLE proximity
+# beacons typically run 5-30s -- so 3s was unusually strict, tight enough
+# to break legitimate use while defending against little that 10s would
+# not. At 10s an attacker must still relay within 10 seconds AND be within
+# NFC range (~4cm); they cannot carry a phone anywhere meaningful. At 30s
+# they could walk the phone to a different terminal, which is why this is
+# 10 and not 30.
+#
+# Two things this does NOT fix:
+#   1. A cold dyno. Measured 8.5s cold start on Render free tier, which
+#      loses the tap at ANY window under ~10s. The terminal's pre-flight
+#      /healthz ping in SUAAMS_HCE.ino exists for that; it is the
+#      necessary condition, this TTL is secondary.
+#   2. The window still starts at MINT time, before the student does
+#      anything. Minting on RF field entry would let this drop back to 3s,
+#      but Android HCE does not surface field-entry to Dart before the
+#      reader's SELECT arrives, so that isn't currently possible.
+BEACON_TOKEN_TTL_SECONDS = 10
 
 # Fixed field widths, big-endian. 12-byte payload + 12-byte signature.
 # 24 bytes divides evenly into 8 base64 triplets, so the encoded token is

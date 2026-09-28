@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 
 // Sessions tab root. Reuses the already-loaded lecturerDashboardProvider
 // (LecturerCourse.hasActiveSession/activeSessionId) instead of a separate
@@ -26,7 +28,16 @@ class ActiveSessionsScreen extends ConsumerWidget {
     if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Active Sessions')),
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title:
+              'Couldn'
+              't load live sessions',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () =>
+              ref.read(lecturerDashboardProvider.notifier).loadDashboardData(),
+        ),
       );
     }
 
@@ -51,14 +62,13 @@ class ActiveSessionsScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (activeCourses.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 40),
-                  child: Center(
-                    child: Text(
-                      'No sessions are currently live.',
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
+                const AppStateView(
+                  kind: AppStateKind.empty,
+                  icon: Icons.sensors_rounded,
+                  title: 'No live sessions',
+                  message:
+                      'Start a session from a course workspace and it will appear here.',
+                  compact: true,
                 )
               else
                 ...activeCourses.map(
@@ -67,8 +77,9 @@ class ActiveSessionsScreen extends ConsumerWidget {
                     child: _ActiveCourseCard(
                       course: course,
                       colorScheme: colorScheme,
-                      onTap: () =>
-                          context.push('/lecturer/sessions/course/${course.id}'),
+                      onTap: () => context.push(
+                        '/lecturer/sessions/course/${course.id}',
+                      ),
                     ),
                   ),
                 ),
@@ -130,9 +141,8 @@ class _ActiveCourseCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${course.code} · ${course.enrolledCount} enrolled',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontFamily: 'JetBrains Mono',
+                    style: AppTheme.accent(
+                      size: 10,
                       color: colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),

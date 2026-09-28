@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:suaams/features/lecturer/providers/course_workspace_provider.dart';
 import 'package:suaams/features/lecturer/models/course_workspace_model.dart';
+import 'package:suaams/shared/widgets/app_stat_box.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 
 class CourseWorkspaceScreen extends ConsumerStatefulWidget {
   final int courseId;
@@ -110,7 +113,17 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
     if (data == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title:
+              'Couldn'
+              't load this course',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () => ref
+              .read(courseWorkspaceProvider(widget.courseId).notifier)
+              .loadWorkspace(),
+        ),
       );
     }
 
@@ -146,16 +159,15 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
             children: [
               Text(
                 data.course.code,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono',
+                style: AppTheme.accent(
+                  size: 11,
                   letterSpacing: 1,
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 24),
 
-              _WorkspaceStatsGrid(stats: data.stats, colorScheme: colorScheme),
+              _WorkspaceStatsGrid(stats: data.stats),
               const SizedBox(height: 32),
 
               _SessionControls(
@@ -209,95 +221,18 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
 
 class _WorkspaceStatsGrid extends StatelessWidget {
   final WorkspaceStats stats;
-  final ColorScheme colorScheme;
 
-  const _WorkspaceStatsGrid({required this.stats, required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StatBox(
-          val: '${stats.enrolledCount}',
-          label: 'ENROLLED',
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(width: 12),
-        _StatBox(
-          val: '${stats.avgAttendance}%',
-          label: 'AVG ATTENDANCE',
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(width: 12),
-        _StatBox(
-          val: '${stats.presentNow}',
-          label: 'PRESENT NOW',
-          colorScheme: colorScheme,
-          highlight: stats.presentNow > 0,
-        ),
-      ],
-    );
-  }
-}
-
-class _StatBox extends StatelessWidget {
-  final String val;
-  final String label;
-  final ColorScheme colorScheme;
-  final bool highlight;
-
-  const _StatBox({
-    required this.val,
-    required this.label,
-    required this.colorScheme,
-    this.highlight = false,
-  });
+  const _WorkspaceStatsGrid({required this.stats});
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: highlight
-              ? const Color(0xFF10B981).withValues(alpha: 0.12)
-              : colorScheme.surfaceContainer.withValues(alpha: 0.78),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: highlight
-                ? const Color(0xFF10B981).withValues(alpha: 0.35)
-                : colorScheme.outline.withValues(alpha: 0.14),
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              val,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: highlight
-                    ? const Color(0xFF10B981)
-                    : colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 8,
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-                color: highlight
-                    ? const Color(0xFF10B981).withValues(alpha: 0.9)
-                    : colorScheme.onSurface.withValues(alpha: 0.55),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppStatRow([
+      AppStatValue('${stats.enrolledCount}', 'ENROLLED'),
+      AppStatValue('${stats.avgAttendance}%', 'AVG ATTENDANCE'),
+      stats.presentNow > 0
+          ? AppStatValue.success('${stats.presentNow}', 'PRESENT NOW')
+          : AppStatValue('${stats.presentNow}', 'PRESENT NOW'),
+    ]);
   }
 }
 
@@ -509,10 +444,7 @@ class _TimePickerField extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               value?.format(context) ?? '--:--',
-              style: const TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTheme.accent(weight: FontWeight.w700),
             ),
           ],
         ),
@@ -555,10 +487,9 @@ class _LiveAttendanceCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   entry.matricNumber,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: AppTheme.accent(
+                    size: 10,
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    fontFamily: 'JetBrains Mono',
                   ),
                 ),
               ],
@@ -569,11 +500,7 @@ class _LiveAttendanceCard extends StatelessWidget {
             children: [
               Text(
                 entry.timeIn ?? '--:--',
-                style: const TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
+                style: AppTheme.accent(size: 12, weight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
               Text(

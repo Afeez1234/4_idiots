@@ -72,11 +72,17 @@ unsigned long lastAttemptEnd = 0;
 // already marked" rather than double-recording.
 const uint8_t POST_ATTEMPTS = 2;
 
-// Socket/TLS timeout. Set deliberately ABOVE the 3s beacon window: the
-// window is enforced server-side against the token's own expiry, and we
-// would rather have the server look at a token and reject it than have the
-// client abandon the connection before the answer exists.
-const uint16_t HTTP_TIMEOUT_MS = 15000;
+// Socket/TLS timeout. The beacon expires 3s after it was minted on the
+// phone, and by the time a request reaches the terminal that budget is
+// already partly spent. A 15s timeout therefore just meant holding the
+// radio field for 15s to be told "expired" -- in the field log, attempts
+// took 16.8s and 20.8s before giving up with no response at all. 6s is
+// still comfortably above a warm TLS round-trip (a few hundred ms) and
+// above the ~5s the pre-flight ping can cost on a genuinely cold dyno, so
+// a cold start still gets its chance -- but a hopeless request now fails
+// fast and lands in the offline backlog for a lecturer to review instead
+// of blocking the next student's tap.
+const uint16_t HTTP_TIMEOUT_MS = 6000;
 
 // ---- Keep-warm ping -------------------------------------------------------
 // A Render free-tier dyno spins down after a period without traffic, and
@@ -92,6 +98,13 @@ const uint16_t HTTP_TIMEOUT_MS = 15000;
 // forgotten when the demo moves somewhere new.
 const unsigned long WARM_PING_INTERVAL_MS = 4UL * 60UL * 1000UL;  // 4 minutes
 const uint16_t WARM_PING_TIMEOUT_MS = 5000;
+
+// How long a successful /healthz ping is trusted to mean "the next request
+// will be fast". Sits inside the 4-minute idle ping interval on purpose:
+// during an active demo the pre-flight check in ensureBackendWarmForPost()
+// leans on this, and 60s keeps it re-arming the backend for a burst of
+// taps without re-pinging on every single one.
+const unsigned long WARM_CONFIRMED_MS = 60UL * 1000UL;
 unsigned long lastWarmPing = 0;
 
 // When the last /healthz ping succeeded. Reported alongside every tap so a
@@ -100,7 +113,7 @@ unsigned long lastWarmPing = 0;
 unsigned long lastWarmPingOk = 0;
 
 // ---- Offline backlog queue -----------------------------------------------
-// A beacon is only valid for 3 seconds, so a tap captured while this
+// A beacon is only valid for a few seconds, so a tap captured while this
 // terminal can't reach the backend has ALWAYS expired by the time it syncs.
 // The server therefore will not credit it -- by design. What it does with
 // it is record PROVENANCE for a lecturer to review: a genuine tap by a
@@ -327,8 +340,8 @@ bool flushBacklog() {
 // steal scan time from a student mid-tap. The ping is a synchronous TLS
 // request costing a few hundred ms, which is a fine trade for a field with
 // nothing in it and a real problem when it has a student in it.
-void maybeKeepBackendWarm() {
-  if (millis() - lastWarmPing < WARM_PING_INTERVAL_MS) {
+void maybeKeepBackendWarm(bool force = false) {
+  if (!force && millis() - lastWarmPing < WARM_PING_INTERVAL_MS) {
     return;
   }
   lastWarmPing = millis();
@@ -364,6 +377,41 @@ void maybeKeepBackendWarm() {
     Serial.print(dur);
     Serial.println("ms -- backend may be cold");
   }
+}
+
+// Runs just before a check-in POST, once the beacon is already read.
+//
+// The beacon TTL is 10 seconds, and it is spent from MINT time -- the clock
+// started on the phone before the student ever reached the terminal. By the
+// time the radio exchange finishes, some of that budget is already gone, so
+// the POST itself has very little slack. On a Render free-tier dyno that
+// spun down, the TLS handshake alone measured 8.5s, which is a guaranteed
+// rejection no matter how correct the rest of the flow is.
+//
+// Doing the warm-up HERE, after the radio read and before the POST, means:
+//
+//   - The RF exchange is never delayed. The NFC read is the one part with
+//     a hard real-time budget (the phone's HCE response is time-sensitive
+//     and the beacon is expiring), so it happens first and uninterrupted.
+//   - The cold-start cost, which the POST was going to pay anyway, is paid
+//     here instead. The POST that follows then finds a warm dyno and
+//     completes in a few hundred ms -- inside the window.
+//
+// Previously this only ever ran when the field was EMPTY (see loop()), so
+// with a phone resting against the terminal it never fired at all: every
+// tap in the field log shows "[WARM] No successful /healthz ping yet this
+// boot" followed by an 8-20 second POST. The phone being in the field is
+// precisely when warming matters most.
+void ensureBackendWarmForPost() {
+  // Already confirmed warm recently -- a POST would be fast regardless, and
+  // spending a few hundred ms on a redundant ping here delays the one
+  // request that actually matters.
+  if (lastWarmPingOk != 0 &&
+      (millis() - lastWarmPingOk) < WARM_CONFIRMED_MS) {
+    return;
+  }
+  Serial.println("[WARM] Pre-flight ping before POST (backend not confirmed warm)");
+  maybeKeepBackendWarm(true);
 }
 
 // Runs SELECT and reads the beacon in a SINGLE exchange. Returns false for
@@ -426,6 +474,13 @@ void submitBeaconToken(const String &token) {
   }
 
   String payload = "{\"beacon_token\":\"" + token + "\"}";
+
+  // Pay the cold-start cost HERE rather than letting the POST below discover
+  // it. The beacon is already read, so nothing on the radio side is delayed;
+  // the POST then runs against a warm dyno and has a real chance of landing
+  // inside the acceptance window. See ensureBackendWarmForPost() for why this
+  // sits here and not in loop().
+  ensureBackendWarmForPost();
 
   // Report how long since the backend last confirmed itself warm. If a POST
   // is about to run slow, this line tells you whether it's a cold start or
@@ -553,6 +608,14 @@ void setup() {
   loadBacklog();
 
   connectWifi();
+  // Warm the backend as the LAST thing at boot. This used to wait out a
+  // full WARM_PING_INTERVAL_MS before the first ping ever fired, because
+  // lastWarmPing starts at 0 and millis() starts near 0 -- so the very
+  // first tap after power-on always paid a full cold start, which on a
+  // free-tier dyno (measured 8.5s here) is longer than the beacon's entire
+  // 10s window. Forcing the ping here means the backend is already awake
+  // before the first student walks up.
+  maybeKeepBackendWarm(true);
   Serial.printf("[BOOT] Terminal %s ready, waiting for taps...\n", TERMINAL_ID);
 }
 

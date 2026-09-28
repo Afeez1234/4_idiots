@@ -128,7 +128,7 @@ class SuaamsLogoFull extends StatelessWidget {
           'SUAAMS',
           style: TextStyle(
             fontSize: 28,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             color: color,
             letterSpacing: 6.0,
           ),

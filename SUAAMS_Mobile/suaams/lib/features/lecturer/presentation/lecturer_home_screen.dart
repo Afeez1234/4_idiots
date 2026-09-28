@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:suaams/core/providers/theme_provider.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/widgets/dashboard_background.dart';
+import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
 
 // Home tab of the lecturer bottom nav. Was LecturerDashboardScreen, the
 // only screen on the lecturer side before this redesign -- renamed since
@@ -31,7 +33,14 @@ class LecturerHomeScreen extends ConsumerWidget {
     final data = state.data;
     if (data == null) {
       return Scaffold(
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title: 'Couldn''t load your dashboard',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () =>
+              ref.read(lecturerDashboardProvider.notifier).loadDashboardData(),
+        ),
       );
     }
 
@@ -60,11 +69,10 @@ class LecturerHomeScreen extends ConsumerWidget {
                     _DashboardHeader(
                       profile: data.profile,
                       colorScheme: colorScheme,
-                      isDarkMode: isDarkMode,
                     ),
                     const SizedBox(height: 32),
 
-                    _StatsGrid(stats: data.stats, colorScheme: colorScheme),
+                    _StatsGrid(stats: data.stats),
                     const SizedBox(height: 32),
 
                     const Text(
@@ -79,9 +87,13 @@ class LecturerHomeScreen extends ConsumerWidget {
                     const SizedBox(height: 16),
 
                     if (data.courses.isEmpty)
-                      const Text(
-                        'No courses assigned yet.',
-                        style: TextStyle(color: Colors.grey),
+                      AppStateView(
+                        kind: AppStateKind.empty,
+                        icon: Icons.school_rounded,
+                        title: 'No courses assigned yet',
+                        message:
+                            'Courses appear here once the HOD assigns them to you.',
+                        compact: true,
                       )
                     else
                       ...data.courses.map(
@@ -111,12 +123,10 @@ class LecturerHomeScreen extends ConsumerWidget {
 class _DashboardHeader extends ConsumerWidget {
   final LecturerProfile profile;
   final ColorScheme colorScheme;
-  final bool isDarkMode;
 
   const _DashboardHeader({
     required this.profile,
     required this.colorScheme,
-    required this.isDarkMode,
   });
 
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
@@ -166,36 +176,37 @@ class _DashboardHeader extends ConsumerWidget {
         : 'L';
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      // top-aligned: the name wraps to two lines, and centring would leave
+      // a short name floating mid-height against a tall column.
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'LECTURER PORTAL',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
+                style: AppTheme.eyebrow(
+                  colorScheme.onSurface.withValues(alpha: 0.55),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 fallbackName,
-                maxLines: 1,
+                // Same reasoning as the student header: a lecturer name is
+                // just as long, and ellipsising the subject of the screen
+                // is worse than letting the header grow a line.
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
                 ),
               ),
               if (profile.department != null)
                 Text(
                   profile.department!,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
@@ -203,34 +214,19 @@ class _DashboardHeader extends ConsumerWidget {
           ),
         ),
         const SizedBox(width: 12),
+        // Theme toggle removed for the same reason as the student header --
+        // lecturer_profile_screen.dart already has it. The 48px goes to the
+        // name instead.
+        // Only the avatar is left here now that the theme toggle moved out
+        // to the profile screen. The FittedBox stays as a guard: it keeps
+        // the avatar from overflowing on a very narrow phone or at a large
+        // system text scale, which is exactly the failure mode it was
+        // introduced to prevent.
         FittedBox(
           fit: BoxFit.scaleDown,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
-                style: IconButton.styleFrom(
-                  backgroundColor: colorScheme.surfaceContainer,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  side: BorderSide(
-                    color: colorScheme.outline.withValues(alpha: 0.15),
-                  ),
-                ),
-                icon: Icon(
-                  isDarkMode
-                      ? Icons.light_mode_rounded
-                      : Icons.dark_mode_rounded,
-                  color: colorScheme.primary,
-                  size: 20,
-                ),
-                tooltip: isDarkMode
-                    ? 'Switch to light mode'
-                    : 'Switch to dark mode',
-              ),
-              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => _showLogoutDialog(context, ref),
                 child: CircleAvatar(
@@ -255,95 +251,21 @@ class _DashboardHeader extends ConsumerWidget {
 
 class _StatsGrid extends StatelessWidget {
   final LecturerStats stats;
-  final ColorScheme colorScheme;
 
-  const _StatsGrid({required this.stats, required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StatBox(
-          val: '${stats.totalCourses}',
-          label: 'COURSES',
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(width: 12),
-        _StatBox(
-          val: '${stats.activeSessions}',
-          label: 'LIVE NOW',
-          colorScheme: colorScheme,
-          highlight: stats.activeSessions > 0,
-        ),
-        const SizedBox(width: 12),
-        _StatBox(
-          val: '${stats.todayCheckins}',
-          label: 'CHECK-INS TODAY',
-          colorScheme: colorScheme,
-        ),
-      ],
-    );
-  }
-}
-
-class _StatBox extends StatelessWidget {
-  final String val;
-  final String label;
-  final ColorScheme colorScheme;
-  final bool highlight;
-
-  const _StatBox({
-    required this.val,
-    required this.label,
-    required this.colorScheme,
-    this.highlight = false,
-  });
+  const _StatsGrid({required this.stats});
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: highlight
-              ? const Color(0xFF10B981).withValues(alpha: 0.12)
-              : colorScheme.surfaceContainer.withValues(alpha: 0.78),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: highlight
-                ? const Color(0xFF10B981).withValues(alpha: 0.35)
-                : colorScheme.outline.withValues(alpha: 0.14),
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              val,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: highlight
-                    ? const Color(0xFF10B981)
-                    : colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 8,
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-                color: highlight
-                    ? const Color(0xFF10B981).withValues(alpha: 0.9)
-                    : colorScheme.onSurface.withValues(alpha: 0.55),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppStatRow([
+      AppStatValue('${stats.totalCourses}', 'COURSES'),
+      // Green only while a session is genuinely live. The old copy took a
+      // `highlight: stats.activeSessions > 0` bool, so the tone is chosen
+      // at the call site rather than baked in.
+      stats.activeSessions > 0
+          ? AppStatValue.success('${stats.activeSessions}', 'LIVE NOW')
+          : AppStatValue('${stats.activeSessions}', 'LIVE NOW'),
+      AppStatValue('${stats.todayCheckins}', 'CHECK-INS TODAY'),
+    ]);
   }
 }
 
@@ -409,11 +331,7 @@ class _CourseCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${course.code} · ${course.enrolledCount} enrolled · ${course.avgAttendance}% avg',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontFamily: 'JetBrains Mono',
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
+                    style: AppTheme.accent(size: 10, color: colorScheme.onSurface.withValues(alpha: 0.5)),
                   ),
                 ],
               ),

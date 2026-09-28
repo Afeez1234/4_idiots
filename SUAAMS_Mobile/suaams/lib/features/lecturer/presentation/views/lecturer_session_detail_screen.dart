@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/providers/session_detail_provider.dart';
 import 'package:suaams/features/lecturer/models/session_detail_model.dart';
+import 'package:suaams/shared/widgets/app_stat_box.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 
 String _fmtTime(String? raw) {
   if (raw == null || raw.length < 5) return '--:--';
@@ -32,7 +35,16 @@ class LecturerSessionDetailScreen extends ConsumerWidget {
     if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Session Detail')),
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title:
+              'Couldn'
+              't load the session',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () =>
+              ref.read(sessionDetailProvider(args).notifier).loadDetail(),
+        ),
       );
     }
 
@@ -54,16 +66,15 @@ class LecturerSessionDetailScreen extends ConsumerWidget {
             children: [
               Text(
                 '${data.course.code} · ${_fmtTime(data.session.plannedStart)}–${_fmtTime(data.session.plannedEnd)}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono',
+                style: AppTheme.accent(
+                  size: 11,
                   letterSpacing: 1,
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),
               const SizedBox(height: 24),
 
-              _StatsGrid(stats: data.stats, colorScheme: colorScheme),
+              _StatsGrid(stats: data.stats),
               const SizedBox(height: 32),
 
               const Text(
@@ -103,95 +114,20 @@ class LecturerSessionDetailScreen extends ConsumerWidget {
 
 class _StatsGrid extends StatelessWidget {
   final SessionDetailStats stats;
-  final ColorScheme colorScheme;
 
-  const _StatsGrid({required this.stats, required this.colorScheme});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _StatBox(
-          val: '${stats.presentCount}',
-          label: 'PRESENT',
-          colorScheme: colorScheme,
-          highlight: true,
-        ),
-        const SizedBox(width: 12),
-        _StatBox(
-          val: '${stats.absentCount}',
-          label: 'ABSENT',
-          colorScheme: colorScheme,
-        ),
-        const SizedBox(width: 12),
-        _StatBox(
-          val: '${stats.enrolledCount}',
-          label: 'ENROLLED',
-          colorScheme: colorScheme,
-        ),
-      ],
-    );
-  }
-}
-
-class _StatBox extends StatelessWidget {
-  final String val;
-  final String label;
-  final ColorScheme colorScheme;
-  final bool highlight;
-
-  const _StatBox({
-    required this.val,
-    required this.label,
-    required this.colorScheme,
-    this.highlight = false,
-  });
+  const _StatsGrid({required this.stats});
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: highlight
-              ? const Color(0xFF10B981).withValues(alpha: 0.12)
-              : colorScheme.surfaceContainer.withValues(alpha: 0.78),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: highlight
-                ? const Color(0xFF10B981).withValues(alpha: 0.35)
-                : colorScheme.outline.withValues(alpha: 0.14),
-          ),
-        ),
-        child: Column(
-          children: [
-            Text(
-              val,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-                color: highlight
-                    ? const Color(0xFF10B981)
-                    : colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 8,
-                letterSpacing: 1,
-                fontWeight: FontWeight.bold,
-                color: highlight
-                    ? const Color(0xFF10B981).withValues(alpha: 0.9)
-                    : colorScheme.onSurface.withValues(alpha: 0.55),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return AppStatRow([
+      // ABSENT is left neutral here on purpose. It reads like it wants to
+      // be the red box, but the old copy highlighted PRESENT green and
+      // left ABSENT plain, and changing that is a visual decision, not a
+      // refactor. Flagged rather than silently altered.
+      AppStatValue.success('${stats.presentCount}', 'PRESENT'),
+      AppStatValue('${stats.absentCount}', 'ABSENT'),
+      AppStatValue('${stats.enrolledCount}', 'ENROLLED'),
+    ]);
   }
 }
 
@@ -229,10 +165,9 @@ class _AttendanceCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   record.matricNumber,
-                  style: TextStyle(
-                    fontSize: 10,
+                  style: AppTheme.accent(
+                    size: 10,
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    fontFamily: 'JetBrains Mono',
                   ),
                 ),
               ],
@@ -243,11 +178,7 @@ class _AttendanceCard extends StatelessWidget {
             children: [
               Text(
                 record.timeIn ?? '--:--',
-                style: const TextStyle(
-                  fontFamily: 'JetBrains Mono',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
+                style: AppTheme.accent(size: 12, weight: FontWeight.w700),
               ),
               const SizedBox(height: 4),
               Text(

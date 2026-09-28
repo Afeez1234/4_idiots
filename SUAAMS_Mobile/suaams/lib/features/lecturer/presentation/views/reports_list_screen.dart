@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/features/lecturer/providers/course_export_provider.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 
 // Reports tab root -- reuses the already-loaded lecturerDashboardProvider
 // course list (same reasoning as ActiveSessionsScreen) rather than a
@@ -26,7 +28,16 @@ class ReportsListScreen extends ConsumerWidget {
     if (data == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Reports')),
-        body: Center(child: Text(state.errorMessage ?? 'No data available')),
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.cloud_off_rounded,
+          title:
+              'Couldn'
+              't load your reports',
+          message: state.errorMessage ?? 'Check your connection and try again.',
+          onRetry: () =>
+              ref.read(lecturerDashboardProvider.notifier).loadDashboardData(),
+        ),
       );
     }
 
@@ -57,9 +68,12 @@ class ReportsListScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
               if (data.courses.isEmpty)
-                const Text(
-                  'No courses assigned yet.',
-                  style: TextStyle(color: Colors.grey),
+                AppStateView(
+                  kind: AppStateKind.empty,
+                  icon: Icons.summarize_rounded,
+                  title: 'No reports yet',
+                  message: 'A report is generated once you have run a session.',
+                  compact: true,
                 )
               else
                 ...data.courses.map(
@@ -136,9 +150,8 @@ class _ReportCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${course.code} · ${course.enrolledCount} enrolled · ${course.avgAttendance}% avg',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontFamily: 'JetBrains Mono',
+                    style: AppTheme.accent(
+                      size: 10,
                       color: colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),

@@ -1,3 +1,4 @@
+import 'package:suaams/shared/widgets/dashboard_background.dart';
 // STREAMING_CHUNK: Importing core dependencies...
 // This file is the login screen for the SUAAMS app.
 // It provides a form for users to enter their credentials and handles
@@ -6,7 +7,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
-import '../../../shared/utils/grid_overlay_painter.dart';
 import '../../../shared/widgets/suaams_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -35,10 +35,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (_formKey.currentState!.validate()) {
       FocusScope.of(context).unfocus();
 
-      final success = await ref.read(authProvider.notifier).login(
-            _idController.text.trim(),
-            _passwordController.text,
-          );
+      final success = await ref
+          .read(authProvider.notifier)
+          .login(_idController.text.trim(), _passwordController.text);
 
       if (mounted && !success) {
         final error = ref.read(authProvider).errorMessage;
@@ -78,9 +77,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       backgroundColor: colorScheme.surface,
       resizeToAvoidBottomInset: true,
       body: Stack(
-        clipBehavior: Clip.none, 
+        clipBehavior: Clip.none,
         children: [
-          // OPTIMIZATION 1: Marked background as const. 
+          // OPTIMIZATION 1: Marked background as const.
           // Dart loads this directly from pre-compiled memory.
           Positioned(
             top: 0,
@@ -88,10 +87,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             width: screenWidth,
             height: screenHeight,
             child: RepaintBoundary(
-              child: _LoginBackground(isDarkMode: isDarkMode, colorScheme: colorScheme),
+              child: DashboardBackground(
+                isDarkMode: isDarkMode,
+                colorScheme: colorScheme,
+                variant: AppBackgroundVariant.auth,
+              ),
             ),
           ),
-          
+
           // Foreground Content Layer
           // STREAMING_CHUNK: Isolating input repaints...
           Positioned.fill(
@@ -111,15 +114,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             child: SuaamsLogoFull(
                               size: 64,
                               color: colorScheme.primary,
-                            ),                 
-                          )
+                            ),
+                          ),
                         ),
 
                         SizedBox(height: screenHeight * 0.05),
 
                         _buildInputLabel('USERNAME', colorScheme),
                         const SizedBox(height: 8),
-                        
+
                         // OPTIMIZATION 2: Isolated TextField inside its own RepaintBoundary.
                         // This prevents cursor blinking from forcing a repaint of the grid!
                         RepaintBoundary(
@@ -130,8 +133,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             colorScheme: colorScheme,
                             validator: (value) =>
                                 (value == null || value.trim().isEmpty)
-                                    ? 'USERNAME REQUIRED'
-                                    : null,
+                                ? 'USERNAME REQUIRED'
+                                : null,
                           ),
                         ),
 
@@ -139,7 +142,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                         _buildInputLabel('PASSWORD', colorScheme),
                         const SizedBox(height: 8),
-                        
+
                         // OPTIMIZATION 3: Isolated Password Field inside its own RepaintBoundary.
                         RepaintBoundary(
                           child: _buildTextField(
@@ -150,8 +153,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             colorScheme: colorScheme,
                             validator: (value) =>
                                 (value == null || value.isEmpty)
-                                    ? 'PASSWORD REQUIRED'
-                                    : null,
+                                ? 'PASSWORD REQUIRED'
+                                : null,
                           ),
                         ),
 
@@ -277,65 +280,3 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 }
 
 // STREAMING_CHUNK: Allocating pre-compiled background...
-class _LoginBackground extends StatelessWidget {
-  final bool isDarkMode;
-  final ColorScheme colorScheme;
-
-  // Added const constructor to allow full static memory allocation
-  const _LoginBackground({
-    required this.isDarkMode,
-    required this.colorScheme,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(color: colorScheme.surface),
-          ),
-        ),
-        Positioned(
-          top: -100,
-          right: -50,
-          child: Container(
-            width: 250,
-            height: 250,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDarkMode
-                  ? const Color(0xFF0A0A14).withValues(alpha: 0.6)
-                  : const Color(0xFFE0E7FF).withValues(alpha: 0.75),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -80,
-          left: -60,
-          child: Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isDarkMode
-                  ? const Color(0xFF080810).withValues(alpha: 0.65)
-                  : const Color(0xFFFEF3C7).withValues(alpha: 0.55),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(
-              // PERF FIX: const painter instance per branch (see
-              // grid_overlay_painter.dart) instead of allocating a new one.
-              painter: isDarkMode
-                  ? const GridOverlayPainter(color: Colors.white)
-                  : const GridOverlayPainter(color: Colors.black),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}

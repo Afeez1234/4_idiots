@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import '../../providers/student_announcements_provider.dart';
 import '../../models/student_announcement_model.dart';
 
@@ -7,13 +8,42 @@ import '../../models/student_announcement_model.dart';
 // Read-only -- unlike the lecturer side's AnnouncementsListScreen, a student
 // can't post or delete, only see what applies to them (university-wide,
 // their department, or a course they're enrolled in).
-class AnnouncementsScreen extends ConsumerWidget {
+class AnnouncementsScreen extends ConsumerStatefulWidget {
   const AnnouncementsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AnnouncementsScreen> createState() =>
+      _AnnouncementsScreenState();
+}
+
+class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
+  /// One-shot guard. Opening this screen IS the act of having seen the
+  /// announcements, so it clears the badge -- but only once per mount, and
+  /// only once the list has actually arrived. The provider is autoDispose
+  /// and loads on build, so there is nothing to mark at initState time.
+  bool _markedSeen = false;
+
+  void _markSeenIfNeeded() {
+    if (_markedSeen) return;
+    final unread = ref.read(studentAnnouncementsProvider).unreadCount;
+    if (unread <= 0) return;
+    _markedSeen = true;
+    ref.read(studentAnnouncementsProvider.notifier).markAllSeen();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(studentAnnouncementsProvider);
     final colorScheme = Theme.of(context).colorScheme;
+
+    if (state.unreadCount > 0 && !_markedSeen) {
+      // Deferred: markAllSeen writes state synchronously, and mutating a
+      // provider mid-build is not allowed. The guard above means this
+      // schedules at most once per mount.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _markSeenIfNeeded();
+      });
+    }
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -74,10 +104,9 @@ class AnnouncementsScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Text(
                     'NO ANNOUNCEMENTS YET',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                    style: AppTheme.accent(
+                      size: 12,
+                      weight: FontWeight.w700,
                       color: colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
@@ -128,8 +157,18 @@ class _AnnouncementCard extends StatelessWidget {
     try {
       final dt = DateTime.parse(item.createdAt!).toLocal();
       const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       final hour = dt.hour.toString().padLeft(2, '0');
       final minute = dt.minute.toString().padLeft(2, '0');
@@ -169,20 +208,16 @@ class _AnnouncementCard extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: colorScheme.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   _badgeLabel,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: FontWeight.bold,
+                  style: AppTheme.accent(
+                    size: 9,
+                    weight: FontWeight.w700,
                     color: colorScheme.primary,
                   ),
                 ),
@@ -202,9 +237,8 @@ class _AnnouncementCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               formattedDate,
-              style: TextStyle(
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
+              style: AppTheme.accent(
+                size: 10,
                 color: colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),

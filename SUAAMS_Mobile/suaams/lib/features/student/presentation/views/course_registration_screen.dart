@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/student/models/available_course_model.dart';
 import 'package:suaams/features/student/providers/course_registration_provider.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 
 // Self-service course registration -- see get_available_courses/
 // register_course/drop_course in api/student.py. Scoped server-side to the
@@ -23,9 +24,9 @@ class CourseRegistrationScreen extends ConsumerWidget {
       if (next.errorMessage != null &&
           next.errorMessage != previous?.errorMessage &&
           !next.isLoading) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.errorMessage!)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(next.errorMessage!)));
       }
     });
 
@@ -37,8 +38,9 @@ class CourseRegistrationScreen extends ConsumerWidget {
         elevation: 0,
       ),
       body: RefreshIndicator(
-        onRefresh: () =>
-            ref.read(courseRegistrationProvider.notifier).loadAvailableCourses(),
+        onRefresh: () => ref
+            .read(courseRegistrationProvider.notifier)
+            .loadAvailableCourses(),
         child: _buildBody(context, ref, state, colorScheme),
       ),
     );
@@ -70,7 +72,9 @@ class CourseRegistrationScreen extends ConsumerWidget {
             child: Text(
               state.errorMessage!,
               textAlign: TextAlign.center,
-              style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.6)),
+              style: TextStyle(
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
             ),
           ),
         ],
@@ -87,7 +91,9 @@ class CourseRegistrationScreen extends ConsumerWidget {
             child: Text(
               'No courses available for registration this semester.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.5)),
+              style: TextStyle(
+                color: colorScheme.onSurface.withValues(alpha: 0.5),
+              ),
             ),
           ),
         ],
@@ -116,7 +122,8 @@ class CourseRegistrationScreen extends ConsumerWidget {
             final confirmed = await showConfirmDialog(
               context,
               title: 'Drop ${course.courseCode}?',
-              message: 'You will be unregistered from '
+              message:
+                  'You will be unregistered from '
                   '${course.courseTitle}. This cannot be undone.',
               confirmLabel: 'DROP',
               destructive: true,
@@ -168,18 +175,22 @@ class _CourseRow extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: colorScheme.surface,
                         borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
+                        border: Border.all(
+                          color: colorScheme.outline.withValues(alpha: 0.1),
+                        ),
                       ),
                       child: Text(
                         course.courseCode,
-                        style: const TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                        style: AppTheme.accent(
+                          size: 12,
+                          weight: FontWeight.w700,
                         ),
                       ),
                     ),
@@ -200,7 +211,10 @@ class _CourseRow extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   course.courseTitle,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 if (course.lecturer != null) ...[
                   const SizedBox(height: 4),
@@ -265,9 +279,6 @@ class _ActionButton extends StatelessWidget {
       );
     }
 
-    return FilledButton(
-      onPressed: onRegister,
-      child: const Text('REGISTER'),
-    );
+    return FilledButton(onPressed: onRegister, child: const Text('REGISTER'));
   }
 }

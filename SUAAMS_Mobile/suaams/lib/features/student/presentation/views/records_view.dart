@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../providers/student_provider.dart';
 import '../../models/student_dashboard_model.dart';
@@ -174,7 +175,7 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                       style: TextStyle(
                         fontSize: 11,
                         letterSpacing: 1.5,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w700,
                         color: colorScheme.onSurface,
                       ),
                     ),
@@ -267,10 +268,9 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
           const SizedBox(height: 16),
           Text(
             'NO RECORDS FOUND',
-            style: TextStyle(
-              fontFamily: 'JetBrains Mono',
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+            style: AppTheme.accent(
+              size: 12,
+              weight: FontWeight.w700,
               color: colorScheme.onSurface.withValues(alpha: 0.5),
             ),
           ),
@@ -333,7 +333,7 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                   Text(
                     courseName,
                     style: const TextStyle(
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       fontSize: 15,
                       letterSpacing: 0.5,
                     ),
@@ -343,10 +343,9 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                     children: [
                       Text(
                         dateText.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontFamily: 'JetBrains Mono',
-                          fontWeight: FontWeight.w600,
+                        style: AppTheme.accent(
+                          size: 10,
+                          weight: FontWeight.w600,
                           color: colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
@@ -363,7 +362,7 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                         statusText,
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           letterSpacing: 1,
                           color: statusColor,
                         ),
@@ -395,10 +394,9 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                   const SizedBox(width: 4),
                   Text(
                     timeText,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontFamily: 'JetBrains Mono',
-                      fontWeight: FontWeight.bold,
+                    style: AppTheme.accent(
+                      size: 11,
+                      weight: FontWeight.w700,
                       color: colorScheme.onSurface.withValues(alpha: 0.8),
                     ),
                   ),

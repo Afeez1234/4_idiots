@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:suaams/features/lecturer/providers/announcements_provider.dart';
 import 'package:suaams/features/lecturer/models/announcement_model.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 
 // Announce tab root. Course-scoped announcements only (scope='university'/
 // 'department' stay admin-only, see get_lecturer_announcements's
@@ -93,10 +94,9 @@ class AnnouncementsListScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Text(
                     'NO ANNOUNCEMENTS YET',
-                    style: TextStyle(
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                    style: AppTheme.accent(
+                      size: 12,
+                      weight: FontWeight.w700,
                       color: colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
@@ -199,10 +199,9 @@ class _AnnouncementCard extends ConsumerWidget {
                   ),
                   child: Text(
                     item.courseCode!,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontFamily: 'JetBrains Mono',
-                      fontWeight: FontWeight.bold,
+                    style: AppTheme.accent(
+                      size: 9,
+                      weight: FontWeight.w700,
                       color: colorScheme.primary,
                     ),
                   ),
@@ -233,9 +232,8 @@ class _AnnouncementCard extends ConsumerWidget {
             const SizedBox(height: 10),
             Text(
               item.createdAt!,
-              style: TextStyle(
-                fontSize: 10,
-                fontFamily: 'JetBrains Mono',
+              style: AppTheme.accent(
+                size: 10,
                 color: colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),

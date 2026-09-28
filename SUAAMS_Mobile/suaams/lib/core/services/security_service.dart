@@ -63,8 +63,7 @@ class SecurityService {
   ///
   /// Fails closed by design: an unarmed checker is treated as
   /// untrustworthy rather than as a pass.
-  bool get isCompromised =>
-      _isCompromised || (_initialized && !_isArmed);
+  bool get isCompromised => _isCompromised || (_initialized && !_isArmed);
 
   /// Set as soon as initialize() is entered, so a checker that throws part
   /// way through still leaves us in the "tried but didn't arm" state
@@ -148,10 +147,8 @@ class SecurityService {
     // see ThreatCallback in lib/src/callbacks/threat_callback.dart.
     final callback = ThreatCallback(
       // ── Blocking: these directly match CLAUDE.md's stated threat ──────
-      onPrivilegedAccess: () => _handleThreat(
-        'Device is rooted/jailbroken',
-        blocking: true,
-      ),
+      onPrivilegedAccess: () =>
+          _handleThreat('Device is rooted/jailbroken', blocking: true),
       onHooks: () => _handleThreat(
         'Hooking framework detected (Frida/Xposed-style runtime injection)',
         blocking: true,
@@ -201,7 +198,7 @@ class SecurityService {
       onPasscode: () => _handleThreat('No device passcode/screen lock set'),
       onDeviceID: () => _handleThreat('App was reinstalled (iOS only)'),
       onDeviceBinding: () => _handleThreat('Device binding check failed'),
-      // Ties to the relay-attack defence in CLAUDE.md, where the 3-second
+      // Ties to the relay-attack defence in CLAUDE.md, where the short-TTL
       // acceptance window is load-bearing. Logged rather than blocking, and
       // the distinction matters: the server validates exp_unix against its
       // OWN clock, so a device with a manipulated clock still cannot forge

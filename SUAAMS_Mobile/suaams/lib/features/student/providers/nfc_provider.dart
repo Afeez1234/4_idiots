@@ -23,7 +23,7 @@ enum NfcCheckInStatus {
   idle,
   authenticating,
   broadcasting,
-  // Broadcasting has stopped (3s window closed) but confirmation polling
+  // Broadcasting has stopped (window closed) but confirmation polling
   // is still running -- distinct from `broadcasting` so the UI stops
   // showing the radar/countdown for a signal that's no longer being sent.
   confirming,
@@ -49,7 +49,7 @@ enum NfcCheckInStatus {
 
 class NfcCheckInState {
   final NfcCheckInStatus status;
-  final int secondsRemaining; // Countdown for the 3-second broadcast window
+  final int secondsRemaining; // Countdown for the broadcast window
   final String? errorMessage;
   final String?
   courseCode; // Set on a confirmed check-in or a notEnrolled result
@@ -137,13 +137,21 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
   // The anti-relay security window (matches BEACON_TOKEN_TTL_SECONDS in
   // api/student.py) -- NOT the same clock as _confirmationWindowSeconds
-  // above. Broadcasting must stop at 3s regardless of confirmation state.
+  // above. Broadcasting must stop at this many seconds regardless of
+  // confirmation state.
+  //
+  // Raised 3 -> 10 on 2026-09-27 after a hardware bench run. At 3s the
+  // entire usable budget went to the student walking up to the terminal:
+  // a warm-server check-in costs ~0.5s end to end, so only ~2.5s of slack
+  // remained for the human part, which failed deterministically for anyone
+  // not already standing at the reader. See BEACON_TOKEN_TTL_SECONDS in
+  // beacon.py for the full relay-attack reasoning behind the new number.
   //
   // This is now only the UI countdown. The window that actually secures
   // the credential is enforced natively, from the server's own expires_in,
   // via a monotonic deadline in SuaamsHceService. This constant no longer
   // has to be exactly right for safety -- only for the displayed number.
-  static const int _broadcastWindowSeconds = 3;
+  static const int _broadcastWindowSeconds = 10;
   int _confirmationTicks = 0;
 
   @override
@@ -176,7 +184,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     return NfcCheckInState();
   }
 
-  // Enforces biometric check-in and starts 3-second transmission window
+  // Enforces biometric check-in and starts the transmission window
   Future<void> initiateCheckInProtocol() async {
     // Re-entrancy latch. There are two independent UI entry points
     // (student_home_screen's check-in button and the ID-card screen's),
@@ -190,9 +198,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     // race. Refuse to start a second run rather than half-doing both.
     if (state.status != NfcCheckInStatus.idle &&
         state.status != NfcCheckInStatus.error) {
-      debugPrint(
-        '[NFC] ignoring check-in start: already ${state.status}',
-      );
+      debugPrint('[NFC] ignoring check-in start: already ${state.status}');
       return;
     }
 
@@ -260,9 +266,10 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       // the long-lived session token. Broadcasting the session token
       // directly would mean anything that captured/relayed the NFC signal
       // could replay it as a valid API credential indefinitely; the beacon
-      // is minted with a 3s expiry (BEACON_TOKEN_TTL_SECONDS in
-      // api/student.py), matching the strict 3-second anti-relay window
-      // CLAUDE.md documents as canonical.
+      // is minted with a 10s expiry (BEACON_TOKEN_TTL_SECONDS in
+      // beacon.py), the anti-relay window -- 3s until 2026-09-27, raised
+      // once a bench run showed the whole usable budget was going to the
+      // student's walk-up. See that constant for the reasoning.
       //
       // Routed through withAuthRetry so a session token that happens to
       // expire right as the student taps "check in" gets silently

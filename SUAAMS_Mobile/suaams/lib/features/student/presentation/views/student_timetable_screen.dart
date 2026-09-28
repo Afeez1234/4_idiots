@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:suaams/core/theme/app_theme.dart';
 import '../../providers/week_schedule_provider.dart';
 import '../../models/week_schedule_entry.dart';
 
@@ -132,9 +133,8 @@ class _DayTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontFamily: 'JetBrains Mono',
+                  style: AppTheme.accent(
+                    size: 10,
                     color: hasClasses
                         ? colorScheme.primary
                         : colorScheme.onSurface.withValues(alpha: 0.4),
