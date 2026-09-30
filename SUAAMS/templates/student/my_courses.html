@@ -1,54 +1,66 @@
 {% extends "base_student.html" %}
+{% from '_macros.html' import course_chip, attendance_bar, attendance_pill, empty_state %}
 
 {% block title %}My Courses | SUAAMS Student{% endblock %}
 {% block page_title %}My Courses{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Courses you're enrolled in this semester</p>
+    <p class="page-subtitle">Courses you're enrolled in this semester</p>
 {% endblock %}
 
 {% block content %}
 
     {% if courses %}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {# One card per course, each carrying its own attendance bar so the
+           grid reads as a wall of comparable statuses rather than a list.
+           The at-risk threshold (default variant) is correct here: this is
+           the student's own number, matching at_risk_count in
+           blueprints/student.py. #}
+        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {% for course in courses %}
-                <div class="bg-card border border-border rounded-2xl p-5">
-                    <div class="flex items-start justify-between gap-2">
-                        <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-accent/10 text-accent">
-                            {{ course.code }}
-                        </span>
-                        <span class="text-sm font-semibold shrink-0 {{ 'text-error' if course.pct < 75 else 'text-success' }}">{{ course.pct }}%</span>
-                    </div>
-                    <p class="mt-3 text-sm font-semibold text-white leading-snug">{{ course.name }}</p>
+                <div class="card flex flex-col p-5">
 
-                    <div class="mt-4 flex items-center gap-4 text-xs text-secondary">
+                    <div class="flex items-start justify-between gap-2">
+                        {{ course_chip(course.code) }}
+                        {{ attendance_pill(course.pct) }}
+                    </div>
+
+                    <p class="mt-3 text-sm font-semibold leading-snug text-ink">{{ course.name }}</p>
+
+                    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-secondary">
                         {% if course.lecturer_name %}
-                            <span class="flex items-center gap-1">
-                                <span class="material-symbols-rounded text-[16px]">person</span>
+                            <span class="flex items-center gap-1.5">
+                                <span class="material-symbols-rounded text-base text-muted">person</span>
                                 {{ course.lecturer_name }}
                             </span>
                         {% endif %}
                         {% if course.credit_units %}
-                            <span class="flex items-center gap-1">
-                                <span class="material-symbols-rounded text-[16px]">star</span>
+                            <span class="flex items-center gap-1.5">
+                                <span class="material-symbols-rounded text-base text-muted">star</span>
                                 {{ course.credit_units }} units
                             </span>
                         {% endif %}
                     </div>
 
-                    <div class="mt-4">
-                        <div class="flex items-center justify-between text-[11px] text-muted mb-1.5">
-                            <span>{{ course.attended }} of {{ course.total }} sessions attended</span>
+                    {# mt-auto pins this block to the card's bottom so the bars
+                       line up across a row regardless of how long the course
+                       titles run -- without it the cards stretch and the
+                       progress bars end up at three different heights. #}
+                    <div class="mt-auto pt-5">
+                        <div class="mb-1.5 flex items-center justify-between gap-3">
+                            <span class="text-2xs text-muted">
+                                {{ course.attended }} of {{ course.total }} sessions attended
+                            </span>
                         </div>
-                        <div class="h-1 rounded-full bg-muted/20">
-                            <div class="h-1 rounded-full {{ 'bg-error' if course.pct < 75 else 'bg-success' }}" style="width: {{ course.pct }}%"></div>
-                        </div>
+                        {{ attendance_bar(course.pct) }}
                     </div>
                 </div>
             {% endfor %}
         </div>
     {% else %}
-        <div class="bg-card border border-border rounded-2xl p-10 text-center">
-            <p class="text-sm text-muted">You're not enrolled in any courses yet. Contact your department.</p>
+        <div class="card">
+            <div class="card-body">
+                {{ empty_state("You're not enrolled in any courses yet. Contact your department.", 'bookmark_border') }}
+            </div>
         </div>
     {% endif %}
 

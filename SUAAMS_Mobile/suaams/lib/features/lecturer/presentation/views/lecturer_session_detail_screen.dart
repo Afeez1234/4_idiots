@@ -77,21 +77,19 @@ class LecturerSessionDetailScreen extends ConsumerWidget {
               _StatsGrid(stats: data.stats),
               const SizedBox(height: 32),
 
-              const Text(
+              Text(
                 'ATTENDANCE',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.5,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
               ),
               const SizedBox(height: 16),
 
               if (data.attendance.isEmpty)
-                const Text(
-                  'No check-ins recorded for this session.',
-                  style: TextStyle(color: Colors.grey),
+                const AppStateView(
+                  kind: AppStateKind.empty,
+                  icon: Icons.contactless_rounded,
+                  title: 'No check-ins yet',
+                  message: 'Students appear here as they tap the terminal.',
+                  compact: true,
                 )
               else
                 ...data.attendance.map(
@@ -184,7 +182,7 @@ class _AttendanceCard extends StatelessWidget {
               Text(
                 record.status.toUpperCase(),
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: statusColor,
                   letterSpacing: 0.5,

@@ -6,3 +6,11 @@ secrets.h
 # .claude/settings.json can hold a live API token. settings.local.json is
 # already covered by the global gitignore; this file is not.
 .claude/settings.json
+
+# Screenshot scratch from tests/preview.py. Regenerate with
+#   .venv/Scripts/python.exe tests/preview.py <template>
+# which writes the same filenames every time, so there is no reason to track
+# a snapshot of the UI in the repo -- the templates are the source of truth.
+SUAAMS/_preview.html
+SUAAMS/_preview.png
+SUAAMS/_shot_*.png

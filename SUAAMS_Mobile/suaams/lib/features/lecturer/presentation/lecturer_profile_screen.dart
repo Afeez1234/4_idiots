@@ -1,3 +1,4 @@
+import 'package:suaams/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -136,28 +137,18 @@ class LecturerProfileScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (profile != null) ...[
-                const Text(
+                Text(
                   'LECTURER DOSSIER',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 2,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
                 ),
                 const SizedBox(height: 16),
                 _PersonalInfoCard(profile: profile, colorScheme: colorScheme),
                 const SizedBox(height: 32),
               ],
 
-              const Text(
+              Text(
                 'SYSTEM PREFERENCES',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
               ),
               const SizedBox(height: 16),
 

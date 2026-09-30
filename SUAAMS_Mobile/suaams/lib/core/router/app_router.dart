@@ -7,6 +7,8 @@ import '../../features/auth/providers/auth_provider.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/change_password_screen.dart';
+import 'package:suaams/core/providers/onboarding_provider.dart';
+import 'package:suaams/features/onboarding/presentation/onboarding_screen.dart';
 
 // Student
 import '../../features/student/presentation/student_shell_screen.dart';
@@ -64,14 +66,36 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isLoggingIn = state.matchedLocation == '/login';
       final isSplash = state.matchedLocation == '/splash';
       final isChangingPassword = state.matchedLocation == '/change-password';
+      final isOnboarding = state.matchedLocation == '/onboarding';
       final user = authState.user;
+      // Synchronous by construction -- seeded from disk in main() before
+      // runApp precisely so this read can't be an await.
+      final hasSeenOnboarding = ref.read(onboardingProvider);
 
       if (isSplash) return null;
 
-      if (user == null && !isLoggingIn) return '/login';
+      if (user == null && !isLoggingIn && !isOnboarding) return '/login';
 
       if (user != null && user.requiresPasswordChange && !isChangingPassword) {
         return '/change-password';
+      }
+
+      // First run: everything signed-in routes through onboarding before
+      // landing on a home screen. Placed after the password-change check so
+      // a forced password change is never buried behind a walkthrough.
+      if (user != null && !hasSeenOnboarding && !isOnboarding) {
+        return '/onboarding';
+      }
+
+      // And the reverse, for when markSeen() has just flipped the flag --
+      // without this the button would leave the user parked on a dead route.
+      if (isOnboarding && hasSeenOnboarding) {
+        if (user == null) return '/login';
+        if (user.requiresPasswordChange) return '/change-password';
+        if (user.role == 'student') return '/student/home';
+        if (user.role == 'lecturer' || user.role == 'hod') return '/lecturer/home';
+        if (user.role == 'admin') return '/admin';
+        return '/login';
       }
 
       if (user != null && (isLoggingIn || isSplash)) {
@@ -98,6 +122,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplashScreen(),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/onboarding',
+        builder: (context, state) => const OnboardingScreen(),
+      ),
       GoRoute(
         path: '/admin',
         builder: (context, state) =>

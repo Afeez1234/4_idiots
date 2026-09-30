@@ -1,84 +1,457 @@
 @import "tailwindcss";
 
-/* 1. The single design system for the whole web app. The old terminal-*
-   token set (base/card/border/accent/error) is gone as of 2026-09-26 --
-   auth/login.html and auth/change_password.html were its last two
-   consumers, and both now use these tokens. That removes the split where
-   the login screen was green-on-#0F0F0F while the portal it hands off to
-   was indigo-on-#0F1117. The old accent green survives below as
-   --color-success, which is the role it was always doing. */
+/* ============================================================================
+   SUAAMS web design system — LIGHT theme, dark navy rail.
+   Redesigned 2026-09-30 against a light analytics-dashboard reference: light
+   page, white cards, hairline borders instead of shadows, one dark navigation
+   rail carrying the contrast, and a single blue accent doing the emphasis.
+
+   1. TOKEN MEANINGS ARE DELIBERATELY UNCHANGED FROM THE PREVIOUS DARK THEME.
+      Only the VALUES inverted. --color-surface is still "the page background",
+      --color-card is still "a card", --color-secondary is still "secondary
+      text". That is what lets ~25 existing bg-surface / bg-card / text-secondary
+      / text-muted / border-border usages across three base templates and 24
+      page templates keep working through a full theme flip. Renaming these
+      would have meant touching every template for no benefit.
+   ========================================================================= */
 @theme {
---font-sans: "Plus Jakarta Sans", sans-serif;
---font-mono: "JetBrains Mono", monospace;
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
 
---color-surface: #0F1117;      /* page background */
---color-sidebar: #111318;      /* sidebar background */
---color-card: #1C1E26;         /* card surfaces */
---color-border: #2A2D3A;       /* card/section borders */
---color-accent: #4F6BED;       /* primary accent */
---color-success: #10B981;
---color-warning: #F59E0B;
---color-error: #EF4444;
---color-secondary: #9CA3AF;    /* secondary text */
---color-muted: #4B5563;        /* muted text */
+  /* --- Surfaces. Light page, white cards, dark rail. ------------------- */
+  --color-surface:  #F1F4F8;   /* page background (unchanged meaning) */
+  --color-card:     #FFFFFF;   /* card surface (unchanged meaning) */
+  --color-raised:   #FAFBFD;   /* inputs + buttons sitting on --color-surface.
+                                   A white button on a #F1F4F8 page has no
+                                   visible edge; this gives it one without
+                                   resorting to a heavier border. */
+  --color-sidebar:  #14161F;   /* the dark navy rail */
+  --color-sidebar-hover: #1E2130;
+  --color-border:   #E7EAF0;   /* hairline (unchanged meaning) */
+  --color-divider:  #F1F3F7;   /* inner rules, table row lines */
+
+  /* --- Brand. --------------------------------------------------------- */
+  --color-accent:       #2F6BEE;
+  --color-accent-hover: #1E56CC;
+  --color-accent-soft:  #EAF1FE;
+  --color-accent-line:  #C7DBFC;
+
+  /* --- Semantic. Each has a -soft companion for pill/badge backgrounds. - */
+  --color-success:     #12A150;   --color-success-soft: #E7F6EE;
+  --color-warning:     #C77700;   --color-warning-soft: #FDF3E2;
+  --color-error:       #D93A3F;   --color-error-soft:   #FCEDED;
+  --color-error-hover: #B72D32;
+
+  /* --- Ink. In a dark theme primary text was literally `text-white`.
+         Inverted here to a single --color-ink so that ONE rename covers it.
+         `text-white` still means white and is still correct ON a filled
+         accent/error button -- just no longer valid on a card. */
+  --color-ink:       #141824;
+  --color-secondary: #5A6474;   /* KEEP NAME (was #9CA3AF, a light grey) */
+  --color-muted:     #939BA9;   /* KEEP NAME (was #4B5563) */
+
+  /* --- Text on the dark rail. ----------------------------------------- */
+  --color-on-rail:       #E8EBF2;
+  --color-on-rail-muted: #7C849A;
+  --color-on-rail-line:  #262A38;
+
+  /* --- Type scale -----------------------------------------------------
+     The old templates carried ~60 arbitrary `text-[Npx]` values with no
+     scale at all -- text-[11px] alone appeared 45 times. Only ONE new step
+     is added here: 2xs.
+
+     Deliberately NOT redefining --text-base, --text-lg, --text-xl and
+     friends. An earlier pass overrode them (base to 15px, lg to 17px),
+     which looks harmless in this file but silently redefines what
+     `text-base` and `text-lg` mean for every template that reaches for
+     them. Leaving Tailwind's own defaults in place means the familiar
+     utilities behave as any Tailwind developer expects, and the
+     arbitrary values in the templates collapse onto real scale steps. */
+  --text-2xs: 11px;
+
+  /* --- Shape. --------------------------------------------------------- */
+  --radius-card: 14px;
+  --radius-btn:  9px;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-pop:  0 8px 24px rgb(16 24 40 / 0.10), 0 2px 6px rgb(16 24 40 / 0.06);
 }
 
-/* 2. Custom Scrollbar -- now reads from the theme tokens above instead of
-   the literals it used to carry, which were the old terminal-* values. */
+/* ============================================================================
+   Scrollbars — light-theme variants of the two utilities the shells use.
+   ========================================================================= */
 @layer utilities {
-.custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: var(--color-surface); }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }
+  .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #C9CFDA; }
 
-/* Fully hidden scrollbar -- element still scrolls (wheel/touch/keyboard),
-   the bar itself is just never painted. */
-.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
+  /* Fully hidden scrollbar -- element still scrolls (wheel/touch/keyboard),
+     the bar itself is just never painted. Used by the rail nav. */
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
 }
 
-/* 3. Admin portal nav-link component classes (base_admin.html sidebar).
-   Kept as @apply components instead of repeating the full utility list on
-   every <a> tag, since the same combination appears ~11 times. */
+/* ============================================================================
+   COMPOSABLE PRIMITIVES -- declared with @utility, not @layer components.
+   Tailwind v4 only lets @apply reference things in the utility registry, so
+   a class defined inside @layer components cannot be @applied by another
+   class ("Cannot apply unknown utility class `card`"). The three primitives
+   that other components build on -- .card, .card-body, .btn -- therefore
+   live here. Everything below composes off them freely.
+   ========================================================================= */
+@utility card {
+  @apply rounded-card border border-border bg-card shadow-card;
+}
+@utility card-body {
+  @apply p-5;
+}
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-btn px-4 py-2.5
+         text-sm font-semibold transition-colors
+         disabled:pointer-events-none disabled:opacity-40;
+}
+
 @layer components {
-.nav-link {
-    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-secondary transition-colors;
-}
-.nav-link:hover {
-    @apply bg-card text-white;
-}
-.nav-link-active {
-    @apply bg-accent/10 text-accent;
-}
-.nav-link-active:hover {
-    @apply bg-accent/10 text-accent;
-}
 
-/* HOD/Lecturer role-toggle pills (base_portal.html, promoted accounts only)
-   -- a segmented control that shows/hides the two sidebar nav sections
-   client-side, no page reload. */
-.portal-pill {
-    @apply text-secondary transition-colors;
-}
-.portal-pill:hover {
-    @apply text-white;
-}
-.portal-pill-active {
-    @apply bg-accent/15 text-accent;
-}
-.portal-pill-active:hover {
-    @apply bg-accent/15 text-accent;
-}
+  /* ======================================================================
+     NAVIGATION RAIL (the dark sidebar)
+     The one large dark mass in an otherwise light UI. Same .nav-link name
+     the old templates already used -- only the colours underneath changed.
+     ----------------------------------------------------------------------
+     Two independent states share this rail:
+       * mobile  -- off-canvas drawer, the pre-existing -translate-x-full
+                   mechanism, unchanged.
+       * desktop -- collapsible, driven by a .rail-collapsed class on the
+                   shell root so one toggle reflows every rail descendant.
+     The collapse state persists in localStorage; the drawer does not, since
+     a rail left collapsed on a phone would be a trap with no visible
+     control to un-collapse it.
+     ====================================================================== */
+  .rail { @apply flex w-[260px] shrink-0 flex-col bg-sidebar; }
+  .rail-brand { @apply flex h-16 shrink-0 items-center gap-3 px-5; }
+  .rail-foot { @apply shrink-0 border-t border-on-rail-line p-4; }
 
-/* 4. Shared form input/select style -- matches templates/auth/login.html's
-   actual input treatment (rounded-xl, plain border, accent border + ring
-   on focus) so admin-portal forms are visually consistent with the login
-   screen. Centralized here since Students/Courses/Semesters/HODs all need
-   the same fields repeated many times over. */
-.form-input, .form-select {
-    @apply w-full bg-surface border border-border text-white text-sm rounded-xl px-4 py-3 placeholder:text-muted transition-colors;
-}
-.form-input:focus, .form-select:focus {
-    @apply outline-none border-accent ring-1 ring-accent;
-}
+  /* Text that disappears when the rail collapses to icons only. */
+  .rail-label { @apply min-w-0 flex-1 truncate; }
+
+  .rail-collapsed .rail { @apply w-[72px]; }
+  .rail-collapsed .rail-label,
+  .rail-collapsed .nav-section,
+  .rail-collapsed .rail-pill { @apply hidden; }
+  .rail-collapsed .nav-link { @apply justify-center px-0; }
+  .rail-collapsed .rail-brand,
+  .rail-collapsed .rail-foot { @apply justify-center px-0; }
+
+
+  .nav-link {
+    @apply flex items-center gap-3 rounded-[9px] px-3 py-2 text-sm font-medium
+           text-on-rail-muted transition-colors;
+  }
+  .nav-link:hover {
+    @apply bg-sidebar-hover text-on-rail;
+  }
+  .nav-link-active {
+    @apply bg-accent text-white;
+  }
+  .nav-link-active:hover {
+    @apply bg-accent text-white;
+  }
+
+  /* Uppercase grouping label above a run of nav links. */
+  .nav-section {
+    @apply mb-2 px-3 text-2xs font-bold uppercase tracking-widest text-on-rail-muted/70;
+  }
+
+  /* The pill under the brand: active semester on admin/student, the
+     HOD/Lecturer role switch on the portal. */
+  .rail-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-2xs
+           font-semibold transition-colors;
+  }
+  .rail-pill[data-tone="semester"] { @apply bg-white/10 text-on-rail; }
+  .rail-pill[data-tone="inactive"] { @apply bg-white/5 text-on-rail-muted; }
+
+  /* HOD/Lecturer role-toggle pills (base_portal, promoted accounts only). */
+  .portal-pill        { @apply text-on-rail-muted transition-colors; }
+  .portal-pill:hover  { @apply text-on-rail; }
+  .portal-pill-active { @apply bg-white/15 text-on-rail; }
+  .portal-pill-active:hover { @apply bg-white/15 text-on-rail; }
+
+  /* ======================================================================
+     CARDS
+     The reference's defining surface: white, generous radius, hairline
+     border, and only a whisper of shadow. Borders do the separating, not
+     shadows -- that's the whole point of the reference look.
+     .card and .card-body are @utility (see the top of this file) so that
+     .card-clip and .stat-card can compose them via @apply.
+     ====================================================================== */
+  /* Clipped variant for cards that hold a full-bleed table, where rows need
+     to bleed to the card edge. `rounded-card` alone leaves the corners
+     un-clipped so a row background would square them off. */
+  .card-clip { @apply card overflow-hidden; }
+
+  .card-header {
+    @apply flex items-center justify-between gap-3 px-5 pt-5;
+  }
+  .card-title {
+    @apply text-sm font-bold text-ink;
+  }
+  /* The little circled-i next to a card title in the reference. The font
+     family is set by declaration rather than @apply because
+     `material-symbols-rounded` is a class from the Google Fonts stylesheet,
+     not a Tailwind utility -- @apply only resolves utilities. */
+  .card-info {
+    @apply text-sm text-muted;
+    font-family: "Material Symbols Rounded";
+    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  }
+  .card-foot {
+    @apply flex items-center gap-4 border-t border-divider px-5 py-3;
+  }
+
+  /* ======================================================================
+     STAT CARD
+     Appears 20+ times across 6 pages today, written out unrolled each time.
+     ====================================================================== */
+  .stat-card { @apply card card-body flex flex-col justify-between; }
+  .stat-label {
+    @apply text-xs font-semibold uppercase tracking-wide text-secondary;
+  }
+  .stat-value { @apply mt-3 text-3xl font-extrabold leading-none text-ink; }
+  .stat-caption { @apply mt-1.5 text-2xs text-muted; }
+
+  /* ======================================================================
+     BUTTONS
+     Five variants were hand-rolled across six renderings before this
+     (full primary, full secondary, small outline, destructive text link,
+     icon-only ghost) plus two modal-footer pairs. Now one scale.
+     ====================================================================== */
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-hover;
+  }
+  .btn-secondary {
+    @apply btn border border-border bg-raised text-ink hover:border-accent-line hover:bg-accent-soft hover:text-accent;
+  }
+  .btn-ghost {
+    @apply btn text-secondary hover:bg-surface hover:text-ink;
+  }
+  .btn-danger {
+    @apply btn bg-error text-white hover:bg-error-hover;
+  }
+  /* Compact inline button -- the "Set Active" / "Enroll" style. */
+  .btn-sm { @apply rounded-[7px] px-3 py-1.5 text-xs; }
+  /* Square icon-only button. */
+  .btn-icon { @apply rounded-btn p-2; }
+  /* Destructive text link -- "Unbind", "Delete". */
+  .btn-link {
+    @apply text-2xs font-semibold text-muted underline decoration-dotted
+           underline-offset-2 transition-colors hover:text-error;
+  }
+
+  /* ======================================================================
+     PILLS & BADGES  --  data-tone, NEVER an interpolated class name.
+     ----------------------------------------------------------------------
+     This is the fix for the single biggest footgun in the old templates.
+     Classes like `class="pill bg-{{ tone }}"` are INVISIBLE to Tailwind's
+     build-time scanner (it greps source text; a class split across {{ }} is
+     not a token it can find) and vanish from the compiled CSS with no error.
+     An attribute selector means the class is always a literal and only the
+     free-form attribute value varies. See _macros.html for the Jinja side.
+     ====================================================================== */
+  .pill {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold;
+  }
+  .pill[data-tone="success"] { @apply bg-success-soft text-success; }
+  .pill[data-tone="warning"] { @apply bg-warning-soft text-warning; }
+  .pill[data-tone="error"]   { @apply bg-error-soft   text-error; }
+  .pill[data-tone="accent"]  { @apply bg-accent-soft  text-accent; }
+  .pill[data-tone="neutral"] { @apply bg-surface      text-secondary; }
+  .pill[data-tone="live"]    { @apply bg-success-soft text-success; }
+
+  /* Course-code chip -- pure repetition, 8 sites, no conditional logic. */
+  .chip {
+    @apply inline-flex items-center rounded-full bg-accent-soft px-2 py-0.5
+           text-2xs font-semibold text-accent;
+  }
+
+  /* Solid small dot used in activity feeds and timetable legends. */
+  .dot { @apply inline-block h-2 w-2 shrink-0 rounded-full; }
+  .dot[data-tone="success"] { @apply bg-success; }
+  .dot[data-tone="warning"] { @apply bg-warning; }
+  .dot[data-tone="error"]   { @apply bg-error; }
+  .dot[data-tone="accent"]  { @apply bg-accent; }
+  .dot[data-tone="muted"]   { @apply bg-border; }
+
+  /* ======================================================================
+     FORMS
+     The old .form-input hardcoded `text-white`, which governed ~40 inputs
+     app-wide -- invisible white text on a white field. That single CSS line
+     was the highest-impact dark-theme leftover in the build.
+     ====================================================================== */
+  .form-label {
+    @apply mb-1.5 block text-xs font-medium text-secondary;
+  }
+  .form-input, .form-select, .form-textarea {
+    @apply w-full rounded-btn border border-border bg-raised px-4 py-2.5 text-sm
+           text-ink transition-colors placeholder:text-muted;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    @apply border-accent outline-none ring-1 ring-accent;
+  }
+  .form-textarea { @apply resize-y; }
+  .form-help  { @apply mt-1.5 text-2xs text-muted; }
+  .form-error { @apply mt-1.5 text-2xs text-error; }
+  /* Overrides .form-input's accent focus ring for a destructive field. */
+  .form-danger:focus { @apply border-error ring-error; }
+
+  /* File input -- previously a 12-variant hand-rolled `file:` utility chain
+     in students.html, with no component class to hang it off. */
+  .form-file {
+    @apply w-full cursor-pointer rounded-btn border border-border bg-raised
+           px-3 py-2 text-sm text-ink file:mr-3 file:cursor-pointer file:rounded-[6px]
+           file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-xs
+           file:font-semibold file:text-white hover:file:bg-accent-hover;
+  }
+
+  /* ======================================================================
+     TABLES
+     Byte-identical across 5 admin pages before; padding drifted between
+     px-4/py-2, px-5/py-3 and px-6/py-3 depending on the page.
+     ====================================================================== */
+  .table-wrap { @apply overflow-x-auto; }
+  .table      { @apply w-full text-sm; }
+  .table thead tr { @apply border-b border-border; }
+  .th {
+    @apply px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary;
+  }
+  .table tbody tr {
+    @apply border-b border-divider last:border-0 transition-colors hover:bg-surface/60;
+  }
+  .td { @apply px-5 py-3.5 align-middle text-ink; }
+  .td-muted { @apply text-secondary; }
+
+  /* ======================================================================
+     DATA VIZ -- CSS only, no charting dependency.
+     Donut via conic-gradient driven by an inline --pct custom property;
+     bars via nested divs. Both are data-driven inline styles, which is the
+     one legitimate case where an inline style beats a class.
+     ====================================================================== */
+  .progress {
+    @apply h-1.5 w-full overflow-hidden rounded-full bg-surface;
+  }
+  .progress-fill { @apply h-full rounded-full; }
+  .progress-fill[data-tone="success"] { @apply bg-success; }
+  .progress-fill[data-tone="warning"] { @apply bg-warning; }
+  .progress-fill[data-tone="error"]   { @apply bg-error; }
+  .progress-fill[data-tone="accent"]  { @apply bg-accent; }
+
+  .bar-row { @apply grid items-center gap-3; }
+  .bar-track {
+    @apply h-2 w-full overflow-hidden rounded-full bg-surface;
+  }
+  .bar-fill { @apply h-full rounded-full bg-accent; }
+  .bar-fill[data-tone="success"] { @apply bg-success; }
+  .bar-fill[data-tone="warning"] { @apply bg-warning; }
+  .bar-fill[data-tone="error"]   { @apply bg-error; }
+
+  /* Donut. Set style="--pct: 76" and the ring fills to 76%. --pct-thickness
+     controls the ring weight; --donut-color the fill. */
+  .donut {
+    @apply relative grid shrink-0 place-items-center rounded-full;
+    background: conic-gradient(
+      var(--donut-color, var(--color-accent)) calc(var(--pct, 0) * 1%),
+      var(--color-surface) 0
+    );
+  }
+  .donut::after {
+    content: "";
+    @apply absolute rounded-full bg-card;
+    inset: calc(var(--donut-thickness, 14px) + 1px);
+  }
+  .donut-label { @apply relative text-center leading-tight; }
+
+  /* ======================================================================
+     FEEDBACK
+     Seven distinct empty-state markups existed before this, sharing no
+     classes. All of them collapse to this one.
+     ====================================================================== */
+  .empty-state {
+    @apply py-10 text-center text-sm text-muted;
+  }
+  .empty-state-icon {
+    @apply mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-surface
+           text-muted;
+  }
+
+  .alert {
+    @apply flex items-start gap-3 rounded-btn border px-4 py-3 text-sm;
+  }
+  .alert[data-tone="success"] { @apply border-success/25 bg-success-soft text-success; }
+  .alert[data-tone="error"]   { @apply border-error/25   bg-error-soft   text-error; }
+  .alert[data-tone="warning"] { @apply border-warning/25 bg-warning-soft text-warning; }
+  .alert[data-tone="info"]    { @apply border-accent-line bg-accent-soft text-accent; }
+
+  /* ======================================================================
+     STRUCTURE
+     ====================================================================== */
+  .page { @apply flex-1 overflow-y-auto; }
+  .page-inner { @apply mx-auto w-full max-w-[1400px] p-5 lg:p-7; }
+
+  .page-header {
+    @apply flex flex-col gap-4 border-b border-border bg-card px-5 py-4 lg:flex-row lg:items-center lg:justify-between;
+  }
+  .page-title { @apply text-lg font-bold text-ink; }
+  .page-subtitle { @apply mt-0.5 text-xs text-secondary; }
+
+  /* The reference's tab strip: pill-shaped, active pill tinted. */
+  .tab-pill {
+    @apply rounded-full px-3.5 py-1.5 text-sm font-semibold text-secondary transition-colors;
+  }
+  .tab-pill:hover { @apply text-ink; }
+  .tab-pill-active,
+  .tab-pill-active:hover { @apply bg-accent-soft text-accent; }
+
+  /* Blue gradient hero, lifted from the reference's course card. */
+  .hero-card {
+    @apply rounded-card bg-linear-to-br from-[#3B7BF6] to-[#1D4FD0] p-5 text-white;
+  }
+
+  .avatar {
+    @apply grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-soft
+           text-xs font-bold text-accent;
+  }
+  .avatar-muted { @apply bg-surface text-secondary; }
+
+  /* "Happening now" banner on the timetable. renderNowBanner() in
+     admin/timetable.html rewrote `banner.className` wholesale with a
+     palette string, which put the colour classes only inside a JS string.
+     Tailwind's scanner does read the script, but a name that appears
+     nowhere else is one careless edit away from vanishing. Setting
+     data-tone instead keeps the colours in CSS with the rest. */
+  .now-banner {
+    @apply flex items-center gap-4 rounded-card border p-4;
+  }
+  .now-banner[data-tone="live"]    { @apply border-success/25 bg-success-soft; }
+  .now-banner[data-tone="warning"] { @apply border-warning/25 bg-warning-soft; }
+  .now-banner[data-tone="neutral"] { @apply border-border bg-card; }
+  .now-banner-icon {
+    @apply grid h-9 w-9 shrink-0 place-items-center rounded-full;
+  }
+  .now-banner-icon[data-tone="live"]    { @apply bg-success/15 text-success; }
+  .now-banner-icon[data-tone="warning"] { @apply bg-warning/15 text-warning; }
+  .now-banner-icon[data-tone="neutral"] { @apply bg-surface text-muted; }
+
+  .mono { @apply font-mono; }
+
+  /* "Form column left, directory right" -- seven admin pages re-declared this
+     grid by hand. The sticky wrapper deliberately wraps BOTH form cards
+     rather than making each one sticky, which is what the hand-written
+     versions were working around. */
+  .form-grid { @apply grid grid-cols-1 items-start gap-6 lg:grid-cols-3; }
+  .form-grid > .form-col { @apply space-y-6 lg:sticky lg:top-0; }
+  .form-grid > .form-main { @apply lg:col-span-2; }
+
+  /* Wider ratio for pages whose directory needs more room (timetable). */
+  .form-grid-wide { @apply lg:grid-cols-4; }
+  .form-grid-wide > .form-main { @apply lg:col-span-3; }
 }

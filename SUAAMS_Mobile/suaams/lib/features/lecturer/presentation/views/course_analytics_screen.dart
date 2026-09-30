@@ -61,14 +61,9 @@ class CourseAnalyticsScreen extends ConsumerWidget {
               _SummaryGrid(summary: data.summary),
               const SizedBox(height: 32),
 
-              const Text(
+              Text(
                 'ATTENDANCE TREND',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.5,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
               ),
               const SizedBox(height: 16),
               if (data.trend.isEmpty)
@@ -88,14 +83,9 @@ class CourseAnalyticsScreen extends ConsumerWidget {
                 ),
               const SizedBox(height: 32),
 
-              const Text(
+              Text(
                 'STUDENT BREAKDOWN',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 1.5,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
               ),
               const SizedBox(height: 16),
               if (data.students.isEmpty)

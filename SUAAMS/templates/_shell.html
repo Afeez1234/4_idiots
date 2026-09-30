@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+{# ===========================================================================
+   The single application shell shared by all three web portals.
+
+   Created 2026-09-30. base_admin.html, base_portal.html and base_student.html
+   were ~70% byte-identical -- the same <head>, the same <aside> attributes,
+   the same topbar/main/flash/script block -- with only four things actually
+   differing: the default <title>, the brand subtitle, the pill under the
+   brand, and the nav link set. That shared 70% now lives here; each portal
+   template extends it and fills the four blocks below.
+
+   Blocks a portal template is expected to override:
+     brand_subtitle -- the small line under the SUAAMS wordmark
+     rail_pill      -- semester pill / HOD-Lecturer role switch / nothing
+     rail_nav       -- the nav sections
+   Blocks every page template already uses (unchanged contract):
+     title, extra_head, page_title, page_subtitle, content, extra_scripts
+   =========================================================================== #}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SUAAMS{% endblock %}</title>
+
+    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-surface font-sans text-ink antialiased">
+
+    {# fixed inset-0 (not h-screen) -- h-screen sets a height but doesn't
+       stop the document itself from being taller than the viewport and
+       scrolling as a whole, which drags the rail's top out of view with it.
+       fixed inset-0 pins the shell to the viewport outright, so only the nav
+       and <main> (the elements with their own overflow-y-auto) can scroll.
+       The .rail-collapsed class is toggled by the script at the bottom. #}
+    <div id="shell" class="fixed inset-0 flex overflow-hidden">
+
+        <!-- Mobile backdrop: only shown while the rail is open on small screens -->
+        <div id="sidebar-backdrop" class="fixed inset-0 z-30 hidden bg-black/50 lg:hidden"></div>
+
+        {# ============== NAVIGATION RAIL ============== #}
+        <aside id="sidebar"
+               class="rail fixed inset-y-0 left-0 z-40 -translate-x-full transition-[width,transform] duration-200
+                      lg:static lg:translate-x-0">
+
+            <!-- Brand. The shield mark is a 1:1 port of SuaamsLogo's
+                 CustomPainter geometry from the Flutter app
+                 (SUAAMS_Mobile/suaams/lib/shared/widgets/suaams_logo.dart)
+                 -- same shield outline + NFC-wave arcs flanking a center
+                 dot, redrawn as an SVG path/arc on the same 48x48 grid so
+                 the mark stays identical between mobile and web. -->
+            <div class="rail-brand">
+                <svg viewBox="0 0 48 48" class="h-8 w-8 shrink-0 text-white" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M24 6 L10 12 L10 24 C10 31.73 16.27 38.92 24 41 C31.73 38.92 38 31.73 38 24 L38 12 Z"/>
+                    <path d="M20.5 27.5 A5 5 0 0 1 20.5 20.5"/>
+                    <path d="M17.6 30.4 A9 9 0 0 1 17.6 17.6" stroke-opacity=".5"/>
+                    <path d="M27.5 27.5 A5 5 0 0 0 27.5 20.5"/>
+                    <path d="M30.4 30.4 A9 9 0 0 0 30.4 17.6" stroke-opacity=".5"/>
+                    <circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/>
+                </svg>
+                <div class="rail-label leading-tight">
+                    <p class="text-sm font-bold tracking-wide text-on-rail">SUAAMS</p>
+                    <p class="text-2xs uppercase tracking-widest text-on-rail-muted">{% block brand_subtitle %}{% endblock %}</p>
+                </div>
+                {# Collapse-to-icons. Desktop only -- on a phone the rail is
+                   an off-canvas drawer and this would have nothing to show. #}
+                <button id="rail-collapse" class="hidden shrink-0 text-on-rail-muted transition-colors hover:text-on-rail lg:block"
+                        aria-label="Collapse navigation" title="Collapse navigation">
+                    <span class="material-symbols-rounded text-xl">left_panel_close</span>
+                </button>
+            </div>
+
+            <!-- Pill block under the brand. Admin and student show the active
+                 semester; the portal shows its HOD/Lecturer role switch. -->
+            <div class="px-5 pb-3 shrink-0">
+                {% block rail_pill %}{% endblock %}
+            </div>
+
+            <!-- Nav. Each portal template fills this. -->
+            <nav class="no-scrollbar flex-1 space-y-6 overflow-y-auto px-3 py-4">
+                {% block rail_nav %}{% endblock %}
+            </nav>
+
+            <!-- Rail footer: signed-in user + logout -->
+            <div class="rail-foot">
+                <div class="flex items-center gap-3">
+                    <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full
+                                 bg-white/10 text-sm font-bold text-on-rail">
+                        {{ session.get('username', 'A')[0]|upper }}
+                    </span>
+                    <div class="rail-label">
+                        <p class="truncate text-sm font-semibold text-on-rail">{{ session.get('username', 'User') }}</p>
+                        <p class="text-2xs capitalize text-on-rail-muted">{{ session.get('role', '') }}</p>
+                    </div>
+                    <a href="{{ url_for('auth.logout') }}" title="Sign out"
+                       class="shrink-0 text-on-rail-muted transition-colors hover:text-error">
+                        <span class="material-symbols-rounded text-xl">logout</span>
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        {# ============== MAIN COLUMN (topbar + content) ============== #}
+        <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+
+            <header class="page-header shrink-0">
+                <div class="flex min-w-0 items-center gap-3">
+                    <button id="sidebar-toggle" class="btn-ghost btn-icon lg:hidden" aria-label="Toggle navigation">
+                        <span class="material-symbols-rounded">menu</span>
+                    </button>
+                    <div class="min-w-0">
+                        <h1 class="page-title truncate">{% block page_title %}Dashboard{% endblock %}</h1>
+                        {% block page_subtitle %}{% endblock %}
+                    </div>
+                </div>
+
+                <div class="flex shrink-0 items-center gap-2 text-xs text-secondary">
+                    <span class="dot" data-tone="success"></span>
+                    <span class="hidden sm:inline">System Online</span>
+                </div>
+            </header>
+
+            <main class="page">
+                <div class="page-inner space-y-6">
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            <div class="space-y-2">
+                                {% for category, message in messages %}
+                                    {% from '_macros.html' import flash %}
+                                    {{ flash(category, message) }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+
+                    {% block content %}{% endblock %}
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        // Rail behaviour, wrapped in an IIFE. The previous version declared
+        // `sidebar`, `backdrop` and `toggleBtn` as top-level consts in global
+        // scope, so any page whose extra_scripts block reused one of those
+        // names would throw at parse time. Nothing here needs to be global.
+        (function () {
+            var shell   = document.getElementById('shell');
+            var sidebar = document.getElementById('sidebar');
+            var backdrop = document.getElementById('sidebar-backdrop');
+            var toggleBtn = document.getElementById('sidebar-toggle');
+            var collapseBtn = document.getElementById('rail-collapse');
+
+            /* --- Mobile drawer. Unchanged from the previous behaviour: the
+               closed state lives in the markup (-translate-x-full) and this
+               only toggles it. --- */
+            function openDrawer() {
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+            }
+            function closeDrawer() {
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            }
+            toggleBtn.addEventListener('click', openDrawer);
+            backdrop.addEventListener('click', closeDrawer);
+
+            // Escape closes the drawer -- the old version had no keyboard
+            // path out of it, so the rail trapped keyboard and screen-reader
+            // users on a phone.
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closeDrawer();
+            });
+
+            /* --- Desktop collapse. Restored from localStorage before first
+               paint is impossible with a static class, so it is applied by
+               this script at the bottom of <body>; the flash is a single
+               frame at worst. Deliberately NOT applied on small screens: a
+               rail collapsed to 72px of icons on a phone has no visible
+               control left to expand it. --- */
+            var STORAGE_KEY = 'suaams.railCollapsed';
+            var wide = window.matchMedia('(min-width: 1024px)');
+
+            function applyCollapsed(collapsed) {
+                shell.classList.toggle('rail-collapsed', collapsed);
+            }
+
+            if (wide.matches && localStorage.getItem(STORAGE_KEY) === '1') {
+                applyCollapsed(true);
+            }
+            if (collapseBtn) {
+                collapseBtn.addEventListener('click', function () {
+                    var next = !shell.classList.contains('rail-collapsed');
+                    applyCollapsed(next);
+                    localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
+                });
+            }
+        })();
+    </script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,3 +1,4 @@
+import 'package:suaams/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -101,14 +102,9 @@ class LinkedDevicesScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'GETTING A NEW PHONE?',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 1.5,
-                color: Colors.grey,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 12),
             Container(

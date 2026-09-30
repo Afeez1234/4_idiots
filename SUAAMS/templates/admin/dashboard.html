@@ -1,129 +1,81 @@
 {% extends "base_admin.html" %}
+{% from '_macros.html' import stat_card, grade_tone, empty_state, dot, card_heading %}
 
 {% block title %}Dashboard | SUAAMS Admin{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">System-wide overview</p>
+  <p class="page-subtitle">System-wide overview</p>
 {% endblock %}
 
 {% block content %}
 
-    <!-- Stat cards: Faculties, Lecturers, Students, Live Sessions. -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Faculties</span>
-                <span class="material-symbols-rounded text-accent">domain</span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ total_faculties }}</p>
-            <p class="mt-1 text-xs text-muted">Across the university</p>
-        </div>
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Lecturers</span>
-                <span class="material-symbols-rounded text-accent">school</span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ total_lecturers }}</p>
-            <p class="mt-1 text-xs text-muted">Active teaching staff</p>
-        </div>
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Students</span>
-                <span class="material-symbols-rounded text-accent">group</span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ total_students }}</p>
-            <p class="mt-1 text-xs text-muted">Currently enrolled</p>
-        </div>
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Live Sessions</span>
-                <span class="relative flex h-2.5 w-2.5 mt-1">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-success"></span>
-                </span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ live_sessions }}</p>
-            <p class="mt-1 text-xs text-muted">In progress right now</p>
-        </div>
+    {# Stat row. These four were written out unrolled before; the stat_card
+       macro now carries the skeleton and only the data varies. #}
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {{ stat_card('Faculties', total_faculties, 'Across the university', 'domain') }}
+        {{ stat_card('Lecturers', total_lecturers, 'Active teaching staff', 'school') }}
+        {{ stat_card('Students', total_students, 'Currently enrolled', 'group') }}
+        {{ stat_card('Live Sessions', live_sessions, 'In progress right now', 'sensors', 'success') }}
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 
-        <!-- Department attendance. Thresholds below (>=75 green, >=50
-             amber, else red) are a starting default, easy to change. -->
-        <div class="lg:col-span-2 bg-card border border-border rounded-2xl p-6">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Department Attendance</h2>
-
-            <div class="space-y-4">
-                {% for dept in department_attendance %}
-                    {% set pct = dept.percentage %}
-                    {% set bar_color = 'bg-success' if pct >= 75 else ('bg-warning' if pct >= 50 else 'bg-error') %}
-                    <div>
-                        <div class="flex items-center justify-between mb-1.5">
-                            <span class="text-sm font-medium">{{ dept.name }}</span>
-                            <span class="text-sm font-semibold">{{ pct }}%</span>
-                        </div>
-                        <div class="h-1 rounded-full bg-muted/20 overflow-hidden">
-                            <div class="h-full rounded-full {{ bar_color }}" style="width: {{ pct }}%"></div>
-                        </div>
+        {# Department attendance rollup. This is a portfolio view -- one number
+           standing in for a whole department -- so it uses the three-tier
+           grade scale, not the per-student at-risk rule. See _macros.html. #}
+        <div class="card lg:col-span-2">
+            <div class="card-header">
+                {{ card_heading('Department Attendance', info=true) }}
+            </div>
+            <div class="card-body">
+                {% if department_attendance %}
+                    <div class="space-y-5">
+                        {% for dept in department_attendance %}
+                            {% set pct = dept.percentage %}
+                            {% set tone = grade_tone(pct) %}
+                            <div>
+                                <div class="mb-1.5 flex items-center justify-between gap-3">
+                                    <span class="text-sm font-medium text-ink">{{ dept.name }}</span>
+                                    <span class="pill" data-tone="{{ tone }}">{{ pct }}%</span>
+                                </div>
+                                <div class="bar-track">
+                                    <div class="bar-fill" data-tone="{{ tone }}" style="width: {{ pct }}%"></div>
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
                 {% else %}
-                    <p class="text-sm text-muted">No department attendance data yet.</p>
-                {% endfor %}
+                    {{ empty_state('No department attendance data yet.', 'query_stats') }}
+                {% endif %}
             </div>
         </div>
 
-        <!-- Recent activity feed: most recent attendance check-ins. -->
-        <div class="bg-card border border-border rounded-2xl p-6">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Recent Activity</h2>
-
-            {#- Explicit class lookup, not dynamic string interpolation of
-                the item's color into a class name -- every possible class
-                name appears as a literal token in this file this way.
-                Tailwind's build-time scanner greps source files for exact
-                class strings; it can't resolve a name assembled at
-                render time, so a dynamic version here would silently
-                compile to nothing.
-
-                IMPORTANT: this note has to live inside a real Jinja
-                comment block, not a plain HTML comment. An HTML comment
-                does not stop Jinja from evaluating template expressions
-                written inside it -- an earlier version of this exact note
-                was an HTML comment that, as illustrative text, mentioned
-                reading the current loop item's color attribute directly,
-                and Jinja tried to evaluate that for real and crashed
-                ("'item' is undefined", since the loop below hadn't started
-                yet). Caught by an actual render test, not by template
-                parse-checking, which only validates syntax -- worth
-                remembering when writing comments-about-syntax in Jinja
-                specifically: don't spell out the literal delimiters even
-                inside a real comment block, nesting them prematurely
-                closes it. -#}
-            {% set badge_classes = {
-                'success': 'bg-success/10 text-success',
-                'warning': 'bg-warning/10 text-warning',
-                'error': 'bg-error/10 text-error',
-                'accent': 'bg-accent/10 text-accent',
-            } %}
-            <div class="space-y-4">
-                {% for item in recent_activity %}
-                    {% set badge = badge_classes.get(item.color, badge_classes['accent']) %}
-                    <div class="flex items-start gap-3">
-                        <div class="w-8 h-8 shrink-0 rounded-full {{ badge }} flex items-center justify-center">
-                            <span class="material-symbols-rounded text-[16px]">{{ item.icon }}</span>
-                        </div>
-                        <div class="min-w-0">
-                            <p class="text-sm text-white/90 leading-snug">{{ item.message }}</p>
-                            <p class="text-[11px] text-muted mt-0.5">{{ item.time }}</p>
-                        </div>
+        {# Recent activity. The route supplies item.color as a tone name, which
+           maps straight onto the .dot data-tone contract -- no class
+           interpolation, and no chance of the colour silently disappearing
+           from the compiled CSS. #}
+        <div class="card">
+            <div class="card-header">
+                {{ card_heading('Recent Activity', info=true) }}
+            </div>
+            <div class="card-body">
+                {% if recent_activity %}
+                    <div class="space-y-4">
+                        {% for item in recent_activity %}
+                            <div class="flex items-start gap-3">
+                                <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface">
+                                    {{ dot(item.color) }}
+                                </span>
+                                <div class="min-w-0">
+                                    <p class="text-sm leading-snug text-ink">{{ item.message }}</p>
+                                    <p class="mt-0.5 text-2xs text-muted">{{ item.time }}</p>
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
                 {% else %}
-                    <p class="text-sm text-muted">No recent activity.</p>
-                {% endfor %}
+                    {{ empty_state('No recent activity.', 'history') }}
+                {% endif %}
             </div>
         </div>
     </div>

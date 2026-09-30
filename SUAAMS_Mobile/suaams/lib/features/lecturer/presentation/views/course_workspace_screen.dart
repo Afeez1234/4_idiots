@@ -184,20 +184,18 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
 
               if (data.activeSession != null) ...[
                 const SizedBox(height: 32),
-                const Text(
+                Text(
                   'LIVE ATTENDANCE',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 1.5,
-                    color: Colors.grey,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
                 ),
                 const SizedBox(height: 16),
                 if (data.liveAttendance.isEmpty)
-                  const Text(
-                    'No check-ins yet. Waiting for students to scan…',
-                    style: TextStyle(color: Colors.grey),
+                  const AppStateView(
+                    kind: AppStateKind.empty,
+                    icon: Icons.contactless_rounded,
+                    title: 'No check-ins yet',
+                    message: 'Students appear here as they tap the terminal.',
+                    compact: true,
                   )
                 else
                   ...data.liveAttendance.map(
@@ -342,14 +340,13 @@ class _SessionControls extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        // Not const: AppTheme.eyebrow() is a method call, and reading
+        // colorScheme is a runtime lookup. The previous hand-written
+        // TextStyle here was const only because it hardcoded Colors.grey,
+        // which is exactly the thing being removed.
+        Text(
           'NO ACTIVE SESSION',
-          style: TextStyle(
-            fontSize: 10,
-            letterSpacing: 1.5,
-            color: Colors.grey,
-            fontWeight: FontWeight.bold,
-          ),
+          style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
         ),
         const SizedBox(height: 16),
         Row(
@@ -437,7 +434,7 @@ class _TimePickerField extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 9,
+                fontSize: 11,
                 color: colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
@@ -506,7 +503,7 @@ class _LiveAttendanceCard extends StatelessWidget {
               Text(
                 entry.status.toUpperCase(),
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: statusColor,
                   letterSpacing: 0.5,

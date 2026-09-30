@@ -1,57 +1,80 @@
 {% extends "base_admin.html" %}
+{% from '_macros.html' import empty_state, card_heading, directory_heading %}
 
 {% block title %}Organization | SUAAMS Admin{% endblock %}
 {% block page_title %}Organization{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Faculties and departments</p>
+    <p class="page-subtitle">Faculties and departments</p>
 {% endblock %}
 
 {% block content %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+    {# Two parallel columns rather than the usual form-left/directory-right:
+       faculties and departments are peer entities, not "create a faculty,
+       then browse everything". Each column carries its own add-form above
+       its own list, so the pairing is visible. #}
+    <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
 
         <!-- ============ FACULTIES ============ -->
         <div class="space-y-6">
-            <div class="bg-card border border-border rounded-2xl p-6">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Faculty</h2>
-                <form action="{{ url_for('admin.organization_page') }}" method="POST" class="space-y-4">
-                    {% include '_csrf_field.html' %}
-                    <input type="hidden" name="action" value="add_faculty">
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Faculty Name</label>
-                        <input type="text" name="name" required placeholder="e.g. Faculty of Engineering" class="form-input">
-                    </div>
-                    <button type="submit"
-                            class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 transition-colors">
-                        Add Faculty
-                    </button>
-                </form>
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Add Faculty', info=true) }}
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('admin.organization_page') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="action" value="add_faculty">
+
+                        <div>
+                            <label class="form-label" for="faculty-name">Faculty Name</label>
+                            <input type="text" name="name" id="faculty-name" required
+                                   placeholder="e.g. Faculty of Engineering" class="form-input">
+                        </div>
+
+                        <button type="submit" class="btn-primary w-full">Add Faculty</button>
+                    </form>
+                </div>
             </div>
 
-            <div class="bg-card border border-border rounded-2xl overflow-hidden">
-                <div class="px-6 pt-6 pb-4 flex items-center justify-between">
-                    <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Faculties</h2>
-                    <span class="text-xs text-muted">{{ faculties|length }} total</span>
-                </div>
-                <div class="divide-y divide-border border-t border-border">
+            <div class="card-clip">
+                {{ directory_heading('Faculties', faculties|length, 'faculty') }}
+
+                <div class="divide-y divide-divider border-t border-divider">
                     {% for faculty in faculties %}
-                        <div class="flex items-center justify-between px-6 py-3.5">
-                            <div>
-                                <p class="text-sm font-medium">{{ faculty.name }}</p>
-                                <p class="text-[11px] text-muted mt-0.5">{{ faculty.departments|length }} department{{ '' if faculty.departments|length == 1 else 's' }}</p>
+                        <div class="flex items-center justify-between gap-4 px-5 py-3.5">
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-semibold text-ink">{{ faculty.name }}</p>
+                                {# The cascade counts are built in the template
+                                   because the route doesn't precompute them:
+                                   deleting a faculty takes its departments --
+                                   and therefore every student, lecturer and
+                                   course under them -- with it, so the admin has
+                                   to see the blast radius before confirming. #}
+                                <p class="mt-0.5 text-2xs text-muted">
+                                    {{ faculty.departments|length }} department{{ '' if faculty.departments|length == 1 else 's' }} &middot;
+                                    {{ faculty.departments|map(attribute='students')|map('length')|sum }} students &middot;
+                                    {{ faculty.departments|map(attribute='lecturers')|map('length')|sum }} lecturers &middot;
+                                    {{ faculty.departments|map(attribute='courses')|map('length')|sum }} courses
+                                </p>
                             </div>
+                            {# data-* below is the modal's entire input contract;
+                               renaming any of it silently breaks the confirm
+                               gate below, which compares the typed value against
+                               data-name exactly. #}
                             <button type="button"
-                                    class="text-muted hover:text-error transition-colors"
+                                    class="btn-ghost btn-icon shrink-0 text-muted hover:text-error"
+                                    title="Delete faculty"
                                     data-delete-trigger
                                     data-entity-type="Faculty"
                                     data-name="{{ faculty.name }}"
                                     data-action-url="{{ url_for('admin.delete_faculty', faculty_id=faculty.id) }}"
                                     data-message="Deleting &quot;{{ faculty.name }}&quot; will also delete {{ faculty.departments|length }} department(s), {{ faculty.departments|map(attribute='students')|map('length')|sum }} student(s), {{ faculty.departments|map(attribute='lecturers')|map('length')|sum }} lecturer(s), and {{ faculty.departments|map(attribute='courses')|map('length')|sum }} course(s). This cannot be undone.">
-                                <span class="material-symbols-rounded text-[20px]">delete</span>
+                                <span class="material-symbols-rounded text-xl">delete</span>
                             </button>
                         </div>
                     {% else %}
-                        <p class="px-6 py-8 text-sm text-muted text-center">No faculties yet.</p>
+                        {{ empty_state('No faculties yet.', 'domain') }}
                     {% endfor %}
                 </div>
             </div>
@@ -59,55 +82,64 @@
 
         <!-- ============ DEPARTMENTS ============ -->
         <div class="space-y-6">
-            <div class="bg-card border border-border rounded-2xl p-6">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Department</h2>
-                <form action="{{ url_for('admin.organization_page') }}" method="POST" class="space-y-4">
-                    {% include '_csrf_field.html' %}
-                    <input type="hidden" name="action" value="add_department">
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Parent Faculty</label>
-                        <select name="faculty_id" required class="form-select">
-                            <option value="" disabled selected>Select faculty</option>
-                            {% for faculty in faculties %}
-                                <option value="{{ faculty.id }}">{{ faculty.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Department Name</label>
-                        <input type="text" name="name" required placeholder="e.g. Computer Engineering" class="form-input">
-                    </div>
-                    <button type="submit"
-                            class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 transition-colors">
-                        Add Department
-                    </button>
-                </form>
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Add Department', info=true) }}
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('admin.organization_page') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="action" value="add_department">
+
+                        <div>
+                            <label class="form-label" for="department-faculty">Parent Faculty</label>
+                            <select name="faculty_id" id="department-faculty" required class="form-select">
+                                <option value="" disabled selected>Select faculty</option>
+                                {% for faculty in faculties %}
+                                    <option value="{{ faculty.id }}">{{ faculty.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="department-name">Department Name</label>
+                            <input type="text" name="name" id="department-name" required
+                                   placeholder="e.g. Computer Engineering" class="form-input">
+                        </div>
+
+                        <button type="submit" class="btn-primary w-full">Add Department</button>
+                    </form>
+                </div>
             </div>
 
-            <div class="bg-card border border-border rounded-2xl overflow-hidden">
-                <div class="px-6 pt-6 pb-4 flex items-center justify-between">
-                    <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Departments</h2>
-                    <span class="text-xs text-muted">{{ departments|length }} total</span>
-                </div>
-                <div class="divide-y divide-border border-t border-border">
+            <div class="card-clip">
+                {{ directory_heading('Departments', departments|length, 'department') }}
+
+                <div class="divide-y divide-divider border-t border-divider">
                     {% for dept in departments %}
-                        <div class="flex items-center justify-between px-6 py-3.5">
-                            <div>
-                                <p class="text-sm font-medium">{{ dept.name }}</p>
-                                <p class="text-[11px] text-muted mt-0.5">{{ dept.faculty.name if dept.faculty else '—' }} · {{ dept.students|length }} students · {{ dept.lecturers|length }} lecturers · {{ dept.courses|length }} courses</p>
+                        <div class="flex items-center justify-between gap-4 px-5 py-3.5">
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-semibold text-ink">{{ dept.name }}</p>
+                                <p class="mt-0.5 text-2xs text-muted">
+                                    {{ dept.faculty.name if dept.faculty else '—' }} &middot;
+                                    {{ dept.students|length }} students &middot;
+                                    {{ dept.lecturers|length }} lecturers &middot;
+                                    {{ dept.courses|length }} courses
+                                </p>
                             </div>
                             <button type="button"
-                                    class="text-muted hover:text-error transition-colors shrink-0 ml-3"
+                                    class="btn-ghost btn-icon shrink-0 text-muted hover:text-error"
+                                    title="Delete department"
                                     data-delete-trigger
                                     data-entity-type="Department"
                                     data-name="{{ dept.name }}"
                                     data-action-url="{{ url_for('admin.delete_department', department_id=dept.id) }}"
                                     data-message="Deleting &quot;{{ dept.name }}&quot; will also delete {{ dept.students|length }} student(s), {{ dept.lecturers|length }} lecturer(s), and {{ dept.courses|length }} course(s). This cannot be undone.">
-                                <span class="material-symbols-rounded text-[20px]">delete</span>
+                                <span class="material-symbols-rounded text-xl">delete</span>
                             </button>
                         </div>
                     {% else %}
-                        <p class="px-6 py-8 text-sm text-muted text-center">No departments yet.</p>
+                        {{ empty_state('No departments yet.', 'account_tree') }}
                     {% endfor %}
                 </div>
             </div>
@@ -118,35 +150,37 @@
          Shared by every delete button above; populated from the triggering
          button's data-* attributes. Type-the-name-to-confirm gate (same
          pattern as reset_db.py's confirmation prompt) rather than a plain
-         yes/no, since these deletes cascade and can't be undone. -->
-    <div id="delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4">
-        <div class="bg-card border border-border rounded-2xl w-full max-w-md p-6">
-            <div class="flex items-center gap-3 mb-4">
-                <div class="w-9 h-9 rounded-full bg-error/10 flex items-center justify-center text-error shrink-0">
-                    <span class="material-symbols-rounded text-[20px]">warning</span>
+         yes/no, since these deletes cascade and can't be undone.
+
+         The scrim carries `hidden` in the markup below and `flex` is added
+         by the script when it opens -- both are literal classes here, so the
+         scanner emits them even though the script only touches them by name. -->
+    <div id="delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+        <div class="card w-full max-w-md p-6">
+            <div class="mb-4 flex items-center gap-3">
+                <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-error-soft text-error">
+                    <span class="material-symbols-rounded text-xl">warning</span>
                 </div>
-                <h3 id="delete-modal-title" class="text-sm font-bold">Delete item?</h3>
+                <h3 id="delete-modal-title" class="card-title text-base">Delete item?</h3>
             </div>
-            <p id="delete-modal-message" class="text-sm text-secondary leading-relaxed mb-4"></p>
-            <label class="block text-xs font-medium text-secondary mb-1.5">
-                Type <span id="delete-modal-expected" class="text-white font-semibold"></span> to confirm
+
+            <p id="delete-modal-message" class="mb-4 text-sm leading-relaxed text-secondary"></p>
+
+            <label class="form-label" for="delete-modal-input">
+                Type <span id="delete-modal-expected" class="font-semibold text-ink"></span> to confirm
             </label>
-            <!-- form-input's base shape, but red focus instead of accent --
-                 this is a destructive confirmation, the danger color is
-                 intentional here, not an inconsistency. -->
-            <input type="text" id="delete-modal-input" autocomplete="off"
-                   class="form-input focus:border-error! focus:ring-error! mb-5">
+            <!-- .form-danger is the destructive sibling of .form-input: same
+                 shape, red focus ring. A modal whose entire purpose is a
+                 destructive confirmation shouldn't have an accent-coloured
+                 focus. -->
+            <input type="text" id="delete-modal-input" autocomplete="off" class="form-input form-danger mb-5">
 
             <form id="delete-modal-form" method="POST" class="flex gap-3">
                 {% include '_csrf_field.html' %}
-                <button type="button" id="delete-modal-cancel"
-                        class="flex-1 bg-surface border border-border hover:bg-border text-sm font-semibold rounded-lg py-2.5 transition-colors">
-                    Cancel
-                </button>
-                <button type="submit" id="delete-modal-confirm" disabled
-                        class="flex-1 bg-error/50 text-white text-sm font-semibold rounded-lg py-2.5 transition-colors disabled:cursor-not-allowed enabled:bg-error enabled:hover:bg-error/90">
-                    Delete
-                </button>
+                <button type="button" id="delete-modal-cancel" class="btn-secondary flex-1">Cancel</button>
+                {# .btn carries disabled:opacity-40, so the gate's disabled state
+                   needs no bespoke styling here. #}
+                <button type="submit" id="delete-modal-confirm" disabled class="btn-danger flex-1">Delete</button>
             </form>
         </div>
     </div>
@@ -173,6 +207,10 @@
                 expected.textContent = expectedName;
                 form.action = btn.dataset.actionUrl;
                 input.value = '';
+                // Exact string equality, not a trimmed or case-folded compare:
+                // the admin was asked to type the name exactly as shown, and a
+                // lenient compare would let "engineering" through for
+                // "Faculty of Engineering".
                 confirmBtn.disabled = true;
                 modal.classList.remove('hidden');
                 modal.classList.add('flex');

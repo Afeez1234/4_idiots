@@ -1,5 +1,6 @@
 import 'package:suaams/shared/widgets/app_label_value_row.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/widgets/dashboard_background.dart';
@@ -38,24 +39,46 @@ class StudentIdCardScreen extends ConsumerWidget {
           ),
           SafeArea(
             child: data == null
-                ? Center(
-                    child: state.isLoading
-                        ? const CircularProgressIndicator()
-                        : Text(state.errorMessage ?? 'No data available'),
-                  )
+                ? (state.isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : AppStateView(
+                          kind: AppStateKind.error,
+                          icon: Icons.badge_rounded,
+                          title: "Couldn't load your ID card",
+                          message: state.errorMessage ??
+                              'Check your connection and try again.',
+                          onRetry: () => ref
+                              .read(studentDashboardProvider.notifier)
+                              .loadDashboardData(),
+                        ))
                 : SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'DIGITAL SMART ID',
-                          style: TextStyle(
-                            fontSize: 10,
-                            letterSpacing: 2,
-                            color: Colors.grey,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
+                        ),
+                        const SizedBox(height: 8),
+                        // This tab previously had no explanation anywhere in
+                        // the app: a card appeared with no indication of what
+                        // it was for, and a button labelled "TAP TO CHECK IN"
+                        // underneath it that looked like a mistake. The card
+                        // IS the attendance credential -- it lives on the
+                        // phone rather than in a wallet, which is the whole
+                        // premise of the system -- so say so.
+                        Text(
+                          'Your ID lives on this phone rather than in a '
+                          'wallet. Present it at any SUAAMS terminal to '
+                          'record your attendance.',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.55,
+                                ),
+                                height: 1.45,
+                              ),
                         ),
                         const SizedBox(height: 16),
                         _DigitalIdCard(
@@ -81,15 +104,45 @@ class StudentIdCardScreen extends ConsumerWidget {
                               Icon(Icons.contactless_rounded, size: 22),
                               SizedBox(width: 12),
                               Text(
-                                'TAP TO CHECK IN',
+                                'CHECK IN WITH THIS ID',
                                 style: TextStyle(
-                                  letterSpacing: 2,
+                                  letterSpacing: 1.5,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
                                 ),
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Same reassurance the Home session card gives: the
+                        // fingerprint prompt is mandatory, so naming it here
+                        // means it never arrives as a surprise.
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.fingerprint_rounded,
+                              size: 14,
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.45,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                "You'll confirm with your fingerprint, then "
+                                'hold your phone to the terminal.',
+                                textAlign: TextAlign.center,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: colorScheme.onSurface.withValues(
+                                        alpha: 0.45,
+                                      ),
+                                    ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -211,7 +264,7 @@ class _DigitalIdCard extends StatelessWidget {
                   Text(
                     'HARDWARE UID',
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.5,
                       color: colorScheme.onSurface.withValues(alpha: 0.5),

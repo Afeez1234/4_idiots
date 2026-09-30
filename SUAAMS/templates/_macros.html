@@ -1,0 +1,252 @@
+{# ===========================================================================
+   Shared UI macros for the whole web app.
+
+   Added 2026-09-30 with the light-theme redesign. Before this file the same
+   seven visual blocks were hand-copied across 26 templates -- the stat card
+   20+ times, the table skeleton 5 times, the empty state in 7 mutually
+   incompatible markups, and one business rule (the attendance threshold)
+   copy-pasted at least six times. Everything here takes its colours from a
+   `data-tone` attribute rather than a class name.
+
+   WHY data-tone AND NOT A CLASS:
+   Tailwind's build scans source text for complete class-name tokens. When a
+   class name is split across a Jinja expression -- a literal prefix, then an
+   opening brace, then a fragment the scanner reads as its own token -- the
+   assembled name never appears in the file, the rule is never emitted, and
+   the element renders unstyled with no error anywhere. An attribute selector
+   makes the class a permanent literal and lets only the free-form attribute
+   value vary, which removes that whole class of silent failure. See
+   input.css for the matching .pill / .dot / .progress-fill / .bar-fill /
+   .alert rules, and tests/test_templates.py::test_no_split_tailwind_class_names
+   for the guard that keeps it that way.
+   =========================================================================== #}
+
+{# ---------------------------------------------------------------------------
+   ATTENDANCE THRESHOLDS
+
+   These are two DIFFERENT rules that look alike, and the distinction is
+   load-bearing:
+
+   * at_risk_tone() mirrors a real business rule: "below 75% is at risk".
+     That threshold is hardcoded in Python in four places --
+     blueprints/student.py and api/student.py compute at_risk_count as
+     pct < 75, and blueprints/hod.py counts flagged students the same way in
+     two places. A student at 70% genuinely IS flagged, so red is correct in
+     the student and HOD views. Keep this in step if the Python threshold
+     ever moves -- it is currently duplicated there, not hoisted to a
+     shared constant.
+
+   * grade_tone() is a three-tier portfolio scale used by the admin reports
+     and the department rollup, where a single number summarises many
+     students and "70% of a cohort" should not read as one student's red flag.
+
+   Flattening these into one rule would have quietly changed what students
+   see against what the API already reports, so they stay separate.
+   --------------------------------------------------------------------------- #}
+
+{%- macro at_risk_tone(pct) -%}
+  {{- 'success' if pct >= 75 else 'error' -}}
+{%- endmacro -%}
+
+{%- macro grade_tone(pct) -%}
+  {{- 'success' if pct >= 75 else ('warning' if pct >= 50 else 'error') -}}
+{%- endmacro -%}
+
+
+{# ---------------------------------------------------------------------------
+   STAT CARD
+   Written out unrolled 20+ times across six pages before this. The label /
+   value / caption skeleton is identical every time; only the data changed.
+   --------------------------------------------------------------------------- #}
+{%- macro stat_card(label, value, caption='', icon='', tone='accent') -%}
+  <div class="stat-card">
+    <div class="flex items-start justify-between gap-3">
+      <span class="stat-label">{{ label }}</span>
+      {% if icon %}
+        <span class="material-symbols-rounded text-lg" style="color: var(--color-{{ tone }})">{{ icon }}</span>
+      {% endif %}
+    </div>
+    <div>
+      <p class="stat-value">{{ value }}</p>
+      {% if caption %}<p class="stat-caption">{{ caption }}</p>{% endif %}
+    </div>
+  </div>
+{%- endmacro -%}
+
+
+{# ---------------------------------------------------------------------------
+   PROGRESS BAR
+   Three sites were byte-identical modulo bar height (hod/students,
+   student/dashboard, student/my_courses). Height is now a parameter.
+   `tone` is a tone NAME, not a class.
+   --------------------------------------------------------------------------- #}
+{%- macro progress_bar(pct, tone='accent', height='h-1.5', label='') -%}
+  <div class="progress {{ height }}" role="progressbar" aria-valuenow="{{ pct }}" aria-valuemin="0" aria-valuemax="100">
+    <div class="progress-fill" data-tone="{{ tone }}" style="width: {{ pct }}%"></div>
+  </div>
+{%- endmacro -%}
+
+
+{# Horizontal bar row -- label, value, track. Used by the department
+   attendance rollup and the reports page. #}
+{%- macro bar_row(label, value, suffix='%', tone='accent') -%}
+  <div class="bar-row" style="grid-template-columns: 1fr auto;">
+    <div>
+      <div class="mb-1.5 flex items-center justify-between gap-3">
+        <span class="text-sm font-medium text-ink">{{ label }}</span>
+        <span class="text-sm font-semibold text-ink">{{ value }}{{ suffix }}</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill" data-tone="{{ tone }}" style="width: {{ value }}%"></div>
+      </div>
+    </div>
+  </div>
+{%- endmacro -%}
+
+
+{# Donut ring. Driven by an inline --pct custom property, which is the one
+   legitimate case for an inline style: the value is data, not a class. #}
+{%- macro donut(pct, value, caption='', size='h-32 w-32', tone='accent') -%}
+  <div class="donut {{ size }}"
+       style="--pct: {{ pct }}; --donut-color: var(--color-{{ tone }});"
+       role="img" aria-label="{{ caption }} {{ pct }}%">
+    <div class="donut-label">
+      <p class="text-2xl font-extrabold leading-none text-ink">{{ value }}</p>
+      {% if caption %}<p class="mt-1 text-2xs text-muted">{{ caption }}</p>{% endif %}
+    </div>
+  </div>
+{%- endmacro -%}
+
+
+{# ---------------------------------------------------------------------------
+   PILLS & BADGES
+   Seventeen hand-rolled status pills existed across the admin pages, all
+   sharing `inline-flex items-center px-2 py-1 rounded-full text-2xs` and
+   differing only in two hardcoded colour classes.
+   --------------------------------------------------------------------------- #}
+{%- macro pill(text, tone='neutral', icon='') -%}
+  <span class="pill" data-tone="{{ tone }}">
+    {%- if icon -%}<span class="material-symbols-rounded text-sm">{{ icon }}</span>{%- endif -%}
+    {{- text -}}
+  </span>
+{%- endmacro -%}
+
+{%- macro course_chip(code) -%}
+  <span class="chip">{{ code }}</span>
+{%- endmacro -%}
+
+{# Small solid status dot -- activity feed, timetable legend. #}
+{%- macro dot(tone='muted', size='h-2 w-2') -%}
+  <span class="dot {{ size }}" data-tone="{{ tone }}"></span>
+{%- endmacro -%}
+
+{# Avatar with a name-derived initial. Several pages do
+   `{{ person.full_name[0]|upper }}` inline; a None name would raise, so the
+   macro falls back rather than trusting the caller. #}
+{%- macro avatar(name, muted=false) -%}
+  <span class="avatar {% if muted %}avatar-muted{% endif %}">{{ (name or '?')[0]|upper }}</span>
+{%- endmacro -%}
+
+
+{# ---------------------------------------------------------------------------
+   ATTENDANCE DISPLAY
+   Two variants, matching the two threshold rules above.
+   `variant='risk'` follows the at-risk business rule; `variant='grade'`
+   uses the three-tier portfolio scale.
+   --------------------------------------------------------------------------- #}
+{%- macro attendance_pill(pct, variant='risk') -%}
+  {%- set tone = at_risk_tone(pct) if variant == 'risk' else grade_tone(pct) -%}
+  <span class="pill" data-tone="{{ tone }}">{{ pct }}%</span>
+{%- endmacro -%}
+
+{%- macro attendance_bar(pct, variant='risk', height='h-1.5') -%}
+  {%- set tone = at_risk_tone(pct) if variant == 'risk' else grade_tone(pct) -%}
+  <div class="progress {{ height }}">
+    <div class="progress-fill" data-tone="{{ tone }}" style="width: {{ pct }}%"></div>
+  </div>
+{%- endmacro -%}
+
+
+{# ---------------------------------------------------------------------------
+   EMPTY STATE
+   Seven different markups existed -- card, table row, divide-y list, inline,
+   and three paddings -- with no shared class. One now.
+   --------------------------------------------------------------------------- #}
+{%- macro empty_state(message, icon='inbox', sub='') -%}
+  <div class="empty-state">
+    <div class="empty-state-icon">
+      <span class="material-symbols-rounded text-xl">{{ icon }}</span>
+    </div>
+    <p>{{ message }}</p>
+    {% if sub %}<p class="mt-1 text-2xs text-muted">{{ sub }}</p>{% endif %}
+  </div>
+{%- endmacro -%}
+
+{# Table-row variant: same look, but a colspan cell so it sits inside a
+   <tbody> without breaking the table grid. #}
+{%- macro table_empty(colspan, message) -%}
+  <tr>
+    <td colspan="{{ colspan }}" class="empty-state">{{ message }}</td>
+  </tr>
+{%- endmacro -%}
+
+
+{# ---------------------------------------------------------------------------
+   FLASH MESSAGE
+   The four-way category-to-colour mapping was duplicated verbatim in
+   base_portal.html, base_student.html, login.html and change_password.html.
+   The auth pair additionally wrapped it in a monospace font. Kept here so
+   there is exactly one mapping.
+   --------------------------------------------------------------------------- #}
+{%- macro flash(category, message) -%}
+  {%- set tones = {
+        'success': 'success',
+        'danger':  'error',
+        'error':   'error',
+        'warning': 'warning',
+        'info':    'info',
+     } -%}
+  {%- set tone = tones.get(category, 'info') -%}
+  <div class="alert" data-tone="{{ tone }}" role="alert">
+    <span class="material-symbols-rounded text-lg">
+      {{- {'success': 'check_circle', 'error': 'error', 'warning': 'warning', 'info': 'info'}.get(tone, 'info') -}}
+    </span>
+    <p>{{ message }}</p>
+  </div>
+{%- endmacro -%}
+
+
+{# ---------------------------------------------------------------------------
+   PAGE SHELL
+   The "form column on the left, directory on the right" layout was
+   re-declared by hand in seven admin pages. It is deliberately NOT a macro:
+   Jinja macros expose a single `caller` block, so a two-column shell would
+   need one column passed in as an HTML string, which is far less readable
+   than just writing the markup. It is a CSS class instead -- .form-grid and
+   .form-grid-main in input.css -- because a class composes with ordinary
+   markup and cannot be got wrong.
+
+   The sticky wrapper deliberately wraps BOTH form cards rather than making
+   each one sticky: two independently sticky children both pinning top:0 is
+   what the original hand-written versions were working around.
+   --------------------------------------------------------------------------- #}
+
+
+{# Section heading inside a card -- the 25 hand-repeated
+   `text-sm font-bold uppercase tracking-wide text-secondary` h2s. #}
+{%- macro card_heading(text, info=false) -%}
+  <h2 class="card-title flex items-center gap-1.5">
+    {{ text }}
+    {% if info %}<span class="card-info">info</span>{% endif %}
+  </h2>
+{%- endmacro -%}
+
+{# Directory header: heading + record count, shared by six admin pages. #}
+{%- macro directory_heading(text, count, noun='') -%}
+  <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
+    <h2 class="card-title">{{ text }}</h2>
+    {% if count is not none %}
+      <span class="text-xs text-muted">{{ count }} {{ noun }}{{ '' if count == 1 else 's' }}</span>
+    {% endif %}
+  </div>
+{%- endmacro -%}

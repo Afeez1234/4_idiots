@@ -1,137 +1,132 @@
 {% extends "base_portal.html" %}
+{% from '_macros.html' import stat_card, empty_state, card_heading %}
 
 {% block title %}Analytics | SUAAMS Lecturer{% endblock %}
 {% block page_title %}Analytics{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Attendance trends across your courses</p>
+    <p class="page-subtitle">Attendance trends across your courses</p>
 {% endblock %}
 
 {% block content %}
 
-    <!-- KPI tiles -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Overall Average</span>
-                <span class="material-symbols-rounded text-accent">insights</span>
+    {# KPI tiles. Each value is conditional on the route having found a course
+       to say anything about -- an unstarted course reports 0%, and showing
+       that as "0%" would read as "everyone failed" rather than "not run yet",
+       so the empty cases fall back to an em dash with a reason underneath. #}
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        {{ stat_card('Overall Average',
+                     overall_avg ~ '%' if overall_avg is not none else '—',
+                     'Across all courses this semester' if overall_avg is not none
+                     else 'No completed sessions yet',
+                     'insights') }}
+        {{ stat_card('Best Performing',
+                     best_course.average_attendance ~ '%' if best_course else '—',
+                     best_course.course.course_code ~ ' · ' ~ best_course.course.course_title
+                     if best_course else 'No completed sessions yet',
+                     'trending_up', 'success') }}
+        {{ stat_card('Needs Attention',
+                     worst_course.average_attendance ~ '%' if worst_course else '—',
+                     worst_course.course.course_code ~ ' · ' ~ worst_course.course.course_title
+                     if worst_course else 'Need 2+ rated courses to compare',
+                     'trending_down', 'error') }}
+    </div>
+
+    {# Attendance trend. The chart itself is built by the inline script at the
+       bottom of this file from `trend_series|tojson`. #}
+    <div class="card">
+        <div class="card-header">
+            <div>
+                {{ card_heading('Attendance Trend', info=true) }}
+                <p class="page-subtitle">Per-session attendance, by course, over time</p>
             </div>
-            {% if overall_avg is not none %}
-                <p class="mt-4 text-3xl font-extrabold">{{ overall_avg }}%</p>
-                <p class="mt-1 text-xs text-muted">Across all courses this semester</p>
-            {% else %}
-                <p class="mt-4 text-3xl font-extrabold text-muted">&mdash;</p>
-                <p class="mt-1 text-xs text-muted">No completed sessions yet</p>
+            {# Populated by the script; empty in the markup so a JS failure
+               leaves a blank slot rather than a stale list. #}
+            {% if trend_series %}
+                <div id="trend-legend" class="flex flex-wrap items-center gap-4 text-xs"></div>
             {% endif %}
         </div>
 
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Best Performing</span>
-                <span class="material-symbols-rounded text-success">trending_up</span>
-            </div>
-            {% if best_course %}
-                <p class="mt-4 text-3xl font-extrabold text-success">{{ best_course.average_attendance }}%</p>
-                <p class="mt-1 text-xs text-muted">{{ best_course.course.course_code }} &middot; {{ best_course.course.course_title }}</p>
-            {% else %}
-                <p class="mt-4 text-3xl font-extrabold text-muted">&mdash;</p>
-                <p class="mt-1 text-xs text-muted">No completed sessions yet</p>
-            {% endif %}
-        </div>
+        <div class="card-body">
+            {% if trend_series %}
+                <div id="trend-chart" class="relative" style="height: 320px;"></div>
 
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Needs Attention</span>
-                <span class="material-symbols-rounded text-error">trending_down</span>
-            </div>
-            {% if worst_course %}
-                <p class="mt-4 text-3xl font-extrabold text-error">{{ worst_course.average_attendance }}%</p>
-                <p class="mt-1 text-xs text-muted">{{ worst_course.course.course_code }} &middot; {{ worst_course.course.course_title }}</p>
+                {# Accessible fallback. The SVG chart is drawn by script and is
+                   invisible without it; this is the same data as real markup,
+                   collapsed so it doesn't compete with the chart by default. #}
+                <details class="mt-5">
+                    <summary class="cursor-pointer text-xs text-muted transition-colors hover:text-ink">
+                        View as table
+                    </summary>
+                    <div class="table-wrap mt-3 rounded-btn border border-border">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th class="th">Course</th>
+                                    <th class="th">Date</th>
+                                    <th class="th">Attendance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in trend_series %}
+                                    {% for p in s.points %}
+                                        <tr>
+                                            <td class="td td-muted">{{ s.code }}</td>
+                                            <td class="td td-muted">{{ p.date }}</td>
+                                            <td class="td font-semibold">{{ p.pct }}%</td>
+                                        </tr>
+                                    {% endfor %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
             {% else %}
-                <p class="mt-4 text-3xl font-extrabold text-muted">&mdash;</p>
-                <p class="mt-1 text-xs text-muted">Need 2+ rated courses to compare</p>
+                {{ empty_state('No completed sessions yet to chart.', 'monitoring',
+                               'The trend builds itself as soon as your first session ends.') }}
             {% endif %}
         </div>
     </div>
 
-    <!-- Attendance trend -->
-    <div class="bg-card border border-border rounded-2xl p-6">
-        <div class="flex items-center justify-between gap-4 flex-wrap mb-1">
+    {# Course comparison. Same split: script-drawn bars, table fallback. #}
+    <div class="card">
+        <div class="card-header">
             <div>
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Attendance Trend</h2>
-                <p class="text-xs text-muted mt-1">Per-session attendance, by course, over time</p>
+                {{ card_heading('Course Comparison', info=true) }}
+                <p class="page-subtitle">Average attendance by course</p>
             </div>
-            {% if trend_series %}
-                <div id="trend-legend" class="flex items-center gap-4 flex-wrap text-xs"></div>
-            {% endif %}
         </div>
 
-        {% if trend_series %}
-            <div id="trend-chart" class="relative mt-4" style="height: 300px;"></div>
-            <details class="mt-4">
-                <summary class="text-xs text-muted cursor-pointer hover:text-secondary transition-colors">View as table</summary>
-                <div class="overflow-x-auto mt-3">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-t border-border text-left">
-                                <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
-                                <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary">Date</th>
-                                <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary">Attendance</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for s in trend_series %}
-                                {% for p in s.points %}
-                                    <tr class="border-t border-border">
-                                        <td class="px-4 py-2 text-secondary">{{ s.code }}</td>
-                                        <td class="px-4 py-2 text-secondary">{{ p.date }}</td>
-                                        <td class="px-4 py-2">{{ p.pct }}%</td>
+        <div class="card-body">
+            {% if comparison_data %}
+                <div id="comparison-chart" class="relative" style="height: 280px;"></div>
+
+                <details class="mt-5">
+                    <summary class="cursor-pointer text-xs text-muted transition-colors hover:text-ink">
+                        View as table
+                    </summary>
+                    <div class="table-wrap mt-3 rounded-btn border border-border">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th class="th">Course</th>
+                                    <th class="th">Average Attendance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in comparison_data %}
+                                    <tr>
+                                        <td class="td td-muted">{{ c.code }} &ndash; {{ c.title }}</td>
+                                        <td class="td font-semibold">{{ c.pct }}%</td>
                                     </tr>
                                 {% endfor %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </details>
-        {% else %}
-            <div class="mt-4 py-16 text-center">
-                <p class="text-sm text-muted">No completed sessions yet to chart.</p>
-            </div>
-        {% endif %}
-    </div>
-
-    <!-- Course comparison -->
-    <div class="bg-card border border-border rounded-2xl p-6">
-        <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Course Comparison</h2>
-        <p class="text-xs text-muted mt-1">Average attendance by course</p>
-
-        {% if comparison_data %}
-            <div id="comparison-chart" class="relative mt-4" style="height: 260px;"></div>
-            <details class="mt-4">
-                <summary class="text-xs text-muted cursor-pointer hover:text-secondary transition-colors">View as table</summary>
-                <div class="overflow-x-auto mt-3">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="border-t border-border text-left">
-                                <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
-                                <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-secondary">Average Attendance</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for c in comparison_data %}
-                                <tr class="border-t border-border">
-                                    <td class="px-4 py-2 text-secondary">{{ c.code }} &ndash; {{ c.title }}</td>
-                                    <td class="px-4 py-2">{{ c.pct }}%</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </details>
-        {% else %}
-            <div class="mt-4 py-16 text-center">
-                <p class="text-sm text-muted">No courses assigned yet.</p>
-            </div>
-        {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+            {% else %}
+                {{ empty_state('No courses assigned yet.', 'book') }}
+            {% endif %}
+        </div>
     </div>
 
 {% endblock %}
@@ -142,6 +137,31 @@
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const trendData = {{ trend_series|tojson }};
     const comparisonData = {{ comparison_data|tojson }};
+
+    /* ------------------------------------------------------------------
+       COLOUR CONTRACT (re-tuned for the light theme, 2026-09-30)
+
+       These charts were authored against the old dark surface and hard-coded
+       to it. On white each one needed a different answer, and the reasons are
+       not interchangeable -- this is the whole reason they are named here
+       rather than inlined at each of the 12 use sites:
+
+         --color-card     The ring behind each end-marker. Still correct, but
+                          on white a white ring is invisible, so it now also
+                          carries a --color-border stroke to actually read as
+                          a gap between crossing lines.
+         --color-border   Gridlines. Kept faint by design: on a light chart the
+                          grid is structure, not data, and anything darker
+                          competes with the series.
+         --color-secondary  Axis and end-of-line labels. These were
+                          --color-muted (#939BA9), which is only 2.6:1 on
+                          white -- unreadable at the 10-11px these render at.
+                          --color-secondary is ~5.9:1 and is the token the
+                          rest of the app uses for small secondary text.
+         --color-accent   The crosshair. Reads as an instrument overlay rather
+                          than a data series, and the dashed accent is
+                          distinguishable from all five categorical hues.
+       ------------------------------------------------------------------ */
 
     function el(tag, attrs) {
         const e = document.createElementNS(SVG_NS, tag);
@@ -155,9 +175,12 @@
     }
 
     // Shared HTML tooltip overlay, reused by both charts (one at a time).
+    // White card + hairline border + --shadow-pop: on a light page a tinted
+    // tooltip would compete with the surface instead of lifting off it.
     function makeTooltip(container) {
         const tip = document.createElement('div');
-        tip.className = 'pointer-events-none absolute z-10 hidden bg-surface border border-border rounded-lg px-3 py-2 text-xs shadow-lg';
+        tip.className = 'pointer-events-none absolute z-10 hidden rounded-btn border border-border bg-card px-3 py-2 text-xs';
+        tip.style.boxShadow = 'var(--shadow-pop)';
         tip.style.minWidth = '140px';
         container.appendChild(tip);
         return tip;
@@ -178,8 +201,8 @@
         if (!container || !trendData.length) return;
 
         const width = container.clientWidth || 600;
-        const height = 300;
-        const pad = { top: 16, right: 54, bottom: 24, left: 34 };
+        const height = 320;
+        const pad = { top: 16, right: 58, bottom: 24, left: 34 };
         const plotW = width - pad.left - pad.right;
         const plotH = height - pad.top - pad.bottom;
 
@@ -203,24 +226,25 @@
 
         const svg = el('svg', { width: '100%', height: height, viewBox: '0 0 ' + width + ' ' + height });
 
-        // Gridlines + y-axis labels (0/25/50/75/100).
+        // Gridlines + y-axis labels (0/25/50/75/100). The 0 and 100 lines are
+        // the plot's own bounds, so they get the stronger border token.
         [0, 25, 50, 75, 100].forEach(function (v) {
             const y = yOf(v);
             svg.appendChild(el('line', {
                 x1: pad.left, x2: width - pad.right, y1: y, y2: y,
                 style: 'stroke: var(--color-border); stroke-width: 1;'
             }));
-            const label = el('text', { x: pad.left - 8, y: y + 3, 'text-anchor': 'end', 'font-size': 10, style: 'fill: var(--color-muted);' });
+            const label = el('text', { x: pad.left - 8, y: y + 3, 'text-anchor': 'end', 'font-size': 10, style: 'fill: var(--color-secondary);' });
             label.textContent = v + '%';
             svg.appendChild(label);
         });
 
         // X-axis: earliest / latest date only, to keep it readable across
         // courses whose sessions don't fall on the same days.
-        const startLabel = el('text', { x: pad.left, y: height - 6, 'font-size': 10, style: 'fill: var(--color-muted);' });
+        const startLabel = el('text', { x: pad.left, y: height - 6, 'font-size': 10, style: 'fill: var(--color-secondary);' });
         startLabel.textContent = fmtDate(new Date(minT).toISOString().slice(0, 10));
         svg.appendChild(startLabel);
-        const endLabel = el('text', { x: width - pad.right, y: height - 6, 'text-anchor': 'end', 'font-size': 10, style: 'fill: var(--color-muted);' });
+        const endLabel = el('text', { x: width - pad.right, y: height - 6, 'text-anchor': 'end', 'font-size': 10, style: 'fill: var(--color-secondary);' });
         endLabel.textContent = fmtDate(new Date(maxT).toISOString().slice(0, 10));
         svg.appendChild(endLabel);
 
@@ -232,9 +256,14 @@
             svg.appendChild(el('path', { d: d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
 
             const last = pts[pts.length - 1];
-            // Surface ring (a slightly larger card-colored disc behind the
-            // marker) keeps the dot legible where lines cross.
-            svg.appendChild(el('circle', { cx: last[0], cy: last[1], r: 7, style: 'fill: var(--color-card);' }));
+            // Surface ring (a slightly larger card-coloured disc behind the
+            // marker) keeps the dot legible where lines cross. The stroke is
+            // what makes that ring visible on a white card -- without it the
+            // "gap" is invisible and crossing lines just bleed together.
+            svg.appendChild(el('circle', {
+                cx: last[0], cy: last[1], r: 7,
+                style: 'fill: var(--color-card); stroke: var(--color-border); stroke-width: 1;'
+            }));
             svg.appendChild(el('circle', { cx: last[0], cy: last[1], r: 5, fill: s.color }));
 
             endLabelPositions.push({ code: s.code, x: last[0] + 9, y: last[1], color: s.color });
@@ -253,7 +282,7 @@
             if (Math.abs(lp.y - originalY) > 3) {
                 svg.appendChild(el('line', {
                     x1: lp.x - 5, y1: originalY, x2: lp.x, y2: lp.y,
-                    style: 'stroke: var(--color-muted); stroke-width: 1;'
+                    style: 'stroke: var(--color-border); stroke-width: 1;'
                 }));
             }
             const t = el('text', { x: lp.x, y: lp.y + 4, 'font-size': 11, 'font-weight': 600, style: 'fill: var(--color-secondary);' });
@@ -270,7 +299,7 @@
                 const item = document.createElement('div');
                 item.className = 'flex items-center gap-1.5';
                 const swatch = document.createElement('span');
-                swatch.className = 'inline-block w-3 h-0.5 rounded-full';
+                swatch.className = 'inline-block h-0.5 w-3 rounded-full';
                 swatch.style.backgroundColor = s.color;
                 const label = document.createElement('span');
                 label.className = 'text-secondary';
@@ -284,7 +313,10 @@
         // Crosshair + tooltip: nearest point per series to the pointer's X.
         const hit = el('rect', { x: pad.left, y: pad.top, width: plotW, height: plotH, fill: 'transparent', style: 'cursor: crosshair;' });
         svg.appendChild(hit);
-        const crosshair = el('line', { y1: pad.top, y2: height - pad.bottom, style: 'stroke: var(--color-muted); stroke-width: 1; display: none;' });
+        const crosshair = el('line', {
+            y1: pad.top, y2: height - pad.bottom,
+            style: 'stroke: var(--color-accent); stroke-width: 1; stroke-dasharray: 3 3; display: none;'
+        });
         svg.appendChild(crosshair);
         const tip = makeTooltip(container);
 
@@ -307,14 +339,15 @@
                 const left = document.createElement('span');
                 left.className = 'flex items-center gap-1.5 text-secondary';
                 const key = document.createElement('span');
-                key.className = 'inline-block w-2.5 h-0.5 rounded-full';
+                key.className = 'inline-block h-0.5 w-2.5 rounded-full';
                 key.style.backgroundColor = s.color;
                 const name = document.createElement('span');
                 name.textContent = s.code + ' · ' + fmtDate(nearest.date);
                 left.appendChild(key);
                 left.appendChild(name);
                 const val = document.createElement('span');
-                val.className = 'font-semibold text-white';
+                // text-ink, not text-white: the tooltip is a white card now.
+                val.className = 'font-semibold text-ink';
                 val.textContent = nearest.pct + '%';
                 row.appendChild(left);
                 row.appendChild(val);
@@ -335,7 +368,7 @@
         if (!container || !comparisonData.length) return;
 
         const width = container.clientWidth || 600;
-        const height = 260;
+        const height = 280;
         const pad = { top: 20, right: 16, bottom: 30, left: 16 };
         const plotW = width - pad.left - pad.right;
         const plotH = height - pad.top - pad.bottom;
@@ -382,7 +415,7 @@
             valueLabel.textContent = c.pct + '%';
             svg.appendChild(valueLabel);
 
-            const axisLabel = el('text', { x: cx, y: height - 8, 'text-anchor': 'middle', 'font-size': 10, style: 'fill: var(--color-muted);' });
+            const axisLabel = el('text', { x: cx, y: height - 8, 'text-anchor': 'middle', 'font-size': 10, style: 'fill: var(--color-secondary);' });
             axisLabel.textContent = c.code;
             svg.appendChild(axisLabel);
 
@@ -396,7 +429,7 @@
                 title.className = 'text-secondary';
                 title.textContent = c.code + ' – ' + c.title;
                 const val = document.createElement('div');
-                val.className = 'font-semibold text-white mt-0.5';
+                val.className = 'mt-0.5 font-semibold text-ink';
                 val.textContent = c.pct + '% average attendance';
                 tip.appendChild(title);
                 tip.appendChild(val);

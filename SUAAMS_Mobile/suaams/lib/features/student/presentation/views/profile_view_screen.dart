@@ -125,14 +125,9 @@ class ProfileView extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'STUDENT DOSSIER',
-            style: TextStyle(
-              fontSize: 10,
-              letterSpacing: 2,
-              color: Colors.grey,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
           const SizedBox(height: 16),
 
@@ -140,14 +135,9 @@ class ProfileView extends ConsumerWidget {
           _buildPersonalInfoCard(profile, colorScheme),
           const SizedBox(height: 32),
 
-          const Text(
+          Text(
             'SYSTEM PREFERENCES',
-            style: TextStyle(
-              fontSize: 10,
-              letterSpacing: 2,
-              color: Colors.grey,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
           const SizedBox(height: 16),
 

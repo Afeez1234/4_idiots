@@ -22,14 +22,9 @@ class CoursesView extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'ACADEMIC MODULES',
-            style: TextStyle(
-              fontSize: 10,
-              letterSpacing: 2,
-              color: Colors.grey,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
           const SizedBox(height: 16),
 
@@ -131,7 +126,7 @@ class CoursesView extends ConsumerWidget {
                 Text(
                   'ATTENDANCE',
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 11,
                     letterSpacing: 1.5,
                     fontWeight: FontWeight.bold,
                     color: colorScheme.onSurface.withValues(alpha: 0.5),

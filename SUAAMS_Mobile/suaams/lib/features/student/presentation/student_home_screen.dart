@@ -480,7 +480,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                           fontWeight: FontWeight.bold,
                           color: isLive
                               ? colorScheme.primary
-                              : Colors.grey.withValues(alpha: 0.7),
+                              : colorScheme.onSurface.withValues(alpha: 0.55),
                         ),
                       ),
                     ),
@@ -763,7 +763,10 @@ class _ProtocolCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     time,
-                    style: AppTheme.accent(size: 10, color: Colors.grey),
+                    style: AppTheme.accent(
+                      size: 11,
+                      color: colorScheme.onSurface.withValues(alpha: 0.55),
+                    ),
                   ),
                 ],
               ),
@@ -792,7 +795,7 @@ class _ProtocolCard extends StatelessWidget {
                   Text(
                     status.toUpperCase(),
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
                       color: statusColor,

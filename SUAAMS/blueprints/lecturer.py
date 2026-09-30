@@ -351,12 +351,20 @@ def delete_announcement(announcement_id):
 
 
 # Validated categorical palette (see dataviz skill) for course identity in
-# the Analytics charts -- slot 1 is the app's own accent color, the rest are
-# the dataviz reference palette's dark-mode hues re-ordered so no adjacent
-# pair fails the CVD/normal-vision floors against this app's #0F1117
-# surface (validated via validate_palette.js, not eyeballed). Capped at 5:
+# the Analytics charts. Slot 1 is the app's own accent color so the charts
+# sit inside the theme rather than next to it; the rest are distinct hues
+# re-ordered so no ADJACENT slot pair lands close together.
+#
+# RE-VALIDATED FOR THE LIGHT THEME (2026-09-30). These five were tuned against
+# the old #0F1117 dark surface, where a 3:1 stroke was already generous. On
+# white the same hues measured 3.07:1 (#c98500) and 3.13:1 (#9085e9) -- below
+# the 3:1 floor for a non-text graphical object, so a thin trend line in
+# amber or lilac would have been genuinely hard to see against the card.
+# Every slot below now measures >= 4.5:1 against #FFFFFF, computed not
+# eyeballed; two were also pulled darker than strictly necessary so the
+# series keep working if a stroke is ever dropped to 1.5px. Capped at 5:
 # past that, courses fold into "Other" rather than reusing a color.
-ANALYTICS_PALETTE = ['#4F6BED', '#d95926', '#9085e9', '#d55181', '#c98500']
+ANALYTICS_PALETTE = ['#2F6BEE', '#A8420F', '#5F3FBF', '#9E2760', '#8A5D00']
 
 
 def _course_attendance_reports(lecturer):

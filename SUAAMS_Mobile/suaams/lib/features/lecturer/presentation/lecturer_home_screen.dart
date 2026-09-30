@@ -75,14 +75,9 @@ class LecturerHomeScreen extends ConsumerWidget {
                     _StatsGrid(stats: data.stats),
                     const SizedBox(height: 32),
 
-                    const Text(
+                    Text(
                       'YOUR COURSES',
-                      style: TextStyle(
-                        fontSize: 10,
-                        letterSpacing: 1.5,
-                        color: Colors.grey,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
                     ),
                     const SizedBox(height: 16),
 
