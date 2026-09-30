@@ -135,6 +135,53 @@ def test_form_inputs_are_not_white_on_white():
     )
 
 
+def test_material_symbol_hidden_guard_is_unlayered():
+    """Guards a bug that showed two eye icons at once on the login page.
+
+    Google Fonts' Material Symbols stylesheet is UNLAYERED and declares
+        .material-symbols-rounded { display: inline-block }
+    Tailwind v4 puts everything in cascade layers, and unlayered author styles
+    beat every layered rule regardless of specificity. So Tailwind's `.hidden`
+    silently does nothing on an icon span, and the password eye toggles --
+    which are two spans, one carrying `hidden` -- rendered both.
+
+    The fix only works if it is UNLAYERED too: inside `@layer utilities` it
+    still loses to Google no matter how many classes the selector has. This
+    asserts the guard is present AND not inside a layer block, because moving
+    it back into a layer looks harmless and reintroduces the bug.
+    """
+    css = INPUT_CSS.read_text(encoding="utf-8")
+
+    assert ".material-symbols-rounded.hidden" in css, (
+        "the Material Symbols / .hidden cascade guard is missing from input.css"
+    )
+
+    # Find the rule and make sure no enclosing @layer wraps it.
+    idx = css.index(".material-symbols-rounded.hidden")
+    before = css[:idx]
+    opens = before.count("@layer")
+    closes = before.count("}")
+    assert opens <= closes, (
+        "the .material-symbols-rounded.hidden guard is inside an @layer block; "
+        "it must stay unlayered or it will lose to the Google Fonts icon "
+        "stylesheet again (this is what caused the doubled eye icon)"
+    )
+
+
+def test_password_eye_toggle_semantics():
+    """The two eye icons were also wired backwards: while the field was masked
+    the page showed the crossed-out eye, so clicking what looked like "hide"
+    revealed the password. Assert the plain eye is the one shown when masked."""
+    for page in ("login.html", "change_password.html"):
+        src = (TEMPLATES / "auth" / page).read_text(encoding="utf-8")
+        assert "eyeIcon.classList.toggle('hidden', revealed)" in src, (
+            f"auth/{page}: the plain eye should be hidden only once revealed"
+        )
+        assert "eyeOffIcon.classList.toggle('hidden', !revealed)" in src, (
+            f"auth/{page}: the crossed-out eye should be hidden while masked"
+        )
+
+
 def test_data_tone_contract_is_complete():
     """Every tone the templates pass must have a matching rule in input.css,
     or the element falls back to an unstyled pill."""

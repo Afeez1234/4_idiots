@@ -455,3 +455,42 @@
   .form-grid-wide { @apply lg:grid-cols-4; }
   .form-grid-wide > .form-main { @apply lg:col-span-3; }
 }
+
+/* ============================================================================
+   CASCADE GUARD (must stay UNLAYERED, and must stay last).
+
+   Two Tailwind display utilities are silently defeated on Material Symbols
+   icon spans -- `hidden` and `hidden` siblings -- and the symptom is the
+   password eye toggles on login.html / change_password.html showing BOTH the
+   eye and the crossed-out eye at once.
+
+   Why it happens, since the naive fix (just bump the specificity) does not
+   work:
+
+     1. Tailwind v4 wraps everything in cascade layers
+        (@layer theme, base, components, utilities).
+     2. Google's Material Symbols stylesheet is UNLAYERED. In the cascade,
+        unlayered author styles beat every layered rule no matter how high
+        their specificity -- layers are compared before selectors.
+     3. So `@layer utilities { .material-symbols-rounded.hidden {display:none} }`
+        loses to Google's plain `.material-symbols-rounded {display:inline-block}`
+        even though it has two classes to its one.
+     4. Google also loads AFTER output.css in every <head>, so on equal
+        specificity it would win anyway.
+
+   The fix therefore has to be unlayered so it competes with Google on the
+   same footing, where two classes beating one settles it -- and the fix then
+   no longer depends on <head> link order staying correct.
+
+   Symptom check: on a flex parent the icon blockifies to `display:block`,
+   which is how this presents; that is expected for a flex item and is not
+   itself the bug.
+
+   Apply the same treatment to any element combining a third-party font class
+   with one of Tailwind's display utilities.
+   ========================================================================= */
+.material-symbols-rounded.hidden,
+.material-symbols-outlined.hidden,
+.material-symbols-sharp.hidden {
+  display: none;
+}
