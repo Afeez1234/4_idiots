@@ -1,170 +1,192 @@
 {% extends "base_admin.html" %}
+{% from '_macros.html' import course_chip, empty_state, table_empty, card_heading, directory_heading %}
 
 {% block title %}Courses | SUAAMS Admin{% endblock %}
 {% block page_title %}Courses{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Course catalog and lecturer assignments</p>
+    <p class="page-subtitle">Course catalog and lecturer assignments</p>
 {% endblock %}
 
 {% block content %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    {# Add Course + Enroll Student share one sticky column -- same reasoning as
+       students.html's Add Student + Bulk Enroll: .form-col sticks the COLUMN,
+       so the two cards can't pin to top-0 independently and overlap. #}
+    <div class="form-grid">
+        <div class="form-col">
 
-        <!-- Add Course + Enroll Student share one sticky column -- same
-             reasoning as students.html's Add Student + Bulk Enroll: wrapping
-             them together keeps Catalog's lg:col-span-2 lining up against a
-             single column 1, and avoids two independently-sticky elements
-             both pinning to top-0. -->
-        <div class="space-y-6 lg:sticky lg:top-0">
-            <div class="bg-card border border-border rounded-2xl p-6">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Course</h2>
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Add Course', info=true) }}
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('admin.courses_page') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="action" value="create_course">
 
-                <form action="{{ url_for('admin.courses_page') }}" method="POST" class="space-y-4">
-                    {% include '_csrf_field.html' %}
-                    <input type="hidden" name="action" value="create_course">
+                        <div>
+                            <label class="form-label" for="course-title">Course Title</label>
+                            <input type="text" name="title" id="course-title" required
+                                   placeholder="e.g. Embedded Systems" class="form-input">
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Course Title</label>
-                        <input type="text" name="title" required placeholder="e.g. Embedded Systems" class="form-input">
-                    </div>
+                        <div>
+                            <label class="form-label" for="course-code">Course Code</label>
+                            <input type="text" name="code" id="course-code" required
+                                   placeholder="e.g. CPE401" class="form-input mono">
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Course Code</label>
-                        <input type="text" name="code" required placeholder="e.g. CPE401" class="form-input">
-                    </div>
+                        <div>
+                            <label class="form-label" for="course-department">Department</label>
+                            <select name="department_id" id="course-department" required class="form-select">
+                                <option value="" disabled selected>Select department</option>
+                                {% for dept in departments %}
+                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Department</label>
-                        <select name="department_id" required class="form-select">
-                            <option value="" disabled selected>Select department</option>
-                            {% for dept in departments %}
-                                <option value="{{ dept.id }}">{{ dept.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                        <div>
+                            <label class="form-label" for="course-lecturer">Lecturer</label>
+                            <select name="lecturer_id" id="course-lecturer" required class="form-select">
+                                <option value="" disabled selected>Select lecturer</option>
+                                {% for lecturer in lecturers %}
+                                    <option value="{{ lecturer.id }}">{{ lecturer.full_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Lecturer</label>
-                        <select name="lecturer_id" required class="form-select">
-                            <option value="" disabled selected>Select lecturer</option>
-                            {% for lecturer in lecturers %}
-                                <option value="{{ lecturer.id }}">{{ lecturer.full_name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                        <div>
+                            <label class="form-label" for="course-semester">
+                                Semester <span class="text-muted">(optional)</span>
+                            </label>
+                            <select name="semester_id" id="course-semester" class="form-select">
+                                <option value="">No semester</option>
+                                {% for semester in semesters %}
+                                    <option value="{{ semester.id }}">{{ semester.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Semester <span class="text-muted font-normal normal-case">(optional)</span></label>
-                        <select name="semester_id" class="form-select">
-                            <option value="">No semester</option>
-                            {% for semester in semesters %}
-                                <option value="{{ semester.id }}">{{ semester.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                        <div>
+                            <label class="form-label" for="course-units">
+                                Credit Units <span class="text-muted">(optional)</span>
+                            </label>
+                            <input type="number" name="credit_units" id="course-units" min="1" max="10"
+                                   placeholder="e.g. 3" class="form-input">
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Credit Units <span class="text-muted font-normal normal-case">(optional)</span></label>
-                        <input type="number" name="credit_units" min="1" max="10" placeholder="e.g. 3" class="form-input">
-                    </div>
-
-                    <button type="submit"
-                            class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
-                        Create Course
-                    </button>
-                </form>
+                        <button type="submit" class="btn-primary mt-2 w-full">Create Course</button>
+                    </form>
+                </div>
             </div>
 
-            <div class="bg-card border border-border rounded-2xl p-6">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Enroll Student</h2>
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Enroll Student', info=true) }}
+                </div>
+                <div class="card-body">
+                    {# Same URL as the form above; the hidden `action` field is
+                       what routes the POST to a different handler. Both must
+                       keep their distinct values or one silently wins. #}
+                    <form action="{{ url_for('admin.courses_page') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="action" value="enroll_student">
 
-                <form action="{{ url_for('admin.courses_page') }}" method="POST" class="space-y-4">
-                    {% include '_csrf_field.html' %}
-                    <input type="hidden" name="action" value="enroll_student">
+                        <div>
+                            <label class="form-label" for="enroll-student">Student</label>
+                            <select name="student_id" id="enroll-student" required class="form-select">
+                                <option value="" disabled selected>Select student</option>
+                                {% for student in students %}
+                                    <option value="{{ student.id }}">{{ student.full_name }} ({{ student.matric_number }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Student</label>
-                        <select name="student_id" required class="form-select">
-                            <option value="" disabled selected>Select student</option>
-                            {% for student in students %}
-                                <option value="{{ student.id }}">{{ student.full_name }} ({{ student.matric_number }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                        <div>
+                            <label class="form-label" for="enroll-course">Course</label>
+                            <select name="course_id" id="enroll-course" required class="form-select">
+                                <option value="" disabled selected>Select course</option>
+                                {% for course in courses %}
+                                    <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Course</label>
-                        <select name="course_id" required class="form-select">
-                            <option value="" disabled selected>Select course</option>
-                            {% for course in courses %}
-                                <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <button type="submit"
-                            class="w-full bg-card border border-border hover:border-accent hover:text-accent text-sm font-semibold rounded-lg py-2.5 transition-colors">
-                        Enroll Student
-                    </button>
-                </form>
+                        <button type="submit" class="btn-secondary mt-2 w-full">Enroll Student</button>
+                    </form>
+                </div>
             </div>
         </div>
 
-        <!-- Directory -->
-        <div class="lg:col-span-2 bg-card border border-border rounded-2xl overflow-hidden">
-            <div class="px-6 pt-6 pb-4 flex items-center justify-between">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Catalog</h2>
-                <span class="text-xs text-muted">{{ courses|length }} course{{ '' if courses|length == 1 else 's' }}</span>
-            </div>
+        <!-- Catalog -->
+        <div class="form-main">
+            <div class="card-clip">
+                {{ directory_heading('Catalog', courses|length, 'course') }}
 
-            <!-- Card view (below sm): same reasoning as students.html. -->
-            <div class="sm:hidden divide-y divide-border">
-                {% for course in courses %}
-                    <div class="p-4">
-                        <p class="font-medium text-sm">{{ course.course_title }}</p>
-                        <p class="text-[11px] text-muted mt-0.5">{{ course.course_code }}</p>
-                        <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                            <div><dt class="text-muted">Department</dt><dd class="text-secondary mt-0.5 truncate">{{ course.department.name if course.department else '—' }}</dd></div>
-                            <div><dt class="text-muted">Lecturer</dt><dd class="text-secondary mt-0.5 truncate">{{ course.lecturer.full_name if course.lecturer else '—' }}</dd></div>
-                            <div><dt class="text-muted">Units</dt><dd class="text-secondary mt-0.5">{{ course.credit_units if course.credit_units else '—' }}</dd></div>
-                            <div><dt class="text-muted">Enrolled</dt><dd class="text-secondary mt-0.5">{{ course.enrollments|length }}</dd></div>
-                        </dl>
-                    </div>
-                {% else %}
-                    <p class="p-10 text-center text-sm text-muted">No courses yet.</p>
-                {% endfor %}
-            </div>
+                <!-- Card view (below sm): same reasoning as students.html. -->
+                <div class="divide-y divide-divider border-t border-divider sm:hidden">
+                    {% for course in courses %}
+                        <div class="px-5 py-4">
+                            <div class="flex items-center gap-2">
+                                {{ course_chip(course.course_code) }}
+                                <p class="min-w-0 truncate text-sm font-semibold text-ink">{{ course.course_title }}</p>
+                            </div>
+                            <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                                <div>
+                                    <dt class="text-muted">Department</dt>
+                                    <dd class="mt-0.5 truncate text-secondary">{{ course.department.name if course.department else '—' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-muted">Lecturer</dt>
+                                    <dd class="mt-0.5 truncate text-secondary">{{ course.lecturer.full_name if course.lecturer else '—' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-muted">Units</dt>
+                                    <dd class="mt-0.5 text-secondary">{{ course.credit_units if course.credit_units else '—' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-muted">Enrolled</dt>
+                                    <dd class="mt-0.5 text-secondary">{{ course.enrollments|length }}</dd>
+                                </div>
+                            </dl>
+                        </div>
+                    {% else %}
+                        {{ empty_state('No courses yet.', 'menu_book') }}
+                    {% endfor %}
+                </div>
 
-            <div class="hidden sm:block overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-t border-border text-left">
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Department</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Lecturer</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Units</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Enrolled</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for course in courses %}
-                            <tr class="border-t border-border hover:bg-surface/60 transition-colors">
-                                <td class="px-6 py-3.5">
-                                    <p class="font-medium">{{ course.course_title }}</p>
-                                    <p class="text-[11px] text-muted mt-0.5">{{ course.course_code }}</p>
-                                </td>
-                                <td class="px-6 py-3.5 text-secondary">{{ course.department.name if course.department else '—' }}</td>
-                                <td class="px-6 py-3.5 text-secondary">{{ course.lecturer.full_name if course.lecturer else '—' }}</td>
-                                <td class="px-6 py-3.5 text-secondary">{{ course.credit_units if course.credit_units else '—' }}</td>
-                                <td class="px-6 py-3.5 text-secondary">{{ course.enrollments|length }}</td>
+                <div class="table-wrap hidden border-t border-divider sm:block">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th class="th">Course</th>
+                                <th class="th">Department</th>
+                                <th class="th">Lecturer</th>
+                                <th class="th">Units</th>
+                                <th class="th">Enrolled</th>
                             </tr>
-                        {% else %}
-                            <tr class="border-t border-border">
-                                <td colspan="5" class="px-6 py-10 text-center text-sm text-muted">No courses yet.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {% for course in courses %}
+                                <tr>
+                                    <td class="td">
+                                        <div class="flex items-center gap-2">
+                                            {{ course_chip(course.course_code) }}
+                                            <span class="truncate font-medium">{{ course.course_title }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="td td-muted">{{ course.department.name if course.department else '—' }}</td>
+                                    <td class="td td-muted">{{ course.lecturer.full_name if course.lecturer else '—' }}</td>
+                                    <td class="td td-muted">{{ course.credit_units if course.credit_units else '—' }}</td>
+                                    <td class="td td-muted">{{ course.enrollments|length }}</td>
+                                </tr>
+                            {% else %}
+                                {{ table_empty(5, 'No courses yet.') }}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

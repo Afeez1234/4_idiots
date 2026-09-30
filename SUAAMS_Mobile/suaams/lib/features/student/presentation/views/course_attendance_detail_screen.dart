@@ -145,7 +145,7 @@ class _SessionRow extends StatelessWidget {
               Text(
                 attendanceStatusLabel(session.status),
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: statusColor,
                   letterSpacing: 0.5,

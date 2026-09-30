@@ -1,161 +1,186 @@
 {% extends "base_admin.html" %}
+{% from '_macros.html' import pill, avatar, table_empty, card_heading, directory_heading %}
 
 {% block title %}HODs | SUAAMS Admin{% endblock %}
 {% block page_title %}HODs{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Heads of Department</p>
+    <p class="page-subtitle">Heads of Department</p>
 {% endblock %}
 
 {% block content %}
 
-    <!-- GAP still worth knowing about: the department dropdown below lists
-         every department, including ones that already have an HOD --
-         admin.hods_page rejects the submit server-side if the chosen
-         department already has one assigned (HOD.department_id has no
-         unique constraint at the schema level, so this is an
-         application-layer check, not a DB one), but the form doesn't
-         filter the options list to only show departments without one yet. -->
+    {# GAP still worth knowing about: the department dropdown below lists
+       every department, including ones that already have an HOD --
+       admin.hods_page rejects the submit server-side if the chosen
+       department already has one assigned (HOD.department_id has no
+       unique constraint at the schema level, so this is an
+       application-layer check, not a DB one), but the form doesn't
+       filter the options list to only show departments without one yet. #}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    <div class="form-grid">
 
         <!-- Assign HOD -->
-        <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Assign HOD</h2>
+        <div class="form-col">
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Assign HOD', info=true) }}
+                </div>
+                <div class="card-body">
 
-            <!-- Mode toggle: promoting an existing lecturer reuses their
-                 existing User row/login (only their role flips to 'hod' and
-                 a new HOD profile is linked to that same account) rather
-                 than creating a second, separate account for the same
-                 person -- see hods_page's action == 'promote_lecturer'
-                 branch in blueprints/admin.py. -->
-            <div class="flex gap-1.5 p-1 mb-5 bg-surface rounded-lg border border-border">
-                <button type="button" data-mode-tab="new"
-                        class="mode-tab flex-1 text-xs font-semibold rounded-md py-2 transition-colors bg-accent text-white">
-                    New Account
-                </button>
-                <button type="button" data-mode-tab="promote"
-                        class="mode-tab flex-1 text-xs font-semibold rounded-md py-2 transition-colors text-secondary hover:text-white">
-                    Promote Lecturer
-                </button>
+                    {# Mode toggle: promoting an existing lecturer reuses their
+                       existing User row/login (only their role flips to 'hod' and
+                       a new HOD profile is linked to that same account) rather
+                       than creating a second, separate account for the same
+                       person -- see hods_page's action == 'promote_lecturer'
+                       branch in blueprints/admin.py.
+
+                       The active state is the `tab-pill-active` class, which
+                       appears literally on the first button below. That matters:
+                       the script below also adds the class name, but a class that
+                       ONLY ever appears inside a JS string is invisible to
+                       Tailwind's build-time scanner, so the rule would never be
+                       emitted and the active state would render as plain text. #}
+                    <div class="mb-5 flex gap-1 rounded-full border border-border bg-surface p-1">
+                        <button type="button" data-mode-tab="new" class="mode-tab tab-pill tab-pill-active flex-1">
+                            New Account
+                        </button>
+                        <button type="button" data-mode-tab="promote" class="mode-tab tab-pill flex-1">
+                            Promote Lecturer
+                        </button>
+                    </div>
+
+                    <!-- New Account -->
+                    <form id="mode-form-new" action="{{ url_for('admin.hods_page') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="action" value="create_new">
+
+                        <div>
+                            <label class="form-label" for="hod-name">Full Name</label>
+                            <input type="text" name="full_name" id="hod-name" required
+                                   placeholder="e.g. Prof. Adaeze Nwosu" class="form-input">
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="hod-staff-id">Staff ID</label>
+                            <input type="text" name="staff_id" id="hod-staff-id" required
+                                   placeholder="e.g. HOD-2001" class="form-input">
+                            <p class="form-help">
+                                Also used as the login username; default password is the same
+                                as the Staff ID.
+                            </p>
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="hod-department">Department</label>
+                            <select name="department_id" id="hod-department" required class="form-select">
+                                <option value="" disabled selected>Select department</option>
+                                {% for dept in departments %}
+                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-primary mt-2 w-full">Assign HOD</button>
+                    </form>
+
+                    <!-- Promote Existing Lecturer -->
+                    <form id="mode-form-promote" action="{{ url_for('admin.hods_page') }}" method="POST" class="hidden space-y-4">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="action" value="promote_lecturer">
+
+                        <div>
+                            <label class="form-label" for="hod-promote-lecturer">Lecturer</label>
+                            <select name="lecturer_id" id="hod-promote-lecturer" required class="form-select">
+                                <option value="" disabled selected>Select lecturer</option>
+                                {% for lect in promotable_lecturers %}
+                                    <option value="{{ lect.id }}">{{ lect.full_name }} &middot; {{ lect.staff_id }} &middot; {{ lect.department.name if lect.department else 'No department' }}</option>
+                                {% endfor %}
+                            </select>
+                            {% if not promotable_lecturers %}
+                                <p class="form-help">
+                                    No lecturers available to promote &mdash; everyone with a
+                                    lecturer account is already an HOD.
+                                </p>
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="hod-promote-department">Department (as HOD)</label>
+                            <select name="department_id" id="hod-promote-department" required class="form-select">
+                                <option value="" disabled selected>Select department</option>
+                                {% for dept in departments %}
+                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="form-help">
+                                Usually the same department they already teach in, but not
+                                required to be.
+                            </p>
+                        </div>
+
+                        {# An inline note rather than a disabled-looking button: it
+                           explains the one surprising consequence of promoting. #}
+                        <div class="alert" data-tone="info">
+                            <span class="material-symbols-rounded text-lg">info</span>
+                            <p>
+                                Their existing login stays the same &mdash; they&rsquo;ll land on
+                                the HOD dashboard next time they sign in, with a link back
+                                into their own courses.
+                            </p>
+                        </div>
+
+                        <button type="submit" {{ 'disabled' if not promotable_lecturers else '' }}
+                                class="btn-primary mt-2 w-full">
+                            Promote to HOD
+                        </button>
+                    </form>
+                </div>
             </div>
-
-            <!-- New Account -->
-            <form id="mode-form-new" action="{{ url_for('admin.hods_page') }}" method="POST" class="space-y-4">
-                {% include '_csrf_field.html' %}
-                <input type="hidden" name="action" value="create_new">
-
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Full Name</label>
-                    <input type="text" name="full_name" required placeholder="e.g. Prof. Adaeze Nwosu" class="form-input">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Staff ID</label>
-                    <input type="text" name="staff_id" required placeholder="e.g. HOD-2001" class="form-input">
-                    <p class="mt-1.5 text-[11px] text-muted">Also used as the login username; default password is the same as the Staff ID.</p>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Department</label>
-                    <select name="department_id" required class="form-select">
-                        <option value="" disabled selected>Select department</option>
-                        {% for dept in departments %}
-                            <option value="{{ dept.id }}">{{ dept.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <button type="submit"
-                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
-                    Assign HOD
-                </button>
-            </form>
-
-            <!-- Promote Existing Lecturer -->
-            <form id="mode-form-promote" action="{{ url_for('admin.hods_page') }}" method="POST" class="space-y-4 hidden">
-                {% include '_csrf_field.html' %}
-                <input type="hidden" name="action" value="promote_lecturer">
-
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Lecturer</label>
-                    <select name="lecturer_id" required class="form-select">
-                        <option value="" disabled selected>Select lecturer</option>
-                        {% for lect in promotable_lecturers %}
-                            <option value="{{ lect.id }}">{{ lect.full_name }} &middot; {{ lect.staff_id }} &middot; {{ lect.department.name if lect.department else 'No department' }}</option>
-                        {% endfor %}
-                    </select>
-                    {% if not promotable_lecturers %}
-                        <p class="mt-1.5 text-[11px] text-muted">No lecturers available to promote -- everyone with a lecturer account is already an HOD.</p>
-                    {% endif %}
-                </div>
-
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Department (as HOD)</label>
-                    <select name="department_id" required class="form-select">
-                        <option value="" disabled selected>Select department</option>
-                        {% for dept in departments %}
-                            <option value="{{ dept.id }}">{{ dept.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <p class="mt-1.5 text-[11px] text-muted">Usually the same department they already teach in, but not required to be.</p>
-                </div>
-
-                <p class="text-[11px] text-secondary bg-surface border border-border rounded-lg px-3 py-2">
-                    Their existing login stays the same -- they'll land on the HOD dashboard next time they sign in, with a link back into their own courses.
-                </p>
-
-                <button type="submit" {{ 'disabled' if not promotable_lecturers else '' }}
-                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
-                    Promote to HOD
-                </button>
-            </form>
         </div>
 
         <!-- Directory -->
-        <div class="lg:col-span-2 bg-card border border-border rounded-2xl overflow-hidden">
-            <div class="px-6 pt-6 pb-4 flex items-center justify-between">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Heads of Department</h2>
-                <span class="text-xs text-muted">{{ hods|length }} assigned</span>
-            </div>
+        <div class="form-main">
+            <div class="card-clip">
+                {# noun is the thing being counted, so this reads "3 HODs" -- the
+                   old header hardcoded "assigned", which directory_heading's
+                   pluraliser would have turned into "assigneds". #}
+                {{ directory_heading('Heads of Department', hods|length, 'HOD') }}
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-t border-border text-left">
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">HOD</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Staff ID</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Department</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for hod in hods %}
-                            <tr class="border-t border-border hover:bg-surface/60 transition-colors">
-                                <td class="px-6 py-3.5">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-8 h-8 shrink-0 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent font-bold text-xs">
-                                            {{ hod.full_name[0]|upper }}
+                <div class="table-wrap border-t border-divider">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th class="th">HOD</th>
+                                <th class="th">Staff ID</th>
+                                <th class="th">Department</th>
+                                <th class="th">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for hod in hods %}
+                                <tr>
+                                    <td class="td">
+                                        <div class="flex items-center gap-3">
+                                            {{ avatar(hod.full_name) }}
+                                            <span class="font-medium">{{ hod.full_name }}</span>
                                         </div>
-                                        <span class="font-medium">{{ hod.full_name }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-3.5 text-secondary">{{ hod.staff_id }}</td>
-                                <td class="px-6 py-3.5 text-secondary">{{ hod.department.name if hod.department else '—' }}</td>
-                                <td class="px-6 py-3.5">
-                                    {% if hod.user and hod.user.requires_password_change %}
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-warning/10 text-warning">Pending Setup</span>
-                                    {% else %}
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success">Active</span>
-                                    {% endif %}
-                                </td>
-                            </tr>
-                        {% else %}
-                            <tr class="border-t border-border">
-                                <td colspan="4" class="px-6 py-10 text-center text-sm text-muted">No HODs assigned yet.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                                    </td>
+                                    <td class="td td-muted mono text-xs">{{ hod.staff_id }}</td>
+                                    <td class="td td-muted">{{ hod.department.name if hod.department else '—' }}</td>
+                                    <td class="td">
+                                        {% if hod.user and hod.user.requires_password_change %}
+                                            {{ pill('Pending Setup', 'warning') }}
+                                        {% else %}
+                                            {{ pill('Active', 'success') }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% else %}
+                                {{ table_empty(4, 'No HODs assigned yet.') }}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -175,11 +200,15 @@
             tab.addEventListener('click', function () {
                 var mode = tab.dataset.modeTab;
 
+                // Only the state class is toggled now. The previous version
+                // juggled bg-accent / text-white / text-secondary by hand,
+                // which meant the active pill was a saturated blue block and
+                // the colour classes had to be spelled out in this string to
+                // survive Tailwind's scanner. `tab-pill-active` carries both
+                // the fill and the text colour now, and is a literal class in
+                // the markup above.
                 tabs.forEach(function (t) {
-                    var active = t === tab;
-                    t.classList.toggle('bg-accent', active);
-                    t.classList.toggle('text-white', active);
-                    t.classList.toggle('text-secondary', !active);
+                    t.classList.toggle('tab-pill-active', t === tab);
                 });
 
                 Object.keys(forms).forEach(function (key) {

@@ -1,81 +1,111 @@
 {% extends "base_portal.html" %}
+{% from '_macros.html' import pill, course_chip, empty_state, card_heading %}
 
 {% block title %}Announcements | SUAAMS Lecturer{% endblock %}
 {% block page_title %}Announcements{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Post notices to the courses you teach</p>
+    <p class="page-subtitle">Post notices to the courses you teach</p>
 {% endblock %}
 
 {% block content %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    {# The shared two-column shell from input.css (.form-grid / .form-col /
+       .form-main). Seven admin pages declare this by hand; here it is one
+       class. The sticky wrapper deliberately wraps the whole form column. #}
+    <div class="form-grid">
 
-        <!-- Post Announcement -->
-        <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Post Announcement</h2>
-
-            <form action="{{ url_for('lecturer.announcements') }}" method="POST" class="space-y-4">
-                {% include '_csrf_field.html' %}
-
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Course</label>
-                    <select name="course_id" required class="form-select">
-                        <option value="" disabled selected>Select course</option>
-                        <!-- sidebar_courses comes from inject_lecturer_context() -- already
-                             scoped to this lecturer's own courses, no separate query needed. -->
-                        {% for course in sidebar_courses %}
-                            <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
-                        {% endfor %}
-                    </select>
+        {# Compose form #}
+        <div class="form-col">
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Post Announcement', info=true) }}
                 </div>
+                <div class="card-body">
+                    <form action="{{ url_for('lecturer.announcements') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
 
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Title</label>
-                    <input type="text" name="title" required placeholder="e.g. Midterm Rescheduled" class="form-input">
+                        <div>
+                            <label class="form-label" for="ann-course">Course</label>
+                            <select name="course_id" id="ann-course" required class="form-select">
+                                <option value="" disabled selected>Select course</option>
+                                {# sidebar_courses comes from inject_portal_context()
+                                   in app.py -- already scoped to this lecturer's own
+                                   courses, no separate query needed. #}
+                                {% for course in sidebar_courses %}
+                                    <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="ann-title">Title</label>
+                            <input type="text" name="title" id="ann-title" required
+                                   placeholder="e.g. Midterm Rescheduled" class="form-input">
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="ann-body">Body</label>
+                            <textarea name="body" id="ann-body" required rows="5"
+                                      placeholder="Announcement details..." class="form-textarea"></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-primary w-full">
+                            <span class="material-symbols-rounded text-lg">campaign</span>
+                            Post Announcement
+                        </button>
+                    </form>
                 </div>
-
-                <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Body</label>
-                    <textarea name="body" required rows="4" placeholder="Announcement details..." class="form-input resize-none"></textarea>
-                </div>
-
-                <button type="submit"
-                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
-                    Post Announcement
-                </button>
-            </form>
+            </div>
         </div>
 
-        <!-- Feed: this lecturer's own sent announcements -->
-        <div class="lg:col-span-2 space-y-4">
+        {# Feed: this lecturer's own sent announcements #}
+        <div class="form-main">
             {% for a in announcements %}
-                <div class="bg-card border border-border rounded-2xl p-6">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <p class="text-sm font-semibold">{{ a.title }}</p>
-                            <p class="text-[11px] text-muted mt-0.5">
-                                {{ a.created_at.strftime('%d %b %Y, %H:%M') }} &middot;
-                                {{ a.course.course_code if a.course else 'Course' }}
-                            </p>
+                <div class="card mb-5 last:mb-0">
+                    <div class="card-body">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="font-semibold text-ink">{{ a.title }}</p>
+                                <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted">
+                                    <span class="flex items-center gap-1">
+                                        <span class="material-symbols-rounded text-sm">schedule</span>
+                                        {{ a.created_at.strftime('%d %b %Y, %H:%M') }}
+                                    </span>
+                                    {# a.course is nullable on the model, so it falls
+                                       back rather than raising. #}
+                                    {% if a.course %}
+                                        {{ course_chip(a.course.course_code) }}
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            {# Soft-delete: the route flips is_active rather than
+                               removing the row, so an announcement can come back
+                               inactive. Both states are shown explicitly. #}
+                            {% if a.is_active %}
+                                <form action="{{ url_for('lecturer.delete_announcement', announcement_id=a.id) }}"
+                                      method="POST" class="shrink-0"
+                                      onsubmit="return confirm('Delete this announcement? This cannot be undone.');">
+                                    {% include '_csrf_field.html' %}
+                                    <button type="submit" title="Delete announcement"
+                                            aria-label="Delete announcement" class="btn-icon btn-ghost hover:text-error">
+                                        <span class="material-symbols-rounded text-lg">delete</span>
+                                    </button>
+                                </form>
+                            {% else %}
+                                {{ pill('Inactive', 'neutral') }}
+                            {% endif %}
                         </div>
-                        {% if a.is_active %}
-                            <form action="{{ url_for('lecturer.delete_announcement', announcement_id=a.id) }}" method="POST"
-                                  onsubmit="return confirm('Delete this announcement? This cannot be undone.');" class="shrink-0">
-                                {% include '_csrf_field.html' %}
-                                <button type="submit" title="Delete announcement"
-                                        class="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition-colors">
-                                    <span class="material-symbols-rounded text-[18px]">delete</span>
-                                </button>
-                            </form>
-                        {% else %}
-                            <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-muted/10 text-muted shrink-0">Inactive</span>
-                        {% endif %}
+
+                        <p class="mt-4 text-sm leading-relaxed text-secondary">{{ a.body }}</p>
                     </div>
-                    <p class="text-sm text-secondary mt-3 leading-relaxed">{{ a.body }}</p>
                 </div>
             {% else %}
-                <div class="bg-card border border-border rounded-2xl p-10 text-center">
-                    <p class="text-sm text-muted">You haven't posted any announcements yet.</p>
+                <div class="card">
+                    <div class="card-body">
+                        {{ empty_state("You haven't posted any announcements yet.", 'campaign',
+                                        'Anything you post here reaches every student in the selected course.') }}
+                    </div>
                 </div>
             {% endfor %}
         </div>

@@ -52,6 +52,23 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
     });
   }
 
+  /// True once the check-in flow has reached a state it will not move on
+  /// from without the user acting again. "Cancel" is the wrong verb here --
+  /// there is nothing in flight to cancel, and on the success state it
+  /// implies dismissing the sheet might undo a committed attendance record.
+  static bool _isTerminalState(NfcCheckInStatus status) {
+    switch (status) {
+      case NfcCheckInStatus.success:
+      case NfcCheckInStatus.unconfirmed:
+      case NfcCheckInStatus.noHardwareDetected:
+      case NfcCheckInStatus.notEnrolled:
+      case NfcCheckInStatus.error:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   @override
   void dispose() {
     _radarController.dispose();
@@ -168,7 +185,14 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
               Navigator.pop(context);
             },
             child: Text(
-              'CANCEL PROTOCOL',
+              // Wording follows the state. "CANCEL PROTOCOL" on a screen
+              // showing ATTENDANCE VERIFIED asks the user to cancel
+              // something that has already finished, which reads as though
+              // dismissing the sheet might undo it. Once the flow reaches a
+              // terminal state the action is just "leave".
+              _isTerminalState(nfcState.status)
+                  ? 'CLOSE'
+                  : 'CANCEL PROTOCOL',
               style: TextStyle(
                 color: colorScheme.onSurface.withValues(alpha: 0.5),
                 letterSpacing: 2,
@@ -187,7 +211,14 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
   Widget _buildIdleState(ColorScheme colorScheme) {
     return Column(
       children: [
-        const Icon(Icons.contactless_rounded, size: 64, color: Colors.grey),
+        // Not const: reads onSurface from the theme. Colors.grey was a
+        // #9E9E9E glyph on a near-white sheet in light mode -- visible, but
+        // faint enough to look like a rendering fault rather than a design.
+        Icon(
+          Icons.contactless_rounded,
+          size: 64,
+          color: colorScheme.onSurface.withValues(alpha: 0.35),
+        ),
         const SizedBox(height: 24),
         const Text(
           'PROTOCOL IDLE',
@@ -395,10 +426,19 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
-            'Signal was sent, but we couldn\'t confirm it reached the terminal in time. Check your dashboard in a moment.',
+            // The old copy said only "Check your dashboard in a moment",
+            // which is a dead end: it left the student standing at a terminal
+            // with no idea whether to tap again (which could double-record)
+            // or walk away (which might cost them the session). The point of
+            // the amber state is that this is genuinely UNKNOWN, so say that
+            // plainly and tell them the one thing that resolves it.
+            'Your attendance was probably recorded, but the terminal didn\'t '
+            'confirm it back in time. Do not tap again — close this and check '
+            'your Records tab; it updates within a minute.',
             style: TextStyle(
-              color: colorScheme.onSurface.withValues(alpha: 0.5),
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 12,
+              height: 1.45,
             ),
             textAlign: TextAlign.center,
           ),

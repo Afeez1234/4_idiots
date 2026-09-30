@@ -137,14 +137,9 @@ class CourseDetailScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 32),
 
-            const Text(
+            Text(
               'RECENT ATTENDANCE',
-              style: TextStyle(
-                fontSize: 10,
-                letterSpacing: 1.5,
-                color: Colors.grey,
-                fontWeight: FontWeight.bold,
-              ),
+              style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
             ),
             const SizedBox(height: 16),
 
@@ -218,7 +213,7 @@ class _RecordCard extends StatelessWidget {
             child: Text(
               attendanceStatusLabel(record.status),
               style: TextStyle(
-                fontSize: 8,
+                fontSize: 11,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 0.5,
                 color: statusColor,

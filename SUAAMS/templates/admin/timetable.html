@@ -1,41 +1,43 @@
 {% extends "base_admin.html" %}
+{% from '_macros.html' import empty_state, card_heading %}
 
 {% block title %}Timetable | SUAAMS Admin{% endblock %}
 {% block page_title %}Timetable{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Recurring weekly course slots -- drives the mobile app's "today's protocol" list</p>
+    <p class="page-subtitle">Recurring weekly course slots &mdash; drives the mobile app's "today's protocol" list</p>
 {% endblock %}
 
 {% block content %}
 
-    <!-- ============ HAPPENING NOW ============
-         Skeleton only -- JS fetches /admin/timetable/current on load and on
-         a 60s poll, and renders whatever it gets back. The day/time/semester
-         matching itself runs entirely server-side (resolve_current_course()
-         in utils.py); this element never computes anything, it just displays
-         the backend's answer. -->
-    <div id="now-banner" class="rounded-2xl border border-border bg-card p-4 flex items-center gap-4 mb-6">
-        <div id="now-banner-icon-wrap" class="w-9 h-9 rounded-full bg-surface text-muted flex items-center justify-center shrink-0">
-            <span class="material-symbols-rounded text-[20px]" id="now-banner-icon">schedule</span>
+    {# ============ HAPPENING NOW ============
+       Skeleton only -- JS fetches /admin/timetable/current on load and on a
+       60s poll, and renders whatever it gets back. The day/time/semester
+       matching itself runs entirely server-side (resolve_current_course() in
+       utils.py); this element never computes anything, it just displays the
+       backend's answer. Colour arrives as data-tone so the palette lives in
+       CSS rather than in a JS string -- see renderNowBanner() below. #}
+    <div id="now-banner" class="now-banner" data-tone="neutral">
+        <div id="now-banner-icon-wrap" class="now-banner-icon" data-tone="neutral">
+            <span class="material-symbols-rounded text-xl" id="now-banner-icon">schedule</span>
         </div>
         <div class="min-w-0" id="now-banner-text">
-            <p class="text-sm font-bold">Checking today's schedule&hellip;</p>
+            <p class="text-sm font-bold text-ink">Checking today's schedule&hellip;</p>
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+    <div class="form-grid form-grid-wide">
 
-        <!-- Add Timetable Slot -->
-        <div class="bg-card border border-border rounded-2xl p-6 lg:sticky lg:top-0">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Timetable Slot</h2>
+        {# ============ ADD TIMETABLE SLOT ============ #}
+        <div class="card card-body form-col sticky top-0">
+            {{ card_heading('Add Timetable Slot') }}
 
-            <form id="create-slot-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="space-y-4">
+            <form id="create-slot-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="mt-5 space-y-4">
                 {% include '_csrf_field.html' %}
                 <input type="hidden" name="action" value="create">
 
                 <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Course</label>
-                    <select name="course_id" required class="form-input">
+                    <label class="form-label" for="create-course-id">Course</label>
+                    <select name="course_id" id="create-course-id" required class="form-select">
                         <option value="" disabled selected>Select course</option>
                         {% for course in courses %}
                             <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
@@ -44,8 +46,8 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Semester</label>
-                    <select name="semester_id" id="create-semester-id" required class="form-input">
+                    <label class="form-label" for="create-semester-id">Semester</label>
+                    <select name="semester_id" id="create-semester-id" required class="form-select">
                         <option value="" disabled {{ 'selected' if not active_semester else '' }}>Select semester</option>
                         {% for semester in semesters %}
                             <option value="{{ semester.id }}" {{ 'selected' if active_semester and semester.id == active_semester.id else '' }}>
@@ -53,23 +55,23 @@
                             </option>
                         {% endfor %}
                     </select>
-                    <p class="text-[11px] text-muted mt-1.5">
-                        {% if active_semester %}Defaults to the active semester.{% else %}No active semester is set -- pick one explicitly.{% endif %}
+                    <p class="form-help">
+                        {% if active_semester %}Defaults to the active semester.{% else %}No active semester is set &mdash; pick one explicitly.{% endif %}
                     </p>
                 </div>
 
-                <!-- Only shown/required when the picked semester isn't the
-                     active one -- see toggleOtherSemesterWarning() below.
-                     Prevents accidentally creating a slot under the wrong
-                     academic session without removing the semester field. -->
-                <label id="create-other-semester-row" class="hidden items-start gap-2 text-[11px] text-warning bg-warning/10 border border-warning/20 rounded-lg px-3 py-2">
+                {# Only shown/required when the picked semester isn't the active
+                   one -- see wireOtherSemesterWarning() below. Prevents
+                   accidentally creating a slot under the wrong academic
+                   session without removing the semester field. #}
+                <label id="create-other-semester-row" class="alert hidden" data-tone="warning">
                     <input type="checkbox" name="confirm_other_semester" id="create-confirm-other-semester" class="mt-0.5">
                     <span>This isn't the active semester{% if active_semester %} ({{ active_semester.name }}){% endif %}. Use it anyway.</span>
                 </label>
 
                 <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Day of Week</label>
-                    <select name="day_of_week" required class="form-input">
+                    <label class="form-label" for="create-day-of-week">Day of Week</label>
+                    <select name="day_of_week" id="create-day-of-week" required class="form-select">
                         <option value="" disabled selected>Select day</option>
                         {% for name in weekday_names %}
                             <option value="{{ loop.index0 }}">{{ name }}</option>
@@ -79,57 +81,53 @@
 
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Start Time</label>
+                        <label class="form-label" for="create-start-time">Start Time</label>
                         <input type="time" name="start_time" id="create-start-time" required class="form-input">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">End Time</label>
+                        <label class="form-label" for="create-end-time">End Time</label>
                         <input type="time" name="end_time" id="create-end-time" required class="form-input">
                     </div>
                 </div>
-                <p id="create-time-error" class="hidden text-[11px] text-error -mt-2">Start time must be before end time.</p>
+                <p id="create-time-error" class="form-error hidden">Start time must be before end time.</p>
 
                 <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Room <span class="text-muted">(optional)</span></label>
-                    <input type="text" name="room" placeholder="e.g. LR 4" class="form-input">
+                    <label class="form-label" for="create-room">Room <span class="text-muted">(optional)</span></label>
+                    <input type="text" name="room" id="create-room" placeholder="e.g. LR 4" class="form-input">
                 </div>
 
                 <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Type</label>
-                    <select name="type" class="form-input">
+                    <label class="form-label" for="create-type">Type</label>
+                    <select name="type" id="create-type" class="form-select">
                         <option value="scheduled" selected>Scheduled (recurring)</option>
                         <option value="fixed">Fixed (one-off, pinned)</option>
                     </select>
                 </div>
 
-                <button type="submit"
-                        class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
-                    Add Slot
-                </button>
+                <button type="submit" class="btn-primary w-full">Add Slot</button>
             </form>
         </div>
 
-        <!-- ============ WEEKLY CALENDAR ============ -->
-        <div class="lg:col-span-3 bg-card border border-border rounded-2xl overflow-hidden">
-            <div class="px-6 pt-6 pb-4 flex items-center justify-between">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Weekly Timetable</h2>
+        {# ============ WEEKLY CALENDAR ============ #}
+        <div class="card-clip form-main">
+            <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
+                {{ card_heading('Weekly Timetable') }}
                 <span class="text-xs text-muted">{{ timetable_entries|length }} slot{{ '' if timetable_entries|length == 1 else 's' }}</span>
             </div>
 
             {% if timetable_entries %}
-            <!-- ============ MOBILE AGENDA (below sm) ============
-                 The 7-day grid needs ~900px to read at a glance -- on a
-                 phone that's mostly horizontal panning to find any given
-                 day, so below `sm` it's replaced entirely by a day-tab +
-                 agenda-list view built from the same grid.placed data (so
-                 the "Live now" status/present-count stays in sync with the
-                 desktop grid, not a second independent query). -->
-            <div class="sm:hidden border-t border-border">
-                <div class="flex gap-2 overflow-x-auto no-scrollbar px-4 pt-4 pb-1">
+            {# ============ MOBILE AGENDA (below sm) ============
+               The 7-day grid needs ~900px to read at a glance -- on a phone
+               that's mostly horizontal panning to find any given day, so below
+               `sm` it's replaced entirely by a day-tab + agenda-list view built
+               from the same grid.placed data (so the "Live now"
+               status/present-count stays in sync with the desktop grid, not a
+               second independent query). #}
+            <div class="border-t border-divider sm:hidden">
+                <div class="no-scrollbar flex gap-2 overflow-x-auto px-4 pt-4 pb-1">
                     {% for day in weekday_names %}
                         <button type="button"
-                                class="day-tab shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
-                                       {{ 'bg-accent text-white border-accent' if loop.index0 == grid.today_weekday else 'border-border text-secondary' }}"
+                                class="day-tab shrink-0"
                                 data-day="{{ loop.index0 }}">
                             {{ day[:3] }}
                         </button>
@@ -143,7 +141,7 @@
                             {% for p in day_entries %}
                                 {% set entry = p.entry %}
                                 <button type="button"
-                                        class="timetable-chip w-full text-left rounded-xl border border-border bg-surface/60 p-3 hover:border-accent transition-colors"
+                                        class="timetable-chip w-full rounded-card border border-accent-line bg-accent-soft p-3 text-left transition-colors hover:border-accent"
                                         data-id="{{ entry.id }}"
                                         data-course-id="{{ entry.course_id }}"
                                         data-course-code="{{ entry.course.course_code if entry.course else '' }}"
@@ -160,57 +158,67 @@
                                         data-today-status="{{ p.today_status.status if p.today_status else '' }}"
                                         data-today-present="{{ p.today_status.present_count if p.today_status and p.today_status.present_count is not none else '' }}">
                                     <div class="flex items-center justify-between gap-2">
-                                        <p class="text-sm font-bold truncate">{{ entry.course.course_code if entry.course else 'Unknown' }}</p>
-                                        <span class="text-[11px] text-muted shrink-0">{{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}</span>
+                                        <p class="truncate text-sm font-bold text-accent">{{ entry.course.course_code if entry.course else 'Unknown' }}</p>
+                                        <span class="shrink-0 text-2xs text-muted">{{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}</span>
                                     </div>
-                                    <p class="text-xs text-secondary mt-1 truncate">
+                                    <p class="mt-1 truncate text-xs text-secondary">
                                         {{ entry.course.course_title if entry.course else '' }}{% if entry.room %} &middot; {{ entry.room }}{% endif %}
                                     </p>
                                     {% if p.today_status %}
-                                        <span class="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-full text-[10px] font-semibold
-                                                    {{ 'bg-success/10 text-success' if p.today_status.status == 'live' else 'bg-muted/10 text-muted' }}">
-                                            <span class="w-1.5 h-1.5 rounded-full {{ 'bg-success' if p.today_status.status == 'live' else 'bg-muted' }}"></span>
+                                        <span class="pill mt-2" data-tone="{{ 'live' if p.today_status.status == 'live' else 'neutral' }}">
+                                            <span class="dot" data-tone="{{ 'success' if p.today_status.status == 'live' else 'muted' }}"></span>
                                             {{ 'Live now' if p.today_status.status == 'live' else 'Ended' if p.today_status.status == 'ended' else 'Not started yet' }}
                                             {% if p.today_status.present_count is not none %} &middot; {{ p.today_status.present_count }} present{% endif %}
                                         </span>
                                     {% endif %}
                                 </button>
                             {% else %}
-                                <p class="text-sm text-muted text-center py-8">No classes scheduled.</p>
+                                <p class="empty-state">No classes scheduled.</p>
                             {% endfor %}
                         </div>
                     {% endfor %}
                 </div>
             </div>
 
-            <div class="hidden sm:block overflow-x-auto border-t border-border custom-scrollbar">
+            {# ============ DESKTOP WEEK GRID ============
+               The inline grid-* styles are load-bearing, not incidental: the
+               chip geometry below is a CSS grid placement with real
+               lane/width_pct/left_pct arithmetic from _build_timetable_grid()
+               in blueprints/admin.py, including a ternary on lane_count
+               inside a calc(). Tailwind classes cannot express dynamic
+               column/row indices, so this is the one place inline style is
+               the correct tool. #}
+            <div class="custom-scrollbar hidden overflow-x-auto border-t border-divider sm:block">
                 <div class="grid" style="grid-template-columns: 64px repeat(7, minmax(112px, 1fr)); grid-template-rows: 34px repeat({{ grid.total_rows }}, 26px); min-width: 900px;">
 
-                    <div class="border-b border-r border-border bg-surface/60 sticky top-0" style="grid-column:1; grid-row:1;"></div>
+                    <div class="sticky top-0 border-b border-r border-divider bg-surface" style="grid-column:1; grid-row:1;"></div>
                     {% for day in weekday_names %}
-                        <div class="border-b border-r border-border bg-surface/60 sticky top-0 flex items-center justify-center text-[11px] font-bold uppercase tracking-wide text-secondary"
+                        <div class="sticky top-0 flex items-center justify-center border-b border-r border-divider bg-surface text-2xs font-bold uppercase tracking-wide text-secondary"
                              style="grid-column:{{ loop.index + 1 }}; grid-row:1;">
                             {{ day[:3] }}
                         </div>
                     {% endfor %}
 
                     {% for label in grid.hour_labels %}
-                        <div class="border-r border-border text-[10px] text-muted text-right pr-2 pt-0.5"
+                        <div class="border-r border-divider pr-2 pt-0.5 text-right text-2xs text-muted"
                              style="grid-column:1; grid-row: {{ (loop.index0 * 2) + 2 }} / span 2;">
                             {{ label }}
                         </div>
                     {% endfor %}
 
+                    {# Background cells. On a light theme these are the
+                       surface tint against a white card -- at 60% they read
+                       as a faint grid rather than a dark lattice. #}
                     {% for row in range(grid.total_rows) %}
                         {% for col in range(7) %}
-                            <div class="border-r border-b border-border/30" style="grid-column: {{ col + 2 }}; grid-row: {{ row + 2 }};"></div>
+                            <div class="border-b border-r border-divider/60" style="grid-column: {{ col + 2 }}; grid-row: {{ row + 2 }};"></div>
                         {% endfor %}
                     {% endfor %}
 
                     {% for p in grid.placed %}
                         {% set entry = p.entry %}
                         <button type="button"
-                                class="timetable-chip my-0.5 rounded-lg px-2 py-1 text-left overflow-hidden bg-accent/15 border border-accent/30 hover:bg-accent/25 hover:border-accent/50 transition-colors cursor-pointer"
+                                class="timetable-chip my-0.5 cursor-pointer overflow-hidden rounded-[8px] border border-accent-line bg-accent-soft px-2 py-1 text-left transition-colors hover:border-accent"
                                 style="grid-column: {{ p.day_col }}; grid-row: {{ p.row_start + 1 }} / span {{ p.row_span }};
                                        justify-self: start; align-self: stretch;
                                        width: calc({{ p.width_pct }}% - {{ 4 if p.lane_count > 1 else 8 }}px);
@@ -230,8 +238,8 @@
                                 data-type="{{ entry.type }}"
                                 data-today-status="{{ p.today_status.status if p.today_status else '' }}"
                                 data-today-present="{{ p.today_status.present_count if p.today_status and p.today_status.present_count is not none else '' }}">
-                            <p class="text-[11px] font-bold text-white truncate">{{ entry.course.course_code if entry.course else 'Unknown' }}</p>
-                            <p class="text-[10px] text-secondary truncate">
+                            <p class="truncate text-2xs font-bold text-accent">{{ entry.course.course_code if entry.course else 'Unknown' }}</p>
+                            <p class="truncate text-2xs text-secondary">
                                 {{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}{% if entry.room %} &middot; {{ entry.room }}{% endif %}
                             </p>
                         </button>
@@ -239,68 +247,70 @@
                 </div>
             </div>
             {% else %}
-                <p class="px-6 py-10 text-sm text-muted text-center border-t border-border">No timetable slots yet. Add one on the left -- it'll show up here as a card in the grid.</p>
+                <div class="border-t border-divider">
+                    {{ empty_state('No timetable slots yet. Add one on the left — it will show up here in the grid.', 'event_busy') }}
+                </div>
             {% endif %}
         </div>
     </div>
 
-    <!-- ============ SLOT DETAILS / EDIT MODAL ============ -->
-    <div id="slot-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4">
-        <div class="bg-card border border-border rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-bold">Timetable Slot</h3>
-                <button type="button" id="slot-modal-close" class="text-muted hover:text-white transition-colors">
-                    <span class="material-symbols-rounded text-[20px]">close</span>
+    {# ============ SLOT DETAILS / EDIT MODAL ============ #}
+    <div id="slot-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+        <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-card p-6 shadow-pop">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="card-title">Timetable Slot</h3>
+                <button type="button" id="slot-modal-close" class="btn-ghost btn-icon" aria-label="Close">
+                    <span class="material-symbols-rounded text-xl">close</span>
                 </button>
             </div>
 
-            <!-- Read-only view -->
+            {# Read-only view #}
             <div id="slot-view">
                 <dl class="space-y-3 text-sm">
-                    <div class="flex justify-between gap-3"><dt class="text-muted">Course</dt><dd class="font-medium text-right" id="slot-view-course"></dd></div>
-                    <div class="flex justify-between gap-3"><dt class="text-muted">Lecturer</dt><dd class="font-medium text-right" id="slot-view-lecturer"></dd></div>
-                    <div class="flex justify-between gap-3"><dt class="text-muted">Day</dt><dd class="font-medium text-right" id="slot-view-day"></dd></div>
-                    <div class="flex justify-between gap-3"><dt class="text-muted">Time</dt><dd class="font-medium text-right" id="slot-view-time"></dd></div>
-                    <div class="flex justify-between gap-3"><dt class="text-muted">Room</dt><dd class="font-medium text-right" id="slot-view-room"></dd></div>
-                    <div class="flex justify-between gap-3"><dt class="text-muted">Semester</dt><dd class="font-medium text-right" id="slot-view-semester"></dd></div>
-                    <div class="flex justify-between gap-3"><dt class="text-muted">Type</dt><dd class="font-medium text-right" id="slot-view-type"></dd></div>
-                    <div class="flex justify-between gap-3"><dt class="text-muted">Status</dt><dd class="font-medium text-right" id="slot-view-status"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Course</dt><dd class="text-right font-medium text-ink" id="slot-view-course"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Lecturer</dt><dd class="text-right font-medium text-ink" id="slot-view-lecturer"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Day</dt><dd class="text-right font-medium text-ink" id="slot-view-day"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Time</dt><dd class="text-right font-medium text-ink" id="slot-view-time"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Room</dt><dd class="text-right font-medium text-ink" id="slot-view-room"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Semester</dt><dd class="text-right font-medium text-ink" id="slot-view-semester"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Type</dt><dd class="text-right font-medium text-ink" id="slot-view-type"></dd></div>
+                    <div class="flex justify-between gap-3"><dt class="text-muted">Status</dt><dd class="text-right font-medium text-ink" id="slot-view-status"></dd></div>
                 </dl>
-                <div class="flex gap-3 mt-6">
-                    <button type="button" id="slot-edit-btn" class="flex-1 bg-surface border border-border hover:border-accent hover:text-accent text-sm font-semibold rounded-lg py-2.5 transition-colors">Edit</button>
-                    <button type="button" id="slot-delete-btn" class="flex-1 bg-surface border border-border hover:border-error hover:text-error text-sm font-semibold rounded-lg py-2.5 transition-colors">Remove</button>
+                <div class="mt-6 flex gap-3">
+                    <button type="button" id="slot-edit-btn" class="btn-secondary flex-1">Edit</button>
+                    <button type="button" id="slot-delete-btn" class="btn-secondary flex-1 border-error/30 text-error hover:border-error hover:bg-error-soft hover:text-error">Remove</button>
                 </div>
             </div>
 
-            <!-- Edit form (hidden until "Edit" is clicked) -->
-            <form id="slot-edit-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="space-y-4 hidden">
+            {# Edit form (hidden until "Edit" is clicked) #}
+            <form id="slot-edit-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="hidden space-y-4">
                 {% include '_csrf_field.html' %}
                 <input type="hidden" name="action" value="update">
                 <input type="hidden" name="timetable_id" id="edit-timetable-id">
 
                 <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Course</label>
-                    <select name="course_id" id="edit-course-id" required class="form-input">
+                    <label class="form-label" for="edit-course-id">Course</label>
+                    <select name="course_id" id="edit-course-id" required class="form-select">
                         {% for course in courses %}
                             <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Semester</label>
-                    <select name="semester_id" id="edit-semester-id" required class="form-input">
+                    <label class="form-label" for="edit-semester-id">Semester</label>
+                    <select name="semester_id" id="edit-semester-id" required class="form-select">
                         {% for semester in semesters %}
                             <option value="{{ semester.id }}">{{ semester.name }}{{ ' (active)' if active_semester and semester.id == active_semester.id else '' }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <label id="edit-other-semester-row" class="hidden items-start gap-2 text-[11px] text-warning bg-warning/10 border border-warning/20 rounded-lg px-3 py-2">
+                <label id="edit-other-semester-row" class="alert hidden" data-tone="warning">
                     <input type="checkbox" name="confirm_other_semester" id="edit-confirm-other-semester" class="mt-0.5">
                     <span>This isn't the active semester{% if active_semester %} ({{ active_semester.name }}){% endif %}. Use it anyway.</span>
                 </label>
                 <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Day of Week</label>
-                    <select name="day_of_week" id="edit-day-of-week" required class="form-input">
+                    <label class="form-label" for="edit-day-of-week">Day of Week</label>
+                    <select name="day_of_week" id="edit-day-of-week" required class="form-select">
                         {% for name in weekday_names %}
                             <option value="{{ loop.index0 }}">{{ name }}</option>
                         {% endfor %}
@@ -308,38 +318,38 @@
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Start Time</label>
+                        <label class="form-label" for="edit-start-time">Start Time</label>
                         <input type="time" name="start_time" id="edit-start-time" required class="form-input">
                     </div>
                     <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">End Time</label>
+                        <label class="form-label" for="edit-end-time">End Time</label>
                         <input type="time" name="end_time" id="edit-end-time" required class="form-input">
                     </div>
                 </div>
-                <p id="edit-time-error" class="hidden text-[11px] text-error -mt-2">Start time must be before end time.</p>
+                <p id="edit-time-error" class="form-error hidden">Start time must be before end time.</p>
                 <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Room</label>
+                    <label class="form-label" for="edit-room">Room</label>
                     <input type="text" name="room" id="edit-room" class="form-input">
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-secondary mb-1.5">Type</label>
-                    <select name="type" id="edit-type" class="form-input">
+                    <label class="form-label" for="edit-type">Type</label>
+                    <select name="type" id="edit-type" class="form-select">
                         <option value="scheduled">Scheduled (recurring)</option>
                         <option value="fixed">Fixed (one-off, pinned)</option>
                     </select>
                 </div>
 
-                <div class="flex gap-3 mt-2">
-                    <button type="button" id="slot-cancel-edit-btn" class="flex-1 bg-surface border border-border text-sm font-semibold rounded-lg py-2.5 transition-colors">Cancel</button>
-                    <button type="submit" class="flex-1 bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 transition-colors">Save Changes</button>
+                <div class="mt-2 flex gap-3">
+                    <button type="button" id="slot-cancel-edit-btn" class="btn-secondary flex-1">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1">Save Changes</button>
                 </div>
             </form>
 
-            <!-- Submitted via JS after a confirm() -- no cascade risk beyond
-                 the FK-RESTRICT the backend already handles gracefully, so a
-                 lightweight native confirm is enough here (unlike the
-                 type-the-name modal organization.html uses for cascading
-                 faculty/department deletes). -->
+            {# Submitted via JS after a confirm() -- no cascade risk beyond the
+               FK-RESTRICT the backend already handles gracefully, so a
+               lightweight native confirm is enough here (unlike the
+               type-the-name modal organization.html uses for cascading
+               faculty/department deletes). #}
             <form id="slot-delete-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="hidden">
                 {% include '_csrf_field.html' %}
                 <input type="hidden" name="action" value="delete">
@@ -465,21 +475,25 @@
         });
 
         // ---------- mobile agenda day-tab switcher ----------
-        document.querySelectorAll('.day-tab').forEach(function (tab) {
-            tab.addEventListener('click', function () {
-                var day = tab.dataset.day;
-                document.querySelectorAll('.day-tab').forEach(function (t) {
-                    t.classList.toggle('bg-accent', t === tab);
-                    t.classList.toggle('text-white', t === tab);
-                    t.classList.toggle('border-accent', t === tab);
-                    t.classList.toggle('border-border', t !== tab);
-                    t.classList.toggle('text-secondary', t !== tab);
-                });
-                document.querySelectorAll('.day-agenda').forEach(function (panel) {
-                    panel.classList.toggle('hidden', panel.dataset.day !== day);
-                });
+        // Toggles the .tab-pill-active component class rather than the old
+        // set of bare utilities. Both names are real rules in input.css, so
+        // the scanner emits them and the swap is complete either way.
+        var dayTabs = document.querySelectorAll('.day-tab');
+        function selectDay(day) {
+            dayTabs.forEach(function (t) {
+                t.classList.toggle('tab-pill-active', t.dataset.day === day);
             });
+            document.querySelectorAll('.day-agenda').forEach(function (panel) {
+                panel.classList.toggle('hidden', panel.dataset.day !== day);
+            });
+        }
+        dayTabs.forEach(function (tab) {
+            tab.addEventListener('click', function () { selectDay(tab.dataset.day); });
         });
+        // The active tab is rendered server-side from grid.today_weekday, so
+        // seed the class to match rather than assuming the first tab wins.
+        var todayTab = document.querySelector('.day-tab[data-day="' + {{ grid.today_weekday }} + '"]');
+        if (todayTab) selectDay(todayTab.dataset.day);
 
         // ---------- "Happening Now" banner ----------
         function el(tag, className, text) {
@@ -495,19 +509,24 @@
             var banner = document.getElementById('now-banner');
             var text = document.getElementById('now-banner-text');
 
-            var palette = data.status === 'in_session'
-                ? { banner: 'bg-success/10 border-success/20', iconWrap: 'bg-success/20 text-success', icon: 'sensors' }
-                : data.status === 'no_active_semester'
-                    ? { banner: 'bg-warning/10 border-warning/20', iconWrap: 'bg-warning/20 text-warning', icon: 'error' }
-                    : { banner: 'bg-card border-border', iconWrap: 'bg-surface text-muted', icon: 'schedule' };
-
-            banner.className = 'rounded-2xl border p-4 flex items-center gap-4 mb-6 ' + palette.banner;
-            iconWrap.className = 'w-9 h-9 rounded-full flex items-center justify-center shrink-0 ' + palette.iconWrap;
-            icon.textContent = palette.icon;
+            // Sets data-tone, not className. The previous version rebuilt
+            // className from a palette object, which meant the only place
+            // those colour classes existed was inside this JS string.
+            var tone, iconName;
+            if (data.status === 'in_session') {
+                tone = 'live'; iconName = 'sensors';
+            } else if (data.status === 'no_active_semester') {
+                tone = 'warning'; iconName = 'error';
+            } else {
+                tone = 'neutral'; iconName = 'schedule';
+            }
+            banner.dataset.tone = tone;
+            iconWrap.dataset.tone = tone;
+            icon.textContent = iconName;
 
             text.innerHTML = '';
             if (data.status === 'in_session') {
-                text.appendChild(el('p', 'text-sm font-bold truncate', 'Happening now: ' + data.course_code + ' – ' + data.course_title));
+                text.appendChild(el('p', 'truncate text-sm font-bold text-ink', 'Happening now: ' + data.course_code + ' – ' + data.course_title));
                 var parts = [
                     data.start_time + '–' + data.end_time,
                     data.room,
@@ -516,13 +535,13 @@
                     (data.present_count !== null && data.present_count !== undefined) ? data.present_count + ' present' : null,
                     data.overlap_warning ? 'multiple slots overlap here' : null,
                 ].filter(Boolean).join(' · ');
-                text.appendChild(el('p', 'text-[11px] text-secondary mt-0.5', parts));
+                text.appendChild(el('p', 'mt-0.5 text-2xs text-secondary', parts));
             } else if (data.status === 'no_active_semester') {
-                text.appendChild(el('p', 'text-sm font-bold', 'No active semester set'));
-                text.appendChild(el('p', 'text-[11px] text-secondary mt-0.5', 'Set one active on the Semesters page to enable "happening now" detection.'));
+                text.appendChild(el('p', 'text-sm font-bold text-ink', 'No active semester set'));
+                text.appendChild(el('p', 'mt-0.5 text-2xs text-secondary', 'Set one active on the Semesters page to enable "happening now" detection.'));
             } else {
-                text.appendChild(el('p', 'text-sm font-bold', 'No class in session right now'));
-                text.appendChild(el('p', 'text-[11px] text-secondary mt-0.5', data.semester || ''));
+                text.appendChild(el('p', 'text-sm font-bold text-ink', 'No class in session right now'));
+                text.appendChild(el('p', 'mt-0.5 text-2xs text-secondary', data.semester || ''));
             }
         }
 

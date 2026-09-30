@@ -158,7 +158,7 @@ class _SessionCard extends StatelessWidget {
               child: Text(
                 '${session.presentCount}/${session.enrolledCount} PRESENT',
                 style: const TextStyle(
-                  fontSize: 8,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                   color: Color(0xFF10B981),

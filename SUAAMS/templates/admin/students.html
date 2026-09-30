@@ -1,194 +1,206 @@
 {% extends "base_admin.html" %}
+{% from '_macros.html' import pill, avatar, empty_state, table_empty, card_heading, directory_heading %}
 
 {% block title %}Students | SUAAMS Admin{% endblock %}
 {% block page_title %}Students{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Student roster</p>
+    <p class="page-subtitle">Student roster</p>
 {% endblock %}
 
 {% block content %}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+    {# Add Student + Bulk Enroll share one sticky column -- wrapping them
+       together keeps the Roster's lg:col-span-2 lining up against a single
+       column 1, and .form-col keeps two independently-sticky cards from both
+       pinning to top-0 and overlapping. #}
+    <div class="form-grid">
+        <div class="form-col">
 
-        <!-- Add Student + Bulk Enroll share one sticky column -- wrapping
-             them together (rather than each being its own top-level grid
-             child) keeps Directory's lg:col-span-2 lining up against a
-             single column 1, and avoids two independently-sticky elements
-             both pinning to top-0 and overlapping each other. -->
-        <div class="space-y-6 lg:sticky lg:top-0">
-            <div class="bg-card border border-border rounded-2xl p-6">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Add Student</h2>
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Add Student', info=true) }}
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('admin.students_page') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
 
-                <form action="{{ url_for('admin.students_page') }}" method="POST" class="space-y-4">
-                    {% include '_csrf_field.html' %}
+                        <div>
+                            <label class="form-label" for="student-name">Full Name</label>
+                            <input type="text" name="full_name" id="student-name" required
+                                   placeholder="e.g. Aisha Bello" class="form-input">
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Full Name</label>
-                        <input type="text" name="full_name" required placeholder="e.g. Aisha Bello" class="form-input">
-                    </div>
+                        <div>
+                            <label class="form-label" for="student-matric">Matric Number</label>
+                            <input type="text" name="matric_number" id="student-matric" required
+                                   placeholder="e.g. CPE/20/1123" class="form-input mono">
+                            <p class="form-help">
+                                Also used as the login username; default password is the same
+                                as the Matric Number.
+                            </p>
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Matric Number</label>
-                        <input type="text" name="matric_number" required placeholder="e.g. CPE/20/1123" class="form-input">
-                        <p class="mt-1.5 text-[11px] text-muted">Also used as the login username; default password is the same as the Matric Number.</p>
-                    </div>
+                        <div>
+                            <label class="form-label" for="student-level">Level</label>
+                            <input type="text" name="level" id="student-level" required
+                                   placeholder="e.g. 400L" class="form-input">
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Level</label>
-                        <input type="text" name="level" required placeholder="e.g. 400L" class="form-input">
-                    </div>
+                        <div>
+                            <label class="form-label" for="student-department">Department</label>
+                            <select name="department_id" id="student-department" required class="form-select">
+                                <option value="" disabled selected>Select department</option>
+                                {% for dept in departments %}
+                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">Department</label>
-                        <select name="department_id" required class="form-select">
-                            <option value="" disabled selected>Select department</option>
-                            {% for dept in departments %}
-                                <option value="{{ dept.id }}">{{ dept.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
+                        <div>
+                            <label class="form-label" for="student-rfid">
+                                RFID UID <span class="text-muted">(optional)</span>
+                            </label>
+                            <input type="text" name="rfid_uid" id="student-rfid"
+                                   placeholder="Leave blank if not yet issued" class="form-input">
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">RFID UID <span class="text-muted font-normal normal-case">(optional)</span></label>
-                        <input type="text" name="rfid_uid" placeholder="Leave blank if not yet issued" class="form-input">
-                    </div>
-
-                    <button type="submit"
-                            class="w-full bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg py-2.5 mt-2 transition-colors">
-                        Create Student
-                    </button>
-                </form>
+                        <button type="submit" class="btn-primary mt-2 w-full">Create Student</button>
+                    </form>
+                </div>
             </div>
 
-            <div class="bg-card border border-border rounded-2xl p-6">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary mb-5">Bulk Enroll (CSV)</h2>
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Bulk Enroll (CSV)', info=true) }}
+                </div>
+                <div class="card-body">
+                    {# The only multipart form in the admin portal. enctype is
+                       load-bearing: drop it and the browser sends the filename
+                       as a plain form value and the upload silently finds
+                       nothing. #}
+                    <form action="{{ url_for('admin.bulk_enroll_students') }}" method="POST"
+                          enctype="multipart/form-data" class="space-y-4">
+                        {% include '_csrf_field.html' %}
 
-                <form action="{{ url_for('admin.bulk_enroll_students') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
-                    {% include '_csrf_field.html' %}
+                        <div>
+                            <label class="form-label" for="csv-file">CSV File</label>
+                            <input type="file" name="file" id="csv-file" accept=".csv" required class="form-file">
+                            <p class="form-help">
+                                Required columns: matric_number, full_name, level, department_name.
+                                Optional: rfid_uid. Default password for every row is its own
+                                matric number.
+                            </p>
+                        </div>
 
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">CSV File</label>
-                        <input type="file" name="file" accept=".csv" required
-                               class="w-full text-sm text-secondary file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-accent file:text-white file:text-xs file:font-semibold file:cursor-pointer hover:file:bg-accent/90">
-                        <p class="mt-1.5 text-[11px] text-muted">Required columns: matric_number, full_name, level, department_name. Optional: rfid_uid. Default password for every row is its own matric number.</p>
-                    </div>
-
-                    <button type="submit"
-                            class="w-full bg-card border border-border hover:border-accent hover:text-accent text-sm font-semibold rounded-lg py-2.5 transition-colors">
-                        Upload &amp; Enroll
-                    </button>
-                </form>
+                        <button type="submit" class="btn-secondary mt-2 w-full">Upload &amp; Enroll</button>
+                    </form>
+                </div>
             </div>
         </div>
 
-        <!-- Directory -->
-        <div class="lg:col-span-2 bg-card border border-border rounded-2xl overflow-hidden">
-            <div class="px-6 pt-6 pb-4 flex items-center justify-between">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Roster</h2>
-                <span class="text-xs text-muted">{{ students|length }} student{{ '' if students|length == 1 else 's' }}</span>
-            </div>
+        <!-- Roster -->
+        <div class="form-main">
+            <div class="card-clip">
+                {{ directory_heading('Roster', students|length, 'student') }}
 
-            <!-- Card view (below sm): a 6-column table is unreadable on a
-                 phone even scrolled -- each row becomes a stacked card
-                 instead, same data, no horizontal scrolling. -->
-            <div class="sm:hidden divide-y divide-border">
-                {% for student in students %}
-                    <div class="p-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 shrink-0 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent font-bold text-xs">
-                                {{ student.full_name[0]|upper }}
+                {# Card view (below sm): a 6-column table is unreadable on a
+                   phone even scrolled -- each row becomes a stacked card
+                   instead, same data, no horizontal scrolling. #}
+                <div class="divide-y divide-divider border-t border-divider sm:hidden">
+                    {% for student in students %}
+                        <div class="px-5 py-4">
+                            <div class="flex items-center gap-3">
+                                {{ avatar(student.full_name) }}
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm font-semibold text-ink">{{ student.full_name }}</p>
+                                    <p class="text-2xs text-muted mono">{{ student.matric_number }}</p>
+                                </div>
                             </div>
-                            <div class="min-w-0 flex-1">
-                                <p class="font-medium text-sm truncate">{{ student.full_name }}</p>
-                                <p class="text-[11px] text-muted">{{ student.matric_number }}</p>
+                            <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                                <div>
+                                    <dt class="text-muted">Level</dt>
+                                    <dd class="mt-0.5 text-secondary">{{ student.level }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-muted">Department</dt>
+                                    <dd class="mt-0.5 truncate text-secondary">{{ student.department.name if student.department else '—' }}</dd>
+                                </div>
+                            </dl>
+                            <div class="mt-3 flex flex-wrap items-center gap-2">
+                                {% if student.device_id %}
+                                    {{ pill('Bound', 'success', 'smartphone') }}
+                                    <form action="{{ url_for('admin.reset_student_binding', student_id=student.id) }}" method="POST"
+                                          class="unbind-form" data-student-name="{{ student.full_name }}">
+                                        {% include '_csrf_field.html' %}
+                                        <button type="submit" class="btn-link">Unbind</button>
+                                    </form>
+                                {% else %}
+                                    {{ pill('Not Bound', 'neutral') }}
+                                {% endif %}
+                                {% if student.user and student.user.requires_password_change %}
+                                    {{ pill('Pending Setup', 'warning') }}
+                                {% else %}
+                                    {{ pill('Active', 'success') }}
+                                {% endif %}
                             </div>
                         </div>
-                        <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                            <div><dt class="text-muted">Level</dt><dd class="text-secondary mt-0.5">{{ student.level }}</dd></div>
-                            <div><dt class="text-muted">Department</dt><dd class="text-secondary mt-0.5 truncate">{{ student.department.name if student.department else '—' }}</dd></div>
-                        </dl>
-                        <div class="mt-3 flex items-center gap-2 flex-wrap">
-                            {% if student.device_id %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success">Bound</span>
-                                <form action="{{ url_for('admin.reset_student_binding', student_id=student.id) }}" method="POST"
-                                      class="unbind-form" data-student-name="{{ student.full_name }}">
-                                    {% include '_csrf_field.html' %}
-                                    <button type="submit" class="text-[11px] font-semibold text-muted hover:text-error transition-colors underline decoration-dotted underline-offset-2">
-                                        Unbind
-                                    </button>
-                                </form>
-                            {% else %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-muted/10 text-muted">Not Bound</span>
-                            {% endif %}
-                            {% if student.user and student.user.requires_password_change %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-warning/10 text-warning">Pending Setup</span>
-                            {% else %}
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success">Active</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% else %}
-                    <p class="p-10 text-center text-sm text-muted">No students registered yet.</p>
-                {% endfor %}
-            </div>
+                    {% else %}
+                        {{ empty_state('No students registered yet.', 'group') }}
+                    {% endfor %}
+                </div>
 
-            <div class="hidden sm:block overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-t border-border text-left">
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Student</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Matric No.</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Level</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Department</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Device</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for student in students %}
-                            <tr class="border-t border-border hover:bg-surface/60 transition-colors">
-                                <td class="px-6 py-3.5">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-8 h-8 shrink-0 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent font-bold text-xs">
-                                            {{ student.full_name[0]|upper }}
-                                        </div>
-                                        <span class="font-medium">{{ student.full_name }}</span>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-3.5 text-secondary">{{ student.matric_number }}</td>
-                                <td class="px-6 py-3.5 text-secondary">{{ student.level }}</td>
-                                <td class="px-6 py-3.5 text-secondary">{{ student.department.name if student.department else '—' }}</td>
-                                <td class="px-6 py-3.5">
-                                    {% if student.device_id %}
-                                        <div class="flex items-center gap-2">
-                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success">Bound</span>
-                                            <form action="{{ url_for('admin.reset_student_binding', student_id=student.id) }}" method="POST"
-                                                  class="unbind-form" data-student-name="{{ student.full_name }}">
-                                                {% include '_csrf_field.html' %}
-                                                <button type="submit" class="text-[11px] font-semibold text-muted hover:text-error transition-colors underline decoration-dotted underline-offset-2">
-                                                    Unbind
-                                                </button>
-                                            </form>
-                                        </div>
-                                    {% else %}
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-muted/10 text-muted">Not Bound</span>
-                                    {% endif %}
-                                </td>
-                                <td class="px-6 py-3.5">
-                                    {% if student.user and student.user.requires_password_change %}
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-warning/10 text-warning">Pending Setup</span>
-                                    {% else %}
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success">Active</span>
-                                    {% endif %}
-                                </td>
+                <div class="table-wrap hidden border-t border-divider sm:block">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th class="th">Student</th>
+                                <th class="th">Matric No.</th>
+                                <th class="th">Level</th>
+                                <th class="th">Department</th>
+                                <th class="th">Device</th>
+                                <th class="th">Status</th>
                             </tr>
-                        {% else %}
-                            <tr class="border-t border-border">
-                                <td colspan="6" class="px-6 py-10 text-center text-sm text-muted">No students registered yet.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {% for student in students %}
+                                <tr>
+                                    <td class="td">
+                                        <div class="flex items-center gap-3">
+                                            {{ avatar(student.full_name) }}
+                                            <span class="font-medium">{{ student.full_name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="td td-muted mono text-xs">{{ student.matric_number }}</td>
+                                    <td class="td td-muted">{{ student.level }}</td>
+                                    <td class="td td-muted">{{ student.department.name if student.department else '—' }}</td>
+                                    <td class="td">
+                                        {% if student.device_id %}
+                                            <div class="flex items-center gap-2">
+                                                {{ pill('Bound', 'success') }}
+                                                <form action="{{ url_for('admin.reset_student_binding', student_id=student.id) }}" method="POST"
+                                                      class="unbind-form" data-student-name="{{ student.full_name }}">
+                                                    {% include '_csrf_field.html' %}
+                                                    <button type="submit" class="btn-link">Unbind</button>
+                                                </form>
+                                            </div>
+                                        {% else %}
+                                            {{ pill('Not Bound', 'neutral') }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="td">
+                                        {% if student.user and student.user.requires_password_change %}
+                                            {{ pill('Pending Setup', 'warning') }}
+                                        {% else %}
+                                            {{ pill('Active', 'success') }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% else %}
+                                {{ table_empty(6, 'No students registered yet.') }}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

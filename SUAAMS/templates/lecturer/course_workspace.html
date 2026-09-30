@@ -1,14 +1,15 @@
 {% extends "base_portal.html" %}
+{% from '_macros.html' import stat_card, pill, avatar, table_empty, card_heading %}
 
 {% block title %}{{ course.course_title }} | SUAAMS Lecturer{% endblock %}
 {% block page_title %}{{ course.course_code }}{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">{{ course.course_title }}</p>
+    <p class="page-subtitle">{{ course.course_title }}</p>
 {% endblock %}
 
 {% block extra_head %}
-    <!-- Auto-refresh every 5s while a session is live, so the stat cards and
-         live attendance table stay current without a manual reload. -->
+    {# Auto-refresh every 5s while a session is live, so the stat cards and
+       live attendance table stay current without a manual reload. #}
     {% if active_session %}
         <meta http-equiv="refresh" content="5">
     {% endif %}
@@ -16,144 +17,131 @@
 
 {% block content %}
 
-    <!-- Stat cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Students Enrolled</span>
-                <span class="material-symbols-rounded text-accent">group</span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ stats.total_enrolled_students }}</p>
-            <p class="mt-1 text-xs text-muted">Registered for this course</p>
-        </div>
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Sessions This Semester</span>
-                <span class="material-symbols-rounded text-accent">event</span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ stats.total_sessions_this_semester }}</p>
-            <p class="mt-1 text-xs text-muted">Attendance sessions run</p>
-        </div>
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Average Attendance</span>
-                <span class="material-symbols-rounded text-accent">insights</span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ stats.average_attendance }}%</p>
-            <p class="mt-1 text-xs text-muted">Across completed sessions</p>
-        </div>
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Present Now</span>
-                <span class="material-symbols-rounded text-accent">how_to_reg</span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ stats.present_in_current_session }}</p>
-            <p class="mt-1 text-xs text-muted">Checked in this session</p>
-        </div>
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        {{ stat_card('Students Enrolled', stats.total_enrolled_students, 'Registered for this course', 'group') }}
+        {{ stat_card('Sessions This Semester', stats.total_sessions_this_semester, 'Attendance sessions run', 'event') }}
+        {{ stat_card('Average Attendance', stats.average_attendance ~ '%', 'Across completed sessions', 'insights') }}
+        {{ stat_card('Present Now', stats.present_in_current_session, 'Checked in this session', 'how_to_reg',
+                     'success' if active_session else 'accent') }}
     </div>
 
-    <!-- Session controls -->
-    <div class="bg-card border border-border rounded-2xl p-6">
-        <div class="flex items-center justify-between gap-4 flex-wrap">
-            <div>
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Session Controls</h2>
-                <p class="text-xs text-muted mt-1">Start or stop attendance tracking for this course.</p>
-            </div>
+    {# Session controls. Exactly one of the two forms is ever rendered, so a
+       lecturer can never submit a start while a session is already running.
+       NOTE: the end-session endpoint is registered as `end_session_r` in
+       blueprints/lecturer.py -- `_r` suffix, not `end_session`. That is the
+       real endpoint name, kept verbatim here so the POST keeps resolving. #}
+    <div class="card">
+        <div class="card-header">
+            {{ card_heading('Session Controls', info=true) }}
+        </div>
+        <div class="card-body">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <p class="text-xs text-secondary">
+                    Start or stop attendance tracking for this course.
+                </p>
 
-            {% if active_session %}
-                <div class="flex items-center gap-3">
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-success/10 text-success">
-                        <span class="w-1.5 h-1.5 rounded-full bg-success"></span> Session Active
-                    </span>
-                    <form method="POST" action="{{ url_for('lecturer.end_session_r', course_id=course.id) }}">
+                {% if active_session %}
+                    <div class="flex items-center gap-3">
+                        {{ pill('Session Active', 'live', icon='sensors') }}
+                        <form method="POST" action="{{ url_for('lecturer.end_session_r', course_id=course.id) }}">
+                            {% include '_csrf_field.html' %}
+                            <button type="submit" class="btn-danger btn-sm">
+                                <span class="material-symbols-rounded text-base">stop_circle</span>
+                                End Session
+                            </button>
+                        </form>
+                    </div>
+                {% else %}
+                    <form method="POST" action="{{ url_for('lecturer.start_session', course_id=course.id) }}"
+                          class="flex flex-wrap items-end gap-3">
                         {% include '_csrf_field.html' %}
-                        <button type="submit"
-                                class="bg-error/10 hover:bg-error/20 text-error text-sm font-semibold rounded-lg px-4 py-2 transition-colors">
-                            End Session
+                        <div>
+                            <label class="form-label" for="planned-start">
+                                Planned Start
+                                {# One label for both time fields rather than a
+                                   duplicated caption on each. #}
+                                {% if timetable_slot %}<span class="font-normal text-muted">(from timetable)</span>
+                                {% else %}<span class="font-normal text-muted">(optional)</span>{% endif %}
+                            </label>
+                            <input type="time" name="planned_start" id="planned-start" class="form-input"
+                                   value="{{ timetable_slot.start_time.strftime('%H:%M') if timetable_slot else '' }}">
+                        </div>
+                        <div>
+                            <label class="form-label" for="planned-end">Planned End</label>
+                            <input type="time" name="planned_end" id="planned-end" class="form-input"
+                                   value="{{ timetable_slot.end_time.strftime('%H:%M') if timetable_slot else '' }}">
+                        </div>
+                        <button type="submit" class="btn-primary">
+                            <span class="material-symbols-rounded text-lg">play_circle</span>
+                            Start Session
                         </button>
                     </form>
-                </div>
-            {% else %}
-                <form method="POST" action="{{ url_for('lecturer.start_session', course_id=course.id) }}"
-                      class="flex items-end gap-3 flex-wrap">
-                    {% include '_csrf_field.html' %}
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">
-                            Planned Start
-                            {% if timetable_slot %}<span class="text-muted font-normal normal-case">(from timetable)</span>
-                            {% else %}<span class="text-muted font-normal normal-case">(optional)</span>{% endif %}
-                        </label>
-                        <input type="time" name="planned_start" class="form-input"
-                               value="{{ timetable_slot.start_time.strftime('%H:%M') if timetable_slot else '' }}">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-secondary mb-1.5">
-                            Planned End
-                            {% if timetable_slot %}<span class="text-muted font-normal normal-case">(from timetable)</span>
-                            {% else %}<span class="text-muted font-normal normal-case">(optional)</span>{% endif %}
-                        </label>
-                        <input type="time" name="planned_end" class="form-input"
-                               value="{{ timetable_slot.end_time.strftime('%H:%M') if timetable_slot else '' }}">
-                    </div>
-                    <button type="submit"
-                            class="bg-accent hover:bg-accent/90 text-white text-sm font-semibold rounded-lg px-5 py-3 transition-colors">
-                        Start Session
-                    </button>
-                </form>
-            {% endif %}
+                {% endif %}
+            </div>
         </div>
     </div>
 
-    <!-- Live attendance -->
+    {# Live attendance. `attendance_records` is a positional TUPLE, not an
+       object -- the route builds these tuples in course_workspace(). Indexes
+       are commented once here rather than at every use site. #}
     {% if active_session %}
-        <div class="bg-card border border-border rounded-2xl overflow-hidden">
-            <div class="px-6 pt-6 pb-4 flex items-center justify-between gap-4 flex-wrap">
-                <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Live Attendance</h2>
-                <input type="search" id="live-search" placeholder="Search student or matric number…"
-                       class="w-full sm:w-64 bg-surface border border-border text-white text-sm rounded-xl px-4 py-2 placeholder:text-muted transition-colors focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent">
+        <div class="card-clip">
+            <div class="flex flex-wrap items-center justify-between gap-4 px-5 pt-5 pb-4">
+                {{ card_heading('Live Attendance', info=true) }}
+                {# id="live-search" is the DOM contract with the inline script
+                   at the bottom of this file. #}
+                <input type="search" id="live-search" placeholder="Search student or matric number&hellip;"
+                       aria-label="Search live attendance" class="form-input w-full sm:w-64">
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
+            <div class="table-wrap border-t border-divider">
+                <table class="table">
                     <thead>
-                        <tr class="border-t border-border text-left">
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Student</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Matric Number</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Time In</th>
-                            <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Status</th>
+                        <tr>
+                            <th class="th">Student</th>
+                            <th class="th">Matric Number</th>
+                            <th class="th">Level</th>
+                            <th class="th">Time In</th>
+                            <th class="th">Status</th>
                         </tr>
                     </thead>
+                    {# id="live-table-body" -- the other half of the search
+                       contract. Do not rename either without updating the
+                       script. #}
                     <tbody id="live-table-body">
                         {% for record in attendance_records %}
-                            <tr class="border-t border-border hover:bg-surface/60 transition-colors">
-                                <td class="px-6 py-3.5">
+                            {# record = (full_name, level, department, matric, status, time_in) #}
+                            {% set status = record[4]|lower %}
+                            <tr>
+                                <td class="td">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-8 h-8 shrink-0 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center text-accent font-bold text-xs">
-                                            {{ record[0][0]|upper }}
-                                        </div>
+                                        {{ avatar(record[0]) }}
                                         <span class="font-medium">{{ record[0] }}</span>
                                     </div>
                                 </td>
-                                <td class="px-6 py-3.5 text-secondary">{{ record[3] }}</td>
-                                <td class="px-6 py-3.5 text-secondary">{{ record[5].strftime('%H:%M:%S') if record[5] else '—' }}</td>
-                                <td class="px-6 py-3.5">
-                                    {% set status = record[4]|lower %}
-                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold
-                                        {{ 'bg-success/10 text-success' if status == 'present'
-                                           else 'bg-warning/10 text-warning' if status == 'late'
-                                           else 'bg-error/10 text-error' }}">
-                                        {{ record[4] }}
-                                    </span>
+                                <td class="td td-muted mono text-xs">{{ record[3] }}</td>
+                                <td class="td td-muted">{{ record[1] }}</td>
+                                <td class="td td-muted mono text-xs">
+                                    {{ record[5].strftime('%H:%M:%S') if record[5] else '—' }}
+                                </td>
+                                <td class="td">
+                                    {# Status maps to a tone name, never to an
+                                       interpolated colour class. 'absent' and
+                                       anything unexpected fall through to
+                                       neutral rather than error. #}
+                                    {% if status == 'present' %}
+                                        {{ pill(record[4]|capitalize, 'success', icon='check') }}
+                                    {% elif status == 'late' %}
+                                        {{ pill(record[4]|capitalize, 'warning', icon='schedule') }}
+                                    {% elif status == 'absent' %}
+                                        {{ pill(record[4]|capitalize, 'error', icon='close') }}
+                                    {% else %}
+                                        {{ pill(record[4]|capitalize, 'neutral') }}
+                                    {% endif %}
                                 </td>
                             </tr>
                         {% else %}
-                            <tr class="border-t border-border">
-                                <td colspan="4" class="px-6 py-10 text-center text-sm text-muted">No check-ins yet. Waiting for students to scan…</td>
-                            </tr>
+                            {{ table_empty(5, 'No check-ins yet. Waiting for students to scan...') }}
                         {% endfor %}
                     </tbody>
                 </table>
@@ -165,6 +153,10 @@
 
 {% block extra_scripts %}
 <script>
+    // Client-side filter over the live attendance table.
+    // DOM contract: #live-search and #live-table-body, both owned by this
+    // template. Hiding uses inline style.display rather than a class so no
+    // Tailwind utility has to be toggled on and off in pairs.
     const liveSearch = document.getElementById('live-search');
     if (liveSearch) {
         liveSearch.addEventListener('input', function () {

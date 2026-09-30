@@ -1,53 +1,55 @@
 {% extends "base_student.html" %}
+{% from '_macros.html' import course_chip, table_empty, directory_heading %}
 
 {% block title %}Attendance History | SUAAMS Student{% endblock %}
 {% block page_title %}Attendance History{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Your full check-in log across all courses</p>
+    <p class="page-subtitle">Your full check-in log across all courses</p>
 {% endblock %}
 
 {% block content %}
 
-    <div class="bg-card border border-border rounded-2xl overflow-hidden">
-        <div class="px-6 pt-6 pb-4 flex items-center justify-between">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Attendance Log</h2>
-            <span class="text-xs text-muted">{{ attendance_log|length }} record{{ '' if attendance_log|length == 1 else 's' }}</span>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+    {# Unbounded log -- the route ships every Attendance row for this student
+       with no pagination or limit. The card-clip + table-wrap pair means it
+       degrades to a horizontal-scroll table rather than an unbounded card. #}
+    <div class="card-clip">
+        {{ directory_heading('Attendance Log', attendance_log|length, 'record') }}
+        <div class="table-wrap">
+            <table class="table">
                 <thead>
-                    <tr class="border-t border-border text-left">
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Date</th>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Time</th>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Status</th>
+                    <tr>
+                        <th class="th">Course</th>
+                        <th class="th">Date</th>
+                        <th class="th">Time</th>
+                        <th class="th">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for record in attendance_log %}
-                        <tr class="border-t border-border hover:bg-surface/60 transition-colors">
-                            <td class="px-6 py-3.5">
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-accent/10 text-accent">
-                                    {{ record.course_code }}
-                                </span>
-                                <span class="text-xs text-muted ml-2">{{ record.course_title }}</span>
+                        <tr>
+                            <td class="td">
+                                <div class="flex items-center gap-2.5">
+                                    {{ course_chip(record.course_code) }}
+                                    {# Title is secondary to the code a student
+                                       actually scans with, so it sits beside it
+                                       muted rather than in its own column. #}
+                                    <span class="truncate text-xs text-secondary">{{ record.course_title }}</span>
+                                </div>
                             </td>
-                            <td class="px-6 py-3.5 text-secondary">{{ record.date }}</td>
-                            <td class="px-6 py-3.5 text-secondary">{{ record.time }}</td>
-                            <td class="px-6 py-3.5">
+                            <td class="td td-muted">{{ record.date }}</td>
+                            <td class="td td-muted"><span class="mono">{{ record.time }}</span></td>
+                            <td class="td">
+                                {# 'late' is an attended tap inside the terminal's
+                                   grace window -- success, not a warning. #}
                                 {% set is_present = record.status in ('present', 'late') %}
-                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold
-                                            {{ 'bg-success/10 text-success' if is_present else 'bg-error/10 text-error' }}">
-                                    <span class="w-1.5 h-1.5 rounded-full {{ 'bg-success' if is_present else 'bg-error' }}"></span>
+                                <span class="pill" data-tone="{{ 'success' if is_present else 'error' }}">
+                                    <span class="dot h-1.5 w-1.5" data-tone="{{ 'success' if is_present else 'error' }}"></span>
                                     {{ record.status|capitalize }}
                                 </span>
                             </td>
                         </tr>
                     {% else %}
-                        <tr class="border-t border-border">
-                            <td colspan="4" class="px-6 py-10 text-center text-sm text-muted">No attendance records found.</td>
-                        </tr>
+                        {{ table_empty(4, 'No attendance records found.') }}
                     {% endfor %}
                 </tbody>
             </table>

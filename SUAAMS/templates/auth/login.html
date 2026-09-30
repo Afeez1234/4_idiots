@@ -1,4 +1,15 @@
 <!DOCTYPE html>
+{# ===========================================================================
+   STANDALONE document -- extends nothing and does NOT use the navigation
+   rail. It is the one page a signed-out visitor sees, so it carries its own
+   <head> and its own centred card.
+
+   Before the 2026-09-30 light redesign this page had drifted onto a different
+   palette: hardcoded `text-white` on what became a white card (invisible
+   headings and invisible typed text), hand-rolled pill/chip classes instead of
+   .pill/.chip, and a four-way flash-colour mapping copied by hand. It now uses
+   the same tokens and the same macros as the rest of the product.
+   =========================================================================== #}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6,26 +17,29 @@
     <title>SUAAMS — Secure Terminal Login</title>
     <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    {# JetBrains Mono stays loaded even though the layout is no longer built
+       out of it: .mono is used for the credential fields and the footer
+       register, which is part of the terminal identity rather than styling. #}
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     {# Material Symbols Rounded -- the same icon font the portal shell loads,
-       so this page stops being visually a different product. Replaces the
-       previous Lucide CDN <script> (login.html was the only file using it,
-       and change_password.html had hand-copied Lucide's eye SVGs to match). #}
+       so this page stops being visually a different product. #}
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
 </head>
-<body class="bg-surface text-secondary font-sans min-h-screen flex flex-col items-center justify-center px-4 py-10 selection:bg-accent selection:text-white relative">
+<body class="bg-surface text-secondary font-sans min-h-screen flex flex-col items-center justify-center px-4 py-10 selection:bg-accent selection:text-white antialiased">
 
-    <!-- Ambient Glow Backgrounds -->
-    <div class="fixed top-[-10%] left-[-10%] w-96 h-96 bg-accent/10 rounded-full blur-[120px] pointer-events-none"></div>
-    <div class="fixed bottom-[-10%] right-[-10%] w-96 h-96 bg-accent/5 rounded-full blur-[120px] pointer-events-none"></div>
+    {# Ambient glows. Softer than the previous /10 and /5 -- on a light page a
+       saturated blurred disc competes with the card rather than sitting behind
+       it. Decorative only: pointer-events-none, no text lives here. #}
+    <div class="fixed top-[-10%] left-[-10%] h-96 w-96 rounded-full bg-accent/10 blur-[120px] pointer-events-none"></div>
+    <div class="fixed bottom-[-10%] right-[-10%] h-96 w-96 rounded-full bg-accent/5 blur-[120px] pointer-events-none"></div>
 
-    <div class="w-full max-w-md p-6 sm:p-8 bg-card border border-border rounded-2xl shadow-2xl relative z-10">
+    <div class="card relative z-10 w-full max-w-md p-6 sm:p-8">
 
-        <!-- Header. Shield mark is the same path as base_portal.html's brand
-             block, so login and the portal it hands off to share one mark. -->
-        <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10 border border-accent/30 mb-4">
-                <svg viewBox="0 0 48 48" class="w-8 h-8 text-accent" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Header. Shield mark is the same path as _shell.html's brand block,
+             so login and the portal it hands off to share one mark. -->
+        <div class="mb-8 text-center">
+            <div class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full border border-accent-line bg-accent-soft">
+                <svg viewBox="0 0 48 48" class="h-8 w-8 text-accent" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="24 6 L10 12 L10 24 C10 31.73 16.27 38.92 24 41 C31.73 38.92 38 31.73 38 24 L38 12 Z"/>
                     <path d="20.5 27.5 A5 5 0 0 1 20.5 20.5"/>
                     <path d="17.6 30.4 A9 9 0 0 1 17.6 17.6" stroke-opacity=".5"/>
@@ -34,92 +48,82 @@
                     <circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/>
                 </svg>
             </div>
-            <h1 class="text-2xl font-extrabold tracking-widest text-white mb-2 uppercase">SUAAMS</h1>
-            <p class="text-[10px] font-bold tracking-widest text-muted uppercase">Smart University Attendance &amp; Monitoring</p>
+            <h1 class="text-2xl font-extrabold uppercase tracking-widest text-ink">SUAAMS</h1>
+            <p class="mt-2 text-2xs font-bold uppercase tracking-widest text-muted">Smart University Attendance &amp; Monitoring</p>
         </div>
 
-        <!-- Flask Flash Messages (Terminal Style). The '>' prefix and mono
-             face are deliberate -- terminal register is part of the design
-             system, not leftover styling. Colours now come from the shared
-             semantic tokens so they match portal alerts in base_portal.html. -->
+        <!-- Flask flash messages. The four-way category-to-tone mapping lives
+             in the shared flash() macro now; this page only decides that the
+             text sits in the monospace terminal register, which is why it is
+             wrapped in .mono rather than restated per category. -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="mb-6 space-y-3">
+                <div class="mb-6 space-y-3 font-mono">
+                    {% from '_macros.html' import flash %}
                     {% for category, message in messages %}
-                        {% set color = 'text-error bg-error/10 border-error/30' if category == 'error' else 'text-success bg-success/10 border-success/30' %}
-                        {% set color = 'text-warning bg-warning/10 border-warning/30' if category == 'warning' else color %}
-                        {% set color = 'text-accent bg-accent/10 border-accent/30' if category == 'info' else color %}
-                        <div class="px-4 py-3 rounded-lg border {{ color }} text-xs font-mono font-bold tracking-wide">
-                            &gt; {{ message }}
-                        </div>
+                        {{ flash(category, message) }}
                     {% endfor %}
                 </div>
             {% endif %}
         {% endwith %}
 
-        <!-- Login Form -->
-        <form method="POST" class="space-y-6">
+        <!-- Login Form. No action attribute: it POSTs to itself, which is how
+             the route has always read the credentials. -->
+        <form method="POST" class="space-y-5">
             {% include '_csrf_field.html' %}
 
-            <!-- Username Input -->
+            <!-- Username. The leading icon sits in a pointer-events-none
+                 wrapper so it can never steal focus from the field. -->
             <div>
-                <label for="username" class="block text-[10px] font-bold tracking-[0.15em] text-muted mb-2 uppercase">Username / ID</label>
+                <label for="username" class="form-label">Username / ID</label>
                 <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <span class="material-symbols-rounded text-[20px] text-muted">person</span>
+                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                        <span class="material-symbols-rounded text-xl text-muted">person</span>
                     </div>
-                    <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        required
-                        placeholder="Staff ID or Matric Number"
-                        autocomplete="username"
-                        class="w-full bg-surface border border-border text-white text-sm rounded-xl pl-11 pr-4 py-3 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors placeholder:text-muted font-mono"
-                    >
+                    <!-- pl-11/pr-11 clear the absolutely-positioned icons; both
+                         are side-specific utilities so they win over the
+                         form-input's px-4 regardless of source order. -->
+                    <input type="text" id="username" name="username" required
+                           placeholder="Staff ID or Matric Number"
+                           autocomplete="username"
+                           class="form-input mono pl-11 pr-4">
                 </div>
             </div>
 
-            <!-- Password Input -->
+            <!-- Password -->
             <div>
-                <label for="password" class="block text-[10px] font-bold tracking-[0.15em] text-muted mb-2 uppercase">Password</label>
+                <label for="password" class="form-label">Password</label>
                 <div class="relative">
-                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <span class="material-symbols-rounded text-[20px] text-muted">lock</span>
+                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                        <span class="material-symbols-rounded text-xl text-muted">lock</span>
                     </div>
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        required
-                        placeholder="••••••••"
-                        autocomplete="current-password"
-                        class="w-full bg-surface border border-border text-white text-sm rounded-xl pl-11 pr-11 py-3 focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-colors placeholder:text-muted font-mono"
-                    >
-                    <button type="button" id="toggle-password" tabindex="-1"
-                            class="absolute inset-y-0 right-0 pr-4 flex items-center text-muted hover:text-white transition-colors">
-                        <span class="material-symbols-rounded text-[20px]" id="icon-eye-password">visibility</span>
-                        <span class="material-symbols-rounded text-[20px] hidden" id="icon-eye-off-password">visibility_off</span>
+                    <input type="password" id="password" name="password" required
+                           placeholder="••••••••"
+                           autocomplete="current-password"
+                           class="form-input mono pl-11 pr-11">
+                    <!-- The four ids below are this page's whole JS contract;
+                         wirePasswordToggle() reaches for all of them by name.
+                         `hidden` appears literally here so the class the script
+                         toggles is one Tailwind emitted. -->
+                    <button type="button" id="toggle-password" tabindex="-1" aria-label="Show password"
+                            class="absolute inset-y-0 right-0 flex items-center rounded-r-btn pr-4 text-muted transition-colors hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-accent">
+                        <span class="material-symbols-rounded text-xl" id="icon-eye-password">visibility</span>
+                        <span class="material-symbols-rounded hidden text-xl" id="icon-eye-off-password">visibility_off</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Submit Button. Accent-filled to match the portal's canonical
-                 primary action (same class string as the admin/HOD forms)
-                 rather than the old glowy white-on-black treatment. -->
-            <button
-                type="submit"
-                class="w-full mt-8 bg-accent hover:bg-accent/90 active:scale-[0.98] text-white text-xs font-extrabold tracking-[0.2em] uppercase py-4 rounded-xl transition-all duration-200 flex items-center justify-center"
-            >
-                <span class="material-symbols-rounded text-[18px] mr-2">login</span> Initialize Session
+            <button type="submit" class="btn-primary mt-6 w-full py-3.5 text-xs uppercase tracking-[0.2em]">
+                <span class="material-symbols-rounded text-lg">login</span>
+                Initialize Session
             </button>
         </form>
 
     </div>
 
     <!-- Footer -->
-    <div class="mt-8 text-center z-10">
-        <p class="text-[9px] font-mono tracking-widest text-muted uppercase">SUAAMS &copy; 2025 &middot; Secured portal &mdash; authorised access only</p>
+    <div class="z-10 mt-8 text-center">
+        <p class="mono text-2xs uppercase tracking-widest text-muted">SUAAMS &copy; 2025 &middot; Secured portal &mdash; authorised access only</p>
     </div>
 
     <script>

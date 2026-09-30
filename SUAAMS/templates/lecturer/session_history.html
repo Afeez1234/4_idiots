@@ -1,52 +1,61 @@
 {% extends "base_portal.html" %}
+{% from '_macros.html' import course_chip, progress_bar, at_risk_tone, table_empty, card_heading %}
 
 {% block title %}Session History | SUAAMS Lecturer{% endblock %}
 {% block page_title %}Session History{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Past sessions across all your courses</p>
+    <p class="page-subtitle">Past sessions across all your courses</p>
 {% endblock %}
 
 {% block content %}
 
-    <div class="bg-card border border-border rounded-2xl overflow-hidden">
-        <div class="px-6 pt-6 pb-4 flex items-center justify-between">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Sessions</h2>
-            <span class="text-xs text-muted">{{ history_sessions|length }} session{{ '' if history_sessions|length == 1 else 's' }}</span>
+    <div class="card-clip">
+        <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
+            {{ card_heading('Sessions', info=true) }}
+            <span class="text-xs text-muted">
+                {{ history_sessions|length }} session{{ '' if history_sessions|length == 1 else 's' }}
+            </span>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+        <div class="table-wrap border-t border-divider">
+            <table class="table">
                 <thead>
-                    <tr class="border-t border-border text-left">
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Date</th>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Started</th>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Present</th>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Absent</th>
+                    <tr>
+                        <th class="th">Date</th>
+                        <th class="th">Course</th>
+                        <th class="th">Started</th>
+                        <th class="th">Present</th>
+                        <th class="th">Absent</th>
+                        <th class="th">Turnout</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for s in history_sessions %}
-                        <tr class="border-t border-border hover:bg-surface/60 transition-colors cursor-pointer"
+                        <tr class="cursor-pointer"
                             onclick="window.location='{{ url_for('lecturer.session_detail', course_id=s.course.id, session_id=s.session_id) }}'">
-                            <td class="px-6 py-3.5">{{ s.date.strftime('%d %b %Y') }}</td>
-                            <td class="px-6 py-3.5">
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-accent/10 text-accent">
-                                    {{ s.course.course_code }}
-                                </span>
+                            <td class="td">{{ s.date.strftime('%d %b %Y') }}</td>
+                            <td class="td">{{ course_chip(s.course.course_code) }}</td>
+                            <td class="td td-muted mono text-xs">
+                                {{ s.start_time.strftime('%H:%M') if s.start_time else '—' }}
                             </td>
-                            <td class="px-6 py-3.5 text-secondary">{{ s.start_time.strftime('%H:%M') if s.start_time else '—' }}</td>
-                            <td class="px-6 py-3.5">
-                                <span class="font-semibold text-success">{{ s.present_count }}</span>
-                            </td>
-                            <td class="px-6 py-3.5">
-                                <span class="font-semibold text-error">{{ s.absent_count }}</span>
+                            <td class="td font-semibold text-success">{{ s.present_count }}</td>
+                            <td class="td font-semibold text-error">{{ s.absent_count }}</td>
+                            <td class="td">
+                                {# Turnout for a completed session, using the per-student
+                                   at-risk rule: this is one session of one cohort, so
+                                   the 75% line is the business threshold rather than the
+                                   three-tier portfolio scale used on Reports. Guarded
+                                   for the zero-enrolment case. #}
+                                {% set total = s.present_count + s.absent_count %}
+                                {% set pct = (s.present_count / total * 100)|round(0, 'floor') if total else 0 %}
+                                <div class="flex items-center gap-3">
+                                    {{ progress_bar(pct, at_risk_tone(pct), 'h-1.5 w-24') }}
+                                    <span class="text-xs font-medium text-ink">{{ pct }}%</span>
+                                </div>
                             </td>
                         </tr>
                     {% else %}
-                        <tr class="border-t border-border">
-                            <td colspan="5" class="px-6 py-10 text-center text-sm text-muted">No completed sessions yet.</td>
-                        </tr>
+                        {{ table_empty(6, 'No completed sessions yet.') }}
                     {% endfor %}
                 </tbody>
             </table>

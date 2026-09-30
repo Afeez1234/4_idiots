@@ -46,14 +46,9 @@ class StudentTimetableScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'THIS WEEK',
-                style: TextStyle(
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  color: Colors.grey,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
               ),
               const SizedBox(height: 16),
               if (state.errorMessage != null)

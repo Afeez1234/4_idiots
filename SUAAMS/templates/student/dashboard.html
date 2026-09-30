@@ -1,147 +1,163 @@
 {% extends "base_student.html" %}
+{% from '_macros.html' import stat_card, donut, card_heading, course_chip, attendance_bar, attendance_pill, empty_state, table_empty, avatar %}
 
 {% block title %}Dashboard | SUAAMS Student{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 {% block page_subtitle %}
-    <p class="text-xs text-secondary">Welcome back, {{ student_profile.full_name or session.get('username', 'Student') }}</p>
+    <p class="page-subtitle">Welcome back, {{ student_profile.full_name or session.get('username', 'Student') }}</p>
 {% endblock %}
 
 {% block content %}
 
-    <!-- Profile banner -->
-    <div class="bg-card border border-border rounded-2xl p-5 flex items-center justify-between gap-4 flex-wrap">
-        <div class="flex items-center gap-4 min-w-0">
-            <div class="w-12 h-12 rounded-full bg-accent/15 border border-accent/30 flex items-center justify-center text-accent font-bold text-lg shrink-0">
-                {{ (student_profile.full_name or session.get('username', 'S'))[0]|upper }}
+    {# Identity + RFID state. The RFID pill is the one actionable thing on the
+       page -- an unlinked card is the reason check-in fails at the terminal,
+       so it is sized to read at a glance rather than filed in a settings row.
+       Kept as a card rather than promoted to the blue hero-card because there
+       is no session to promote here; the hero gradient on this page belongs to
+       the attendance ring below. #}
+    <div class="card">
+        <div class="card-body flex flex-wrap items-center justify-between gap-4">
+
+            <div class="flex min-w-0 items-center gap-4">
+                {# avatar() falls back to '?' on a falsy name, but the original
+                   code inlined `[0]|upper` on an already-guarded expression.
+                   The macro keeps the guard inside, so this stays safe either
+                   way -- the `or` is kept because the caller's fallback is
+                   session username, which the macro cannot know. #}
+                <span class="grid h-12 w-12 shrink-0 place-items-center rounded-full border border-accent-line bg-accent-soft text-lg font-bold text-accent">
+                    {{ (student_profile.full_name or session.get('username', 'S'))[0]|upper }}
+                </span>
+                <div class="min-w-0">
+                    <p class="truncate text-base font-bold text-ink">
+                        {{ student_profile.full_name or session.get('username') }}
+                    </p>
+                    <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-secondary">
+                        <span class="mono">{{ student_profile.matric_number or '—' }}</span>
+                        {% if student_profile.department %}
+                            <span class="text-border">/</span>
+                            <span>{{ student_profile.department }}</span>
+                        {% endif %}
+                        {% if student_profile.level %}
+                            <span class="text-border">/</span>
+                            <span>{{ student_profile.level }} Level</span>
+                        {% endif %}
+                    </p>
+                </div>
             </div>
-            <div class="min-w-0">
-                <p class="text-sm font-semibold truncate">{{ student_profile.full_name or session.get('username') }}</p>
-                <p class="text-xs text-secondary mt-0.5">
-                    {{ student_profile.matric_number or '—' }}
-                    {% if student_profile.department %} &middot; {{ student_profile.department }}{% endif %}
-                    {% if student_profile.level %} &middot; {{ student_profile.level }} Level{% endif %}
+
+            {# success/error, not success/warning: an unlinked RFID card blocks
+               the student's only attendance path, so it is a failure state
+               here even though nothing has errored. #}
+            <span class="pill shrink-0" data-tone="{{ 'success' if student_profile.rfid_uid else 'error' }}">
+                <span class="material-symbols-rounded text-sm">
+                    {{ 'contactless' if student_profile.rfid_uid else 'contactless_off' }}
+                </span>
+                {{ 'RFID Linked' if student_profile.rfid_uid else 'RFID Not Linked' }}
+            </span>
+        </div>
+    </div>
+
+    {# Four counts. overall_rate is the page's headline number, so it gets the
+       donut in the next card rather than a fourth identical stat tile. #}
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        {{ stat_card('Courses Enrolled', enrollment_count, 'This semester', 'book') }}
+        {{ stat_card('Sessions Attended', attendance_count, 'Total check-ins', 'how_to_reg', 'success') }}
+        {{ stat_card('At-Risk Courses', at_risk_count, 'Below 75% attendance',
+                     'warning', 'error' if at_risk_count else 'accent') }}
+    </div>
+
+    {# attendance_count is the sum of per-course attended (computed in
+       blueprints/student.py from the same _course_breakdown that fills
+       `courses` below), so the denominator is the sum of that list's totals.
+       Derived here rather than hardcoded to keep the caption honest if the
+       route ever starts counting differently. #}
+    {% set total_sessions = courses|sum(attribute='total') %}
+
+    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+
+        {# Attendance ring. This is a personal figure, not a cohort rollup, so
+           the ring colour uses the same at-risk rule as the rest of the page
+           (success at or above 75%, error below) rather than the three-tier
+           portfolio scale -- 70% here means THIS student is short. #}
+        <div class="card">
+            <div class="card-header">
+                {{ card_heading('Attendance Rate', info=true) }}
+            </div>
+            <div class="card-body flex flex-col items-center">
+                {{ donut(overall_rate, overall_rate ~ '%', 'Overall',
+                         'h-32 w-32',
+                         'success' if overall_rate >= 75 else 'error') }}
+                <p class="mt-4 text-xs text-secondary">
+                    {{ attendance_count }} of {{ total_sessions }} sessions attended
                 </p>
             </div>
         </div>
-        <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold shrink-0
-                    {{ 'bg-success/10 text-success' if student_profile.rfid_uid else 'bg-warning/10 text-warning' }}">
-            <span class="material-symbols-rounded text-[14px]">{{ 'contactless' if student_profile.rfid_uid else 'contactless_off' }}</span>
-            {{ 'RFID Linked' if student_profile.rfid_uid else 'RFID Not Linked' }}
-        </div>
-    </div>
 
-    <!-- Stat cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Courses Enrolled</span>
-                <span class="material-symbols-rounded text-accent">book</span>
+        {# Course breakdown. The one column that needs width. #}
+        <div class="card lg:col-span-2">
+            <div class="card-header">
+                {{ card_heading('Course Breakdown', info=true) }}
+                <a href="{{ url_for('student.my_courses') }}" class="btn-link">View all</a>
             </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ enrollment_count }}</p>
-            <p class="mt-1 text-xs text-muted">This semester</p>
-        </div>
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Sessions Attended</span>
-                <span class="material-symbols-rounded text-success">how_to_reg</span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ attendance_count }}</p>
-            <p class="mt-1 text-xs text-muted">Total check-ins</p>
-        </div>
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">Attendance Rate</span>
-                <span class="material-symbols-rounded text-accent">insights</span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold">{{ overall_rate }}%</p>
-            <p class="mt-1 text-xs text-muted">Overall percentage</p>
-        </div>
-
-        <div class="bg-card border border-border rounded-2xl p-5">
-            <div class="flex items-start justify-between">
-                <span class="text-xs font-semibold uppercase tracking-wide text-secondary">At-Risk Courses</span>
-                <span class="material-symbols-rounded {{ 'text-error' if at_risk_count else 'text-muted' }}">warning</span>
-            </div>
-            <p class="mt-4 text-3xl font-extrabold {{ 'text-error' if at_risk_count else '' }}">{{ at_risk_count }}</p>
-            <p class="mt-1 text-xs text-muted">Below 75%</p>
-        </div>
-    </div>
-
-    <!-- Course breakdown -->
-    <div class="bg-card border border-border rounded-2xl p-6">
-        <div class="flex items-center justify-between gap-4 flex-wrap mb-1">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Course Breakdown</h2>
-            <a href="{{ url_for('student.my_courses') }}" class="text-xs text-accent hover:underline">View all courses</a>
-        </div>
-
-        {% if courses %}
-            <div class="mt-4 space-y-4">
-                {% for course in courses %}
-                    <div>
-                        <div class="flex items-center justify-between gap-3 mb-1.5">
-                            <div class="flex items-center gap-2 min-w-0">
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-accent/10 text-accent shrink-0">
-                                    {{ course.code }}
-                                </span>
-                                <span class="text-sm text-secondary truncate">{{ course.name }}</span>
+            <div class="card-body">
+                {% if courses %}
+                    <div class="space-y-5">
+                        {% for course in courses %}
+                            <div>
+                                <div class="mb-1.5 flex items-center justify-between gap-3">
+                                    <div class="flex min-w-0 items-center gap-2">
+                                        {{ course_chip(course.code) }}
+                                        <span class="truncate text-sm text-secondary">{{ course.name }}</span>
+                                    </div>
+                                    {{ attendance_pill(course.pct) }}
+                                </div>
+                                {{ attendance_bar(course.pct) }}
                             </div>
-                            <span class="text-sm font-semibold shrink-0 {{ 'text-error' if course.pct < 75 else 'text-success' }}">{{ course.pct }}%</span>
-                        </div>
-                        <div class="h-1 rounded-full bg-muted/20">
-                            <div class="h-1 rounded-full {{ 'bg-error' if course.pct < 75 else 'bg-success' }}" style="width: {{ course.pct }}%"></div>
-                        </div>
+                        {% endfor %}
                     </div>
-                {% endfor %}
+                {% else %}
+                    {{ empty_state("You're not enrolled in any courses yet.", 'bookmark_border') }}
+                {% endif %}
             </div>
-        {% else %}
-            <div class="mt-4 py-10 text-center">
-                <p class="text-sm text-muted">You're not enrolled in any courses yet.</p>
-            </div>
-        {% endif %}
+        </div>
     </div>
 
-    <!-- Recent attendance history -->
-    <div class="bg-card border border-border rounded-2xl overflow-hidden">
-        <div class="px-6 pt-6 pb-4 flex items-center justify-between gap-4 flex-wrap">
-            <h2 class="text-sm font-bold uppercase tracking-wide text-secondary">Recent Attendance</h2>
-            <a href="{{ url_for('student.attendance_history') }}" class="text-xs text-accent hover:underline">View full history</a>
+    {# Recent check-ins. #}
+    <div class="card-clip">
+        <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
+            {{ card_heading('Recent Attendance', info=true) }}
+            <a href="{{ url_for('student.attendance_history') }}" class="btn-link">View full history</a>
         </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+        <div class="table-wrap">
+            <table class="table">
                 <thead>
-                    <tr class="border-t border-border text-left">
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Course</th>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Date</th>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Time</th>
-                        <th class="px-6 py-3 text-xs font-semibold uppercase tracking-wide text-secondary">Status</th>
+                    <tr>
+                        <th class="th">Course</th>
+                        <th class="th">Date</th>
+                        <th class="th">Time</th>
+                        <th class="th">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for record in recent_attendance %}
-                        <tr class="border-t border-border hover:bg-surface/60 transition-colors">
-                            <td class="px-6 py-3.5">
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-accent/10 text-accent">
-                                    {{ record.course }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-3.5 text-secondary">{{ record.date }}</td>
-                            <td class="px-6 py-3.5 text-secondary">{{ record.time }}</td>
-                            <td class="px-6 py-3.5">
+                        <tr>
+                            <td class="td">{{ course_chip(record.course) }}</td>
+                            <td class="td td-muted">{{ record.date }}</td>
+                            <td class="td td-muted"><span class="mono">{{ record.time }}</span></td>
+                            <td class="td">
+                                {# 'late' counts as attended: the terminal writes
+                                   it for a tap inside the grace window, so it is a
+                                   PRESENT record and greying it would contradict
+                                   the percentage above. #}
                                 {% set is_present = record.status in ('present', 'late') %}
-                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-semibold
-                                            {{ 'bg-success/10 text-success' if is_present else 'bg-error/10 text-error' }}">
-                                    <span class="w-1.5 h-1.5 rounded-full {{ 'bg-success' if is_present else 'bg-error' }}"></span>
+                                <span class="pill" data-tone="{{ 'success' if is_present else 'error' }}">
+                                    <span class="dot h-1.5 w-1.5" data-tone="{{ 'success' if is_present else 'error' }}"></span>
                                     {{ record.status|capitalize }}
                                 </span>
                             </td>
                         </tr>
                     {% else %}
-                        <tr class="border-t border-border">
-                            <td colspan="4" class="px-6 py-10 text-center text-sm text-muted">No attendance records found.</td>
-                        </tr>
+                        {{ table_empty(4, 'No attendance records found.') }}
                     {% endfor %}
                 </tbody>
             </table>

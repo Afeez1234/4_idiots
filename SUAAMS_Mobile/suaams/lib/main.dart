@@ -8,6 +8,7 @@ import 'core/router/app_router.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/security_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/providers/onboarding_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'features/student/data/nfc_service.dart';
 
@@ -53,7 +54,22 @@ void main() async {
     ),
   );
 
-  runApp(const ProviderScope(child: MobileClientApp()));
+  // Read the first-run flag BEFORE runApp. GoRouter's redirect is
+  // synchronous and cannot await a storage read, so a lazily-loaded
+  // provider would read as "never seen" on every launch and bounce a
+  // returning user back into onboarding every time the app started.
+  final hasSeenOnboarding = await readOnboardingFlag();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        onboardingProvider.overrideWith(
+          () => OnboardingNotifier.seeded(hasSeenOnboarding),
+        ),
+      ],
+      child: const MobileClientApp(),
+    ),
+  );
 }
 
 class MobileClientApp extends ConsumerWidget {

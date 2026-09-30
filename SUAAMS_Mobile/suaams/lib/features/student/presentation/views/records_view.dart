@@ -143,14 +143,9 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          const Text(
+          Text(
             'ATTENDANCE HISTORY',
-            style: TextStyle(
-              fontSize: 10,
-              letterSpacing: 2,
-              color: Colors.grey,
-              fontWeight: FontWeight.bold,
-            ),
+            style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
           const SizedBox(height: 16),
 
@@ -231,7 +226,7 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                   child: Text(
                     filter.toUpperCase(),
                     style: TextStyle(
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
                       color: isSelected
