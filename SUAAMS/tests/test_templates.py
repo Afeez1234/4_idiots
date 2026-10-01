@@ -182,6 +182,49 @@ def test_password_eye_toggle_semantics():
         )
 
 
+# Every Material Symbols ligature this app is allowed to use. Verified by
+# rendering each one in a real browser and looking at it: a name that is NOT
+# in the font does not error and does not draw a box -- it renders as literal
+# text ("graduation_cap" appears on screen as the word GRADUATION_CAP), which
+# is completely silent.
+#
+# The trap is that Material Icons (the other font family) has names Material
+# Symbols does not -- graduation_cap, for one, is a Material Icons name. Both
+# families are served from the same Google endpoint, so it is easy to reach for
+# the wrong one. Adding a name here means you have looked at it rendered.
+VERIFIED_MATERIAL_SYMBOLS = {
+    "account_tree", "analytics", "book", "calendar_month", "campaign",
+    "check", "chevron_right", "close", "co_present", "dashboard",
+    "date_range", "delete", "download", "event_available", "expand_more",
+    "groups_2", "history", "info", "layers", "left_panel_close", "lock",
+    "login", "logout", "menu", "person", "play_circle", "schedule",
+    "school", "sensors", "stop_circle", "summarize", "task_alt",
+    "visibility", "visibility_off", "warning", "workspace_premium",
+    # `inbox` is the empty_state() macro's default only -- no page passes it.
+    "inbox",
+}
+
+
+def test_icon_names_exist_in_the_font():
+    """Guards against the silent 'renders as text' failure described above."""
+    pattern = re.compile(r"material-symbols-rounded[^>]*>([^<>{}]{2,30})<")
+    arg_pattern = re.compile(r"\bicon='([a-z_0-9]+)'")
+
+    used = set()
+    for path in _templates():
+        source = path.read_text(encoding="utf-8")
+        used.update(m.group(1).strip() for m in pattern.finditer(source))
+        # only icon= arguments that name a glyph, not prose
+        used.update(m.group(1) for m in arg_pattern.finditer(source))
+
+    unknown = sorted(used - VERIFIED_MATERIAL_SYMBOLS)
+    assert not unknown, (
+        "icon name(s) not in the verified Material Symbols set. A name that is "
+        "not in the font renders as literal text with no error, so confirm the "
+        f"glyph visually before adding it: {unknown}"
+    )
+
+
 def test_data_tone_contract_is_complete():
     """Every tone the templates pass must have a matching rule in input.css,
     or the element falls back to an unstyled pill."""

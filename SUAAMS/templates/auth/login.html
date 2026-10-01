@@ -15,7 +15,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SUAAMS — Secure Terminal Login</title>
-    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    {# ORDER MATTERS -- see _shell.html for the full explanation. Material
+       Symbols is unlayered, so it must load BEFORE output.css for our rules to
+       win at equal specificity; input.css's icon font-variation-settings and
+       the .hidden guard both depend on that. #}
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     {# JetBrains Mono stays loaded even though the layout is no longer built
        out of it: .mono is used for the credential fields and the footer
@@ -24,6 +27,7 @@
     {# Material Symbols Rounded -- the same icon font the portal shell loads,
        so this page stops being visually a different product. #}
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
 </head>
 <body class="bg-surface text-secondary font-sans min-h-screen flex flex-col items-center justify-center px-4 py-10 selection:bg-accent selection:text-white antialiased">
 

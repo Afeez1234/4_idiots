@@ -27,7 +27,7 @@
       </a>
       {# TODO: no admin.analytics route/template yet. #}
       <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'analytics' }}">
-        <span class="material-symbols-rounded text-xl">monitoring</span>
+        <span class="material-symbols-rounded text-xl">analytics</span>
         <span class="rail-label">Analytics</span>
       </a>
     </div>
@@ -41,11 +41,11 @@
         <span class="rail-label">Lecturers</span>
       </a>
       <a href="{{ url_for('admin.students_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'students' }}">
-        <span class="material-symbols-rounded text-xl">group</span>
+        <span class="material-symbols-rounded text-xl">groups_2</span>
         <span class="rail-label">Students</span>
       </a>
       <a href="{{ url_for('admin.hods_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'hods' }}">
-        <span class="material-symbols-rounded text-xl">badge</span>
+        <span class="material-symbols-rounded text-xl">workspace_premium</span>
         <span class="rail-label">HODs</span>
       </a>
     </div>
