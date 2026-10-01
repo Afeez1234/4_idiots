@@ -457,37 +457,42 @@
 }
 
 /* ============================================================================
-   CASCADE GUARD (must stay UNLAYERED, and must stay last).
+   ICON CASCADE GUARD  (must stay UNLAYERED, and must stay last)
 
-   Two Tailwind display utilities are silently defeated on Material Symbols
-   icon spans -- `hidden` and `hidden` siblings -- and the symptom is the
-   password eye toggles on login.html / change_password.html showing BOTH the
-   eye and the crossed-out eye at once.
+   Google Fonts' Material Symbols stylesheet is UNLAYERED, and in the cascade
+   unlayered author styles beat every @layer rule no matter how high their
+   specificity -- layers are compared BEFORE selectors. So nothing written
+   inside @layer components / @layer utilities can override it, even with two
+   classes to its one. Everything here is therefore unlayered, and the Material
+   Symbols <link> is also placed BEFORE output.css in every template's <head>
+   so that at equal specificity ours is the later one.
 
-   Why it happens, since the naive fix (just bump the specificity) does not
-   work:
+   Why this rule exists at all: `.hidden` was silently defeated on icon spans,
+   so the password eye toggles on login.html / change_password.html rendered
+   BOTH the eye and the crossed-out eye at once. Two classes beat one, which
+   settles it without depending on <head> order at all.
 
-     1. Tailwind v4 wraps everything in cascade layers
-        (@layer theme, base, components, utilities).
-     2. Google's Material Symbols stylesheet is UNLAYERED. In the cascade,
-        unlayered author styles beat every layered rule no matter how high
-        their specificity -- layers are compared before selectors.
-     3. So `@layer utilities { .material-symbols-rounded.hidden {display:none} }`
-        loses to Google's plain `.material-symbols-rounded {display:inline-block}`
-        even though it has two classes to its one.
-     4. Google also loads AFTER output.css in every <head>, so on equal
-        specificity it would win anyway.
+   WHAT IS DELIBERATELY NOT HERE. Material Symbols is a variable font with
+   FILL / wght / GRAD / opsz axes, and the obvious upgrade is to set
+   font-variation-settings so the active nav icon fills in (the Material 3
+   pattern). That does not work with this font request, and shipping rules
+   that silently do nothing is worse than shipping none:
 
-   The fix therefore has to be unlayered so it competes with Google on the
-   same footing, where two classes beating one settles it -- and the fix then
-   no longer depends on <head> link order staying correct.
+     * Google serves the plain ?family=Material+Symbols+Rounded URL with its
+       axes PINNED, so there is nothing for font-variation-settings to drive.
+     * Requesting the axes explicitly
+       (?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..100,0..200)
+       returned no usable font when tested in-browser -- ligatures fell back
+       to serif text.
+     * Verified directly: with both stylesheets loaded, FILL 1 and wght 700
+       rendered a glyph pixel-identical to wght 400.
 
-   Symptom check: on a flex parent the icon blockifies to `display:block`,
-   which is how this presents; that is expected for a flex item and is not
-   itself the bug.
+   So the active rail item relies on its filled background, which is already
+   an unambiguous "you are here" signal. If the axes URL is ever confirmed
+   working, restore the font-variation-settings rules here.
 
    Apply the same treatment to any element combining a third-party font class
-   with one of Tailwind's display utilities.
+   with one of Tailwind's own display utilities.
    ========================================================================= */
 .material-symbols-rounded.hidden,
 .material-symbols-outlined.hidden,

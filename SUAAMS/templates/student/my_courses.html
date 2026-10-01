@@ -29,13 +29,13 @@
                     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-secondary">
                         {% if course.lecturer_name %}
                             <span class="flex items-center gap-1.5">
-                                <span class="material-symbols-rounded text-base text-muted">person</span>
+                                <span class="material-symbols-rounded text-base text-muted">co_present</span>
                                 {{ course.lecturer_name }}
                             </span>
                         {% endif %}
                         {% if course.credit_units %}
                             <span class="flex items-center gap-1.5">
-                                <span class="material-symbols-rounded text-base text-muted">star</span>
+                                <span class="material-symbols-rounded text-base text-muted">school</span>
                                 {{ course.credit_units }} units
                             </span>
                         {% endif %}
@@ -59,7 +59,7 @@
     {% else %}
         <div class="card">
             <div class="card-body">
-                {{ empty_state("You're not enrolled in any courses yet. Contact your department.", 'bookmark_border') }}
+                {{ empty_state("You're not enrolled in any courses yet. Contact your department.", 'school') }}
             </div>
         </div>
     {% endif %}

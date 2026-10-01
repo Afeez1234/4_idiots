@@ -22,9 +22,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SUAAMS{% endblock %}</title>
 
-    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    {# NOTE the order. The Material Symbols stylesheet is UNLAYERED, and
+       unlayered author styles beat anything inside a Tailwind @layer no
+       matter the specificity. Loading it BEFORE output.css means our rules
+       are the later ones at equal specificity, so we win cleanly instead of
+       needing specificity hacks. input.css documents this and relies on it
+       for the icon font-variation-settings and the .hidden guard. #}
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
 
     {% block extra_head %}{% endblock %}
 </head>

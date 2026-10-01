@@ -75,7 +75,7 @@
           <a href="{{ url_for('hod.signoffs') }}"
              class="nav-link justify-between {{ 'nav-link-active' if request.blueprint == 'hod' and active_page == 'signoffs' }}">
             <span class="flex items-center gap-3">
-              <span class="material-symbols-rounded text-xl">draw</span>
+              <span class="material-symbols-rounded text-xl">task_alt</span>
               <span class="rail-label">Sign-offs</span>
             </span>
             <span class="rail-label rounded-full border border-on-rail-line px-2 py-0.5 text-2xs font-bold uppercase tracking-wide text-on-rail-muted">Soon</span>
@@ -97,7 +97,7 @@
           </a>
           <a href="{{ url_for('lecturer.analytics') }}"
              class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'analytics' }}">
-            <span class="material-symbols-rounded text-xl">monitoring</span>
+            <span class="material-symbols-rounded text-xl">analytics</span>
             <span class="rail-label">Analytics</span>
           </a>
         </div>
