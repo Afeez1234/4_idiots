@@ -131,6 +131,21 @@
   .rail-brand { @apply flex h-16 shrink-0 items-center gap-3 px-5; }
   .rail-foot { @apply shrink-0 border-t border-on-rail-line p-4; }
 
+  /* Collapse control. The reference puts this ON the rail's right edge rather
+     than in the brand row: a small circular button straddling the border
+     between the dark rail and the light content, so it reads as a control
+     that moves the rail rather than as just another nav icon. `right-[-13px]`
+     is half of the 28px button, which is what makes it sit on the line.
+     Positioned against the <aside>, so it stays on the edge in both the
+     expanded (260px) and collapsed (72px) states. */
+  .rail-collapse-btn {
+    @apply absolute right-[-13px] top-5 z-10 hidden h-7 w-7 shrink-0 place-items-center
+           rounded-full border border-sidebar-hover bg-sidebar text-on-rail-muted
+           transition-colors hover:bg-sidebar-hover hover:text-on-rail
+           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
+           lg:grid;
+  }
+
   /* Text that disappears when the rail collapses to icons only. */
   .rail-label { @apply min-w-0 flex-1 truncate; }
 
