@@ -202,7 +202,16 @@ VERIFIED_MATERIAL_SYMBOLS = {
     "visibility", "visibility_off", "warning", "workspace_premium",
     # `inbox` is the empty_state() macro's default only -- no page passes it.
     "inbox",
+    # Assigned from JS rather than markup: the rail collapse control swaps its
+    # glyph via textContent so it keeps pointing the way the rail is about to
+    # move. Included here because the markup scan below cannot see it.
+    "left_panel_open",
 }
+
+# Names a script writes into a Material Symbols element. The markup regex
+# cannot see these, and a glyph that does not exist renders as its own name in
+# body text -- exactly as invisible here as it is in a template.
+_JS_ICON_ASSIGNMENT = re.compile(r"textContent\s*=\s*'([a-z_0-9]+)'")
 
 
 def test_icon_names_exist_in_the_font():
@@ -216,6 +225,7 @@ def test_icon_names_exist_in_the_font():
         used.update(m.group(1).strip() for m in pattern.finditer(source))
         # only icon= arguments that name a glyph, not prose
         used.update(m.group(1) for m in arg_pattern.finditer(source))
+        used.update(m.group(1) for m in _JS_ICON_ASSIGNMENT.finditer(source))
 
     unknown = sorted(used - VERIFIED_MATERIAL_SYMBOLS)
     assert not unknown, (

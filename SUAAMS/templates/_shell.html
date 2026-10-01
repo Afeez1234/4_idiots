@@ -71,13 +71,19 @@
                     <p class="text-sm font-bold tracking-wide text-on-rail">SUAAMS</p>
                     <p class="text-2xs uppercase tracking-widest text-on-rail-muted">{% block brand_subtitle %}{% endblock %}</p>
                 </div>
-                {# Collapse-to-icons. Desktop only -- on a phone the rail is
-                   an off-canvas drawer and this would have nothing to show. #}
-                <button id="rail-collapse" class="hidden shrink-0 text-on-rail-muted transition-colors hover:text-on-rail lg:block"
-                        aria-label="Collapse navigation" title="Collapse navigation">
-                    <span class="material-symbols-rounded text-xl">left_panel_close</span>
-                </button>
             </div>
+
+            {# Collapse-to-icons, sitting ON the rail's right edge rather than
+               in the brand row -- see .rail-collapse-btn in input.css. The
+               <aside> is `fixed`, which establishes the containing block the
+               button's `absolute` positioning resolves against. Desktop only:
+               on a phone the rail is an off-canvas drawer and this would have
+               nothing to show. #}
+            <button id="rail-collapse" class="rail-collapse-btn"
+                    aria-label="Collapse navigation" title="Collapse navigation"
+                    aria-expanded="true" aria-controls="sidebar">
+                <span class="material-symbols-rounded text-lg" id="rail-collapse-icon">left_panel_close</span>
+            </button>
 
             <!-- Pill block under the brand. Admin and student show the active
                  semester; the portal shows its HOD/Lecturer role switch. -->
@@ -190,9 +196,21 @@
                control left to expand it. --- */
             var STORAGE_KEY = 'suaams.railCollapsed';
             var wide = window.matchMedia('(min-width: 1024px)');
+            var collapseIcon = document.getElementById('rail-collapse-icon');
 
             function applyCollapsed(collapsed) {
                 shell.classList.toggle('rail-collapsed', collapsed);
+                // The control sits ON the rail's edge, so it has to keep
+                // pointing the way the rail is about to move: chevron left
+                // while expanded, chevron right once collapsed.
+                if (collapseIcon) {
+                    collapseIcon.textContent = collapsed ? 'left_panel_open' : 'left_panel_close';
+                }
+                if (collapseBtn) {
+                    collapseBtn.setAttribute('aria-expanded', String(!collapsed));
+                    collapseBtn.setAttribute('aria-label', collapsed ? 'Expand navigation' : 'Collapse navigation');
+                    collapseBtn.title = collapsed ? 'Expand navigation' : 'Collapse navigation';
+                }
             }
 
             if (wide.matches && localStorage.getItem(STORAGE_KEY) === '1') {
