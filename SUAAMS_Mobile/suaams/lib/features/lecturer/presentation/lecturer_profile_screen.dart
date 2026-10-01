@@ -9,6 +9,7 @@ import 'package:suaams/features/lecturer/providers/lecturer_provider.dart'
     show lecturerDashboardProvider;
 import 'package:suaams/shared/widgets/app_label_value_row.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
+import 'package:suaams/shared/widgets/confirm_dialog.dart';
 
 // Profile tab -- new screen (the lecturer side previously only had logout
 // tucked into the dashboard header's avatar tap). Mirrors the student
@@ -16,44 +17,24 @@ import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 class LecturerProfileScreen extends ConsumerWidget {
   const LecturerProfileScreen({super.key});
 
-  void _showLogoutDialog(
+  Future<void> _showLogoutDialog(
     BuildContext context,
     WidgetRef ref,
     ColorScheme colorScheme,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: colorScheme.surfaceContainer,
-        title: const Text(
-          'Sign Out',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Are you sure you want to log out of your session?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'CANCEL',
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.error,
-              foregroundColor: colorScheme.onError,
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(authProvider.notifier).logout();
-            },
-            child: const Text('SIGN OUT'),
-          ),
-        ],
-      ),
+  ) async {
+    // One of four hand-rolled copies; see student_home_screen.dart.
+    // colorScheme is still taken as a parameter for call-site compatibility
+    // but is no longer used here -- showConfirmDialog reads the theme itself.
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Log Out',
+      message: 'Are you sure you want to log out of your account?',
+      confirmLabel: 'LOG OUT',
+      destructive: true,
     );
+    if (confirmed) {
+      await ref.read(authProvider.notifier).logout();
+    }
   }
 
   // Guards the voluntary "Update password" tap: a confirmation dialog (so
@@ -197,7 +178,7 @@ class LecturerProfileScreen extends ConsumerWidget {
                     Icon(Icons.power_settings_new_rounded, size: 20),
                     SizedBox(width: 12),
                     Text(
-                      'TERMINATE SESSION',
+                      'LOG OUT',
                       style: TextStyle(
                         letterSpacing: 2,
                         fontWeight: FontWeight.bold,

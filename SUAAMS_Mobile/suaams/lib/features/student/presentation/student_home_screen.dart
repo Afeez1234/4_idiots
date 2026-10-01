@@ -14,6 +14,7 @@ import 'package:suaams/features/student/providers/student_announcements_provider
 import 'package:suaams/shared/widgets/app_badge.dart';
 import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/shared/widgets/dashboard_background.dart';
+import 'package:suaams/shared/widgets/confirm_dialog.dart';
 
 // The Home tab of the student bottom nav. This used to be one of four
 // manually-switched bodies inside StudentDashboardScreen (see git history);
@@ -155,40 +156,22 @@ class _DashboardHeader extends ConsumerWidget {
 
   const _DashboardHeader({required this.profile, required this.colorScheme});
 
-  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: colorScheme.surfaceContainer,
-        title: const Text(
-          'Sign Out',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Are you sure you want to log out of your session?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'CANCEL',
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.error,
-              foregroundColor: colorScheme.onError,
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(authProvider.notifier).logout();
-            },
-            child: const Text('SIGN OUT'),
-          ),
-        ],
-      ),
+  Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
+    // Was a hand-rolled copy of this dialog -- one of four identical ones
+    // across the student and lecturer shells, which had already drifted
+    // apart (one said "terminal session", the rest said "session") and used
+    // a third term, "Sign Out", alongside the profile tiles' "TERMINATE
+    // SESSION" for the same action.
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Log Out',
+      message: 'Are you sure you want to log out of your account?',
+      confirmLabel: 'LOG OUT',
+      destructive: true,
     );
+    if (confirmed) {
+      await ref.read(authProvider.notifier).logout();
+    }
   }
 
   @override

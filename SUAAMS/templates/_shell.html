@@ -107,7 +107,7 @@
                         <p class="truncate text-sm font-semibold text-on-rail">{{ session.get('username', 'User') }}</p>
                         <p class="text-2xs capitalize text-on-rail-muted">{{ session.get('role', '') }}</p>
                     </div>
-                    <a href="{{ url_for('auth.logout') }}" title="Sign out"
+                    <a href="{{ url_for('auth.logout') }}" title="Log out"
                        class="shrink-0 text-on-rail-muted transition-colors hover:text-error">
                         <span class="material-symbols-rounded text-xl">logout</span>
                     </a>
