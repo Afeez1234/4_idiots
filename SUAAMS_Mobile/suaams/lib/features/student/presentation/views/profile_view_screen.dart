@@ -7,45 +7,25 @@ import '../../../../../core/providers/theme_provider.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../providers/student_provider.dart';
 import '../../models/student_dashboard_model.dart';
+import 'package:suaams/shared/widgets/confirm_dialog.dart';
 
 class ProfileView extends ConsumerWidget {
   const ProfileView({super.key});
 
-  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: colorScheme.surfaceContainer,
-        title: const Text(
-          'Sign Out',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Are you sure you want to log out of your terminal session?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'CANCEL',
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.error,
-              foregroundColor: colorScheme.onError,
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(authProvider.notifier).logout();
-            },
-            child: const Text('SIGN OUT'),
-          ),
-        ],
-      ),
+  Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
+    // One of four hand-rolled copies; see student_home_screen.dart. This
+    // one is where the drift was most visible -- it asked about logging out
+    // of your "terminal session" where the other three said "session".
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Log Out',
+      message: 'Are you sure you want to log out of your account?',
+      confirmLabel: 'LOG OUT',
+      destructive: true,
     );
+    if (confirmed) {
+      await ref.read(authProvider.notifier).logout();
+    }
   }
 
   // Guards the voluntary "Update password" tap: a confirmation dialog (so
@@ -186,7 +166,7 @@ class ProfileView extends ConsumerWidget {
 
           const SizedBox(height: 48),
 
-          // 3. Sign Out Button
+          // 3. Log Out Button
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: colorScheme.errorContainer.withValues(
@@ -209,7 +189,7 @@ class ProfileView extends ConsumerWidget {
                 Icon(Icons.power_settings_new_rounded, size: 20),
                 SizedBox(width: 12),
                 Text(
-                  'TERMINATE SESSION',
+                  'LOG OUT',
                   style: TextStyle(
                     letterSpacing: 2,
                     fontWeight: FontWeight.bold,

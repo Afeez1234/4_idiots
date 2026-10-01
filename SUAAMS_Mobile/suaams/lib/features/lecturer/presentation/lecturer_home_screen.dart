@@ -8,6 +8,7 @@ import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/shared/widgets/confirm_dialog.dart';
 
 // Home tab of the lecturer bottom nav. Was LecturerDashboardScreen, the
 // only screen on the lecturer side before this redesign -- renamed since
@@ -124,40 +125,19 @@ class _DashboardHeader extends ConsumerWidget {
     required this.colorScheme,
   });
 
-  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: colorScheme.surfaceContainer,
-        title: const Text(
-          'Sign Out',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          'Are you sure you want to log out of your session?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'CANCEL',
-              style: TextStyle(color: colorScheme.onSurface),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.error,
-              foregroundColor: colorScheme.onError,
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              ref.read(authProvider.notifier).logout();
-            },
-            child: const Text('SIGN OUT'),
-          ),
-        ],
-      ),
+  Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
+    // One of four hand-rolled copies of this dialog; see
+    // student_home_screen.dart's version for why they were consolidated.
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Log Out',
+      message: 'Are you sure you want to log out of your account?',
+      confirmLabel: 'LOG OUT',
+      destructive: true,
     );
+    if (confirmed) {
+      await ref.read(authProvider.notifier).logout();
+    }
   }
 
   @override
