@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:suaams/core/theme/app_theme.dart';
-import '../../../../../core/providers/theme_provider.dart';
-import '../../../auth/providers/auth_provider.dart';
-import '../../providers/student_provider.dart';
-import '../../models/student_dashboard_model.dart';
+import 'package:suaams/core/providers/theme_provider.dart';
+import 'package:suaams/features/auth/providers/auth_provider.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
 
 class ProfileView extends ConsumerWidget {

@@ -2,7 +2,7 @@ import 'package:suaams/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/device_info_provider.dart';
+import 'package:suaams/features/student/providers/device_info_provider.dart';
 
 // Read-only by design -- see get_device_info's doc-comment in
 // api/student.py. This screen explains the admin-reset flow rather than

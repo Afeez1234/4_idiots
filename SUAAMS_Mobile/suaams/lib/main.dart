@@ -4,13 +4,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'core/router/app_router.dart';
-import 'core/services/notification_service.dart';
-import 'core/services/security_service.dart';
-import 'core/theme/app_theme.dart';
-import 'core/providers/onboarding_provider.dart';
-import 'core/providers/theme_provider.dart';
-import 'features/student/data/nfc_service.dart';
+import 'package:suaams/core/router/app_router.dart';
+import 'package:suaams/core/services/notification_service.dart';
+import 'package:suaams/core/services/security_service.dart';
+import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/core/providers/onboarding_provider.dart';
+import 'package:suaams/core/providers/theme_provider.dart';
+import 'package:suaams/features/student/data/nfc_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

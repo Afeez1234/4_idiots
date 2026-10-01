@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'records_view.dart';
+import 'package:suaams/features/student/presentation/views/records_view.dart';
 
 // Attendance > "Session history (tap a session)". RecordsView already
 // renders the full chronological attendance log (filterable, grouped by

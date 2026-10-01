@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
-import '../../providers/week_schedule_provider.dart';
-import '../../models/week_schedule_entry.dart';
+import 'package:suaams/features/student/providers/week_schedule_provider.dart';
+import 'package:suaams/features/student/models/week_schedule_entry.dart';
 
 const _dayNameToIndex = {
   'Monday': 0,

@@ -4,11 +4,11 @@
 // CourseBreakdown list only ever contains courses already enrolled in, so
 // it can't answer "what else is there to register for" on its own.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/available_course_model.dart';
-import '../providers/student_provider.dart';
-import '../providers/today_schedule_provider.dart';
-import '../providers/week_schedule_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/features/student/models/available_course_model.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/features/student/providers/today_schedule_provider.dart';
+import 'package:suaams/features/student/providers/week_schedule_provider.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class CourseRegistrationState {
   final bool isLoading;

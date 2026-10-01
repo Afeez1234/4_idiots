@@ -6,8 +6,8 @@ import 'package:suaams/shared/widgets/dashboard_background.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/auth_provider.dart';
-import '../../../shared/widgets/suaams_logo.dart';
+import 'package:suaams/features/auth/providers/auth_provider.dart';
+import 'package:suaams/shared/widgets/suaams_logo.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});

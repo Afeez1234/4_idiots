@@ -2,9 +2,9 @@
 // own provider (not folded into studentDashboardProvider) so both screens
 // share one fetch, same reasoning as todayScheduleProvider.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/week_schedule_entry.dart';
-import '../providers/student_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/features/student/models/week_schedule_entry.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class WeekScheduleState {
   final bool isLoading;

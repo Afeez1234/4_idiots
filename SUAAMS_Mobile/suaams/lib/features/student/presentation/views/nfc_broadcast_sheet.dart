@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/core/theme/app_theme.dart';
-import '../../providers/nfc_provider.dart';
+import 'package:suaams/features/student/providers/nfc_provider.dart';
 
 class NfcBroadcastSheet extends ConsumerStatefulWidget {
   const NfcBroadcastSheet({super.key});

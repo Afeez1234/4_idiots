@@ -3,9 +3,9 @@
 // independently refreshable, read-only (students can't post/delete, unlike
 // the lecturer-side announcementsProvider).
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/student_announcement_model.dart';
-import '../providers/student_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/features/student/models/student_announcement_model.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class StudentAnnouncementsState {
   final bool isLoading;

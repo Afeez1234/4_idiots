@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
-import '../../providers/course_attendance_history_provider.dart';
-import '../../models/course_attendance_history_model.dart';
+import 'package:suaams/features/student/providers/course_attendance_history_provider.dart';
+import 'package:suaams/features/student/models/course_attendance_history_model.dart';
 
 String _fmtTime(String? raw) {
   if (raw == null || raw.length < 5) return '--:--';
