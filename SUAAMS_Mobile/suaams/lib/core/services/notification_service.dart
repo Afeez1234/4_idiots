@@ -15,9 +15,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/auth/data/auth_service.dart';
-import '../../features/student/data/student_service.dart';
-import '../router/app_router.dart';
+import 'package:suaams/features/auth/data/auth_service.dart';
+import 'package:suaams/features/student/data/student_service.dart';
+import 'package:suaams/core/router/app_router.dart';
 
 // Must be a top-level function (not a class method/closure) -- Firebase
 // runs this in a separate background isolate when a data message arrives

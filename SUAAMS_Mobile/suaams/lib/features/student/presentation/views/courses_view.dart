@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:suaams/core/theme/app_theme.dart';
-import '../../providers/student_provider.dart';
-import '../../models/student_dashboard_model.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/features/student/models/student_dashboard_model.dart';
 
 class CoursesView extends ConsumerWidget {
   const CoursesView({super.key});

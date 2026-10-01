@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/shared/widgets/app_label_value_row.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
-import '../../providers/student_provider.dart';
-import '../../models/student_dashboard_model.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/features/student/models/student_dashboard_model.dart';
 
 // Reuses the already-loaded studentDashboardProvider -- RecentAttendance
 // already carries everything this screen needs (course/date/time/status),

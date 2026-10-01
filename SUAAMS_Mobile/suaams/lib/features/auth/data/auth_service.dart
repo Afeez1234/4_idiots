@@ -6,8 +6,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../../../core/constants/api_constants.dart';
-import '../models/auth_user.dart';
+import 'package:suaams/core/constants/api_constants.dart';
+import 'package:suaams/features/auth/models/auth_user.dart';
 
 // The backend (suaams.onrender.com) is on Render's free tier, which spins
 // the dyno down after ~15 minutes idle -- the next request has to cold-start

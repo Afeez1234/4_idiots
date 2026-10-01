@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../../core/constants/api_constants.dart';
-import '../models/student_dashboard_model.dart';
-import '../models/today_protocol_entry.dart';
-import '../models/notification_item.dart';
-import '../models/course_attendance_history_model.dart';
-import '../models/week_schedule_entry.dart';
-import '../models/device_info.dart';
-import '../models/available_course_model.dart';
-import '../models/student_announcement_model.dart';
+import 'package:suaams/core/constants/api_constants.dart';
+import 'package:suaams/features/student/models/student_dashboard_model.dart';
+import 'package:suaams/features/student/models/today_protocol_entry.dart';
+import 'package:suaams/features/student/models/notification_item.dart';
+import 'package:suaams/features/student/models/course_attendance_history_model.dart';
+import 'package:suaams/features/student/models/week_schedule_entry.dart';
+import 'package:suaams/features/student/models/device_info.dart';
+import 'package:suaams/features/student/models/available_course_model.dart';
+import 'package:suaams/features/student/models/student_announcement_model.dart';
 
 /// Result of a /checkin/status poll. `reason` distinguishes a definite,
 /// permanent failure ('not_enrolled') from a genuinely ambiguous "not

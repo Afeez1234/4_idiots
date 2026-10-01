@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'courses_view.dart';
+import 'package:suaams/features/student/presentation/views/courses_view.dart';
 
 // Attendance tab root -- "Overview (overall rate, at-risk courses)" in the
 // navigation map. CoursesView already renders exactly this (per-course

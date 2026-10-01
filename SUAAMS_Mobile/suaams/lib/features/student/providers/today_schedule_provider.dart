@@ -6,9 +6,9 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/today_protocol_entry.dart';
-import '../providers/student_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/features/student/models/today_protocol_entry.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class TodayScheduleState {
   final bool isLoading;

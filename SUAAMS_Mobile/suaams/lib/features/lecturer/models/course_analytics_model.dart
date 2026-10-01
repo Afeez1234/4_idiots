@@ -1,4 +1,4 @@
-import 'session_history_model.dart' show HistoryCourse;
+import 'package:suaams/features/lecturer/models/session_history_model.dart' show HistoryCourse;
 
 // Mirrors GET /api/v1/lecturer/course/<id>/analytics's JSON shape -- see
 // get_course_analytics in api/lecturer.py for the exact field names.

@@ -1,9 +1,9 @@
 // Per-course attendance history for this student -- .family by courseId,
 // same reasoning as the lecturer feature's course_workspace_provider.dart.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/course_attendance_history_model.dart';
-import 'student_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/features/student/models/course_attendance_history_model.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class CourseAttendanceHistoryState {
   final bool isLoading;

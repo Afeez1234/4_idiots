@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/core/theme/app_theme.dart';
-import '../../models/notification_item.dart';
-import '../../providers/notifications_provider.dart';
+import 'package:suaams/features/student/models/notification_item.dart';
+import 'package:suaams/features/student/providers/notifications_provider.dart';
 
 // Profile > "Notification Settings" -- was a ComingSoonScreen placeholder;
 // now the real notification inbox (list.dart + Notification model backing

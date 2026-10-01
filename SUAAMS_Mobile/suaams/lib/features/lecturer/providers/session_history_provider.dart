@@ -3,7 +3,7 @@
 // build() param, per Riverpod 3.x's family pattern).
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/models/session_history_model.dart';
-import 'lecturer_provider.dart';
+import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/core/network/auth_retry.dart';
 
 class SessionHistoryState {

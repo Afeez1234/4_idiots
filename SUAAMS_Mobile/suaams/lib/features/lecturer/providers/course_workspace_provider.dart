@@ -9,7 +9,7 @@
 // build() and every other method on the notifier.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/models/course_workspace_model.dart';
-import 'lecturer_provider.dart';
+import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/core/network/auth_retry.dart';
 
 class CourseWorkspaceState {

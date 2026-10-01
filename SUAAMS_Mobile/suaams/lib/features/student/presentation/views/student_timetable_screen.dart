@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:suaams/core/theme/app_theme.dart';
-import '../../providers/week_schedule_provider.dart';
-import '../../models/week_schedule_entry.dart';
+import 'package:suaams/features/student/providers/week_schedule_provider.dart';
+import 'package:suaams/features/student/models/week_schedule_entry.dart';
 
 // Timetable tab root -- weekly view backed by weekScheduleProvider
 // (dayOfWeek 0=Monday matches this list's index, per Timetable.day_of_week's

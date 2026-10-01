@@ -2,9 +2,9 @@
 // Kept as its own provider, same reasoning as today_schedule_provider.dart --
 // independently refreshable without touching dashboard state.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/notification_item.dart';
-import '../providers/student_provider.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/features/student/models/notification_item.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class NotificationsState {
   final bool isLoading;

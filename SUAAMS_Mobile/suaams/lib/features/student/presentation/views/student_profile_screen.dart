@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'profile_view_screen.dart';
+import 'package:suaams/features/student/presentation/views/profile_view_screen.dart';
 
 // Profile tab root. ProfileView itself has no Scaffold -- it used to be
 // embedded directly inside StudentDashboardScreen's single shared Scaffold

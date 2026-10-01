@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/student_service.dart';
-import '../models/student_dashboard_model.dart';
-import '../../../core/network/auth_retry.dart';
+import 'package:suaams/features/student/data/student_service.dart';
+import 'package:suaams/features/student/models/student_dashboard_model.dart';
+import 'package:suaams/core/network/auth_retry.dart';
 
 class StudentDashboardState {
   final bool isLoading;

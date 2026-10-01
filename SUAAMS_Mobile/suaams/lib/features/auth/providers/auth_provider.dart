@@ -8,9 +8,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
-import '../data/auth_service.dart';
-import '../models/auth_user.dart';
-import '../../../core/services/notification_service.dart';
+import 'package:suaams/features/auth/data/auth_service.dart';
+import 'package:suaams/features/auth/models/auth_user.dart';
+import 'package:suaams/core/services/notification_service.dart';
 
 class AuthState {
   final bool isLoading;

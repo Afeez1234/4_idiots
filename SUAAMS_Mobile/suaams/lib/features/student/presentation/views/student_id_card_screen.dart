@@ -3,10 +3,10 @@ import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../shared/widgets/dashboard_background.dart';
-import '../../providers/student_provider.dart';
-import '../../models/student_dashboard_model.dart';
-import 'nfc_broadcast_sheet.dart';
+import 'package:suaams/shared/widgets/dashboard_background.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
+import 'package:suaams/features/student/models/student_dashboard_model.dart';
+import 'package:suaams/features/student/presentation/views/nfc_broadcast_sheet.dart';
 
 // ID Card tab -- "Full screen digital ID with NFC tap button". The card
 // visuals are lifted as-is from ProfileView's old _buildDigitalIDCard (now

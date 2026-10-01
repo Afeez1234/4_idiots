@@ -11,7 +11,7 @@
 // 401 gets an actual chance to recover (via AuthNotifier.refreshSession())
 // instead of immediately forcing the user back to the login screen.
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../features/auth/providers/auth_provider.dart';
+import 'package:suaams/features/auth/providers/auth_provider.dart';
 
 bool _looksLikeAuthExpiry(Object error) {
   final msg = error.toString().toLowerCase();
