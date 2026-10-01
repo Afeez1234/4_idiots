@@ -79,6 +79,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     super.dispose();
   }
 
+  /// Advance one page, wrapping to the first if the user is mid-swipe and
+  /// overshoots. Guarded so a double-tap can't queue two jumps.
+  void _goNext() {
+    if (!_controller.hasClients) return;
+    final next = _page + 1;
+    _controller.animateToPage(
+      next >= _pages.length ? 0 : next,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
   Future<void> _finish() async {
     await ref.read(onboardingProvider.notifier).markSeen();
     if (!mounted) return;
@@ -172,7 +184,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
-                          onPressed: _finish,
+                          // Advances the PageView until the last page, then
+                          // finishes. Previously this was wired straight to
+                          // _finish, so the very first NEXT tap dropped the
+                          // user onto the dashboard and skipped pages two
+                          // and three entirely -- including the page
+                          // explaining the device binding.
+                          onPressed: isLast ? _finish : _goNext,
                           style: FilledButton.styleFrom(
                             backgroundColor: colorScheme.primary,
                             foregroundColor: colorScheme.onPrimary,
