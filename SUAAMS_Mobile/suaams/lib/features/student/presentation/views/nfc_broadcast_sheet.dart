@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/student/providers/nfc_provider.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 
 class NfcBroadcastSheet extends ConsumerStatefulWidget {
   const NfcBroadcastSheet({super.key});
@@ -341,7 +342,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           height: 72,
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            color: Color(0xFF10B981), // Solid Emerald Green
+            color: AppStatus.success, // Solid Emerald Green
           ),
           child: const Icon(Icons.check_rounded, color: Colors.white, size: 36),
         ),
@@ -351,7 +352,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           style: TextStyle(
             fontWeight: FontWeight.bold,
             letterSpacing: 2,
-            color: Color(0xFF10B981),
+            color: AppStatus.success,
           ),
         ),
         const SizedBox(height: 8),
@@ -405,7 +406,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           height: 72,
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            color: Color(0xFFF59E0B), // Amber
+            color: AppStatus.warning, // Amber
           ),
           child: const Icon(
             Icons.help_outline_rounded,
@@ -419,7 +420,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           style: TextStyle(
             fontWeight: FontWeight.bold,
             letterSpacing: 2,
-            color: Color(0xFFF59E0B),
+            color: AppStatus.warning,
           ),
         ),
         const SizedBox(height: 8),
@@ -460,7 +461,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           height: 72,
           decoration: const BoxDecoration(
             shape: BoxShape.circle,
-            color: Color(0xFFF59E0B), // Amber
+            color: AppStatus.warning, // Amber
           ),
           child: const Icon(
             Icons.search_off_rounded,
@@ -474,7 +475,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           style: TextStyle(
             fontWeight: FontWeight.bold,
             letterSpacing: 2,
-            color: Color(0xFFF59E0B),
+            color: AppStatus.warning,
           ),
         ),
         const SizedBox(height: 8),

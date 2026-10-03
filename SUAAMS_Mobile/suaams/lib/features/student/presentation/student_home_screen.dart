@@ -16,6 +16,7 @@ import 'package:suaams/shared/widgets/app_badge.dart';
 import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/shared/widgets/dashboard_background.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 
 // The Home tab of the student bottom nav. This used to be one of four
 // manually-switched bodies inside StudentDashboardScreen (see git history);
@@ -731,12 +732,12 @@ class _ProtocolCard extends StatelessWidget {
     final Color borderColor;
     if (isPresent) {
       statusColor = palette.successText;
-      bgColor = const Color(0xFF10B981).withValues(alpha: 0.1);
-      borderColor = const Color(0xFF10B981).withValues(alpha: 0.3);
+      bgColor = AppStatus.success.withValues(alpha: 0.1);
+      borderColor = AppStatus.success.withValues(alpha: 0.3);
     } else if (isAbsent) {
       statusColor = palette.dangerText;
-      bgColor = const Color(0xFFEF4444).withValues(alpha: 0.1);
-      borderColor = const Color(0xFFEF4444).withValues(alpha: 0.3);
+      bgColor = AppStatus.danger.withValues(alpha: 0.1);
+      borderColor = AppStatus.danger.withValues(alpha: 0.3);
     } else {
       statusColor = colorScheme.onSurface.withValues(alpha: 0.5);
       bgColor = colorScheme.surface.withValues(alpha: 0.45);

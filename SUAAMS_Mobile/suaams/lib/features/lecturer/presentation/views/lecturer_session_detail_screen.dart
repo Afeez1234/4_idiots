@@ -5,6 +5,7 @@ import 'package:suaams/features/lecturer/models/session_detail_model.dart';
 import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 
 String _fmtTime(String? raw) {
   if (raw == null || raw.length < 5) return '--:--';
@@ -139,7 +140,7 @@ class _AttendanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPresent = record.status.toLowerCase() == 'present';
     final statusColor = isPresent
-        ? const Color(0xFF10B981)
+        ? AppStatus.success
         : colorScheme.onSurface.withValues(alpha: 0.5);
 
     return Container(

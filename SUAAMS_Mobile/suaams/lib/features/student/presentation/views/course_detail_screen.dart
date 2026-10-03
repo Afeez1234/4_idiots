@@ -98,7 +98,7 @@ class CourseDetailScreen extends ConsumerWidget {
                   left: BorderSide(
                     color: isAtRisk
                         ? colorScheme.error
-                        : const Color(0xFF10B981),
+                        : AppStatus.success,
                     width: 4,
                   ),
                 ),
@@ -114,7 +114,7 @@ class CourseDetailScreen extends ConsumerWidget {
                       fontWeight: FontWeight.bold,
                       color: isAtRisk
                           ? colorScheme.error
-                          : const Color(0xFF10B981),
+                          : AppStatus.success,
                     ),
                   ),
                   const SizedBox(height: 8),

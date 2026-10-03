@@ -5,6 +5,7 @@ import 'package:suaams/features/lecturer/models/course_analytics_model.dart';
 import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 
 class CourseAnalyticsScreen extends ConsumerWidget {
   final int courseId;
@@ -146,7 +147,7 @@ class _TrendRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final barColor = point.pct < 75
         ? colorScheme.error
-        : const Color(0xFF10B981);
+        : AppStatus.success;
 
     return Row(
       children: [
@@ -190,7 +191,7 @@ class _StudentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAtRisk = student.pct < 75;
-    final accentColor = isAtRisk ? colorScheme.error : const Color(0xFF10B981);
+    final accentColor = isAtRisk ? colorScheme.error : AppStatus.success;
 
     return Container(
       padding: const EdgeInsets.all(16),

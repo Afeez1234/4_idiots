@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/student/providers/device_info_provider.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 
 // Read-only by design -- see get_device_info's doc-comment in
 // api/student.py. This screen explains the admin-reset flow rather than
@@ -40,8 +41,8 @@ class LinkedDevicesScreen extends ConsumerWidget {
 
     final bound = data.deviceBound;
     final statusColor = bound
-        ? const Color(0xFF10B981)
-        : const Color(0xFFF59E0B);
+        ? AppStatus.success
+        : AppStatus.warning;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
