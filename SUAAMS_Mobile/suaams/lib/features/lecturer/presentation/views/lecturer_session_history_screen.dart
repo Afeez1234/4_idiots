@@ -6,6 +6,7 @@ import 'package:suaams/features/lecturer/models/session_history_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 
 // "HH:MM:SS" (Python str(time)) -> "HH:MM", or a placeholder if unset.
 String _fmtTime(String? raw) {
@@ -150,10 +151,10 @@ class _SessionCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                color: AppStatus.success.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(
-                  color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                  color: AppStatus.success.withValues(alpha: 0.3),
                 ),
               ),
               child: Text(

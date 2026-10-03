@@ -25,9 +25,17 @@
                             surface: '#FFFFFF',    // Pure white cards
                             border: '#E4E4E7',     // Crisp architectural borders
                             borderSubtle: '#F0F0F0',
-                            textMuted: '#A1A1AA',  // Light silver text
-                            textSecondary: '#52525B', // Medium gray
-                            textPrimary: '#09090B',   // Ink black
+                            // CORRECTED 2026-10-01 for WCAG AA. textMuted was
+                            // #A1A1AA, which measures 2.56:1 on white -- well
+                            // under the 4.5:1 floor for body text. #6A6A6A is
+                            // the same visual weight and scores 5.41:1.
+                            // textSecondary (#52525B, 7.73:1) was already fine.
+                            // See core/theme/app_terminal.dart -- that Dart file
+                            // is the source of truth for colour; this mockup is
+                            // a layout reference only.
+                            textMuted: '#6A6A6A',
+                            textSecondary: '#52525B',
+                            textPrimary: '#09090B',
                             // Status Colors
                             successBg: '#ECFDF5',
                             successBorder: '#D1FAE5',

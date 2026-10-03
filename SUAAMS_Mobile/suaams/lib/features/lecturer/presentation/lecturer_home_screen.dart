@@ -9,6 +9,7 @@ import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 
 // Home tab of the lecturer bottom nav. Was LecturerDashboardScreen, the
 // only screen on the lecturer side before this redesign -- renamed since
@@ -279,7 +280,7 @@ class _CourseCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: course.hasActiveSession
-                ? const Color(0xFF10B981).withValues(alpha: 0.35)
+                ? AppStatus.success.withValues(alpha: 0.35)
                 : colorScheme.outline.withValues(alpha: 0.1),
           ),
         ),
@@ -308,7 +309,7 @@ class _CourseCard extends StatelessWidget {
                           width: 6,
                           height: 6,
                           decoration: const BoxDecoration(
-                            color: Color(0xFF10B981),
+                            color: AppStatus.success,
                             shape: BoxShape.circle,
                           ),
                         ),

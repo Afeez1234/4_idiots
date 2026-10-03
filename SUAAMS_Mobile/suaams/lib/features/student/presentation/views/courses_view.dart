@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 class CoursesView extends ConsumerWidget {
   const CoursesView({super.key});
@@ -46,14 +48,23 @@ class CoursesView extends ConsumerWidget {
     ColorScheme colorScheme,
     bool isDarkMode,
   ) {
-    // Determine the health color based on the attendance percentage
-    Color healthColor;
+    // Two colours, not one. `healthColor` paints the progress bar and
+    // chips, where the saturated hue is correct. `healthText` renders the
+    // percentage, where the raw hue fails: emerald measures 2.54:1 and
+    // amber 2.15:1 on a white card, against a 3:1 floor for 18px bold.
+    // Dark mode was fine in both, which is why it wasn't obvious.
+    final palette = terminalOf(context);
+    late final Color healthColor;
+    late final Color healthText;
     if (course.pct >= 75) {
-      healthColor = const Color(0xFF10B981); // Emerald (Safe)
+      healthColor = AppStatus.success;
+      healthText = palette.successText;
     } else if (course.pct >= 50) {
-      healthColor = const Color(0xFFF59E0B); // Amber (Warning)
+      healthColor = AppStatus.warning;
+      healthText = palette.warningText;
     } else {
-      healthColor = const Color(0xFFEF4444); // Crimson (Danger)
+      healthColor = AppStatus.danger;
+      healthText = palette.dangerText;
     }
 
     return InkWell(
@@ -105,7 +116,7 @@ class CoursesView extends ConsumerWidget {
                   style: AppTheme.accent(
                     size: 18,
                     weight: FontWeight.w700,
-                    color: healthColor,
+                    color: healthText,
                   ),
                 ),
               ],

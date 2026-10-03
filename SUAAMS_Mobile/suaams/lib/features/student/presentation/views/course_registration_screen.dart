@@ -4,6 +4,7 @@ import 'package:suaams/features/student/models/available_course_model.dart';
 import 'package:suaams/features/student/providers/course_registration_provider.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 
 // Self-service course registration -- see get_available_courses/
 // register_course/drop_course in api/student.py. Scoped server-side to the
@@ -272,8 +273,8 @@ class _ActionButton extends StatelessWidget {
       return OutlinedButton(
         onPressed: onDrop,
         style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFFEF4444),
-          side: const BorderSide(color: Color(0xFFEF4444)),
+          foregroundColor: AppStatus.danger,
+          side: const BorderSide(color: AppStatus.danger),
         ),
         child: const Text('DROP'),
       );

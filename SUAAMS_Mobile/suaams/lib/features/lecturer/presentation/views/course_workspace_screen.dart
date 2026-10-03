@@ -6,6 +6,7 @@ import 'package:suaams/features/lecturer/models/course_workspace_model.dart';
 import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 
 class CourseWorkspaceScreen extends ConsumerStatefulWidget {
   final int courseId;
@@ -268,7 +269,7 @@ class _SessionControls extends StatelessWidget {
         border: Border(
           left: BorderSide(
             color: activeSession != null
-                ? const Color(0xFF10B981)
+                ? AppStatus.success
                 : colorScheme.primary,
             width: 4,
           ),
@@ -286,7 +287,7 @@ class _SessionControls extends StatelessWidget {
       children: [
         const Row(
           children: [
-            Icon(Icons.circle, size: 8, color: Color(0xFF10B981)),
+            Icon(Icons.circle, size: 8, color: AppStatus.success),
             SizedBox(width: 8),
             Text(
               'SESSION ACTIVE',
@@ -460,7 +461,7 @@ class _LiveAttendanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPresent = entry.status.toLowerCase() == 'present';
     final statusColor = isPresent
-        ? const Color(0xFF10B981)
+        ? AppStatus.success
         : colorScheme.onSurface.withValues(alpha: 0.5);
 
     return Container(

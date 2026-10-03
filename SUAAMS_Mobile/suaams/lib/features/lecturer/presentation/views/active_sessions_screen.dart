@@ -5,6 +5,7 @@ import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/shared/utils/attendance_status.dart';
 
 // Sessions tab root. Reuses the already-loaded lecturerDashboardProvider
 // (LecturerCourse.hasActiveSession/activeSessionId) instead of a separate
@@ -113,7 +114,7 @@ class _ActiveCourseCard extends StatelessWidget {
           color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: const Color(0xFF10B981).withValues(alpha: 0.35),
+            color: AppStatus.success.withValues(alpha: 0.35),
           ),
         ),
         child: Row(
@@ -122,7 +123,7 @@ class _ActiveCourseCard extends StatelessWidget {
               width: 8,
               height: 8,
               decoration: const BoxDecoration(
-                color: Color(0xFF10B981),
+                color: AppStatus.success,
                 shape: BoxShape.circle,
               ),
             ),
