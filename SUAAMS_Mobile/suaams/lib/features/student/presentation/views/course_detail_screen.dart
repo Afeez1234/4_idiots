@@ -5,6 +5,7 @@ import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 // Reuses the already-loaded studentDashboardProvider -- CourseBreakdown
 // already carries everything this screen needs (id/name/code/pct/attended/
@@ -174,7 +175,7 @@ class _RecordCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = attendanceStatusColor(record.status);
+    final statusColor = attendanceStatusText(record.status, terminalOf(context));
 
     return Container(
       padding: const EdgeInsets.all(16),

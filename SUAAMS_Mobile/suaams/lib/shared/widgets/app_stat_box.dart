@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 /// How a stat box reads. Replaces the two incompatible conventions the
 /// five private `_StatBox` copies had grown:
@@ -78,12 +78,16 @@ class AppStatBox extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final textTheme = theme.textTheme;
 
+    // Theme-aware status text colours rather than the raw hues: the stat
+    // value is a number a student reads, and AppStatus.success fails AA
+    // against its own tint in light mode. See attendance_status.dart.
+    final palette = terminalOf(context);
     final Color accent;
     switch (stat.tone) {
       case AppStatTone.success:
-        accent = AppStatus.success;
+        accent = palette.successText;
       case AppStatTone.warning:
-        accent = colorScheme.error;
+        accent = palette.dangerText;
       case AppStatTone.neutral:
         accent = colorScheme.onSurface;
     }

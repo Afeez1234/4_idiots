@@ -202,16 +202,28 @@ class _DashboardHeader extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GestureDetector(
-                onTap: () => _showLogoutDialog(context, ref),
-                child: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: colorScheme.surfaceContainer,
-                  child: Text(
-                    avatarLetter,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+              // See student_home_screen.dart's equivalent: CircleAvatar
+              // derives its text colour as onPrimary (1.23:1 dark, 1.00:1
+              // light against surfaceContainer), and the 36px circle is
+              // too small a target for a destructive action.
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: Material(
+                  color: colorScheme.surfaceContainer,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => _showLogoutDialog(context, ref),
+                    child: Center(
+                      child: Text(
+                        avatarLetter,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
                     ),
                   ),
                 ),

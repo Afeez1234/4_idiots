@@ -6,6 +6,7 @@ import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/core/providers/theme_provider.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 class RecordsView extends ConsumerStatefulWidget {
   const RecordsView({super.key});
@@ -280,7 +281,7 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
     ColorScheme colorScheme,
     bool isDarkMode,
   ) {
-    final statusColor = attendanceStatusColor(record.status);
+    final statusColor = attendanceStatusText(record.status, terminalOf(context));
     final statusText = attendanceStatusLabel(record.status);
 
     final courseName = record.course.isEmpty ? 'UNKNOWN MODULE' : record.course;

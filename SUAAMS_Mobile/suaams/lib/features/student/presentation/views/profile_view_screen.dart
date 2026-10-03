@@ -3,19 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/core/providers/theme_provider.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
+import 'package:suaams/shared/utils/initials.dart';
 
 class ProfileView extends ConsumerWidget {
   const ProfileView({super.key});
 
   Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
-    // One of four hand-rolled copies; see student_home_screen.dart. This
-    // one is where the drift was most visible -- it asked about logging out
-    // of your "terminal session" where the other three said "session".
+    // All four logout dialogs now go through showConfirmDialog, so they no
+    // longer drift -- this one used to ask about logging out of your
+    // "terminal session" where the others said "session".
     final confirmed = await showConfirmDialog(
       context,
       title: 'Log Out',
@@ -92,6 +94,12 @@ class ProfileView extends ConsumerWidget {
     final state = ref.watch(studentDashboardProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
+    // The muted text tokens are used for every low-emphasis label here.
+    // These were `onSurface.withValues(alpha: 0.5)` at 10sp, which measured
+    // 3.34:1 on white -- failing WCAG AA. Dark mode came in at 5.17:1, which
+    // is presumably why it survived: the app defaults to dark. textMuted is
+    // 5.41:1 light / 7.86:1 dark, so it passes in both.
+    final terminal = terminalOf(context);
 
     // We can safely assume data exists here because the parent dashboard checks it,
     // but we use null coalescing just to be safe.
@@ -105,19 +113,16 @@ class ProfileView extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'STUDENT DOSSIER',
-            style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
-          ),
+          Text('STUDENT DOSSIER', style: AppTheme.eyebrow(terminal.textMuted)),
           const SizedBox(height: 16),
 
           // 1. Personal info
-          _buildPersonalInfoCard(profile, colorScheme),
+          _buildPersonalInfoCard(profile, colorScheme, terminal),
           const SizedBox(height: 32),
 
           Text(
             'SYSTEM PREFERENCES',
-            style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
+            style: AppTheme.eyebrow(terminal.textMuted),
           ),
           const SizedBox(height: 16),
 
@@ -131,6 +136,7 @@ class ProfileView extends ConsumerWidget {
                 ? 'Stealth Mode (Dark)'
                 : 'Blueprint Mode (Light)',
             colorScheme: colorScheme,
+            terminal: terminal,
             onTap: () => ref.read(themeProvider.notifier).toggleTheme(),
           ),
           const SizedBox(height: 12),
@@ -139,6 +145,7 @@ class ProfileView extends ConsumerWidget {
             title: 'Linked Devices',
             subtitle: 'Manage device binding',
             colorScheme: colorScheme,
+            terminal: terminal,
             onTap: () => context.push('/student/profile/devices'),
           ),
           const SizedBox(height: 12),
@@ -147,6 +154,7 @@ class ProfileView extends ConsumerWidget {
             title: 'Notification Settings',
             subtitle: 'Announcements & session alerts',
             colorScheme: colorScheme,
+            terminal: terminal,
             onTap: () => context.push('/student/profile/notifications'),
           ),
           const SizedBox(height: 12),
@@ -155,6 +163,7 @@ class ProfileView extends ConsumerWidget {
             title: 'Account Security',
             subtitle: 'Update password',
             colorScheme: colorScheme,
+            terminal: terminal,
             // Reuses the existing ChangePasswordScreen (already fully
             // working -- it's also used for the forced first-login flow at
             // app_router.dart). _confirmAndOpenChangePassword() confirms
@@ -211,6 +220,7 @@ class ProfileView extends ConsumerWidget {
   Widget _buildPersonalInfoCard(
     StudentProfile profile,
     ColorScheme colorScheme,
+    AppTerminal terminal,
   ) {
     return Container(
       width: double.infinity,
@@ -229,7 +239,7 @@ class ProfileView extends ConsumerWidget {
                 radius: 24,
                 backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
                 child: Text(
-                  profile.fullName[0].toUpperCase(),
+                  initialOf(profile.fullName, fallback: 'S'),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 20,
@@ -253,27 +263,27 @@ class ProfileView extends ConsumerWidget {
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Divider(height: 1, thickness: 1),
           ),
-          _buildInfoRow('MATRIC NO', profile.matricNumber, colorScheme),
+          _buildInfoRow('MATRIC NO', profile.matricNumber, terminal),
           const SizedBox(height: 8),
-          _buildInfoRow('DEPARTMENT', profile.department, colorScheme),
+          _buildInfoRow('DEPARTMENT', profile.department, terminal),
           const SizedBox(height: 8),
-          _buildInfoRow('LEVEL', profile.level, colorScheme),
+          _buildInfoRow('LEVEL', profile.level, terminal),
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(String label, String value, ColorScheme colorScheme) {
+  Widget _buildInfoRow(String label, String value, AppTerminal terminal) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: AppTheme.minBodySize,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.0,
-            color: colorScheme.onSurface.withValues(alpha: 0.5),
+            color: terminal.textMuted,
           ),
         ),
         Text(
@@ -289,6 +299,7 @@ class ProfileView extends ConsumerWidget {
     required String title,
     required String subtitle,
     required ColorScheme colorScheme,
+    required AppTerminal terminal,
     required VoidCallback onTap,
   }) {
     return InkWell(
@@ -320,8 +331,8 @@ class ProfileView extends ConsumerWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 10,
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontSize: AppTheme.minBodySize,
+                      color: terminal.textMuted,
                     ),
                   ),
                 ],
