@@ -5,6 +5,7 @@ import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 // Reuses the already-loaded studentDashboardProvider -- RecentAttendance
 // already carries everything this screen needs (course/date/time/status),
@@ -59,7 +60,7 @@ class SessionDetailScreen extends ConsumerWidget {
       );
     }
 
-    final statusColor = attendanceStatusColor(record.status);
+    final statusColor = attendanceStatusText(record.status, terminalOf(context));
 
     return Scaffold(
       backgroundColor: colorScheme.surface,

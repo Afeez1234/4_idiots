@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:suaams/core/theme/app_terminal.dart';
+
 // SUAAMS design system.
 //
 // Typography is the load-bearing part of this file. The app previously had
@@ -131,6 +133,7 @@ class AppTheme {
         onSurface: Colors.white,
         outline: Color(0xFF2A2A2A),
       ),
+      extensions: const <ThemeExtension<dynamic>>[AppTerminal.dark],
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: const Color(0xFF1C1C1C),
@@ -173,6 +176,7 @@ class AppTheme {
         onSurface: Color(0xFF1A1A1A),
         outline: Color(0xFFDDDDDD),
       ),
+      extensions: const <ThemeExtension<dynamic>>[AppTerminal.light],
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,

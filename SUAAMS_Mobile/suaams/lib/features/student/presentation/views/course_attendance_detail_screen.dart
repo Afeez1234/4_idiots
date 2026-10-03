@@ -5,6 +5,7 @@ import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/student/providers/course_attendance_history_provider.dart';
 import 'package:suaams/features/student/models/course_attendance_history_model.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 String _fmtTime(String? raw) {
   if (raw == null || raw.length < 5) return '--:--';
@@ -105,7 +106,7 @@ class _SessionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = attendanceStatusColor(session.status);
+    final statusColor = attendanceStatusText(session.status, terminalOf(context));
 
     return Container(
       padding: const EdgeInsets.all(16),

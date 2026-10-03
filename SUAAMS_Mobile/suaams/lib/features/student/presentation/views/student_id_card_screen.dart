@@ -7,6 +7,7 @@ import 'package:suaams/shared/widgets/dashboard_background.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/features/student/presentation/views/nfc_broadcast_sheet.dart';
+import 'package:suaams/shared/utils/initials.dart';
 
 // ID Card tab -- "Full screen digital ID with NFC tap button". The card
 // visuals are lifted as-is from ProfileView's old _buildDigitalIDCard (now
@@ -45,7 +46,8 @@ class StudentIdCardScreen extends ConsumerWidget {
                           kind: AppStateKind.error,
                           icon: Icons.badge_rounded,
                           title: "Couldn't load your ID card",
-                          message: state.errorMessage ??
+                          message:
+                              state.errorMessage ??
                               'Check your connection and try again.',
                           onRetry: () => ref
                               .read(studentDashboardProvider.notifier)
@@ -58,7 +60,9 @@ class StudentIdCardScreen extends ConsumerWidget {
                       children: [
                         Text(
                           'DIGITAL SMART ID',
-                          style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
+                          style: AppTheme.eyebrow(
+                            colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
                         ),
                         const SizedBox(height: 8),
                         // This tab previously had no explanation anywhere in
@@ -214,7 +218,7 @@ class _DigitalIdCard extends StatelessWidget {
                 radius: 32,
                 backgroundColor: colorScheme.primary.withValues(alpha: 0.1),
                 child: Text(
-                  profile.fullName[0].toUpperCase(),
+                  initialOf(profile.fullName, fallback: 'S'),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 28,

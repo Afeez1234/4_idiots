@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 
-/// The status palette, defined once.
+import 'package:suaams/core/theme/app_terminal.dart';
+
+/// Raw status hues, for the rare case that needs the saturated colour
+/// itself rather than something meant to be read as text -- an icon fill, a
+/// chart bar.
 ///
-/// These four values were previously re-typed at every call site -- 30
-/// separate `Color(0xFF10B981)` literals across ten files, plus 0xFFEF4444
-/// and 0xFFF59E0B scattered on top. Anything that needs "the success
-/// colour" should come from here so a palette change is a one-line edit
-/// rather than a sweep.
-///
-/// Note these are NOT in the ColorScheme. They are semantic status colours
-/// rather than theme roles, and the app has no light/dark pair for them
-/// yet -- see the ThemeExtension work queued against core/theme/i.html and
-/// j.html, whose `terminal` palette defines successBg/successBorder/
-/// successText for both themes.
+/// DO NOT use these for text or labels. Against the 10%-tinted fill the
+/// status pills use, they score 2.31:1 (success), 1.99:1 (warning) and
+/// 3.29:1 (danger) on a light surface -- all failing WCAG AA. For anything
+/// that renders characters, use [attendanceStatusText].
 class AppStatus {
   const AppStatus._();
 
@@ -22,23 +19,50 @@ class AppStatus {
   static const Color neutral = Color(0xFF6B7280); // Gray
 }
 
-/// Shared present/late/absent/excused -> (color, label) mapping, used by
-/// every screen that renders a RecentAttendance record (records list,
-/// course detail, session detail) so the three can't drift out of sync.
-Color attendanceStatusColor(String status) {
+/// The colour to render a status label IN -- theme-aware and contrast-
+/// checked, unlike [attendanceStatusColor].
+///
+/// Passing the palette in rather than reading it from a BuildContext keeps
+/// this usable from a pure function, and keeps the status map in one place
+/// instead of spreading theme lookups across every call site.
+Color attendanceStatusText(
+  String status, [
+  AppTerminal? palette,
+]) {
+  final t = palette ?? AppTerminal.dark;
   switch (status) {
     case 'present':
-      return AppStatus.success;
+      return t.successText;
     case 'late':
-      return AppStatus.warning;
+      return t.warningText;
     case 'excused':
-      return AppStatus.neutral;
+      return t.textSecondary;
     case 'absent':
     default:
-      return AppStatus.danger;
+      return t.dangerText;
   }
 }
 
+/// The background tint and border for a status pill, from the same palette.
+({Color bg, Color border}) attendanceStatusSurface(
+  String status, [
+  AppTerminal? palette,
+]) {
+  final t = palette ?? AppTerminal.dark;
+  switch (status) {
+    case 'present':
+      return (bg: t.successBg, border: t.successBorder);
+    case 'late':
+      return (bg: t.warningBg, border: t.warningBorder);
+    case 'absent':
+    default:
+      return (bg: t.dangerBg, border: t.dangerBorder);
+  }
+}
+
+/// Shared present/late/absent/excused -> label mapping, used by every screen
+/// that renders a RecentAttendance record (records list, course detail,
+/// session detail) so the four can't drift out of sync.
 String attendanceStatusLabel(String status) {
   switch (status) {
     case 'present':

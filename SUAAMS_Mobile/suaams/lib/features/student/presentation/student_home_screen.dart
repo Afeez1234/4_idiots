@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
@@ -285,20 +286,39 @@ class _DashboardHeader extends ConsumerWidget {
                 },
               ),
               const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => _showLogoutDialog(context, ref),
-                child: CircleAvatar(
-                  radius: 18,
-                  backgroundColor: colorScheme.surfaceContainer,
-                  child: Text(
-                    avatarLetter,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+              // The avatar doubles as the LOG OUT control, so it gets a
+              // real 48dp target and a ripple rather than the 36px
+              // GestureDetector it replaced -- a destructive action
+              // should not be the smallest target in the header.
+              SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Material(
+                    color: colorScheme.surfaceContainer,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () => _showLogoutDialog(context, ref),
+                      child: Center(
+                        child: Text(
+                          avatarLetter,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            // Explicit, and load-bearing. CircleAvatar
+                            // derives its text colour as onPrimary, which
+                            // measures 1.23:1 against surfaceContainer in
+                            // dark mode and 1.00:1 in light -- black on
+                            // near-black, then white on white. The initial
+                            // was invisible in both themes until this was
+                            // set. onSurface gives 17:1 either way.
+                            color: colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
@@ -701,15 +721,20 @@ class _ProtocolCard extends StatelessWidget {
     final isPresent = status == 'PRESENT';
     final isAbsent = status == 'ABSENT';
 
+    // Status colours come from the terminal palette rather than being
+    // re-derived here. The raw hues this used (#10B981 on a 10% emerald
+    // tint) score 2.31:1 in light mode -- the PRESENT label was failing AA
+    // and had been since the pill was first written.
+    final palette = terminalOf(context);
     final Color statusColor;
     final Color bgColor;
     final Color borderColor;
     if (isPresent) {
-      statusColor = const Color(0xFF10B981);
+      statusColor = palette.successText;
       bgColor = const Color(0xFF10B981).withValues(alpha: 0.1);
       borderColor = const Color(0xFF10B981).withValues(alpha: 0.3);
     } else if (isAbsent) {
-      statusColor = const Color(0xFFEF4444);
+      statusColor = palette.dangerText;
       bgColor = const Color(0xFFEF4444).withValues(alpha: 0.1);
       borderColor = const Color(0xFFEF4444).withValues(alpha: 0.3);
     } else {
