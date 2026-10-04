@@ -39,7 +39,7 @@ class AuthService {
           .timeout(_kNetworkTimeout);
     } on TimeoutException {
       throw Exception(
-        'Server is taking too long to respond. It may be waking up from idle -- please try again in a moment.',
+        'The server took too long to respond.',
       );
     }
 
@@ -125,7 +125,7 @@ class AuthService {
       }
     } on TimeoutException {
       throw Exception(
-        'Server is taking too long to respond. It may be waking up from idle -- please try again in a moment.',
+        'The server took too long to respond.',
       );
     } catch (e) {
       rethrow;
