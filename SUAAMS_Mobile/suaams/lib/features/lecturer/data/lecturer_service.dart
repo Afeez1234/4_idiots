@@ -6,6 +6,7 @@ import 'package:suaams/features/lecturer/models/course_workspace_model.dart';
 import 'package:suaams/features/lecturer/models/session_history_model.dart';
 import 'package:suaams/features/lecturer/models/session_detail_model.dart';
 import 'package:suaams/features/lecturer/models/announcement_model.dart';
+import 'package:suaams/features/student/models/week_schedule_entry.dart';
 import 'package:suaams/features/lecturer/models/course_analytics_model.dart';
 
 class LecturerService {
@@ -350,4 +351,39 @@ class LecturerService {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
   }
+  /// The lecturer's own recurring weekly teaching schedule.
+  ///
+  /// Reuses the student's [WeekScheduleEntry] deliberately: the backend
+  /// returns an identical JSON shape (see get_lecturer_week_schedule in
+  /// api/lecturer.py), so the model and the day-tile UI come across
+  /// unchanged. Enrolment and assignment differ; the wire format does not.
+  Future<List<WeekScheduleEntry>> fetchWeekSchedule(String token) async {
+    try {
+      final response = await http.get(
+        Uri.parse(ApiConstants.lecturerWeekScheduleEndpoint),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return (responseData['week'] as List)
+            .map((entry) => WeekScheduleEntry.fromJson(entry))
+            .toList();
+      }
+
+      final errorMsg =
+          responseData['error'] ??
+          responseData['msg'] ??
+          responseData['message'] ??
+          'Server returned status ${response.statusCode}';
+      throw Exception(errorMsg);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
 }

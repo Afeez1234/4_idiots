@@ -124,6 +124,13 @@ abstract final class ApiConstants {
   static const String markAnnouncementsSeenEndpoint =
       '$baseUrl/student/announcements/seen';
 
+  // The lecturer's own teaching week -- same JSON shape as the student's
+  // weekScheduleEndpoint, filtered by the courses they teach rather than
+  // where they are enrolled. See get_lecturer_week_schedule in
+  // api/lecturer.py.
+  static const String lecturerWeekScheduleEndpoint =
+      '$baseUrl/lecturer/schedule/week';
+
   static String createAnnouncementEndpoint(int courseId) =>
       '$baseUrl/lecturer/course/$courseId/announcements';
 
