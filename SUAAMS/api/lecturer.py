@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request, Response
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, timezone
-from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Announcement
+from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Announcement, Timetable
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from utils import resolve_timetable_slot_for_course, build_course_register_csv
 
@@ -117,6 +117,60 @@ def get_lecturer_dashboard():
 
 
 # ── 2. Course workspace ───────────────────────────────────────────────────────
+
+@api_lecturer_bp.route('/schedule/week', methods=['GET'])
+@limiter.limit("30 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def get_lecturer_week_schedule():
+    """
+    The lecturer's own recurring weekly Timetable, across every course they
+    are assigned to teach.
+
+    Mirrors get_week_schedule in api/student.py exactly -- same JSON keys,
+    same ordering, same 0=Monday day_of_week convention -- so the Flutter
+    side reuses WeekScheduleEntry and the day-tile UI unchanged. The only
+    difference is the filter: a student gets the courses they are enrolled
+    in, a lecturer the courses assigned to them.
+
+    Without this a lecturer could see their courses and their live sessions
+    but never their own week, which is the one question the app exists to
+    help them answer.
+    """
+    lecturer, error_response, status = get_lecturer_or_403()
+    if error_response:
+        return error_response, status
+
+    try:
+        courses_by_id = {
+            c.id: c for c in Course.query.filter_by(lecturer_id=lecturer.id).all()
+        }
+        if not courses_by_id:
+            return jsonify({"success": True, "week": []}), 200
+
+        entries = Timetable.query.filter(
+            Timetable.course_id.in_(courses_by_id.keys())
+        ).order_by(Timetable.day_of_week.asc(), Timetable.start_time.asc()).all()
+
+        week = []
+        for entry in entries:
+            course = courses_by_id.get(entry.course_id)
+            if course is None:
+                continue
+            week.append({
+                'day_of_week': entry.day_of_week,
+                'course_id': course.id,
+                'course_name': course.course_title,
+                'course_code': course.course_code,
+                'start_time': entry.start_time.strftime('%H:%M') if entry.start_time else None,
+                'end_time': entry.end_time.strftime('%H:%M') if entry.end_time else None,
+                'room': entry.room,
+            })
+
+        return jsonify({"success": True, "week": week}), 200
+
+    except Exception:
+        return api_error_response("Week Schedule Error", "Failed to load week schedule")
+
 
 @api_lecturer_bp.route('/course/<int:course_id>', methods=['GET'])
 @jwt_required()

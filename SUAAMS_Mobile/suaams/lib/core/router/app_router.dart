@@ -35,6 +35,8 @@ import 'package:suaams/features/lecturer/presentation/views/course_workspace_scr
 import 'package:suaams/features/lecturer/presentation/views/lecturer_session_history_screen.dart';
 import 'package:suaams/features/lecturer/presentation/views/lecturer_session_detail_screen.dart';
 import 'package:suaams/features/lecturer/presentation/views/active_sessions_screen.dart';
+import 'package:suaams/features/lecturer/presentation/views/lecturer_timetable_screen.dart';
+import 'package:suaams/features/lecturer/presentation/views/lecturer_day_detail_screen.dart';
 import 'package:suaams/features/lecturer/presentation/views/reports_list_screen.dart';
 import 'package:suaams/features/lecturer/presentation/views/course_analytics_screen.dart';
 import 'package:suaams/features/lecturer/presentation/views/announcements_list_screen.dart';
@@ -309,6 +311,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // Sessions
           StatefulShellBranch(
             routes: [
+              GoRoute(
+                // Replaces the Sessions tab. That listed only running
+                // sessions -- empty for the rest of the day -- while this
+                // answers the question the app exists to help with.
+                // Monitoring a live session is still reachable from the
+                // Home tab's LIVE NOW tile and the course card.
+                //
+                // The old /lecturer/sessions branch is deliberately left in
+                // place rather than deleted: it carries the course
+                // workspace subtree (duplicated under /lecturer/home), and
+                // removing a route is not something to do in passing.
+                path: '/lecturer/timetable',
+                builder: (context, state) => const LecturerTimetableScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'day/:day',
+                    builder: (context, state) => LecturerDayDetailScreen(
+                      day: state.pathParameters['day']!,
+                    ),
+                  ),
+                ],
+              ),
               GoRoute(
                 path: '/lecturer/sessions',
                 builder: (context, state) => const ActiveSessionsScreen(),

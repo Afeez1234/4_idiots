@@ -20,7 +20,7 @@ class LecturerShellScreen extends ConsumerWidget {
 
   static const _nav = <({IconData icon, String label})>[
     (icon: Icons.grid_view_rounded, label: 'Home'),
-    (icon: Icons.sensors_rounded, label: 'Sessions'),
+    (icon: Icons.calendar_month_rounded, label: 'Timetable'),
     (icon: Icons.summarize_rounded, label: 'Reports'),
     (icon: Icons.campaign_rounded, label: 'Announce'),
     (icon: Icons.person_rounded, label: 'Profile'),

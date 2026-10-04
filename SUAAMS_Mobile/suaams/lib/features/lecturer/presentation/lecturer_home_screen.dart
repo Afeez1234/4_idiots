@@ -11,6 +11,7 @@ import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/features/lecturer/presentation/views/lecturer_today_section.dart';
 
 // Home tab of the lecturer bottom nav. Was LecturerDashboardScreen, the
 // only screen on the lecturer side before this redesign -- renamed since
@@ -78,6 +79,8 @@ class LecturerHomeScreen extends ConsumerWidget {
                     const SizedBox(height: 32),
 
                     _StatsGrid(stats: data.stats),
+                    const SizedBox(height: 24),
+                    const LecturerTodaySection(),
                     const SizedBox(height: 32),
 
                     Text(
