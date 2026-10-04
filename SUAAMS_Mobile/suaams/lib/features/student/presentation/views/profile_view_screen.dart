@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/core/providers/biometric_status_provider.dart';
+import 'package:suaams/features/student/providers/device_info_provider.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/core/providers/theme_provider.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
@@ -148,10 +150,14 @@ class ProfileView extends ConsumerWidget {
             terminal: terminal,
             onTap: () => context.push('/student/profile/devices'),
           ),
+          const SizedBox(height: 10),
+          _buildDeviceBindingRow(ref, colorScheme, terminal),
+          const SizedBox(height: 10),
+          _buildBiometricRow(ref, colorScheme, terminal),
           const SizedBox(height: 12),
           _buildPreferenceTile(
             icon: Icons.notifications_rounded,
-            title: 'Notification Settings',
+            title: 'Notifications',
             subtitle: 'Announcements & session alerts',
             colorScheme: colorScheme,
             terminal: terminal,
@@ -345,6 +351,155 @@ class ProfileView extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// Read-only status row. Deliberately NOT styled like [buildPreferenceTile]:
+  /// no chevron, no ripple, no InkWell -- a row that looks tappable but
+  /// isn't is worse than one that doesn't. Nothing to tap here, because the
+  /// fix for any of these states lives in the OS settings app, which this
+  /// screen can't deep-link into portably.
+  Widget _buildStatusRow({
+    required IconData icon,
+    required String title,
+    required String detail,
+    required Color accent,
+    required ColorScheme colorScheme,
+    required AppTerminal terminal,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: terminal.borderSubtle),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: accent, size: 24),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  style: TextStyle(
+                    fontSize: AppTheme.minBodySize,
+                    color: terminal.textMuted,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Binding status inline, so the app's headline security property is
+  /// visible without a tap. Wording is deliberately limited to what the API
+  /// can actually support: `get_device_info` returns
+  /// `bool(student.device_id)` -- "does this account have a device bound" --
+  /// and NOT "is the device you are holding right now the bound one".
+  /// Confirming the latter would need the endpoint to compare the stored id
+  /// against the caller's, which it deliberately does not do: a
+  /// client-supplied identifier is not evidence of anything, and the one
+  /// place it IS trusted is login, where the mismatch is checked against the
+  /// stored value rather than accepted from the client.
+  Widget _buildDeviceBindingRow(
+    WidgetRef ref,
+    ColorScheme colorScheme,
+    AppTerminal terminal,
+  ) {
+    final deviceInfo = ref.watch(deviceInfoProvider).data;
+
+    final (icon, accent, detail) = switch (deviceInfo?.deviceBound) {
+      true => (
+          Icons.phonelink_lock_rounded,
+          terminal.successText,
+          'Sign-in is locked to one phone. If you lose it, IT Administration '
+              'has to release the binding in person.',
+        ),
+      false => (
+          Icons.phonelink_off_rounded,
+          terminal.warningText,
+          'No device is bound to this account yet. It binds automatically the '
+              'first time you sign in.',
+        ),
+      null => (
+          Icons.help_outline_rounded,
+          terminal.textSecondary,
+          'Could not read the binding status.',
+        ),
+    };
+
+    return _buildStatusRow(
+      icon: icon,
+      title: 'Device Binding',
+      detail: detail,
+      accent: accent,
+      colorScheme: colorScheme,
+      terminal: terminal,
+    );
+  }
+
+  Widget _buildBiometricRow(
+    WidgetRef ref,
+    ColorScheme colorScheme,
+    AppTerminal terminal,
+  ) {
+    final status = ref.watch(biometricStatusProvider);
+
+    // While loading, and on a platform throw, render the neutral state
+    // rather than a spinner or an error -- the row is informational, and a
+    // failed read should not look like a problem with the user's phone.
+    // AsyncValue.value is already nullable in Riverpod 3 (there is no
+    // valueOrNull) -- null while loading and null on a platform throw.
+    final resolved = status.value ?? BiometricStatus.unknown;
+
+    final (icon, accent, detail) = switch (resolved) {
+      BiometricStatus.enrolled => (
+          Icons.fingerprint_rounded,
+          terminal.successText,
+          'Enabled — you will be asked for it at check-in.',
+        ),
+      BiometricStatus.passcodeOnly => (
+          Icons.phonelink_lock_rounded,
+          terminal.warningText,
+          'No fingerprint or face enrolled. Check-in falls back to your '
+              'device passcode — set one up in system settings for a stronger check.',
+        ),
+      BiometricStatus.unavailable => (
+          Icons.warning_amber_rounded,
+          terminal.dangerText,
+          'Not available on this device. Check-in WILL fail until biometrics '
+              'or a device passcode is set up in system settings.',
+        ),
+      BiometricStatus.unknown => (
+          Icons.help_outline_rounded,
+          terminal.textSecondary,
+          'Could not read biometric status on this device.',
+        ),
+    };
+
+    return _buildStatusRow(
+      icon: icon,
+      title: 'Face / Fingerprint',
+      detail: detail,
+      accent: accent,
+      colorScheme: colorScheme,
+      terminal: terminal,
     );
   }
 }

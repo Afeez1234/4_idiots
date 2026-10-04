@@ -4,10 +4,14 @@ import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/student/models/notification_item.dart';
 import 'package:suaams/features/student/providers/notifications_provider.dart';
 
-// Profile > "Notification Settings" -- was a ComingSoonScreen placeholder;
+// Profile > "Notifications" -- was a ComingSoonScreen placeholder;
 // now the real notification inbox (list.dart + Notification model backing
 // GET/POST /student/notifications, see push_notifications.py on the
-// backend). Named "settings" in the router/profile menu still, but there
+// backend). The profile TILE previously read "Notification Settings", which
+  // promised controls this screen does not have; it now says "Notifications".
+  // The route path still says "settings" -- renaming that is a separate,
+  // wider change (router + import sites) and was left alone deliberately.
+  // There are still no granular per-category toggles -- only the triggers
 // are no granular per-category toggles yet -- only the three triggers
 // actually wired server-side (attendance marked, device unlocked, device
 // lockout alert) exist to have preferences about, and none of them are

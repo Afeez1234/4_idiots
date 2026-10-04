@@ -8,6 +8,7 @@ import 'package:suaams/core/router/app_router.dart';
 import 'package:suaams/core/services/notification_service.dart';
 import 'package:suaams/core/services/security_service.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/core/providers/card_privacy_provider.dart';
 import 'package:suaams/core/providers/onboarding_provider.dart';
 import 'package:suaams/core/providers/theme_provider.dart';
 import 'package:suaams/features/student/data/nfc_service.dart';
@@ -58,13 +59,20 @@ void main() async {
   // synchronous and cannot await a storage read, so a lazily-loaded
   // provider would read as "never seen" on every launch and bounce a
   // returning user back into onboarding every time the app started.
-  final hasSeenOnboarding = await readOnboardingFlag();
+  final seenRoles = await readSeenOnboardingRoles();
+  // Same reason as the onboarding read above: the ID card's mask state has to
+  // be known before the first frame, or the card visibly flips from masked to
+  // revealed a moment after the screen opens.
+  final cardDetailsVisible = await readCardDetailsVisible();
 
   runApp(
     ProviderScope(
       overrides: [
         onboardingProvider.overrideWith(
-          () => OnboardingNotifier.seeded(hasSeenOnboarding),
+          () => OnboardingNotifier.seeded(seenRoles),
+        ),
+        cardPrivacyProvider.overrideWith(
+          () => CardPrivacyNotifier.seeded(cardDetailsVisible),
         ),
       ],
       child: const MobileClientApp(),
