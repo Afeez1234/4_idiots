@@ -30,48 +30,120 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _controller = PageController();
   int _page = 0;
 
-  static const _pages = <_OnboardingPageData>[
-    _OnboardingPageData(
-      icon: Icons.fact_check_rounded,
-      title: 'Your attendance,\nfrom your phone',
-      body:
-          'SUAAMS records your attendance by tapping your phone against a '
-          'terminal in the lecture hall. No queue, no paper sheet, and no '
-          'book to sign.',
-      points: [
-        ('Home', 'Your live session, stats, and today\'s timetable'),
-        ('Timetable', 'What you have scheduled this week'),
-        ('Records', 'Every session you have attended'),
-        ('ID Card', 'Your digital student ID and linked devices'),
-      ],
-    ),
-    _OnboardingPageData(
-      icon: Icons.contactless_rounded,
-      title: 'Checking in takes\nabout a second',
-      body:
-          'When a lecturer starts a session, the card on your Home tab turns '
-          'live. Tap it and follow the three steps.',
-      points: [
-        ('1', 'Tap the session card on your Home tab'),
-        ('2', 'Confirm with your fingerprint — this is required, not optional'),
-        ('3', 'Hold the back of your phone near the terminal'),
-      ],
-    ),
-    _OnboardingPageData(
-      icon: Icons.phonelink_lock_rounded,
-      title: 'Your account is\ntied to this phone',
-      body:
-          'The first time you sign in, this device is recorded against your '
-          'account. Signing in from another phone is blocked, and nobody — '
-          'including IT — can move your attendance to a new device without '
-          'you presenting your ID in person.',
-      points: [
-        ('Why', 'So nobody can mark attendance on your behalf'),
-        ('Lost phone', 'Visit IT Administration to have the binding reset'),
-        ('Security', 'Failed fingerprint checks are refused, not bypassed'),
-      ],
-    ),
-  ];
+  /// Which account this walkthrough is for. Drives both the copy and the
+  /// key the "seen" flag is written under, so a student and a lecturer
+  /// sharing a device each get their own.
+  late String _role;
+  late List<_OnboardingPageData> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _role = ref.read(authProvider).user?.role ?? 'student';
+    _pages = _pagesFor(_role);
+  }
+
+  /// Pages are derived from the signed-in role, not fixed.
+  ///
+  /// These were a `static const` student-only list while the router sent
+  /// EVERY role to /onboarding -- so a lecturer was told their attendance is
+  /// recorded by tapping their phone, shown student tabs they don't have,
+  /// and warned that their account is device-bound when binding is a
+  /// student-only property (Student.device_id). The two roles have different
+  /// tabs, a different core loop, and a different security model, so the
+  /// walkthroughs genuinely differ rather than merely being worded
+  /// differently.
+  static List<_OnboardingPageData> _pagesFor(String role) {
+    final isStudent = role == 'student';
+
+    return [
+      _OnboardingPageData(
+        icon: isStudent
+            ? Icons.fact_check_rounded
+            : Icons.sensors_rounded,
+        title: isStudent
+            ? 'Your attendance,\nfrom your phone'
+            : 'Your lectures,\nfrom your phone',
+        body: isStudent
+            ? 'SUAAMS records your attendance by tapping your phone against a '
+                'terminal in the lecture hall. No queue, no paper sheet, and '
+                'no book to sign.'
+            : 'SUAAMS records who attended what, and when. You open a '
+                'session from a course and students record themselves by '
+                'tapping in — no register, no paper sheet.',
+        points: isStudent
+            ? const [
+                ('Home', 'Your live session, stats, and today\'s timetable'),
+                ('Timetable', 'What you have scheduled this week'),
+                ('Records', 'Every session you have attended'),
+                ('ID Card', 'Your digital student ID and linked devices'),
+              ]
+            : const [
+                ('Home', 'Your courses, live sessions, and today\'s numbers'),
+                ('Sessions', 'Start, monitor, and end a running session'),
+                ('Reports', 'Attendance and trends for a course'),
+                ('Announce', 'Post notices to your students'),
+              ],
+      ),
+      _OnboardingPageData(
+        icon: isStudent
+            ? Icons.contactless_rounded
+            : Icons.play_circle_outline_rounded,
+        title: isStudent
+            ? 'Checking in takes\nabout a second'
+            : 'Running a session\ntakes three taps',
+        body: isStudent
+            ? 'When a lecturer starts a session, the card on your Home tab '
+                'turns live. Tap it and follow the three steps.'
+            : 'Attendance is captured only while a session is running. '
+                'Students who tap outside that window are not recorded.',
+        points: isStudent
+            ? const [
+                ('1', 'Tap the session card on your Home tab'),
+                (
+                  '2',
+                  'Confirm with your fingerprint — this is required, not optional'
+                ),
+                ('3', 'Hold the back of your phone near the terminal'),
+              ]
+            : const [
+                ('1', 'Open a course from your Home tab'),
+                ('2', 'Start the session — attendance opens immediately'),
+                ('3', 'End it when the lecture finishes'),
+              ],
+      ),
+      _OnboardingPageData(
+        icon: isStudent
+            ? Icons.phonelink_lock_rounded
+            : Icons.admin_panel_settings_rounded,
+        title: isStudent
+            ? 'Your account is\ntied to this phone'
+            : 'Your account\nand your access',
+        body: isStudent
+            ? 'The first time you sign in, this device is recorded against '
+                'your account. Signing in from another phone is blocked, and '
+                'nobody — including IT — can move your attendance to a new '
+                'device without you presenting your ID in person.'
+            : 'Your account is protected by your password and a biometric '
+                'check. Device binding and NFC check-in apply to students; '
+                'lecturers start and end sessions instead.',
+        points: isStudent
+            ? const [
+                ('Why', 'So nobody can mark attendance on your behalf'),
+                ('Lost phone', 'Visit IT Administration to have the binding reset'),
+                ('Security', 'Failed fingerprint checks are refused, not bypassed'),
+              ]
+            : const [
+                ('Password', 'Change it any time from your Profile tab'),
+                (
+                  'Scope',
+                  'You see the courses assigned to you — not the whole faculty'
+                ),
+                ('HODs', 'Use the same lecturer portal; promotion changes nothing here'),
+              ],
+      ),
+    ];
+  }
 
   @override
   void dispose() {
@@ -92,7 +164,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _finish() async {
-    await ref.read(onboardingProvider.notifier).markSeen();
+    await ref.read(onboardingProvider.notifier).markSeen(_role);
     if (!mounted) return;
     // Straight to the role's home. Routing back through /splash would work
     // (the redirect would then send them onward) but costs a second

@@ -70,7 +70,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final user = authState.user;
       // Synchronous by construction -- seeded from disk in main() before
       // runApp precisely so this read can't be an await.
-      final hasSeenOnboarding = ref.read(onboardingProvider);
+      final seenOnboardingRoles = ref.read(onboardingProvider);
 
       if (isSplash) return null;
 
@@ -83,13 +83,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // First run: everything signed-in routes through onboarding before
       // landing on a home screen. Placed after the password-change check so
       // a forced password change is never buried behind a walkthrough.
-      if (user != null && !hasSeenOnboarding && !isOnboarding) {
+      if (user != null &&
+          !seenOnboardingRoles.contains(user.role) &&
+          !isOnboarding) {
         return '/onboarding';
       }
 
       // And the reverse, for when markSeen() has just flipped the flag --
       // without this the button would leave the user parked on a dead route.
-      if (isOnboarding && hasSeenOnboarding) {
+      if (isOnboarding && seenOnboardingRoles.contains(user?.role)) {
         if (user == null) return '/login';
         if (user.requiresPasswordChange) return '/change-password';
         if (user.role == 'student') return '/student/home';

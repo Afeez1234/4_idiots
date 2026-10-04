@@ -1,4 +1,5 @@
 import 'package:suaams/shared/widgets/app_label_value_row.dart';
+import 'package:suaams/core/providers/card_privacy_provider.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +25,7 @@ class StudentIdCardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(studentDashboardProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final detailsVisible = ref.watch(cardPrivacyProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     final data = state.data;
@@ -84,11 +86,40 @@ class StudentIdCardScreen extends ConsumerWidget {
                                 height: 1.45,
                               ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: () => ref
+                                .read(cardPrivacyProvider.notifier)
+                                .toggle(),
+                            icon: Icon(
+                              detailsVisible
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                              size: 18,
+                            ),
+                            label: Text(
+                              detailsVisible ? 'HIDE DETAILS' : 'SHOW DETAILS',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                letterSpacing: 1.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: colorScheme.onSurface
+                                  .withValues(alpha: 0.6),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
                         _DigitalIdCard(
                           profile: data.profile,
                           colorScheme: colorScheme,
                           isDarkMode: isDarkMode,
+                          revealed: detailsVisible,
                         ),
                         const SizedBox(height: 32),
                         ElevatedButton(
@@ -163,11 +194,22 @@ class _DigitalIdCard extends StatelessWidget {
   final ColorScheme colorScheme;
   final bool isDarkMode;
 
+  /// False masks the identifying rows. The name, department and level stay
+  /// visible: they're the least sensitive and most useful to recognise the
+  /// card by. The matric number and hardware UID are the two a stranger has
+  /// no business reading off your screen.
+  final bool revealed;
+
   const _DigitalIdCard({
     required this.profile,
     required this.colorScheme,
     required this.isDarkMode,
+    required this.revealed,
   });
+
+  /// Fixed-width so masking does not reflow the card when the real value is
+  /// shorter or longer than the mask.
+  static const _mask = '••••••••';
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +284,7 @@ class _DigitalIdCard extends StatelessWidget {
 
           AppLabelValueRow(
             'MATRIC NO',
-            profile.matricNumber,
+            revealed ? profile.matricNumber : _mask,
             uppercaseValue: true,
           ),
           const SizedBox(height: 8),
@@ -276,7 +318,7 @@ class _DigitalIdCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    profile.rfidUid ?? 'UNASSIGNED',
+                    revealed ? (profile.rfidUid ?? 'UNASSIGNED') : _mask,
                     style: AppTheme.accent(
                       size: 12,
                       weight: FontWeight.w700,
