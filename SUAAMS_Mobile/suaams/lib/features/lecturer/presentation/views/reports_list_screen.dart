@@ -6,6 +6,7 @@ import 'package:suaams/features/lecturer/providers/course_export_provider.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 // Reports tab root -- reuses the already-loaded lecturerDashboardProvider
 // course list (same reasoning as ActiveSessionsScreen) rather than a
@@ -34,7 +35,9 @@ class ReportsListScreen extends ConsumerWidget {
           title:
               'Couldn'
               't load your reports',
-          message: state.errorMessage ?? 'Check your connection and try again.',
+          message: isGenericServerMessage(state.errorMessage)
+                      ? 'Check your connection and try again.'
+                      : state.errorMessage,
           onRetry: () =>
               ref.read(lecturerDashboardProvider.notifier).loadDashboardData(),
         ),

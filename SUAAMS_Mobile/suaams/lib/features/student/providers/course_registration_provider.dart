@@ -9,6 +9,7 @@ import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/providers/today_schedule_provider.dart';
 import 'package:suaams/features/student/providers/week_schedule_provider.dart';
 import 'package:suaams/core/network/auth_retry.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 class CourseRegistrationState {
   final bool isLoading;
@@ -74,7 +75,7 @@ class CourseRegistrationNotifier extends Notifier<CourseRegistrationState> {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
+        errorMessage: userFacingError(e),
       );
     }
   }
@@ -161,7 +162,7 @@ class CourseRegistrationNotifier extends Notifier<CourseRegistrationState> {
     } catch (e) {
       if (!ref.mounted) return;
       state = state.copyWith(
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
+        errorMessage: userFacingError(e),
         pendingCourseIds: {...state.pendingCourseIds}..remove(courseId),
       );
     }

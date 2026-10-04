@@ -7,6 +7,7 @@ import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 // "HH:MM:SS" (Python str(time)) -> "HH:MM", or a placeholder if unset.
 String _fmtTime(String? raw) {
@@ -38,7 +39,9 @@ class LecturerSessionHistoryScreen extends ConsumerWidget {
           title:
               'Couldn'
               't load session history',
-          message: state.errorMessage ?? 'Check your connection and try again.',
+          message: isGenericServerMessage(state.errorMessage)
+                      ? 'Check your connection and try again.'
+                      : state.errorMessage,
           onRetry: () =>
               ref.read(sessionHistoryProvider(courseId).notifier).loadHistory(),
         ),

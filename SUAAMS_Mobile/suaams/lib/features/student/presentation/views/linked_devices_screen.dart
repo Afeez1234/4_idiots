@@ -4,6 +4,7 @@ import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/student/providers/device_info_provider.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 // Read-only by design -- see get_device_info's doc-comment in
 // api/student.py. This screen explains the admin-reset flow rather than
@@ -33,7 +34,9 @@ class LinkedDevicesScreen extends ConsumerWidget {
           title:
               'Couldn'
               't load your devices',
-          message: state.errorMessage ?? 'Check your connection and try again.',
+          message: isGenericServerMessage(state.errorMessage)
+                      ? 'Check your connection and try again.'
+                      : state.errorMessage,
           onRetry: () => ref.read(deviceInfoProvider.notifier).loadDeviceInfo(),
         ),
       );

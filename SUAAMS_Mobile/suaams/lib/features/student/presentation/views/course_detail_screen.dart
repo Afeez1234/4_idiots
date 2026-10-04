@@ -6,6 +6,7 @@ import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 // Reuses the already-loaded studentDashboardProvider -- CourseBreakdown
 // already carries everything this screen needs (id/name/code/pct/attended/
@@ -36,7 +37,9 @@ class CourseDetailScreen extends ConsumerWidget {
           title:
               'Couldn'
               't load this course',
-          message: state.errorMessage ?? 'Check your connection and try again.',
+          message: isGenericServerMessage(state.errorMessage)
+                      ? 'Check your connection and try again.'
+                      : state.errorMessage,
           onRetry: () =>
               ref.read(studentDashboardProvider.notifier).loadDashboardData(),
         ),

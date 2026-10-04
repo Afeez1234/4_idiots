@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/models/session_detail_model.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/core/network/auth_retry.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 typedef SessionDetailArgs = ({int courseId, int sessionId});
 
@@ -68,7 +69,7 @@ class SessionDetailNotifier extends Notifier<SessionDetailState> {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
+        errorMessage: userFacingError(e),
       );
     }
   }

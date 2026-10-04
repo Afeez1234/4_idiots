@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/data/lecturer_service.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/core/network/auth_retry.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 class LecturerDashboardState {
   final bool isLoading;
@@ -59,7 +60,7 @@ class LecturerDashboardNotifier extends Notifier<LecturerDashboardState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
+        errorMessage: userFacingError(e),
       );
     }
   }

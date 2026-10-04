@@ -6,6 +6,7 @@ import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 // Reuses the already-loaded studentDashboardProvider -- RecentAttendance
 // already carries everything this screen needs (course/date/time/status),
@@ -37,7 +38,9 @@ class SessionDetailScreen extends ConsumerWidget {
           title:
               'Couldn'
               't load the session',
-          message: state.errorMessage ?? 'Check your connection and try again.',
+          message: isGenericServerMessage(state.errorMessage)
+                      ? 'Check your connection and try again.'
+                      : state.errorMessage,
           onRetry: () =>
               ref.read(studentDashboardProvider.notifier).loadDashboardData(),
         ),

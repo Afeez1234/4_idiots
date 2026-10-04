@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/shared/widgets/app_badge.dart';
 
 // Shared bottom navigation for the student and lecturer shells.
@@ -112,12 +113,17 @@ class _AppBottomNavTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = terminalOf(context);
     final labelStyle = Theme.of(context).textTheme.labelSmall!.copyWith(
       // Active state is carried by colour and weight rather than by
       // going all-caps, which is what made the old labels a dark smear at
       // small sizes.
+      // The accent, not colorScheme.primary. Primary is plain white/black
+      // in both themes, which is what made the bar feel inert; the accent
+      // is the app's one piece of colour and it belongs on the thing the
+      // user is currently looking at.
       color: active
-          ? colorScheme.primary
+          ? palette.accent
           : colorScheme.onSurface.withValues(alpha: 0.55),
       fontWeight: active ? FontWeight.w700 : FontWeight.w600,
     );
@@ -220,11 +226,13 @@ class _NavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final palette = terminalOf(context);
     final iconWidget = Icon(
       icon,
       size: 22,
       color: active
-          ? colorScheme.primary
+          ? palette.accent
           : colorScheme.onSurface.withValues(alpha: 0.55),
     );
 
@@ -247,7 +255,7 @@ class _NavIcon extends StatelessWidget {
           top: showDot ? -2 : -6,
           child: showDot
               ? AppBadge.dot(
-                  background: colorScheme.primary,
+                  background: palette.accent,
                   borderColor: colorScheme.surfaceContainer,
                 )
               : AppBadge.count(

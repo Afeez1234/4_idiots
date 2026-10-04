@@ -7,6 +7,7 @@ import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 class CourseWorkspaceScreen extends ConsumerStatefulWidget {
   final int courseId;
@@ -120,7 +121,9 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
           title:
               'Couldn'
               't load this course',
-          message: state.errorMessage ?? 'Check your connection and try again.',
+          message: isGenericServerMessage(state.errorMessage)
+                      ? 'Check your connection and try again.'
+                      : state.errorMessage,
           onRetry: () => ref
               .read(courseWorkspaceProvider(widget.courseId).notifier)
               .loadWorkspace(),

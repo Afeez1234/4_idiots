@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/models/session_history_model.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/core/network/auth_retry.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 class SessionHistoryState {
   final bool isLoading;
@@ -60,7 +61,7 @@ class SessionHistoryNotifier extends Notifier<SessionHistoryState> {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
+        errorMessage: userFacingError(e),
       );
     }
   }
