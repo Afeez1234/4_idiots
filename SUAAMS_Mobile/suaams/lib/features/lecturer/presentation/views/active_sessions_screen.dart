@@ -6,6 +6,7 @@ import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 // Sessions tab root. Reuses the already-loaded lecturerDashboardProvider
 // (LecturerCourse.hasActiveSession/activeSessionId) instead of a separate
@@ -35,7 +36,9 @@ class ActiveSessionsScreen extends ConsumerWidget {
           title:
               'Couldn'
               't load live sessions',
-          message: state.errorMessage ?? 'Check your connection and try again.',
+          message: isGenericServerMessage(state.errorMessage)
+                      ? 'Check your connection and try again.'
+                      : state.errorMessage,
           onRetry: () =>
               ref.read(lecturerDashboardProvider.notifier).loadDashboardData(),
         ),

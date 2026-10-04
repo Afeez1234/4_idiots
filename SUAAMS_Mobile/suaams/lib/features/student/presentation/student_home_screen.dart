@@ -17,6 +17,7 @@ import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/shared/widgets/dashboard_background.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 // The Home tab of the student bottom nav. This used to be one of four
 // manually-switched bodies inside StudentDashboardScreen (see git history);
@@ -85,7 +86,9 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
           kind: AppStateKind.error,
           icon: Icons.cloud_off_rounded,
           title: "Couldn't load your dashboard",
-          message: state.errorMessage ?? 'Check your connection and try again.',
+          message: isGenericServerMessage(state.errorMessage)
+                      ? 'Check your connection and try again.'
+                      : state.errorMessage,
           onRetry: () =>
               ref.read(studentDashboardProvider.notifier).loadDashboardData(),
         ),
@@ -376,6 +379,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = widget.colorScheme;
+    final terminal = terminalOf(context);
     final scheduleState = ref.watch(todayScheduleProvider);
 
     // Pick the entry the student could actually check into RIGHT NOW.
@@ -496,7 +500,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                       Icons.contactless_rounded,
                       size: 22,
                       color: isLive
-                          ? colorScheme.primary
+                          ? terminal.accent
                           : colorScheme.onSurface.withValues(alpha: 0.25),
                     ),
                   ],
@@ -533,7 +537,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: isLive
-                        ? colorScheme.primary
+                        ? terminal.accent
                         : colorScheme.onSurface.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -544,7 +548,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                         Icons.nfc_rounded,
                         size: 16,
                         color: isLive
-                            ? colorScheme.surface
+                            ? terminal.onAccent
                             : colorScheme.onSurface.withValues(alpha: 0.35),
                       ),
                       const SizedBox(width: 8),
@@ -561,7 +565,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                           color: isLive
-                              ? colorScheme.surface
+                              ? terminal.onAccent
                               : colorScheme.onSurface.withValues(alpha: 0.45),
                         ),
                       ),

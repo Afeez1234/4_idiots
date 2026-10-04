@@ -18,6 +18,7 @@ import 'package:suaams/features/student/data/student_service.dart'
     show CheckinStatusResult;
 import 'package:suaams/core/network/auth_retry.dart';
 import 'package:suaams/core/services/security_service.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 enum NfcCheckInStatus {
   idle,
@@ -328,7 +329,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       if (ref.mounted) {
         state = NfcCheckInState(
           status: NfcCheckInStatus.error,
-          errorMessage: e.toString().replaceAll('Exception: ', ''),
+          errorMessage: userFacingError(e),
         );
       }
       // Uses the hoisted field, not ref.read -- this line used to be the

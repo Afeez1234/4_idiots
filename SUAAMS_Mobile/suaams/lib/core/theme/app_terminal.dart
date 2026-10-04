@@ -42,6 +42,34 @@ class AppTerminal extends ThemeExtension<AppTerminal> {
   /// Hairline separators that aren't strong enough to be a real border.
   final Color borderSubtle;
 
+  /// The brand accent -- the one colour that exists purely to give the
+  /// interface some life.
+  ///
+  /// Constraints it had to satisfy, all measured rather than eyeballed:
+  ///
+  /// 1. NOT a status hue. Status already owns green/amber/crimson, and
+  ///    green in particular is the most loaded colour in an attendance app --
+  ///    a student glancing at a card reads green as "you're registered" in
+  ///    well under a second. Spending that on branding would dilute the one
+  ///    signal worth scanning for. Indigo sits 74-79 degrees from the
+  ///    nearest status hue and, unlike all three statuses, is unaffected by
+  ///    deuteranopia (they collapse toward yellow-tan; blue-violet does not).
+  ///
+  /// 2. One value per theme. No vivid accent can be readable as text on a
+  ///    white surface -- cyan-500 measures 2.43:1 there, indigo-500 4.47:1 --
+  ///    so light mode needs a deeper value and dark mode a brighter one.
+  ///    Same reason AppTerminal splits every status text colour.
+  ///
+  /// Use it at the same few points every time (active nav, the check-in CTA,
+  /// the contactless glyphs) so it becomes recognisable. Never on a status
+  /// value.
+  final Color accent;
+
+  /// Text/icon colour that sits ON [accent]. Dark mode puts near-black on
+  /// the lighter accent; light mode puts white on the deeper one. Both
+  /// verified over 4.5:1.
+  final Color onAccent;
+
   // Status triples: background, border, and text for each. The three
   // together are what a status pill actually needs -- a tinted fill, a
   // border that reads as an edge, and text that stays legible on both the
@@ -68,6 +96,8 @@ class AppTerminal extends ThemeExtension<AppTerminal> {
     required this.textMuted,
     required this.textSecondary,
     required this.borderSubtle,
+    required this.accent,
+    required this.onAccent,
     required this.successBg,
     required this.successBorder,
     required this.successText,
@@ -83,6 +113,8 @@ class AppTerminal extends ThemeExtension<AppTerminal> {
     textMuted: Color(0xFFB0B0B0), // 7.86:1 on #1C1C1C
     textSecondary: Color(0xFFD4D4D4), // 11.50:1
     borderSubtle: Color(0xFF111111), // from the mockup
+    accent: Color(0xFF818CF8), // 5.71:1 on #1C1C1C
+    onAccent: Color(0xFF0F0F0F), // 9.62:1 on the accent
     successBg: Color(0xFF0A1A0A), // from the mockup
     successBorder: Color(0xFF1A3A1A), // from the mockup
     successText: Color(0xFF10B981), // 5.77:1 on the 10%-tint pill
@@ -98,6 +130,8 @@ class AppTerminal extends ThemeExtension<AppTerminal> {
     textMuted: Color(0xFF6A6A6A), // 5.41:1 on white
     textSecondary: Color(0xFF52525B), // 7.73:1 -- from the mockup
     borderSubtle: Color(0xFFF0F0F0), // from the mockup
+    accent: Color(0xFF4F46E5), // 6.29:1 on white
+    onAccent: Color(0xFFFFFFFF), // 6.29:1 on the accent
     successBg: Color(0xFFECFDF5), // from the mockup
     successBorder: Color(0xFFD1FAE5), // from the mockup
     successText: Color(0xFF065F46), // 7.29:1 -- from the mockup
@@ -114,6 +148,8 @@ class AppTerminal extends ThemeExtension<AppTerminal> {
     Color? textMuted,
     Color? textSecondary,
     Color? borderSubtle,
+    Color? accent,
+    Color? onAccent,
     Color? successBg,
     Color? successBorder,
     Color? successText,
@@ -128,6 +164,8 @@ class AppTerminal extends ThemeExtension<AppTerminal> {
       textMuted: textMuted ?? this.textMuted,
       textSecondary: textSecondary ?? this.textSecondary,
       borderSubtle: borderSubtle ?? this.borderSubtle,
+      accent: accent ?? this.accent,
+      onAccent: onAccent ?? this.onAccent,
       successBg: successBg ?? this.successBg,
       successBorder: successBorder ?? this.successBorder,
       successText: successText ?? this.successText,
@@ -147,6 +185,8 @@ class AppTerminal extends ThemeExtension<AppTerminal> {
       textMuted: Color.lerp(textMuted, other.textMuted, t)!,
       textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
       borderSubtle: Color.lerp(borderSubtle, other.borderSubtle, t)!,
+      accent: Color.lerp(accent, other.accent, t)!,
+      onAccent: Color.lerp(onAccent, other.onAccent, t)!,
       successBg: Color.lerp(successBg, other.successBg, t)!,
       successBorder: Color.lerp(successBorder, other.successBorder, t)!,
       successText: Color.lerp(successText, other.successText, t)!,

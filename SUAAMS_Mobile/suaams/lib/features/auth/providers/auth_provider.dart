@@ -11,6 +11,7 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:suaams/features/auth/data/auth_service.dart';
 import 'package:suaams/features/auth/models/auth_user.dart';
 import 'package:suaams/core/services/notification_service.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 class AuthState {
   final bool isLoading;
@@ -166,7 +167,7 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
+        errorMessage: userFacingError(e),
       );
       notifyListeners();
       return false;
@@ -230,7 +231,7 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
+        errorMessage: userFacingError(e),
       );
       notifyListeners();
       return false;

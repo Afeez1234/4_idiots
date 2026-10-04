@@ -10,6 +10,7 @@ import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 // Home tab of the lecturer bottom nav. Was LecturerDashboardScreen, the
 // only screen on the lecturer side before this redesign -- renamed since
@@ -39,7 +40,9 @@ class LecturerHomeScreen extends ConsumerWidget {
           kind: AppStateKind.error,
           icon: Icons.cloud_off_rounded,
           title: 'Couldn''t load your dashboard',
-          message: state.errorMessage ?? 'Check your connection and try again.',
+          message: isGenericServerMessage(state.errorMessage)
+                      ? 'Check your connection and try again.'
+                      : state.errorMessage,
           onRetry: () =>
               ref.read(lecturerDashboardProvider.notifier).loadDashboardData(),
         ),

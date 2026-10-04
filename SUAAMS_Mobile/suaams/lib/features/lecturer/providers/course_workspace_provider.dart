@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/models/course_workspace_model.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/core/network/auth_retry.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 class CourseWorkspaceState {
   final bool isLoading;
@@ -66,7 +67,7 @@ class CourseWorkspaceNotifier extends Notifier<CourseWorkspaceState> {
       if (!ref.mounted) return;
       state = state.copyWith(
         isLoading: false,
-        errorMessage: e.toString().replaceAll('Exception: ', ''),
+        errorMessage: userFacingError(e),
       );
     }
   }
@@ -91,7 +92,7 @@ class CourseWorkspaceNotifier extends Notifier<CourseWorkspaceState> {
     } catch (e) {
       if (ref.mounted) {
         state = state.copyWith(
-          errorMessage: e.toString().replaceAll('Exception: ', ''),
+          errorMessage: userFacingError(e),
         );
       }
       return false;
@@ -110,7 +111,7 @@ class CourseWorkspaceNotifier extends Notifier<CourseWorkspaceState> {
     } catch (e) {
       if (ref.mounted) {
         state = state.copyWith(
-          errorMessage: e.toString().replaceAll('Exception: ', ''),
+          errorMessage: userFacingError(e),
         );
       }
       return false;

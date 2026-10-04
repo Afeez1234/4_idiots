@@ -14,3 +14,6 @@ secrets.h
 SUAAMS/_preview.html
 SUAAMS/_preview.png
 SUAAMS/_shot_*.png
+
+.claude
+.codex

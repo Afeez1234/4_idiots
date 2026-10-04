@@ -6,6 +6,7 @@ import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 
 String _fmtTime(String? raw) {
   if (raw == null || raw.length < 5) return '--:--';
@@ -42,7 +43,9 @@ class LecturerSessionDetailScreen extends ConsumerWidget {
           title:
               'Couldn'
               't load the session',
-          message: state.errorMessage ?? 'Check your connection and try again.',
+          message: isGenericServerMessage(state.errorMessage)
+                      ? 'Check your connection and try again.'
+                      : state.errorMessage,
           onRetry: () =>
               ref.read(sessionDetailProvider(args).notifier).loadDetail(),
         ),
