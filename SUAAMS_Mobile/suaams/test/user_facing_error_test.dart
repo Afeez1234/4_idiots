@@ -97,6 +97,57 @@ void main() {
     });
   });
 
+  // Going offline is the single most common failure a student will hit, and
+  // it produced two wrong messages before these were pinned:
+  //
+  //  - "It may be waking up from idle" -- Render free-tier trivia that means
+  //    nothing on a device with no signal, and it matched no rule at all, so
+  //    it reached the login SnackBar verbatim.
+  //  - A real offline failure arrives as ClientException *wrapping*
+  //    SocketException. The ClientException catch-all ran first and reported
+  //    "We couldn't read the server's response" -- telling the user their
+  //    server sent something malformed when their phone is simply offline.
+  group('offline is reported as offline', () {
+    const offlineClientException =
+        'ClientException: SocketException: Connection failed '
+        '(OS Error: Network is unreachable, errno 101), '
+        'address = suaams.onrender.com, port = 443';
+
+    test('a ClientException wrapping a socket failure says "no connection"',
+        () {
+      final result = userFacingError(offlineClientException);
+      expect(result, contains("Can't reach the server"));
+      expect(result, isNot(contains("couldn't read the server's response")));
+    });
+
+    test('no idle / Render trivia reaches the user', () {
+      // The exact wording auth_service used to throw.
+      final result = userFacingError(
+        'Server is taking too long to respond. It may be waking up from '
+        'idle -- please try again in a moment.',
+      );
+      expect(result, isNot(contains('idle')));
+      expect(result, 'The server took too long to respond. Please try again.');
+    });
+
+    test('a bare ClientException message with no type prefix is handled', () {
+      // Some http versions put only the message in toString().
+      expect(
+        userFacingError('Connection closed before full header was received'),
+        contains("Can't reach the server"),
+      );
+    });
+
+    test('a genuinely malformed response still reads as such', () {
+      // The network rules sit above the ClientException catch-all, so this
+      // guards the case that reordering could have over-corrected.
+      expect(
+        userFacingError('ClientException: Bad response format'),
+        "We couldn't read the server's response. Please try again.",
+      );
+    });
+  });
+
   group('the device lockout notice stays actionable', () {
     test('names the situation, the safety, and where to go', () {
       const raw =

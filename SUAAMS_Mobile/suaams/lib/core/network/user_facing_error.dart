@@ -65,12 +65,23 @@ String userFacingError(Object error, {String? fallback}) {
       "We couldn't read the server's response. Please try again.",
     ),
     (
+      RegExp(r'SocketException|Connection refused|Failed host lookup|Network is unreachable', caseSensitive: false),
+      "Can't reach the server. Check your connection and try again.",
+    ),
+    (
+      RegExp(r'Connection closed before full header|Connection terminated', caseSensitive: false),
+      "Can't reach the server. Check your connection and try again.",
+    ),
+    (
       RegExp(r'ClientException|Bad response format|HandshakeException', caseSensitive: false),
       "We couldn't read the server's response. Please try again.",
     ),
+    // Two shapes seen in the wild that the broader rules above miss:
+    // a bare ClientException message with no type prefix in
+    // e.toString(), and the auth service's own timeout wording.
     (
-      RegExp(r'SocketException|Connection refused|Failed host lookup|Network is unreachable', caseSensitive: false),
-      "Can't reach the server. Check your connection and try again.",
+      RegExp(r'Server (?:is taking|took) too long', caseSensitive: false),
+      'The server took too long to respond. Please try again.',
     ),
     (
       RegExp(r'Hardware failure|PlatformException', caseSensitive: false),
