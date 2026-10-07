@@ -1,6 +1,32 @@
+import re
 from datetime import datetime, timedelta
 from flask import session,redirect,url_for,flash
 from functools import wraps
+
+
+# The only levels the school runs. Stored as the bare number ("400", never
+# "400L") -- the HOD pages already append the "L" when displaying, so a
+# stored "400L" rendered as "400LL" and split the roster's level filter in
+# two. Student.level stays a String column; this tuple is what keeps it clean.
+VALID_LEVELS = ('100', '200', '300', '400', '500')
+
+
+def normalize_level(raw):
+    """Canonical form of a typed level, or None if it isn't a real level.
+
+    Accepts the spellings admins actually type -- "400", "400L", "400 l",
+    " 400 " -- and returns "400". Anything outside VALID_LEVELS ("1000",
+    "40", "Year 4") returns None so the caller can reject it rather than
+    store it. Used by both the Add Student form and the CSV bulk enroll; the
+    CSV never passes through the form's dropdown, so the server check is the
+    one that actually guarantees clean data.
+    """
+    if raw is None:
+        return None
+    value = re.sub(r'\s+', '', str(raw)).upper()
+    if value.endswith('L'):
+        value = value[:-1]
+    return value if value in VALID_LEVELS else None
 
 #it finally worked !!!!!!!!!
 def login_required(role):

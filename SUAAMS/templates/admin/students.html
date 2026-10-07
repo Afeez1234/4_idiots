@@ -42,8 +42,12 @@
 
                         <div>
                             <label class="form-label" for="student-level">Level</label>
-                            <input type="text" name="level" id="student-level" required
-                                   placeholder="e.g. 400L" class="form-input">
+                            <select name="level" id="student-level" required class="form-select">
+                                <option value="" disabled selected>Select level</option>
+                                {% for lvl in valid_levels %}
+                                    <option value="{{ lvl }}">{{ lvl }}L</option>
+                                {% endfor %}
+                            </select>
                         </div>
 
                         <div>
@@ -87,6 +91,7 @@
                             <input type="file" name="file" id="csv-file" accept=".csv" required class="form-file">
                             <p class="form-help">
                                 Required columns: matric_number, full_name, level, department_name.
+                                Level must be 100–500 ("400" or "400L"); other rows are skipped.
                                 Optional: rfid_uid. Default password for every row is its own
                                 matric number.
                             </p>
@@ -131,7 +136,9 @@
                         <select name="level" id="filter-level" class="form-select">
                             <option value="">All levels</option>
                             {% for lvl in levels %}
-                                <option value="{{ lvl }}" {% if filters.level == lvl %}selected{% endif %}>{{ lvl }}</option>
+                                <option value="{{ lvl }}" {% if filters.level == lvl %}selected{% endif %}>
+                                    {{- lvl ~ 'L' if lvl in valid_levels else lvl ~ ' (invalid)' -}}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
