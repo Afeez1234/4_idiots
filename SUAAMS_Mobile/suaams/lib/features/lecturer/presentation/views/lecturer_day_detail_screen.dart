@@ -109,7 +109,7 @@ class _ClassCard extends StatelessWidget {
         color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(12),
         border: Border(
-          left: BorderSide(color: colorScheme.primary, width: 4),
+          left: BorderSide(color: terminal.accent, width: 4),
         ),
       ),
       child: Row(

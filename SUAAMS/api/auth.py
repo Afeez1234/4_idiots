@@ -4,14 +4,33 @@ from flask_jwt_extended import (
     jwt_required, get_jwt_identity, get_jwt,
 )
 import bcrypt
+from sqlalchemy.exc import IntegrityError
 
 # We import db and User instead of connect_to_database
-from models import db, User
+from models import db, User, Student
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from push_notifications import send_push_notification
 
 # Create the API blueprint for mobile authentication
 api_auth_bp = Blueprint('api_auth', __name__, url_prefix='/api/v1/auth')
+
+
+# Strings older app builds sent when the real hardware ID couldn't be read
+# (see _getHardwareUUID in auth_provider.dart). They are constants, so every
+# phone that hit the fallback reported the SAME "device" -- binding a student
+# to one meant any other fallback phone could log into that account. Current
+# builds refuse to log in instead of sending these; this set rejects them
+# from builds still in the wild.
+_PLACEHOLDER_DEVICE_IDS = frozenset({
+    'fallback_device_id',
+    'unknown_ios_device',
+    'unknown_platform',
+})
+
+_DEVICE_IN_USE_ERROR = (
+    "DEVICE IN USE: This phone is already registered to another student "
+    "account. Please visit IT Administration if this is your phone."
+)
 
 
 def _issue_token_pair(user):
@@ -70,10 +89,37 @@ def mobile_login():
             if not student_profile:
                 return jsonify({"error": "Student profile corrupted"}), 500
             
+            # Placeholder IDs aren't per-phone, so they can't anchor a
+            # binding. Checked for students only -- lecturers aren't bound.
+            if device_id in _PLACEHOLDER_DEVICE_IDS:
+                return jsonify({
+                    "error": "DEVICE UNVERIFIED: This phone's hardware ID could not be read. Please update the app and try again."
+                }), 403
+
             # 1. First Login (No device bound yet)
             if student_profile.device_id is None:
+                # ONE ACCOUNT PER PHONE. The lock below only stops an
+                # account moving to another phone; without this, one phone
+                # could bind several students' accounts and its owner could
+                # check them all in with their own fingerprint (buddy
+                # punching). Lecturers are unaffected -- only Student rows
+                # carry a device_id.
+                taken = Student.query.filter(
+                    Student.device_id == device_id,
+                    Student.id != student_profile.id,
+                ).first()
+                if taken:
+                    return jsonify({"error": _DEVICE_IN_USE_ERROR}), 403
+
                 student_profile.device_id = device_id
-                db.session.commit()
+                try:
+                    db.session.commit()
+                except IntegrityError:
+                    # Two first-logins on the same phone raced past the
+                    # check above; the unique constraint on
+                    # students.device_id lets exactly one of them bind.
+                    db.session.rollback()
+                    return jsonify({"error": _DEVICE_IN_USE_ERROR}), 403
             
             # 2. Subsequent Login (Check if hardware matches)
             elif student_profile.device_id != device_id:

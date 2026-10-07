@@ -47,6 +47,20 @@ String userFacingError(Object error, {String? fallback}) {
       'Your account is bound to another device. Visit IT Administration to '
           'request a hardware unbind.',
     ),
+    // One account per phone (api/auth.py mobile_login): this phone already
+    // holds another student's binding.
+    (
+      RegExp(r'DEVICE IN USE', caseSensitive: false),
+      'This phone is already registered to another student. Visit IT '
+          'Administration if this is your phone.',
+    ),
+    // Server rejected a placeholder ID sent by an old build, or this build
+    // couldn't read the hardware ID at all (_getHardwareUUID).
+    (
+      RegExp(r'DEVICE UNVERIFIED|Device identity unavailable', caseSensitive: false),
+      "This phone's identity couldn't be verified. Restart the phone, "
+          'update the app, and try again.',
+    ),
     (
       RegExp(r'No refresh token available|Authentication token missing'),
       'Your session has ended. Please sign in again.',

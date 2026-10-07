@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
   // Two entry points share this one screen: the forced first-login reset
@@ -92,6 +93,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     final authState = ref.watch(authProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
+                            final terminal = terminalOf(context);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -223,8 +225,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: colorScheme.surface,
+                            backgroundColor: terminal.accent,
+                            foregroundColor: terminal.onAccent,
                             minimumSize: const Size(double.infinity, 56),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),

@@ -107,7 +107,10 @@ class Student(db.Model):
     # style values).
     level = db.Column(db.String(20), nullable=False)
     rfid_uid = db.Column(db.String(50), unique=True, nullable=True)
-    device_id = db.Column(db.String(255), nullable=True)
+    # unique: one phone binds at most one student (see mobile_login in
+    # api/auth.py). NULL means unbound, and MySQL allows any number of NULLs
+    # in a unique index, so unbound students don't collide.
+    device_id = db.Column(db.String(255), unique=True, nullable=True)
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     # NEW. server_default (not just the Python-side `default=`) so the

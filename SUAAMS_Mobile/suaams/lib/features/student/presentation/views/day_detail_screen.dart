@@ -4,6 +4,7 @@ import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/features/student/providers/week_schedule_provider.dart';
 import 'package:suaams/features/student/models/week_schedule_entry.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 const _dayNameToIndex = {
   'Monday': 0,
@@ -86,12 +87,13 @@ class _ClassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final terminal = terminalOf(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(12),
-        border: Border(left: BorderSide(color: colorScheme.primary, width: 4)),
+        border: Border(left: BorderSide(color: terminal.accent, width: 4)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
