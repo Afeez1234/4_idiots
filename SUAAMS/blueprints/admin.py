@@ -4,6 +4,8 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, Response
 import bcrypt
+from sqlalchemy import or_
+from sqlalchemy.orm import joinedload
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
     Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
@@ -299,6 +301,24 @@ def lecturers_page():
 # ==========================================
 # STUDENTS
 # ==========================================
+STUDENTS_PER_PAGE = 50
+
+# The roster's filter parameters. Carried through the unbind form and back
+# on its redirect so the admin lands on the same filtered view instead of
+# the unfiltered first page -- otherwise every unbind means searching again.
+STUDENT_FILTER_ARGS = ('q', 'dept', 'level', 'device', 'page')
+
+
+def _student_filter_args():
+    """The current request's roster filters, non-empty ones only."""
+    return {k: request.args[k] for k in STUDENT_FILTER_ARGS if request.args.get(k)}
+
+
+def _escape_like(text):
+    """Makes % and _ in a search term match literally rather than as LIKE wildcards."""
+    return text.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
 @admin_bp.route('/students', methods=['GET', 'POST'])
 @limiter.limit("10 per minute", methods=['POST'])
 def students_page():
@@ -352,12 +372,66 @@ def students_page():
 
         return redirect(url_for('admin.students_page'))
 
-    students = Student.query.order_by(Student.id.desc()).all()
-    departments = Department.query.all()
+    # Filtering and pagination happen in the query, not in the browser, so
+    # the page stays the same size however many students are enrolled.
+    # Previously every student was loaded and rendered (twice: card view +
+    # table), leaving Ctrl+F as the only way to find one.
+    q = request.args.get('q', '').strip()
+    dept_id = request.args.get('dept', type=int)
+    level = request.args.get('level', '').strip()
+    device = request.args.get('device', '')
+    page = request.args.get('page', 1, type=int)
+
+    query = Student.query
+    if q:
+        # Partial, case-insensitive. Matric number first because that's what
+        # the admin is usually holding -- the student presents their ID card.
+        pattern = f'%{_escape_like(q)}%'
+        query = query.filter(or_(
+            Student.matric_number.ilike(pattern, escape='\\'),
+            Student.full_name.ilike(pattern, escape='\\'),
+        ))
+    if dept_id:
+        query = query.filter(Student.department_id == dept_id)
+    if level:
+        query = query.filter(Student.level == level)
+    if device == 'bound':
+        query = query.filter(Student.device_id.isnot(None))
+    elif device == 'unbound':
+        query = query.filter(Student.device_id.is_(None))
+
+    # joinedload: the template reads student.department and student.user on
+    # every row, which would otherwise be two extra queries per student.
+    query = query.options(
+        joinedload(Student.department), joinedload(Student.user),
+    ).order_by(Student.id.desc())
+
+    pagination = query.paginate(page=page, per_page=STUDENTS_PER_PAGE, error_out=False)
+    # Unbinding the last student on the last page of a "Bound" view leaves
+    # that page empty; show the new last page rather than an empty roster.
+    if pagination.pages and page > pagination.pages:
+        pagination = query.paginate(page=pagination.pages, per_page=STUDENTS_PER_PAGE, error_out=False)
+
+    # Built from stored values, not a fixed list: Student.level is free text
+    # (models.py), so "400" and "400L" can both exist and a hard-coded list
+    # would hide whichever spelling it didn't include.
+    levels = [
+        row.level for row in
+        db.session.query(Student.level).distinct().order_by(Student.level)
+    ]
+
+    filter_args = _student_filter_args()
+    filter_args.pop('page', None)
+
     return render_template(
         'admin/students.html',
-        students=students,
-        departments=departments,
+        students=pagination.items,
+        pagination=pagination,
+        departments=Department.query.order_by(Department.name).all(),
+        levels=levels,
+        filters={'q': q, 'dept': dept_id, 'level': level, 'device': device},
+        filter_args=filter_args,
+        is_filtered=bool(filter_args),
         active_page='students',
     )
 
@@ -508,7 +582,9 @@ def reset_student_binding(student_id):
         flash('Failed to unbind device. System database exception.', 'error')
         log_exception("Device Unbind Critical Exception")
 
-    return redirect(url_for('admin.students_page'))
+    # Back to the view the admin unbound from (filters ride along on the
+    # form's action URL), not the unfiltered first page.
+    return redirect(url_for('admin.students_page', **_student_filter_args()))
 
 
 # ==========================================
