@@ -40,8 +40,7 @@
        stop the document itself from being taller than the viewport and
        scrolling as a whole, which drags the rail's top out of view with it.
        fixed inset-0 pins the shell to the viewport outright, so only the nav
-       and <main> (the elements with their own overflow-y-auto) can scroll.
-       The .rail-collapsed class is toggled by the script at the bottom. #}
+       and <main> (the elements with their own overflow-y-auto) can scroll. #}
     <div id="shell" class="fixed inset-0 flex overflow-hidden">
 
         <!-- Mobile backdrop: only shown while the rail is open on small screens -->
@@ -49,7 +48,7 @@
 
         {# ============== NAVIGATION RAIL ============== #}
         <aside id="sidebar"
-               class="rail fixed inset-y-0 left-0 z-40 -translate-x-full transition-[width,transform] duration-200
+               class="rail fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-200
                       lg:static lg:translate-x-0">
 
             <!-- Brand. The shield mark is a 1:1 port of SuaamsLogo's
@@ -72,18 +71,6 @@
                     <p class="text-2xs uppercase tracking-widest text-on-rail-muted">{% block brand_subtitle %}{% endblock %}</p>
                 </div>
             </div>
-
-            {# Collapse-to-icons, sitting ON the rail's right edge rather than
-               in the brand row -- see .rail-collapse-btn in input.css. The
-               <aside> is `fixed`, which establishes the containing block the
-               button's `absolute` positioning resolves against. Desktop only:
-               on a phone the rail is an off-canvas drawer and this would have
-               nothing to show. #}
-            <button id="rail-collapse" class="rail-collapse-btn"
-                    aria-label="Collapse navigation" title="Collapse navigation"
-                    aria-expanded="true" aria-controls="sidebar">
-                <span class="material-symbols-rounded text-lg" id="rail-collapse-icon">left_panel_close</span>
-            </button>
 
             <!-- Pill block under the brand. Admin and student show the active
                  semester; the portal shows its HOD/Lecturer role switch. -->
@@ -161,11 +148,9 @@
         // scope, so any page whose extra_scripts block reused one of those
         // names would throw at parse time. Nothing here needs to be global.
         (function () {
-            var shell   = document.getElementById('shell');
             var sidebar = document.getElementById('sidebar');
             var backdrop = document.getElementById('sidebar-backdrop');
             var toggleBtn = document.getElementById('sidebar-toggle');
-            var collapseBtn = document.getElementById('rail-collapse');
 
             /* --- Mobile drawer. Unchanged from the previous behaviour: the
                closed state lives in the markup (-translate-x-full) and this
@@ -188,41 +173,9 @@
                 if (e.key === 'Escape') closeDrawer();
             });
 
-            /* --- Desktop collapse. Restored from localStorage before first
-               paint is impossible with a static class, so it is applied by
-               this script at the bottom of <body>; the flash is a single
-               frame at worst. Deliberately NOT applied on small screens: a
-               rail collapsed to 72px of icons on a phone has no visible
-               control left to expand it. --- */
-            var STORAGE_KEY = 'suaams.railCollapsed';
-            var wide = window.matchMedia('(min-width: 1024px)');
-            var collapseIcon = document.getElementById('rail-collapse-icon');
-
-            function applyCollapsed(collapsed) {
-                shell.classList.toggle('rail-collapsed', collapsed);
-                // The control sits ON the rail's edge, so it has to keep
-                // pointing the way the rail is about to move: chevron left
-                // while expanded, chevron right once collapsed.
-                if (collapseIcon) {
-                    collapseIcon.textContent = collapsed ? 'left_panel_open' : 'left_panel_close';
-                }
-                if (collapseBtn) {
-                    collapseBtn.setAttribute('aria-expanded', String(!collapsed));
-                    collapseBtn.setAttribute('aria-label', collapsed ? 'Expand navigation' : 'Collapse navigation');
-                    collapseBtn.title = collapsed ? 'Expand navigation' : 'Collapse navigation';
-                }
-            }
-
-            if (wide.matches && localStorage.getItem(STORAGE_KEY) === '1') {
-                applyCollapsed(true);
-            }
-            if (collapseBtn) {
-                collapseBtn.addEventListener('click', function () {
-                    var next = !shell.classList.contains('rail-collapsed');
-                    applyCollapsed(next);
-                    localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
-                });
-            }
+            // The desktop rail is always fully expanded. It used to collapse to
+            // a 72px icon strip (removed 2026-10-07); a leftover
+            // 'suaams.railCollapsed' key in localStorage is now simply ignored.
         })();
     </script>
 

@@ -55,7 +55,7 @@ def test_every_template_parses():
 
 def test_shell_dom_contract():
     """#sidebar / #sidebar-backdrop / #sidebar-toggle are the rail script's
-    only inputs; #rail-collapse is the desktop collapse toggle. Since the
+    only inputs (the desktop #rail-collapse toggle was removed). Since the
     2026-09-30 consolidation these all live in the shared _shell, so the
     portal templates are checked for extending it rather than for carrying
     the ids themselves."""
@@ -67,7 +67,7 @@ def test_shell_dom_contract():
         )
 
     shared = (TEMPLATES / "_shell.html").read_text(encoding="utf-8")
-    for hook in ("shell", "sidebar", "sidebar-backdrop", "sidebar-toggle", "rail-collapse"):
+    for hook in ("shell", "sidebar", "sidebar-backdrop", "sidebar-toggle"):
         assert f'id="{hook}"' in shared, f"_shell.html is missing id=\"{hook}\""
 
 
