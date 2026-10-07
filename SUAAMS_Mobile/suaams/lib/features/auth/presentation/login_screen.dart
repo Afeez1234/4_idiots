@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/shared/widgets/suaams_logo.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -22,6 +23,39 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   bool _isPasswordVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillUsername();
+  }
+
+  /// Pre-fill the matric number from the last successful sign-in.
+  ///
+  /// The username was already being written to secure storage on login
+  /// (auth_service's login()) and getUsername() already existed, but
+  /// nothing ever read it back into the field -- so the value sat in the
+  /// keystore being used only as a null-check for "is someone still
+  /// signed in" (see auth_provider's checkExistingAuth). Half-built.
+  ///
+  /// Deliberately NOT prefilled: the password. It is never stored, and
+  /// typing a wrong one into a prefilled field is worse than the few
+  /// seconds saved.
+  ///
+  /// The text is selected rather than the caret being parked at the end,
+  /// so typing replaces it outright -- someone signing in as a different
+  /// account on a shared handset doesn't have to backspace over the
+  /// previous user's matric number first.
+  Future<void> _prefillUsername() async {
+    final saved = await ref.read(authServiceProvider).getUsername();
+    // A screen can be disposed while the storage read is in flight.
+    if (!mounted || saved == null || saved.isEmpty) return;
+    _idController.text = saved;
+    _idController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: saved.length,
+    );
+  }
 
   @override
   void dispose() {
@@ -72,6 +106,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
+                            final terminal = terminalOf(context);
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -162,8 +197,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: colorScheme.surface,
+                            backgroundColor: terminal.accent,
+                            foregroundColor: terminal.onAccent,
                             minimumSize: const Size(double.infinity, 56),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),

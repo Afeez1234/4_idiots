@@ -7,6 +7,7 @@ import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/widgets/dashboard_background.dart';
 import 'package:suaams/shared/widgets/suaams_logo.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 /// First-run walkthrough, shown once per install.
 ///
@@ -188,6 +189,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+                            final terminal = terminalOf(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLast = _page == _pages.length - 1;
 
@@ -264,8 +266,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           // explaining the device binding.
                           onPressed: isLast ? _finish : _goNext,
                           style: FilledButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: colorScheme.onPrimary,
+                            backgroundColor: terminal.accent,
+                            foregroundColor: terminal.onAccent,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),

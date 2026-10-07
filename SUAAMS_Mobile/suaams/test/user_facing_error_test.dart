@@ -158,6 +158,28 @@ void main() {
       expect(result, contains('IT Administration'));
       expect(result, isNot(contains('SECURITY LOCK')));
     });
+
+    test('a phone already holding another account says so', () {
+      final result = userFacingError(
+        'DEVICE IN USE: This phone is already registered to another student '
+        'account. Please visit IT Administration if this is your phone.',
+      );
+      expect(result, contains('another student'));
+      expect(result, contains('IT Administration'));
+      expect(result, isNot(contains('DEVICE IN USE')));
+    });
+
+    test('an unreadable hardware ID tells the user what to try', () {
+      for (final raw in [
+        "DEVICE UNVERIFIED: This phone's hardware ID could not be read. "
+            'Please update the app and try again.',
+        'Exception: Device identity unavailable',
+      ]) {
+        final result = userFacingError(raw);
+        expect(result, contains("couldn't be verified"), reason: raw);
+        expect(result, contains('update the app'), reason: raw);
+      }
+    });
   });
 
   group('generic backend catch-alls are suppressed', () {

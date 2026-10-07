@@ -13,6 +13,28 @@ import 'package:suaams/features/auth/models/auth_user.dart';
 import 'package:suaams/core/services/notification_service.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
 
+
+/// Outcome of a token refresh.
+///
+/// The distinction this carries is the whole fix. `refreshSession` used to
+/// return a plain bool, and every caller treated `false` as "session dead,
+/// log them out". But a refresh can fail because the SERVER rejected the
+/// token (session genuinely dead, wiping local state is correct) or because
+/// the NETWORK dropped and we never got to ask (session may be perfectly
+/// fine). Collapsing those meant one dead spot in a lecture hall could
+/// destroy a 14-day session.
+enum RefreshOutcome {
+  /// New access token obtained; session continues.
+  refreshed,
+
+  /// Server rejected the token. The stored session is worthless.
+  rejected,
+
+  /// Could not reach the server, or it timed out. Session state untouched
+  /// and still assumed valid -- retry when signal returns.
+  unreachable,
+}
+
 class AuthState {
   final bool isLoading;
   final AuthUser? user;
@@ -43,12 +65,23 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
     return AuthState();
   }
 
-  // Helper method to securely get the unique hardware UUID
+  // Helper method to securely get the unique hardware UUID.
+  //
+  // Throws rather than returning a placeholder when the ID can't be read.
+  // It used to fall back to fixed strings ('fallback_device_id' etc.), and
+  // since every failing phone sent the SAME string, they all looked like one
+  // device to the backend -- any of them could log into an account bound to
+  // it. With one-account-per-phone enforced server-side, a shared placeholder
+  // would also block every student after the first. The backend now rejects
+  // those strings too, for builds that still send them.
   Future<String> _getHardwareUUID() async {
+    String? id;
     try {
       if (Platform.isIOS) {
+        // identifierForVendor can be nil briefly after a restart, before
+        // the first unlock -- a retry a moment later normally succeeds.
         final iosInfo = await DeviceInfoPlugin().iosInfo;
-        return iosInfo.identifierForVendor ?? 'unknown_ios_device';
+        id = iosInfo.identifierForVendor;
       } else if (Platform.isAndroid) {
         // DEVICE-BINDING FIX: androidInfo.id (device_info_plus) is
         // Build.ID -- an OS build/firmware string, identical across every
@@ -61,13 +94,15 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
         // -- the standard per-device identifier Android actually exposes,
         // now that raw IMEI/serial access requires a system-level
         // permission apps can't hold.
-        final androidId = await const AndroidId().getId();
-        return androidId ?? 'fallback_device_id';
+        id = await const AndroidId().getId();
       }
     } catch (e) {
-      return 'fallback_device_id';
+      debugPrint('[auth] hardware ID read failed: $e');
     }
-    return 'unknown_platform';
+    if (id == null || id.isEmpty) {
+      throw Exception('Device identity unavailable');
+    }
+    return id;
   }
 
   // RESTORE FIX: this previously trusted ANY stored token as "still logged
@@ -125,10 +160,10 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
     }
 
     if (!tokenLooksValid) {
-      final refreshed = await refreshSession();
-      if (!refreshed) {
-        // Refresh token is also invalid/expired/revoked (or missing) --
-        // there's no real session here. notifyServer: false because we
+      final outcome = await refreshSession();
+      if (outcome == RefreshOutcome.rejected) {
+        // The server told us this session is dead. Only now is wiping the
+        // stored credentials correct. notifyServer: false because we
         // already know the refresh token that logout() would otherwise
         // present to the backend is dead; no point making a network call
         // just to have it rejected.
@@ -137,14 +172,19 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
         notifyListeners();
         return;
       }
+      // unreachable: we could not ask the server, so we do not know that
+      // the session is dead. Falling through keeps the user signed in --
+      // the access token is stale, but the refresh token is untouched and
+      // every authenticated call routes through withAuthRetry, which will
+      // refresh on the first request that gets signal. Previously this
+      // destroyed a 14-day session because a phone opened on bad wifi.
     }
 
     state = state.copyWith(isLoading: false);
     notifyListeners();
-    // Covers both branches above (token was still valid, or was refreshed
-    // just now) -- either way there's a live session worth syncing a push
-    // token against. The early returns inside the `if (!tokenLooksValid)`
-    // block above (no session / refresh failed) never reach this line.
+    // Covers all branches above (token still valid, refreshed just now, or
+    // simply unreachable) -- in every case a session still exists and is
+    // worth syncing a push token against.
     unawaited(NotificationService.instance.syncDeviceToken());
   }
 
@@ -207,9 +247,15 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
         final looksExpired = msg.contains('expired') || msg.contains('unauthorized');
         if (!looksExpired) rethrow;
 
-        final refreshed = await refreshSession();
-        if (!refreshed) {
-          await logout();
+        final outcome = await refreshSession();
+        if (outcome != RefreshOutcome.refreshed) {
+          // Same rule as withAuthRetry: only an actual rejection from the
+          // server means the session is dead. An unreachable refresh means
+          // we never got to ask, so destroying the stored tokens here would
+          // sign the user out over a network blip.
+          if (outcome == RefreshOutcome.rejected) {
+            await logout();
+          }
           rethrow;
         }
         newAccessToken = await attempt(); // retry once with the now-refreshed token
@@ -268,7 +314,7 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
   // it already set and awaits the SAME Future instead of starting a new
   // one. whenComplete clears it again once done (success or failure) so
   // the *next* time the token expires, a fresh refresh can run.
-  Future<bool>? _inFlightRefresh;
+  Future<RefreshOutcome>? _inFlightRefresh;
 
   // Attempts to exchange the stored refresh token for a new access token,
   // updating in-memory state (and, via AuthService.refreshAccessToken,
@@ -280,15 +326,15 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
   // expired/revoked refresh token, no user in state, network error -- so
   // callers can decide to force a logout without needing to unwrap an
   // exception.
-  Future<bool> refreshSession() {
+  Future<RefreshOutcome> refreshSession() {
     return _inFlightRefresh ??= _performRefresh().whenComplete(() {
       _inFlightRefresh = null;
     });
   }
 
-  Future<bool> _performRefresh() async {
+  Future<RefreshOutcome> _performRefresh() async {
     final currentUser = state.user;
-    if (currentUser == null) return false;
+    if (currentUser == null) return RefreshOutcome.rejected;
 
     try {
       final newAccessToken = await _authService.refreshAccessToken();
@@ -302,9 +348,17 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
         ),
       );
       notifyListeners();
-      return true;
+      return RefreshOutcome.refreshed;
+    } on AuthRejected {
+      // The server said no. That is the only outcome that justifies
+      // destroying locally-stored credentials.
+      return RefreshOutcome.rejected;
     } catch (e) {
-      return false;
+      // Transport failure: ClientException, SocketException, Timeout, or a
+      // malformed response. We do not know anything about the token's
+      // validity, so we must not assume it is dead.
+      debugPrint('[auth] token refresh unreachable, session preserved: $e');
+      return RefreshOutcome.unreachable;
     }
   }
 }

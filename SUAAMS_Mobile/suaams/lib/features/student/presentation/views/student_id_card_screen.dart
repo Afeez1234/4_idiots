@@ -9,6 +9,7 @@ import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/features/student/presentation/views/nfc_broadcast_sheet.dart';
 import 'package:suaams/shared/utils/initials.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 // ID Card tab -- "Full screen digital ID with NFC tap button". The card
 // visuals are lifted as-is from ProfileView's old _buildDigitalIDCard (now
@@ -27,6 +28,7 @@ class StudentIdCardScreen extends ConsumerWidget {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final detailsVisible = ref.watch(cardPrivacyProvider);
     final colorScheme = Theme.of(context).colorScheme;
+                            final terminal = terminalOf(context);
 
     final data = state.data;
 
@@ -124,8 +126,8 @@ class StudentIdCardScreen extends ConsumerWidget {
                         const SizedBox(height: 32),
                         ElevatedButton(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: colorScheme.primary,
-                            foregroundColor: colorScheme.surface,
+                            backgroundColor: terminal.accent,
+                            foregroundColor: terminal.onAccent,
                             minimumSize: const Size(double.infinity, 56),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),

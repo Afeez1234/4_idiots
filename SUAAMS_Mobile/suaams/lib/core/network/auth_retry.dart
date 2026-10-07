@@ -38,18 +38,37 @@ Future<T> withAuthRetry<T>(
   } catch (e) {
     if (!_looksLikeAuthExpiry(e)) rethrow;
 
-    final refreshed = await ref.read(authProvider.notifier).refreshSession();
+    final outcome =
+        await ref.read(authProvider.notifier).refreshSession();
     final newToken = ref.read(authProvider).user?.token;
 
-    if (!refreshed || newToken == null) {
-      await ref.read(authProvider.notifier).logout();
+    if (outcome != RefreshOutcome.refreshed || newToken == null) {
+      // Only a REJECTION logs the user out. A refresh that could not reach
+      // the server tells us nothing about whether the session is still
+      // valid, and signing someone out over a dropped connection --
+      // destroying a 14-day token store in the process -- turns a momentary
+      // blip into a full re-authentication. The error still propagates so
+      // the caller shows its own "couldn't load" state, and the next
+      // request with signal refreshes and succeeds.
+      if (outcome == RefreshOutcome.rejected) {
+        await ref.read(authProvider.notifier).logout();
+      }
       rethrow;
     }
 
     try {
       return await request(newToken);
     } catch (e2) {
-      await ref.read(authProvider.notifier).logout();
+      // The retry failing does not mean the session died -- the signal may
+      // simply have dropped again. Only log out when the server actually
+      // rejects; otherwise leave the session intact for the next attempt.
+      if (_looksLikeAuthExpiry(e2)) {
+        final retryOutcome =
+            await ref.read(authProvider.notifier).refreshSession();
+        if (retryOutcome == RefreshOutcome.rejected) {
+          await ref.read(authProvider.notifier).logout();
+        }
+      }
       rethrow;
     }
   }

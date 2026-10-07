@@ -8,6 +8,7 @@ import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 class CourseWorkspaceScreen extends ConsumerStatefulWidget {
   final int courseId;
@@ -341,6 +342,7 @@ class _SessionControls extends StatelessWidget {
   }
 
   Widget _buildIdle(BuildContext context) {
+    final terminal = terminalOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -377,8 +379,8 @@ class _SessionControls extends StatelessWidget {
         const SizedBox(height: 20),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: colorScheme.primary,
-            foregroundColor: colorScheme.surface,
+            backgroundColor: terminal.accent,
+            foregroundColor: terminal.onAccent,
             minimumSize: const Size(double.infinity, 48),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),

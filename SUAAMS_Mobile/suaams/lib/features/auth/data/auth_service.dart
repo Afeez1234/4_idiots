@@ -16,6 +16,24 @@ import 'package:suaams/features/auth/models/auth_user.dart';
 // bounded time instead of leaving the caller's spinner stuck forever.
 const _kNetworkTimeout = Duration(seconds: 20);
 
+/// The server actively rejected our credentials (401/403 on refresh).
+///
+/// Deliberately distinct from a transport failure. The difference is the
+/// whole point: a rejected refresh token means the session is genuinely
+/// dead and the stored copy is worthless, so wiping it is correct. A
+/// ClientException, SocketException or Timeout means we simply could not
+/// ask -- the session may well still be perfectly valid, and destroying it
+/// would sign the user out over a dead spot in a lecture hall.
+class AuthRejected implements Exception {
+  final String message;
+  final int? statusCode;
+
+  const AuthRejected(this.message, {this.statusCode});
+
+  @override
+  String toString() => 'AuthRejected($statusCode): $message';
+}
+
 class AuthService {
   final FlutterSecureStorage _secureStorage = const FlutterSecureStorage();
 
@@ -179,7 +197,16 @@ class AuthService {
         responseData['msg'] ??
         responseData['message'] ??
         'Session refresh failed';
-    throw Exception(errorMsg);
+
+    // A rejection is categorically different from a transport failure, and
+    // the two used to be indistinguishable to every caller -- both surfaced
+    // as a caught Exception, so a dead signal in a lecture hall looked
+    // exactly like a revoked session. Only this one justifies destroying the
+    // locally-stored session.
+    throw AuthRejected(
+      errorMsg,
+      statusCode: response.statusCode,
+    );
   }
 
   // notifyServer: false skips the backend call entirely -- used when the

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/features/lecturer/providers/announcements_provider.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 
 // Reuses the already-loaded lecturerDashboardProvider for the course
 // picker -- same reasoning as ActiveSessionsScreen -- rather than a
@@ -62,6 +63,7 @@ class _CreateAnnouncementScreenState
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(lecturerDashboardProvider);
     final colorScheme = Theme.of(context).colorScheme;
+                final terminal = terminalOf(context);
     final courses = dashboardState.data?.courses ?? const [];
 
     return Scaffold(
@@ -177,8 +179,8 @@ class _CreateAnnouncementScreenState
             const SizedBox(height: 32),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: colorScheme.primary,
-                foregroundColor: colorScheme.surface,
+                backgroundColor: terminal.accent,
+                foregroundColor: terminal.onAccent,
                 minimumSize: const Size(double.infinity, 48),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
