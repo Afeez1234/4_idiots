@@ -11,7 +11,10 @@ from models import (
     Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
 )
 from extensions import log_exception, logger, limiter
-from utils import resolve_current_course, session_status_for_course, students_for_announcement
+from utils import (
+    resolve_current_course, session_status_for_course, students_for_announcement,
+    VALID_LEVELS, normalize_level,
+)
 from push_notifications import send_push_notification
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
@@ -333,6 +336,13 @@ def students_page():
             flash('Please fill in all required fields.', 'error')
             return redirect(url_for('admin.students_page'))
 
+        # The form offers a dropdown, but a hand-built POST doesn't have to
+        # use it -- this is the check that actually keeps "1000" out.
+        level = normalize_level(level)
+        if level is None:
+            flash('Level must be one of 100, 200, 300, 400 or 500.', 'error')
+            return redirect(url_for('admin.students_page'))
+
         try:
             existing_user = User.query.filter_by(username=matric_number.strip()).first()
             if existing_user:
@@ -350,14 +360,11 @@ def students_page():
             db.session.add(new_user)
             db.session.flush()
 
-            # BUG FIX: was `level=int(level)` -- Student.level is
-            # deliberately db.String(20), not Integer, specifically so
-            # values like "400L" don't crash this insert (see models.py).
-            # Storing the raw string as submitted.
+            # level is already canonical ("400") from normalize_level above.
             new_student = Student(
                 full_name=full_name.strip(),
                 matric_number=matric_number.strip(),
-                level=level.strip(),
+                level=level,
                 rfid_uid=rfid_uid,
                 department_id=int(department_id),
                 user_id=new_user.id,
@@ -412,13 +419,14 @@ def students_page():
     if pagination.pages and page > pagination.pages:
         pagination = query.paginate(page=pagination.pages, per_page=STUDENTS_PER_PAGE, error_out=False)
 
-    # Built from stored values, not a fixed list: Student.level is free text
-    # (models.py), so "400" and "400L" can both exist and a hard-coded list
-    # would hide whichever spelling it didn't include.
-    levels = [
-        row.level for row in
-        db.session.query(Student.level).distinct().order_by(Student.level)
-    ]
+    # The valid levels, plus any other value still stored from before
+    # levels were validated (e.g. "400L" ahead of the cleanup migration, or a
+    # typo like "1000"). Listing those keeps the offending students findable
+    # instead of hiding them; the template marks them as invalid.
+    stored_levels = {
+        row.level for row in db.session.query(Student.level).distinct()
+    }
+    levels = list(VALID_LEVELS) + sorted(stored_levels - set(VALID_LEVELS))
 
     filter_args = _student_filter_args()
     filter_args.pop('page', None)
@@ -429,6 +437,7 @@ def students_page():
         pagination=pagination,
         departments=Department.query.order_by(Department.name).all(),
         levels=levels,
+        valid_levels=VALID_LEVELS,
         filters={'q': q, 'dept': dept_id, 'level': level, 'device': device},
         filter_args=filter_args,
         is_filtered=bool(filter_args),
@@ -481,6 +490,15 @@ def bulk_enroll_students():
                 skipped_records.append(f"{name or 'Unknown'} (Incomplete Row fields)")
                 continue
 
+            # Same rule as the Add Student form. A bad level skips just this
+            # row (reported below like every other skipped row) rather than
+            # failing the whole upload.
+            level = normalize_level(level_str)
+            if level is None:
+                error_count += 1
+                skipped_records.append(f"{name} (Invalid level '{level_str}': use 100-500)")
+                continue
+
             existing_user = User.query.filter_by(username=matric_no).first()
             if existing_user:
                 error_count += 1
@@ -515,12 +533,10 @@ def bulk_enroll_students():
                 db.session.add(user)
                 db.session.flush()
 
-                # BUG FIX: was `level=int(level_str)` -- same String(20)
-                # reasoning as students_page()'s create form above.
                 student = Student(
                     full_name=name,
                     matric_number=matric_no,
-                    level=level_str,
+                    level=level,
                     rfid_uid=rfid,
                     department_id=department.id,
                     user_id=user.id,
