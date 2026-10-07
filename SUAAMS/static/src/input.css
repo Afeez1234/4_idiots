@@ -118,44 +118,19 @@
      The one large dark mass in an otherwise light UI. Same .nav-link name
      the old templates already used -- only the colours underneath changed.
      ----------------------------------------------------------------------
-     Two independent states share this rail:
-       * mobile  -- off-canvas drawer, the pre-existing -translate-x-full
-                   mechanism, unchanged.
-       * desktop -- collapsible, driven by a .rail-collapsed class on the
-                   shell root so one toggle reflows every rail descendant.
-     The collapse state persists in localStorage; the drawer does not, since
-     a rail left collapsed on a phone would be a trap with no visible
-     control to un-collapse it.
+     On mobile it is an off-canvas drawer (-translate-x-full, toggled by the
+     script in _shell.html). On desktop it is always shown at full width --
+     the collapse-to-icons mode was removed on 2026-10-07.
      ====================================================================== */
-  .rail { @apply flex w-[260px] shrink-0 flex-col bg-sidebar; }
+  /* 240px (was 260px until 2026-10-07): gives the content column a little
+     more room; nav labels and the semester pill truncate rather than wrap
+     if a name runs long (.rail-label). */
+  .rail { @apply flex w-[240px] shrink-0 flex-col bg-sidebar; }
   .rail-brand { @apply flex h-16 shrink-0 items-center gap-3 px-5; }
   .rail-foot { @apply shrink-0 border-t border-on-rail-line p-4; }
 
-  /* Collapse control. The reference puts this ON the rail's right edge rather
-     than in the brand row: a small circular button straddling the border
-     between the dark rail and the light content, so it reads as a control
-     that moves the rail rather than as just another nav icon. `right-[-13px]`
-     is half of the 28px button, which is what makes it sit on the line.
-     Positioned against the <aside>, so it stays on the edge in both the
-     expanded (260px) and collapsed (72px) states. */
-  .rail-collapse-btn {
-    @apply absolute right-[-13px] top-5 z-10 hidden h-7 w-7 shrink-0 place-items-center
-           rounded-full border border-sidebar-hover bg-sidebar text-on-rail-muted
-           transition-colors hover:bg-sidebar-hover hover:text-on-rail
-           focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent
-           lg:grid;
-  }
-
-  /* Text that disappears when the rail collapses to icons only. */
+  /* Text beside a rail icon; truncates rather than wrapping. */
   .rail-label { @apply min-w-0 flex-1 truncate; }
-
-  .rail-collapsed .rail { @apply w-[72px]; }
-  .rail-collapsed .rail-label,
-  .rail-collapsed .nav-section,
-  .rail-collapsed .rail-pill { @apply hidden; }
-  .rail-collapsed .nav-link { @apply justify-center px-0; }
-  .rail-collapsed .rail-brand,
-  .rail-collapsed .rail-foot { @apply justify-center px-0; }
 
 
   .nav-link {
