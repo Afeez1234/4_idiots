@@ -105,6 +105,13 @@ Verify new code and flows against these anti-spoofing vectors:
   (`device_id`) at first login. Logging in from a different device is an
   instant lockout. Resetting requires an admin manually nulling the value via
   the Admin Web Dashboard (student presents physical school ID to request it).
+  The binding runs both ways: a phone can hold **one student account only**
+  (`students.device_id` is unique; `mobile_login` returns `DEVICE IN USE`).
+  Without that, one phone could bind several classmates' accounts and its
+  owner could check them all in with their own fingerprint. The app must
+  never send a placeholder ID when the hardware ID can't be read — a shared
+  constant makes every failing phone look like the same device — and the
+  backend rejects the old placeholder strings (`DEVICE UNVERIFIED`).
 - **Biometric invalidation**: biometric keys bind to the OS's current
   biometric set (`invalidateByBiometricEnrollment: true` on Android,
   `kSecAccessControlBiometryCurrentSet` on iOS). Adding/deleting a fingerprint
