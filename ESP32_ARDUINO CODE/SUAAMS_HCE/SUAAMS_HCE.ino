@@ -1,7 +1,14 @@
 /*
   SUAAMS HCE Check-In Terminal
   ESP32 + PN532: reads the short-lived check-in beacon an Android phone
-  broadcasts over NFC HCE and submits it to Flask.
+  broadcasts over NFC HCE and submits it to Flask. Also broadcasts a
+  rotating Bluetooth code for phones that can't tap in (see the "Bluetooth
+  check-in beacon" section below).
+
+  Build settings (Arduino IDE):
+    - Library Manager: install "NimBLE-Arduino" (2.x).
+    - Tools > Partition Scheme > "Huge APP (3MB No OTA)". BLE + Wi-Fi +
+      HTTPS no longer fit the default 1.2MB app partition.
 
   Single-exchange reader
   ----------------------
@@ -27,8 +34,17 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <Preferences.h>
+#include <time.h>
+#include <NimBLEDevice.h>     // Library Manager: "NimBLE-Arduino" (2.x)
+#include "mbedtls/md.h"       // HMAC-SHA256, built into the ESP32 core
 
 #include "secrets.h"  // WiFi + terminal credentials. NOT in git.
+
+// Older secrets.h files predate Bluetooth check-in. Fail the build with
+// instructions rather than silently running without it.
+#if !defined(BLE_BEACON_SECRET) || !defined(BLE_TERMINAL_NUMBER)
+#error "secrets.h is missing BLE_BEACON_SECRET / BLE_TERMINAL_NUMBER -- copy them from secrets.h.example (use \"\" for the secret to keep Bluetooth off)."
+#endif
 
 #define SDA_PIN 21
 #define SCL_PIN 22
@@ -148,6 +164,183 @@ const unsigned long WIFI_CONNECT_TIMEOUT_MS = 20000;
 const unsigned long WIFI_RETRY_INTERVAL_MS = 5000;
 unsigned long lastWifiAttempt = 0;
 bool wifiReady = false;
+
+// ---------------- Bluetooth check-in beacon ----------------
+// The fallback for phones that can't tap in by NFC (iPhones, Android phones
+// without NFC). Instead of reading a phone, the terminal BROADCASTS a code
+// that rotates every 5 seconds; the app hears it and posts it to the
+// server itself. Hearing a current code is the proof of presence. The
+// format must match SUAAMS/ble_beacon.py byte for byte:
+//
+//   payload = terminal(2B BE) || slot(4B BE) || code(8B)        14 bytes
+//   slot    = unix_time / 5
+//   code    = HMAC-SHA256(BLE_BEACON_SECRET,
+//                         "SUAAMS-BLE" || terminal || slot)[:8]
+//
+// It runs alongside the NFC loop, not instead of it: NimBLE advertises from
+// its own task, and loop() only swaps in a new code when the slot changes.
+//
+// The terminal needs real wall-clock time for this (the NFC path never did),
+// so it syncs over NTP. Until the first sync it broadcasts NOTHING -- a code
+// built from a wrong clock would only be rejected, and silence is easier to
+// diagnose than codes that never work.
+
+// 0xFFFF is Bluetooth SIG's reserved "no company / testing" ID. The app
+// filters on it. A commercial build would register its own.
+const uint16_t BLE_COMPANY_ID = 0xFFFF;
+const uint32_t BLE_SLOT_SECONDS = 5;          // must match SLOT_SECONDS
+const uint8_t  BLE_PAYLOAD_LEN = 14;
+const uint8_t  BLE_CODE_LEN = 8;
+const char     BLE_DOMAIN[] = "SUAAMS-BLE";   // must match _DOMAIN
+
+// 160 x 0.625ms = 100ms between advertisements. Mains-powered, so spend
+// the airtime: a phone scanning for a few seconds hears it many times.
+const uint16_t BLE_ADV_INTERVAL = 160;
+
+// Anything before this is the ESP32's power-on epoch (1970), i.e. NTP
+// hasn't answered yet. Nov 2023 is safely before any real deployment.
+const time_t BLE_MIN_VALID_TIME = 1700000000;
+
+// Known-answer vector, identical to REFERENCE_* in tests/test_ble_beacon.py.
+// Checked at boot; on mismatch the terminal refuses to broadcast.
+const char     BLE_REF_KEY[] = "suaams-ble-reference-key";
+const uint16_t BLE_REF_TERMINAL = 1;
+const uint32_t BLE_REF_SLOT = 352000000UL;
+const uint8_t  BLE_REF_PAYLOAD[BLE_PAYLOAD_LEN] = {
+  0x00, 0x01, 0x14, 0xFB, 0x18, 0x00,
+  0xD7, 0xCE, 0x23, 0x37, 0x4F, 0xF4, 0xCC, 0xCB
+};
+
+bool bleEnabled = false;        // secret set, self-test passed, BLE up
+bool bleAdvertising = false;
+uint32_t bleCurrentSlot = 0;    // slot currently on air (0 = none yet)
+bool bleWaitingLogged = false;
+NimBLEAdvertising* bleAdv = nullptr;
+
+// How often to log free memory. Wi-Fi + HTTPS + BLE together is tight on a
+// classic ESP32; the low-water mark after real taps is the number to watch.
+const unsigned long HEAP_LOG_INTERVAL_MS = 60UL * 1000UL;
+unsigned long lastHeapLog = 0;
+
+// Builds the 14-byte payload for one slot. Returns false if HMAC failed.
+bool bleBuildPayload(const uint8_t* key, size_t keyLen, uint16_t terminal,
+                     uint32_t slot, uint8_t out[BLE_PAYLOAD_LEN]) {
+  out[0] = terminal >> 8;
+  out[1] = terminal & 0xFF;
+  out[2] = slot >> 24;
+  out[3] = (slot >> 16) & 0xFF;
+  out[4] = (slot >> 8) & 0xFF;
+  out[5] = slot & 0xFF;
+
+  // HMAC input: domain prefix, then the same 6 bytes just written.
+  const size_t domainLen = sizeof(BLE_DOMAIN) - 1;  // no trailing NUL
+  uint8_t message[sizeof(BLE_DOMAIN) - 1 + 6];
+  memcpy(message, BLE_DOMAIN, domainLen);
+  memcpy(message + domainLen, out, 6);
+
+  uint8_t digest[32];
+  const mbedtls_md_info_t* sha256 = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  if (mbedtls_md_hmac(sha256, key, keyLen, message, sizeof(message), digest) != 0) {
+    return false;
+  }
+  memcpy(out + 6, digest, BLE_CODE_LEN);
+  return true;
+}
+
+// Proves this firmware computes exactly what the server verifies, before
+// any phone is involved. A mismatch here means every Bluetooth check-in
+// would fail, so it's treated as fatal for BLE (NFC carries on).
+bool bleSelfTest() {
+  uint8_t payload[BLE_PAYLOAD_LEN];
+  bool ok = bleBuildPayload((const uint8_t*)BLE_REF_KEY, sizeof(BLE_REF_KEY) - 1,
+                            BLE_REF_TERMINAL, BLE_REF_SLOT, payload)
+            && memcmp(payload, BLE_REF_PAYLOAD, BLE_PAYLOAD_LEN) == 0;
+  printHexDump(ok ? "[BLE] Self-test PASS" : "[BLE] Self-test FAIL, got",
+               payload, BLE_PAYLOAD_LEN);
+  return ok;
+}
+
+void bleSetup() {
+  if (strlen(BLE_BEACON_SECRET) == 0) {
+    Serial.println("[BLE] BLE_BEACON_SECRET is empty -- Bluetooth check-in OFF (NFC unaffected)");
+    return;
+  }
+  if (!bleSelfTest()) {
+    Serial.println("[BLE] Refusing to broadcast: payload does not match the server's format");
+    return;
+  }
+
+  Serial.printf("[HEAP] before BLE: free=%u\n", ESP.getFreeHeap());
+  NimBLEDevice::init("SUAAMS");
+  bleAdv = NimBLEDevice::getAdvertising();
+  // Non-connectable: phones only ever listen. Nothing can open a
+  // connection to the terminal, so there is no GATT surface to attack.
+  bleAdv->setConnectableMode(BLE_GAP_CONN_MODE_NON);
+  bleAdv->setMinInterval(BLE_ADV_INTERVAL);
+  bleAdv->setMaxInterval(BLE_ADV_INTERVAL);
+  Serial.printf("[HEAP] after BLE:  free=%u\n", ESP.getFreeHeap());
+
+  bleEnabled = true;
+  Serial.printf("[BLE] Ready as terminal %u; waiting for NTP before broadcasting\n",
+                (unsigned)BLE_TERMINAL_NUMBER);
+}
+
+// Called every pass through loop(). Cheap unless the slot has changed.
+void bleUpdate() {
+  if (!bleEnabled) return;
+
+  time_t now = time(nullptr);
+  if (now < BLE_MIN_VALID_TIME) {
+    if (!bleWaitingLogged) {
+      Serial.println("[BLE] No NTP time yet -- not broadcasting");
+      bleWaitingLogged = true;
+    }
+    return;
+  }
+
+  uint32_t slot = (uint32_t)(now / BLE_SLOT_SECONDS);
+  if (slot == bleCurrentSlot) return;
+
+  uint8_t payload[BLE_PAYLOAD_LEN];
+  if (!bleBuildPayload((const uint8_t*)BLE_BEACON_SECRET, strlen(BLE_BEACON_SECRET),
+                       BLE_TERMINAL_NUMBER, slot, payload)) {
+    Serial.println("[BLE] HMAC failed -- skipping this slot");
+    return;
+  }
+
+  // Manufacturer data = company ID (little-endian, per the BLE spec) then
+  // our 14 bytes. With flags and the short name this is 29 of the 31
+  // bytes a legacy advertisement allows.
+  uint8_t mfg[2 + BLE_PAYLOAD_LEN];
+  mfg[0] = BLE_COMPANY_ID & 0xFF;
+  mfg[1] = BLE_COMPANY_ID >> 8;
+  memcpy(mfg + 2, payload, BLE_PAYLOAD_LEN);
+
+  NimBLEAdvertisementData data;
+  data.setFlags(BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
+  data.setManufacturerData(mfg, sizeof(mfg));
+  data.setName("SUAAMS");
+
+  // Stop, swap, restart: a gap of a few ms, once every 5 seconds.
+  if (bleAdvertising) bleAdv->stop();
+  bleAdv->setAdvertisementData(data);
+  bleAdvertising = bleAdv->start();
+
+  if (bleCurrentSlot == 0) {
+    Serial.println("[BLE] NTP time acquired -- broadcasting");
+  }
+  bleCurrentSlot = slot;
+  // One line per rotation. Copy the hex into `python ble_beacon.py <hex>`
+  // on the server side to confirm the two agree.
+  printHexDump(bleAdvertising ? "[BLE] Broadcasting" : "[BLE] START FAILED for",
+               payload, BLE_PAYLOAD_LEN);
+}
+
+void logHeapPeriodically() {
+  if (millis() - lastHeapLog < HEAP_LOG_INTERVAL_MS) return;
+  lastHeapLog = millis();
+  Serial.printf("[HEAP] free=%u lowest-ever=%u\n", ESP.getFreeHeap(), ESP.getMinFreeHeap());
+}
 
 // ---------------- Helpers ----------------
 
@@ -608,6 +801,12 @@ void setup() {
   loadBacklog();
 
   connectWifi();
+  // Wall-clock time for the Bluetooth code (UTC; no timezone needed, the
+  // slot is plain unix time). Safe to call even if Wi-Fi isn't up yet: the
+  // SNTP client keeps retrying in the background and re-syncs about hourly,
+  // and the ESP32 keeps counting between syncs, so a Wi-Fi drop doesn't
+  // stop broadcasting.
+  configTime(0, 0, "pool.ntp.org", "time.google.com");
   // Warm the backend as the LAST thing at boot. This used to wait out a
   // full WARM_PING_INTERVAL_MS before the first ping ever fired, because
   // lastWarmPing starts at 0 and millis() starts near 0 -- so the very
@@ -616,12 +815,23 @@ void setup() {
   // 10s window. Forcing the ping here means the backend is already awake
   // before the first student walks up.
   maybeKeepBackendWarm(true);
+  // After the warm ping on purpose: that first TLS handshake is the
+  // biggest heap spike, so the before/after BLE numbers are measured
+  // against a heap that has already been through it.
+  bleSetup();
   Serial.printf("[BOOT] Terminal %s ready, waiting for taps...\n", TERMINAL_ID);
 }
 
 void loop() {
   // Never block on connectivity -- the NFC scan must keep running.
   maintainWifi();
+
+  // Rotate the Bluetooth code when its 5s slot ends. Runs every pass, but
+  // returns at once unless the slot changed. inListPassiveTarget() below
+  // can block for up to about a second, so a rotation may land late by
+  // that much -- harmless, since the server also accepts the previous slot.
+  bleUpdate();
+  logHeapPeriodically();
 
   // inListPassiveTarget() is the right call for an Android HCE phone: a
   // phone is an ISO14443-4 Type 4 tag, not a MIFARE target. (The bring-up

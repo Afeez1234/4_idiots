@@ -154,3 +154,49 @@ def verify_payload(payload: bytes, now: float | None = None) -> tuple[int, int]:
         raise BleBeaconError("outside window")
 
     return terminal, slot
+
+
+def _bench_check(hex_text: str) -> int:
+    """Diagnose one payload copied off the terminal or a BLE scanner app.
+
+    Unlike verify_payload this says WHICH check failed -- fine for a
+    developer at a bench, never for the public endpoint.
+    """
+    payload = bytes.fromhex("".join(hex_text.split()))
+    if len(payload) != PAYLOAD_LEN:
+        print(f"FAIL: {len(payload)} bytes, expected {PAYLOAD_LEN}")
+        return 1
+
+    terminal, slot = struct.unpack(">HI", payload[:6])
+    try:
+        expected = compute_code(terminal, slot)
+    except BleBeaconDisabled as e:
+        print(f"FAIL: {e}")
+        return 1
+    if not hmac.compare_digest(payload[6:], expected):
+        print(f"FAIL: code does not match -- the terminal's BLE_BEACON_SECRET "
+              f"differs from this one (terminal {terminal}, slot {slot})")
+        return 1
+
+    age = current_slot() - slot
+    print(f"OK: signature valid -- terminal {terminal}, slot {slot}, "
+          f"{age * SLOT_SECONDS}s old by this machine's clock")
+    if not (-_SLOTS_AHEAD <= age <= _SLOTS_BEHIND):
+        print("    (outside the live window now -- expected if you copied it "
+              "more than ~10s ago; a large gap means the clocks disagree)")
+    return 0
+
+
+if __name__ == "__main__":
+    # Bench check:  python ble_beacon.py 00 01 14 FB 18 00 D7 CE 23 37 4F F4 CC CB
+    # Reads BLE_BEACON_SECRET from the environment or SUAAMS/.env.
+    import sys
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+    except ImportError:
+        pass
+    if len(sys.argv) < 2:
+        print("usage: python ble_beacon.py <payload hex, spaces allowed>")
+        sys.exit(2)
+    sys.exit(_bench_check(" ".join(sys.argv[1:])))
