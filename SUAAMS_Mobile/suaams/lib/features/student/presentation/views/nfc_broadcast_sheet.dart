@@ -10,6 +10,10 @@ import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/student/data/nfc_service.dart'
     show NfcAvailability;
 import 'package:suaams/features/student/providers/nfc_provider.dart';
+import 'package:suaams/features/student/data/ble_scan_service.dart'
+    show BleReadiness;
+import 'package:suaams/features/student/providers/checkin_method_provider.dart'
+    show CheckInChannel, checkinMethodsProvider;
 import 'package:suaams/shared/utils/attendance_status.dart';
 
 class NfcBroadcastSheet extends ConsumerStatefulWidget {
@@ -29,7 +33,17 @@ class NfcBroadcastSheet extends ConsumerStatefulWidget {
   /// The one-line hint under each check-in entry point (home session card,
   /// ID card button), worded to match what the sheet will show. Kept here so
   /// the two entry points and the sheet can't drift apart.
-  static (IconData, String) entryHint(NfcAvailability availability) {
+  static (IconData, String) entryHint(
+    NfcAvailability availability, {
+    CheckInChannel channel = CheckInChannel.nfc,
+  }) {
+    if (channel == CheckInChannel.ble) {
+      return (
+        Icons.bluetooth_searching_rounded,
+        "You'll confirm with your fingerprint, then stay close to the "
+            'terminal.',
+      );
+    }
     return switch (availability) {
       NfcAvailability.iphone => (
         Icons.info_outline_rounded,
@@ -95,6 +109,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
       case NfcCheckInStatus.noHardwareDetected:
       case NfcCheckInStatus.notEnrolled:
       case NfcCheckInStatus.nfcUnavailable:
+      case NfcCheckInStatus.bleUnavailable:
       case NfcCheckInStatus.error:
         return true;
       default:
@@ -121,6 +136,17 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         current.availability == NfcAvailability.off) {
       _startSecureBroadcast();
     }
+    // Back from Bluetooth / Location / app settings. needsPermission is
+    // left out: its button asks in-app, and that dialog itself pauses and
+    // resumes the app, which would otherwise start a second attempt.
+    if (current.status == NfcCheckInStatus.bleUnavailable &&
+        (current.bleReadiness == BleReadiness.off ||
+            current.bleReadiness == BleReadiness.locationOff ||
+            current.bleReadiness == BleReadiness.permissionBlocked)) {
+      ref
+          .read(nfcCheckInProvider.notifier)
+          .initiateCheckInProtocol(channel: CheckInChannel.ble);
+    }
   }
 
   /* STREAMING_CHUNK: Executing biometric check and hardware HCE channel... */
@@ -142,7 +168,8 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
     // and (PERF FIX) to start/stop the radar animation so it only ticks
     // while the broadcasting UI is actually on screen.
     ref.listen<NfcCheckInState>(nfcCheckInProvider, (previous, next) {
-      if (next.status == NfcCheckInStatus.broadcasting) {
+      if (next.status == NfcCheckInStatus.broadcasting ||
+          next.status == NfcCheckInStatus.scanning) {
         // Continuous light tick simulating active radio transmission
         HapticFeedback.selectionClick();
         if (!_radarController.isAnimating) {
@@ -162,7 +189,8 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           HapticFeedback.heavyImpact();
         } else if (next.status == NfcCheckInStatus.unconfirmed ||
             next.status == NfcCheckInStatus.noHardwareDetected ||
-            next.status == NfcCheckInStatus.nfcUnavailable) {
+            next.status == NfcCheckInStatus.nfcUnavailable ||
+            next.status == NfcCheckInStatus.bleUnavailable) {
           // Deliberately distinct from error's heavyImpact -- both of
           // these are retry-friendly outcomes, not confirmed failures.
           HapticFeedback.mediumImpact();
@@ -202,19 +230,23 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             _buildAuthenticatingState(colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.broadcasting) ...[
             _buildBroadcastingState(nfcState, colorScheme),
+          ] else if (nfcState.status == NfcCheckInStatus.scanning) ...[
+            _buildScanningState(nfcState, colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.confirming) ...[
-            _buildConfirmingState(colorScheme),
+            _buildConfirmingState(nfcState, colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.success) ...[
             _buildSuccessState(nfcState, colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.unconfirmed) ...[
             _buildUnconfirmedState(colorScheme),
           ] else if (nfcState.status ==
               NfcCheckInStatus.noHardwareDetected) ...[
-            _buildNoHardwareDetectedState(colorScheme),
+            _buildNoHardwareDetectedState(nfcState, colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.notEnrolled) ...[
             _buildNotEnrolledState(nfcState, colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.nfcUnavailable) ...[
             _buildNfcUnavailableState(nfcState, colorScheme),
+          ] else if (nfcState.status == NfcCheckInStatus.bleUnavailable) ...[
+            _buildBleUnavailableState(nfcState, colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.error) ...[
             _buildErrorState(nfcState, colorScheme),
           ] else ...[
@@ -423,7 +455,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
   // 4b. Confirming State -- broadcast window closed, still polling
   // /checkin/status for server-side confirmation. No radar here: nothing
   // is being transmitted anymore, this is purely "waiting to hear back".
-  Widget _buildConfirmingState(ColorScheme colorScheme) {
+  Widget _buildConfirmingState(
+    NfcCheckInState state,
+    ColorScheme colorScheme,
+  ) {
     return Column(
       children: [
         CircularProgressIndicator(color: colorScheme.primary, strokeWidth: 3),
@@ -434,7 +469,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         ),
         const SizedBox(height: 8),
         Text(
-          'Waiting for the terminal to confirm your check-in...',
+          state.channel == CheckInChannel.ble
+              // Bluetooth: the phone itself is asking the server.
+              ? 'Checking the terminal\'s code with the server...'
+              : 'Waiting for the terminal to confirm your check-in...',
           style: TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.5),
             fontSize: 12,
@@ -503,7 +541,15 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
   // SuaamsHceService.wasTapDetected()). Same amber "retry-friendly" tier
   // as Unconfirmed above, but a distinct icon/message: this one is
   // certain, not ambiguous -- nothing was in range, not "we don't know".
-  Widget _buildNoHardwareDetectedState(ColorScheme colorScheme) {
+  Widget _buildNoHardwareDetectedState(
+    NfcCheckInState state,
+    ColorScheme colorScheme,
+  ) {
+    final ble = state.channel == CheckInChannel.ble;
+    // Offered on a failed NFC attempt when the server has Bluetooth on:
+    // the "my NFC is flaky" escape hatch.
+    final offerBle =
+        !ble && (ref.watch(checkinMethodsProvider).value?.ble ?? false);
     return Column(
       children: [
         Container(
@@ -520,8 +566,8 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           ),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'NO TERMINAL DETECTED',
+        Text(
+          ble ? "COULDN'T HEAR THE TERMINAL" : 'NO TERMINAL DETECTED',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             letterSpacing: 2,
@@ -532,7 +578,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
-            'No reader responded during the transmission window. Hold your phone closer to the terminal and try again.',
+            ble
+                ? 'No SUAAMS terminal was heard nearby. Move closer to it and '
+                      'try again.'
+                : 'No reader responded during the transmission window. Hold your phone closer to the terminal and try again.',
             style: TextStyle(
               color: colorScheme.onSurface.withValues(alpha: 0.5),
               fontSize: 12,
@@ -540,6 +589,25 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             textAlign: TextAlign.center,
           ),
         ),
+        const SizedBox(height: 24),
+        _actionButton(
+          label: 'TRY AGAIN',
+          icon: Icons.refresh_rounded,
+          onPressed: () => ref
+              .read(nfcCheckInProvider.notifier)
+              .initiateCheckInProtocol(channel: state.channel),
+        ),
+        if (offerBle) ...[
+          const SizedBox(height: 12),
+          _actionButton(
+            label: 'TRY BLUETOOTH INSTEAD',
+            icon: Icons.bluetooth_rounded,
+            primary: false,
+            onPressed: () => ref
+                .read(nfcCheckInProvider.notifier)
+                .initiateCheckInProtocol(channel: CheckInChannel.ble),
+          ),
+        ],
       ],
     );
   }
@@ -684,8 +752,227 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             ),
           ),
         ],
+        // Reached when NFC was chosen (setting = NFC, or Automatic on a
+        // phone whose NFC is merely off) but the server has Bluetooth on.
+        if (ref.watch(checkinMethodsProvider).value?.ble ?? false) ...[
+          const SizedBox(height: 12),
+          _actionButton(
+            label: 'USE BLUETOOTH INSTEAD',
+            icon: Icons.bluetooth_rounded,
+            primary: false,
+            onPressed: () => ref
+                .read(nfcCheckInProvider.notifier)
+                .initiateCheckInProtocol(channel: CheckInChannel.ble),
+          ),
+        ],
       ],
     );
+  }
+
+  // 4g. Scanning -- Bluetooth's counterpart to broadcasting: the same radar,
+  // but the phone is listening for the terminal rather than being read.
+  Widget _buildScanningState(NfcCheckInState state, ColorScheme colorScheme) {
+    return Column(
+      children: [
+        SizedBox(
+          width: 140,
+          height: 140,
+          // Same isolation as the broadcasting radar: only the waves repaint.
+          child: RepaintBoundary(
+            child: AnimatedBuilder(
+              animation: _radarController,
+              child: Center(
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: colorScheme.primary,
+                  ),
+                  child: const Icon(
+                    Icons.bluetooth_searching_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+              builder: (context, child) => CustomPaint(
+                painter: _RadarWavePainter(
+                  progress: _radarController.value,
+                  color: colorScheme.primary,
+                ),
+                child: child,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        Text(
+          state.weakSignal ? 'SIGNAL WEAK' : 'LISTENING FOR TERMINAL',
+          style: AppTheme.accent(weight: FontWeight.w700, letterSpacing: 2),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          state.weakSignal
+              ? 'The terminal is faint. Move closer to it...'
+              : 'Stay close to the SUAAMS terminal...',
+          style: TextStyle(
+            color: colorScheme.onSurface.withValues(alpha: 0.5),
+            fontSize: 12,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  // 4h. Bluetooth Unavailable -- found before the fingerprint prompt, like
+  // NFC Unavailable. Amber with a fix where one exists; neutral otherwise.
+  Widget _buildBleUnavailableState(
+    NfcCheckInState state,
+    ColorScheme colorScheme,
+  ) {
+    final notifier = ref.read(nfcCheckInProvider.notifier);
+    final readiness = state.bleReadiness ?? BleReadiness.unsupported;
+    final fixable = readiness != BleReadiness.unsupported;
+    final isIos = Theme.of(context).platform == TargetPlatform.iOS;
+
+    final (String title, String message) = switch (readiness) {
+      BleReadiness.off => (
+        'BLUETOOTH IS OFF',
+        isIos
+            ? 'Turn on Bluetooth in Control Centre, then come back here.'
+            : 'Turn on Bluetooth to check in near the terminal.',
+      ),
+      BleReadiness.needsPermission => (
+        'ALLOW NEARBY DEVICES',
+        'SUAAMS needs permission to listen for the terminal. It does not '
+            'use your location.',
+      ),
+      BleReadiness.permissionBlocked => (
+        'BLUETOOTH PERMISSION OFF',
+        'Bluetooth permission was turned off for SUAAMS. Turn it on in '
+            'Settings, then come back here.',
+      ),
+      BleReadiness.locationOff => (
+        'LOCATION IS OFF',
+        'On this Android version, listening for Bluetooth devices needs '
+            'Location switched on. SUAAMS does not use your location.',
+      ),
+      _ => (
+        "THIS PHONE CAN'T CHECK IN",
+        "It doesn't support the Bluetooth needed to check in. Tell your "
+            'lecturer before the class ends.',
+      ),
+    };
+
+    final (String? actionLabel, IconData? actionIcon, VoidCallback? action) =
+        switch (readiness) {
+          BleReadiness.off when !isIos => (
+            'TURN ON BLUETOOTH',
+            Icons.bluetooth_rounded,
+            notifier.turnOnBluetooth,
+          ),
+          BleReadiness.needsPermission => (
+            'ALLOW',
+            Icons.check_rounded,
+            notifier.requestBlePermission,
+          ),
+          BleReadiness.permissionBlocked => (
+            'OPEN SETTINGS',
+            Icons.settings_rounded,
+            notifier.openBleSettings,
+          ),
+          _ => (null, null, null),
+        };
+
+    final tone = fixable
+        ? AppStatus.warning
+        : colorScheme.onSurface.withValues(alpha: 0.55);
+
+    return Column(
+      children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: tone),
+          child: const Icon(
+            Icons.bluetooth_disabled_rounded,
+            color: Colors.white,
+            size: 36,
+          ),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+            color: fixable ? AppStatus.warning : null,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            message,
+            style: TextStyle(
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
+              fontSize: 12,
+              height: 1.45,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        if (action != null) ...[
+          const SizedBox(height: 24),
+          _actionButton(
+            label: actionLabel!,
+            icon: actionIcon!,
+            onPressed: action,
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Full-width button used by the retry / fix-it states. `primary` is the
+  /// one thing to do; secondary is an alternative.
+  Widget _actionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback onPressed,
+    bool primary = true,
+  }) {
+    const minimumSize = Size(double.infinity, 52);
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    );
+    final text = Text(
+      label,
+      style: const TextStyle(letterSpacing: 1.5, fontWeight: FontWeight.bold),
+    );
+    return primary
+        ? ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              minimumSize: minimumSize,
+              shape: shape,
+              elevation: 0,
+            ),
+            onPressed: onPressed,
+            icon: Icon(icon, size: 18),
+            label: text,
+          )
+        : OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              minimumSize: minimumSize,
+              shape: shape,
+            ),
+            onPressed: onPressed,
+            icon: Icon(icon, size: 18),
+            label: text,
+          );
   }
 
   // 5. Error Failure State (Red Warning)

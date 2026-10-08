@@ -1,6 +1,28 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.NFC"/>
+    <!-- Bluetooth check-in (listening for the terminal's rotating code).
+         flutter_blue_plus declares no permissions itself; these match what
+         its startScan checks for, version by version.
+         Android 12+: the "Nearby devices" pair. neverForLocation is a
+         promise that scan results are never used to locate the user,
+         which is what lets the app scan WITHOUT asking for location.
+         CONNECT is needed because the plugin reads device names while
+         scanning. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <!-- Android 11 and older: legacy Bluetooth permissions, and location,
+         which those versions require for any Bluetooth scan. Capped so
+         newer Android never asks for location on our behalf. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30"/>
+    <!-- Optional, like NFC: a phone without BLE can still install and use
+         whichever channel it does have. -->
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
     <!-- Android 13+ (API 33) requires this as a runtime-requested
          permission before any notification (including FCM-delivered ones)
          can display; without it, pushes still arrive and update the

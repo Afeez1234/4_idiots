@@ -49,6 +49,8 @@
 	</dict>
 	<key>NSFaceIDUsageDescription</key>
     <string>SUAAMS requires secure FaceID access to verify your student identity before transmitting check-in credentials.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>SUAAMS listens for the attendance terminal over Bluetooth so you can check in. It does not track your location.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

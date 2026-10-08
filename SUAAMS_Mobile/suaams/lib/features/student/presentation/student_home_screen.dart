@@ -11,6 +11,8 @@ import 'package:suaams/features/student/data/nfc_service.dart'
     show NfcAvailability;
 import 'package:suaams/features/student/providers/nfc_provider.dart'
     show nfcAvailabilityProvider;
+import 'package:suaams/features/student/providers/checkin_method_provider.dart'
+    show CheckInChannel, checkInChannelProvider;
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/providers/today_schedule_provider.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
@@ -430,9 +432,17 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
     // a "can't" state on every phone.
     final availability =
         ref.watch(nfcAvailabilityProvider).value ?? NfcAvailability.ready;
-    final canTap = !availability.cannotTapIn;
+    // Bluetooth (when the server has it on) lets a phone without NFC check
+    // in too, so "can't tap in" only greys the card when NFC is the
+    // channel. See resolveCheckInChannel for how the channel is chosen.
+    final channel = ref.watch(checkInChannelProvider);
+    final canTap =
+        channel == CheckInChannel.ble || !availability.cannotTapIn;
     final armed = isLive && canTap;
-    final (hintIcon, hintText) = NfcBroadcastSheet.entryHint(availability);
+    final (hintIcon, hintText) = NfcBroadcastSheet.entryHint(
+      availability,
+      channel: channel,
+    );
 
     // An ad-hoc session (lecturer started a class with no scheduled slot
     // today) is checkable exactly like a scheduled one, so it arms the same
@@ -565,6 +575,8 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                       Icon(
                         isLive && !canTap
                             ? Icons.phonelink_off_rounded
+                            : channel == CheckInChannel.ble
+                            ? Icons.bluetooth_rounded
                             : Icons.nfc_rounded,
                         size: 16,
                         color: armed
