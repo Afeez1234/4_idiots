@@ -7,6 +7,7 @@ import 'package:suaams/core/providers/biometric_status_provider.dart';
 import 'package:suaams/features/student/providers/device_info_provider.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/core/providers/theme_provider.dart';
+import 'package:suaams/shared/widgets/theme_mode_sheet.dart';
 import 'package:suaams/features/student/providers/checkin_method_provider.dart'
     show checkInMethodPrefProvider;
 import 'package:suaams/features/student/presentation/views/checkin_method_sheet.dart';
@@ -137,12 +138,10 @@ class ProfileView extends ConsumerWidget {
                 ? Icons.light_mode_rounded
                 : Icons.dark_mode_rounded,
             title: 'Interface Theme',
-            subtitle: isDarkMode
-                ? 'Stealth Mode (Dark)'
-                : 'Blueprint Mode (Light)',
+            subtitle: themeModeLabel(ref.watch(themeProvider)),
             colorScheme: colorScheme,
             terminal: terminal,
-            onTap: () => ref.read(themeProvider.notifier).toggleTheme(),
+            onTap: () => ThemeModeSheet.show(context),
           ),
           const SizedBox(height: 12),
           // NFC / Bluetooth / Automatic. See checkin_method_provider.dart.
