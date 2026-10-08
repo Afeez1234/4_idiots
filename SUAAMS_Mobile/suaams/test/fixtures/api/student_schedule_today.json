@@ -1,0 +1,8 @@
+{
+  "success": true,
+  "today_protocol": [
+    {"course_id": 7, "course_name": "Control Systems", "course_code": "MCT 401", "status": "PENDING", "session_live": true, "start_time": "09:00", "end_time": "11:00", "room": "LT 2"},
+    {"course_id": 9, "course_name": "Embedded Systems", "course_code": "MCT 405", "status": "PENDING", "session_live": false, "start_time": "14:00", "end_time": "16:00", "room": "Lab B"},
+    {"course_id": 12, "course_name": "Robotics", "course_code": "MCT 411", "status": "PENDING", "session_live": true, "start_time": "12:10", "end_time": null, "room": null, "ad_hoc": true}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "success": true,
+  "data": {
+    "student": {
+      "full_name": "Ada Okafor",
+      "department": "Mechatronics Engineering",
+      "level": "400",
+      "rfid_uid": null,
+      "matric_number": "MCT/2022/014"
+    },
+    "stats": {
+      "overall_rate": 66.7,
+      "attendance_count": 4,
+      "total_sessions": 6,
+      "at_risk_count": 3,
+      "enrollment_count": 3
+    },
+    "courses": [
+      {"id": 7, "name": "Control Systems", "code": "MCT 401", "pct": 66.7, "attended": 2, "total": 3},
+      {"id": 9, "name": "Embedded Systems", "code": "MCT 405", "pct": 66.7, "attended": 2, "total": 3},
+      {"id": 12, "name": "Robotics", "code": "MCT 411", "pct": 0, "attended": 0, "total": 0}
+    ],
+    "recent_attendance": [
+      {"course": "MCT 401", "date": "07 Oct 2026", "time": "09:00", "status": "present", "session_id": 41},
+      {"course": "MCT 405", "date": "06 Oct 2026", "time": "--:--", "status": "late", "session_id": 38}
+    ]
+  }
+}

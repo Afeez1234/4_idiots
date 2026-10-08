@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "data": {
+    "course": {"id": 15, "title": "Mechatronic Design", "code": "MCT 421"},
+    "stats": {"enrolled_count": 0, "total_sessions": 0, "avg_attendance": 0, "present_now": 0},
+    "active_session": null,
+    "live_attendance": []
+  }
+}

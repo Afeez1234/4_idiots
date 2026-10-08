@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "data": {
+    "course": {"id": 7, "title": "Control Systems", "code": "MCT 401"},
+    "sessions": [
+      {"session_id": 41, "date": "07 Oct 2026", "planned_start": "09:00:00", "planned_end": "11:00:00", "status": "present", "time_in": "09:04"},
+      {"session_id": 35, "date": "30 Sep 2026", "planned_start": null, "planned_end": null, "status": "absent", "time_in": null}
+    ]
+  }
+}

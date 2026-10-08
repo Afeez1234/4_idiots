@@ -1,0 +1,8 @@
+{
+  "success": true,
+  "notifications": [
+    {"id": 3, "type": "attendance_marked", "title": "Attendance Recorded", "body": "You were marked present for MCT 401.", "data": {"session_id": 41, "course_code": "MCT 401"}, "read": false, "created_at": "2026-10-07T08:04:12.512331+00:00"},
+    {"id": 1, "type": "device_lockout_alert", "title": "Login Attempt Blocked", "body": "Someone tried to log into your account from a different device.", "data": null, "read": true, "created_at": "2026-10-01T17:30:00+00:00"}
+  ],
+  "unread_count": 1
+}
