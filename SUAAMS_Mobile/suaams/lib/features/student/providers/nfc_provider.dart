@@ -45,6 +45,11 @@ enum NfcCheckInStatus {
   // failure (won't resolve by waiting), so confirmation polling stops
   // immediately rather than running out its full window.
   notEnrolled,
+  // This phone can't tap in right now: NFC is off, missing, or it's an
+  // iPhone (see NfcCheckInState.availability). Checked before the
+  // fingerprint prompt, so nothing was minted or broadcast. Deliberately
+  // not `error`: the student did nothing wrong, and NFC-off is fixable.
+  nfcUnavailable,
   error,
 }
 
@@ -54,12 +59,15 @@ class NfcCheckInState {
   final String? errorMessage;
   final String?
   courseCode; // Set on a confirmed check-in or a notEnrolled result
+  // Why the phone can't tap in. Set only with status nfcUnavailable.
+  final NfcAvailability? availability;
 
   NfcCheckInState({
     this.status = NfcCheckInStatus.idle,
     this.secondsRemaining = 0,
     this.errorMessage,
     this.courseCode,
+    this.availability,
   });
 
   NfcCheckInState copyWith({
@@ -67,15 +75,26 @@ class NfcCheckInState {
     int? secondsRemaining,
     String? errorMessage,
     String? courseCode,
+    NfcAvailability? availability,
   }) {
     return NfcCheckInState(
       status: status ?? this.status,
       secondsRemaining: secondsRemaining ?? this.secondsRemaining,
       errorMessage: errorMessage ?? this.errorMessage,
       courseCode: courseCode ?? this.courseCode,
+      availability: availability ?? this.availability,
     );
   }
 }
+
+/// Whether this phone can tap in, for the entry points (home session card,
+/// ID card button) to grey themselves out BEFORE the sheet opens. The sheet
+/// itself re-checks on every attempt rather than trusting this cached value,
+/// since NFC can be switched off between the two. Invalidate it on app
+/// resume: the student may have just toggled NFC in system settings.
+final nfcAvailabilityProvider = FutureProvider.autoDispose<NfcAvailability>(
+  (ref) => ref.read(nfcServiceProvider).getAvailability(),
+);
 
 // OPTIMIZATION: Leveraged absolute type inference to prevent generic bound mismatch on Riverpod 3.x
 final nfcCheckInProvider = NotifierProvider.autoDispose(NfcCheckInNotifier.new);
@@ -198,7 +217,10 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     // then orphaned with no wipe scheduled, the same leak as the dispose
     // race. Refuse to start a second run rather than half-doing both.
     if (state.status != NfcCheckInStatus.idle &&
-        state.status != NfcCheckInStatus.error) {
+        state.status != NfcCheckInStatus.error &&
+        // Retried automatically when the student comes back from the NFC
+        // settings screen (see NfcBroadcastSheet's resume handler).
+        state.status != NfcCheckInStatus.nfcUnavailable) {
       debugPrint('[NFC] ignoring check-in start: already ${state.status}');
       return;
     }
@@ -225,6 +247,20 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
           'Security check failed: ${SecurityService.instance.threatDescription}. '
           'Attendance check-in is disabled on this device.',
         );
+      }
+
+      // 0b. Can this phone tap in at all? Before the fingerprint prompt, so
+      // a student whose phone can't broadcast isn't asked to authenticate
+      // for nothing, and no beacon is minted that could never be read.
+      final availability =
+          await _nfcService?.getAvailability() ?? NfcAvailability.ready;
+      if (!ref.mounted) return;
+      if (availability != NfcAvailability.ready) {
+        state = NfcCheckInState(
+          status: NfcCheckInStatus.nfcUnavailable,
+          availability: availability,
+        );
+        return;
       }
 
       // 1. Check OS hardware capability
@@ -338,6 +374,12 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       // that doesn't depend on this call at all.)
       await _nfcService?.stopHceEmulation();
     }
+  }
+
+  /// Opens the system NFC toggle. The sheet re-runs the check when the app
+  /// resumes, so the student doesn't have to reopen it after switching on.
+  Future<void> openNfcSettings() async {
+    await _nfcService?.openNfcSettings();
   }
 
   void _startBroadcastCountdown() {

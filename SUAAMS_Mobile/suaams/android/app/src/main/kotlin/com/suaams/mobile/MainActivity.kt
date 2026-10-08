@@ -1,5 +1,10 @@
 package com.suaams.mobile
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.nfc.NfcAdapter
+import android.provider.Settings
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -49,8 +54,39 @@ class MainActivity : FlutterFragmentActivity() {
                     "wasTapDetected" -> {
                         result.success(SuaamsHceService.wasTapDetected())
                     }
+                    // Can this phone tap in at all, right now? Checked before
+                    // the fingerprint prompt so a phone that can't broadcast
+                    // never gets as far as minting a beacon. The manifest
+                    // declares NFC as optional, so the app installs on phones
+                    // without it -- this is where that gets caught.
+                    "getNfcStatus" -> {
+                        result.success(nfcStatus())
+                    }
+                    // Opens the system NFC toggle. Not every OEM build has
+                    // the dedicated screen, so fall back to the general
+                    // wireless settings rather than doing nothing.
+                    "openNfcSettings" -> {
+                        try {
+                            startActivity(Intent(Settings.ACTION_NFC_SETTINGS))
+                        } catch (e: ActivityNotFoundException) {
+                            startActivity(Intent(Settings.ACTION_WIRELESS_SETTINGS))
+                        }
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }
+    }
+
+    // One of "unsupported" (no NFC chip), "noHce" (NFC, but can't act as a
+    // card -- some phones ship like this), "disabled" (switched off) or
+    // "ready". Order matters: a phone without HCE can't tap in even with
+    // NFC switched on, so "turn on NFC" would be the wrong advice.
+    private fun nfcStatus(): String {
+        val adapter = NfcAdapter.getDefaultAdapter(this) ?: return "unsupported"
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)) {
+            return "noHce"
+        }
+        return if (adapter.isEnabled) "ready" else "disabled"
     }
 }

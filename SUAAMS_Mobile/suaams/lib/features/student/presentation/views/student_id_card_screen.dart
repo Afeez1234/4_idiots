@@ -8,6 +8,10 @@ import 'package:suaams/shared/widgets/dashboard_background.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/features/student/presentation/views/nfc_broadcast_sheet.dart';
+import 'package:suaams/features/student/data/nfc_service.dart'
+    show NfcAvailability;
+import 'package:suaams/features/student/providers/nfc_provider.dart'
+    show nfcAvailabilityProvider;
 import 'package:suaams/shared/utils/initials.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
 
@@ -27,6 +31,13 @@ class StudentIdCardScreen extends ConsumerWidget {
     final state = ref.watch(studentDashboardProvider);
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final detailsVisible = ref.watch(cardPrivacyProvider);
+    // Same gate as the home session card: a phone that can never tap in
+    // gets an inert button saying so, instead of a sheet that says it one
+    // step later. Assumed able while the check is still running.
+    final availability =
+        ref.watch(nfcAvailabilityProvider).value ?? NfcAvailability.ready;
+    final canTap = !availability.cannotTapIn;
+    final (hintIcon, hintText) = NfcBroadcastSheet.entryHint(availability);
     final colorScheme = Theme.of(context).colorScheme;
                             final terminal = terminalOf(context);
 
@@ -134,15 +145,24 @@ class StudentIdCardScreen extends ConsumerWidget {
                             ),
                             elevation: 0,
                           ),
-                          onPressed: () => NfcBroadcastSheet.show(context),
-                          child: const Row(
+                          onPressed: canTap
+                              ? () => NfcBroadcastSheet.show(context)
+                              : null,
+                          child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.contactless_rounded, size: 22),
-                              SizedBox(width: 12),
+                              Icon(
+                                canTap
+                                    ? Icons.contactless_rounded
+                                    : Icons.phonelink_off_rounded,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 12),
                               Text(
-                                'CHECK IN WITH THIS ID',
-                                style: TextStyle(
+                                canTap
+                                    ? 'CHECK IN WITH THIS ID'
+                                    : "THIS PHONE CAN'T TAP IN",
+                                style: const TextStyle(
                                   letterSpacing: 1.5,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
@@ -159,7 +179,7 @@ class StudentIdCardScreen extends ConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.fingerprint_rounded,
+                              hintIcon,
                               size: 14,
                               color: colorScheme.onSurface.withValues(
                                 alpha: 0.45,
@@ -168,8 +188,8 @@ class StudentIdCardScreen extends ConsumerWidget {
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
-                                "You'll confirm with your fingerprint, then "
-                                'hold your phone to the terminal.',
+                                // Same wording as the sheet; see entryHint.
+                                hintText,
                                 textAlign: TextAlign.center,
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(

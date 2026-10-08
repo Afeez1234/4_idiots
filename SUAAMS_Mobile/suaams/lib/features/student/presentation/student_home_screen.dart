@@ -7,6 +7,10 @@ import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/features/student/models/today_protocol_entry.dart';
 import 'package:suaams/features/student/presentation/views/nfc_broadcast_sheet.dart';
+import 'package:suaams/features/student/data/nfc_service.dart'
+    show NfcAvailability;
+import 'package:suaams/features/student/providers/nfc_provider.dart'
+    show nfcAvailabilityProvider;
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/providers/today_schedule_provider.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
@@ -62,6 +66,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
     // listeners go away, so on resume there may be no timer left to fire
     // one. refreshTodaySchedule() restarts it and fetches immediately.
     ref.read(todayScheduleProvider.notifier).refreshTodaySchedule();
+    // The student may have just switched NFC on or off in system settings.
+    ref.invalidate(nfcAvailabilityProvider);
   }
 
   @override
@@ -416,6 +422,18 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
     final isLive = !scheduleState.isLoading && nextSession != null;
     final display = nextSession ?? nextScheduled;
 
+    // A phone that can never tap in (no NFC, or an iPhone) keeps the card's
+    // "session live" information but not the tap target: opening the sheet
+    // would only tell them the same thing one step later. NFC switched off
+    // stays tappable -- the sheet has the button to switch it on. While the
+    // check is still running, assume the phone can tap in rather than flash
+    // a "can't" state on every phone.
+    final availability =
+        ref.watch(nfcAvailabilityProvider).value ?? NfcAvailability.ready;
+    final canTap = !availability.cannotTapIn;
+    final armed = isLive && canTap;
+    final (hintIcon, hintText) = NfcBroadcastSheet.entryHint(availability);
+
     // An ad-hoc session (lecturer started a class with no scheduled slot
     // today) is checkable exactly like a scheduled one, so it arms the same
     // way -- it's just labelled differently, since a student who never saw
@@ -463,8 +481,8 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
           // The old layout's affordance was the flat rectangle while the
           // hit area was a 48px button in the middle, which read as a
           // mismatch once you started aiming for the card itself.
-          onTap: isLive ? () => NfcBroadcastSheet.show(context) : null,
-          onHighlightChanged: isLive ? _setPressed : null,
+          onTap: armed ? () => NfcBroadcastSheet.show(context) : null,
+          onHighlightChanged: armed ? _setPressed : null,
           borderRadius: BorderRadius.circular(16),
           splashColor: colorScheme.primary.withValues(alpha: 0.08),
           child: Container(
@@ -536,7 +554,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: isLive
+                    color: armed
                         ? terminal.accent
                         : colorScheme.onSurface.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(8),
@@ -545,16 +563,20 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.nfc_rounded,
+                        isLive && !canTap
+                            ? Icons.phonelink_off_rounded
+                            : Icons.nfc_rounded,
                         size: 16,
-                        color: isLive
+                        color: armed
                             ? terminal.onAccent
                             : colorScheme.onSurface.withValues(alpha: 0.35),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         isLive
-                            ? 'TAP TO CHECK IN'
+                            ? canTap
+                                  ? 'TAP TO CHECK IN'
+                                  : "THIS PHONE CAN'T TAP IN"
                             : nextScheduled != null
                             // Start time, not "no session" -- there IS a
                             // session on the timetable, it just hasn't begun.
@@ -564,7 +586,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                           letterSpacing: 2,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
-                          color: isLive
+                          color: armed
                               ? terminal.onAccent
                               : colorScheme.onSurface.withValues(alpha: 0.45),
                         ),
@@ -585,15 +607,15 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        Icons.fingerprint_rounded,
+                        hintIcon,
                         size: 14,
                         color: colorScheme.onSurface.withValues(alpha: 0.45),
                       ),
                       const SizedBox(width: 6),
                       Flexible(
                         child: Text(
-                          "You'll confirm with your fingerprint, then hold "
-                          'your phone to the terminal.',
+                          // Same wording as the sheet; see entryHint.
+                          hintText,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
