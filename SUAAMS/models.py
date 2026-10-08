@@ -324,6 +324,13 @@ class Attendance(db.Model):
     time_in = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     # NEW: 'late' added alongside the existing present/absent/excused.
     status = db.Column(db.Enum('present', 'late', 'absent', 'excused'), default='present')
+    # How the student checked in: 'nfc' (phone tap at the terminal), 'ble'
+    # (Bluetooth code, the fallback for phones that can't tap), 'rfid' (ID
+    # card on the terminal). BLE is weaker evidence of presence than NFC
+    # (see ble_beacon.py), so this is what lets a lecturer see the mix.
+    # NULL = recorded before this column existed; method unknown. Not
+    # backfilled, because guessing would be worse than admitting it.
+    method = db.Column(db.String(8), nullable=True)
 
     # NEW: wasn't enforced before (a student could be marked twice for the
     # same session). Matches the existing attendance_already_recorded()
