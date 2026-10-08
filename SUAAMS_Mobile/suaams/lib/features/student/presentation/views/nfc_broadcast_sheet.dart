@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/features/student/data/nfc_service.dart'
+    show NfcAvailability;
 import 'package:suaams/features/student/providers/nfc_provider.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 
@@ -24,12 +26,38 @@ class NfcBroadcastSheet extends ConsumerStatefulWidget {
     );
   }
 
+  /// The one-line hint under each check-in entry point (home session card,
+  /// ID card button), worded to match what the sheet will show. Kept here so
+  /// the two entry points and the sheet can't drift apart.
+  static (IconData, String) entryHint(NfcAvailability availability) {
+    return switch (availability) {
+      NfcAvailability.iphone => (
+        Icons.info_outline_rounded,
+        "iPhones can't tap in yet. Tell your lecturer before the class ends.",
+      ),
+      NfcAvailability.unsupported => (
+        Icons.info_outline_rounded,
+        "This phone doesn't have NFC. Tell your lecturer before the class "
+            'ends.',
+      ),
+      NfcAvailability.off => (
+        Icons.nfc_rounded,
+        "NFC is off. You'll be asked to turn it on when you tap.",
+      ),
+      NfcAvailability.ready => (
+        Icons.fingerprint_rounded,
+        "You'll confirm with your fingerprint, then hold your phone to the "
+            'terminal.',
+      ),
+    };
+  }
+
   @override
   ConsumerState<NfcBroadcastSheet> createState() => _NfcBroadcastSheetState();
 }
 
 class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _radarController;
 
   @override
@@ -47,6 +75,9 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
       duration: const Duration(seconds: 2),
     );
 
+    // Watches for the student returning from the NFC settings screen.
+    WidgetsBinding.instance.addObserver(this);
+
     // Automatically trigger biometrics and transmission on mount
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startSecureBroadcast();
@@ -63,6 +94,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
       case NfcCheckInStatus.unconfirmed:
       case NfcCheckInStatus.noHardwareDetected:
       case NfcCheckInStatus.notEnrolled:
+      case NfcCheckInStatus.nfcUnavailable:
       case NfcCheckInStatus.error:
         return true;
       default:
@@ -72,8 +104,23 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _radarController.dispose();
     super.dispose();
+  }
+
+  // Back from the NFC settings screen: run the check-in again. If NFC is now
+  // on, this goes straight to the fingerprint prompt; if it's still off, the
+  // same "NFC is off" state comes back. Only for the fixable case -- a phone
+  // without NFC won't grow it while the student is in settings.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycle) {
+    if (lifecycle != AppLifecycleState.resumed) return;
+    final current = ref.read(nfcCheckInProvider);
+    if (current.status == NfcCheckInStatus.nfcUnavailable &&
+        current.availability == NfcAvailability.off) {
+      _startSecureBroadcast();
+    }
   }
 
   /* STREAMING_CHUNK: Executing biometric check and hardware HCE channel... */
@@ -114,7 +161,8 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           // Security or transmission failure
           HapticFeedback.heavyImpact();
         } else if (next.status == NfcCheckInStatus.unconfirmed ||
-            next.status == NfcCheckInStatus.noHardwareDetected) {
+            next.status == NfcCheckInStatus.noHardwareDetected ||
+            next.status == NfcCheckInStatus.nfcUnavailable) {
           // Deliberately distinct from error's heavyImpact -- both of
           // these are retry-friendly outcomes, not confirmed failures.
           HapticFeedback.mediumImpact();
@@ -165,6 +213,8 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             _buildNoHardwareDetectedState(colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.notEnrolled) ...[
             _buildNotEnrolledState(nfcState, colorScheme),
+          ] else if (nfcState.status == NfcCheckInStatus.nfcUnavailable) ...[
+            _buildNfcUnavailableState(nfcState, colorScheme),
           ] else if (nfcState.status == NfcCheckInStatus.error) ...[
             _buildErrorState(nfcState, colorScheme),
           ] else ...[
@@ -541,6 +591,99 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             textAlign: TextAlign.center,
           ),
         ),
+      ],
+    );
+  }
+
+  // 4f. NFC Unavailable -- this phone can't tap in right now, found before
+  // the fingerprint prompt. Not red: nothing failed and the student did
+  // nothing wrong. NFC-off is amber with a way to fix it; a phone that can
+  // never tap in is neutral, with the one thing the student can do instead.
+  Widget _buildNfcUnavailableState(
+    NfcCheckInState state,
+    ColorScheme colorScheme,
+  ) {
+    final availability = state.availability ?? NfcAvailability.unsupported;
+    final fixable = availability == NfcAvailability.off;
+
+    final (
+      IconData icon,
+      String title,
+      String message,
+    ) = switch (availability) {
+      NfcAvailability.off => (
+        Icons.nfc_rounded,
+        'NFC IS OFF',
+        'Turn on NFC to tap in. Come back to this screen afterwards and '
+            'check-in will continue.',
+      ),
+      NfcAvailability.iphone => (
+        Icons.phonelink_off_rounded,
+        "IPHONES CAN'T TAP IN YET",
+        "Apple doesn't allow apps to use NFC this way. Tell your lecturer "
+            'before the class ends.',
+      ),
+      _ => (
+        Icons.phonelink_off_rounded,
+        "THIS PHONE CAN'T TAP IN",
+        "It doesn't have the NFC needed to check in at the terminal. Tell "
+            'your lecturer before the class ends.',
+      ),
+    };
+    final tone = fixable
+        ? AppStatus.warning
+        : colorScheme.onSurface.withValues(alpha: 0.55);
+
+    return Column(
+      children: [
+        Container(
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: tone),
+          child: Icon(icon, color: Colors.white, size: 36),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 2,
+            color: fixable ? AppStatus.warning : null,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Text(
+            message,
+            style: TextStyle(
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
+              fontSize: 12,
+              height: 1.45,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        if (fixable) ...[
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            onPressed: () =>
+                ref.read(nfcCheckInProvider.notifier).openNfcSettings(),
+            icon: const Icon(Icons.settings_rounded, size: 18),
+            label: const Text(
+              'OPEN NFC SETTINGS',
+              style: TextStyle(letterSpacing: 1.5, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ],
     );
   }

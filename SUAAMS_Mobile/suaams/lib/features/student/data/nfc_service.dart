@@ -1,7 +1,33 @@
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final nfcServiceProvider = Provider<NfcService>((ref) => NfcService());
+
+/// Whether this phone can tap in at the terminal right now.
+///
+/// The manifest marks NFC as optional, so the app installs on phones that
+/// can never check in this way. Before this existed, those students went
+/// through the fingerprint prompt and a 10s countdown and were then told to
+/// "hold your phone closer" -- blaming their aim for a hardware limit.
+enum NfcAvailability {
+  /// NFC present, card emulation supported, switched on.
+  ready,
+
+  /// NFC present but switched off. Fixable from system settings.
+  off,
+
+  /// No NFC chip, or NFC that can't act as a card. Not fixable on this phone.
+  unsupported,
+
+  /// iPhone. Apple only lets third-party apps emulate an NFC card inside the
+  /// EEA, with a special entitlement -- so not fixable on any iPhone here.
+  iphone;
+
+  /// True when no setting on this phone will make tapping in work.
+  bool get cannotTapIn => this == unsupported || this == iphone;
+}
 
 /// Bridges to SuaamsHceService, the custom native HostApduService
 /// (android/app/src/main/kotlin/com/example/suaams/SuaamsHceService.kt)
@@ -67,6 +93,42 @@ class NfcService {
       return result ?? false;
     } on PlatformException catch (_) {
       return false;
+    }
+  }
+
+  /// Checks whether this phone can tap in. See [NfcAvailability].
+  ///
+  /// Fails OPEN (returns [NfcAvailability.ready]) if the check itself
+  /// errors. This is a usability check, not a security one -- the server
+  /// still decides whether a check-in counts -- and a channel glitch must not
+  /// lock a working phone out of check-in. A phone that really can't tap in
+  /// still ends at the existing "no terminal detected" state.
+  Future<NfcAvailability> getAvailability() async {
+    if (Platform.isIOS) return NfcAvailability.iphone;
+    if (!Platform.isAndroid) return NfcAvailability.unsupported;
+    try {
+      final status = await _channel.invokeMethod<String>('getNfcStatus');
+      switch (status) {
+        case 'disabled':
+          return NfcAvailability.off;
+        case 'unsupported':
+        case 'noHce':
+          return NfcAvailability.unsupported;
+        default:
+          return NfcAvailability.ready;
+      }
+    } catch (e) {
+      debugPrint('[NFC] availability check failed, assuming ready: $e');
+      return NfcAvailability.ready;
+    }
+  }
+
+  /// Opens the system screen where the student can switch NFC on.
+  Future<void> openNfcSettings() async {
+    try {
+      await _channel.invokeMethod('openNfcSettings');
+    } catch (e) {
+      debugPrint('[NFC] could not open NFC settings: $e');
     }
   }
 }
