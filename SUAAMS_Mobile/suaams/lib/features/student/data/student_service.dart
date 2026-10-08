@@ -43,7 +43,101 @@ class BeaconMintResult {
   BeaconMintResult({required this.beaconToken, this.expiresIn});
 }
 
+/// Which check-in channels the server has switched on (/checkin/methods).
+class CheckinMethods {
+  final bool nfc;
+  final bool ble;
+
+  const CheckinMethods({required this.nfc, required this.ble});
+}
+
+/// Outcome of a Bluetooth check-in (/checkin/ble).
+///
+/// The server's "expected" refusals come back as a result rather than an
+/// exception, deliberately. withAuthRetry treats any error mentioning
+/// "expired" as a dead login, and the server's reply to a stale code is
+/// "Invalid or expired code" -- thrown, it would trigger a pointless token
+/// refresh and resubmit the same stale code.
+class BleCheckinResult {
+  final bool recorded; // true for a new record AND for "already marked"
+  final String? reason; // 'invalid_code', 'no_active_session', or null
+  final String? courseCode;
+
+  const BleCheckinResult({required this.recorded, this.reason, this.courseCode});
+}
+
 class StudentService {
+  Future<CheckinMethods> fetchCheckinMethods(String token) async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse(ApiConstants.checkinMethodsEndpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return CheckinMethods(
+          nfc: responseData['nfc'] == true,
+          ble: responseData['ble'] == true,
+        );
+      }
+      throw Exception(
+        responseData['error'] ??
+            responseData['msg'] ??
+            'Server returned status ${response.statusCode}',
+      );
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Posts the 14-byte payload heard from the terminal (as hex). See
+  /// BleCheckinResult for why refusals are returned, not thrown.
+  Future<BleCheckinResult> submitBleCheckin(
+    String token, {
+    required String payloadHex,
+    required int rssi,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(ApiConstants.checkinBleEndpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode({'payload': payloadHex, 'rssi': rssi}),
+          )
+          // The code the phone heard is only good for ~10s, so a request
+          // that takes longer than this was lost anyway; fail and let the
+          // student retry with a fresh scan.
+          .timeout(const Duration(seconds: 12));
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+      final reason = responseData['reason'] as String?;
+      final courseCode = responseData['course_code'] as String?;
+
+      if (response.statusCode == 200 && responseData['success'] == true) {
+        return BleCheckinResult(recorded: true, courseCode: courseCode);
+      }
+      if (reason == 'invalid_code' || reason == 'no_active_session') {
+        return BleCheckinResult(recorded: false, reason: reason);
+      }
+      throw Exception(
+        responseData['error'] ??
+            responseData['msg'] ??
+            'Server returned status ${response.statusCode}',
+      );
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   // 1. Receive the token directly from RAM to avoid hardware storage race conditions
   Future<StudentDashboardModel> fetchDashboardData(String token) async {
     try {

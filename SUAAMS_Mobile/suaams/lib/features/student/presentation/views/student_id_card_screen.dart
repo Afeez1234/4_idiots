@@ -12,6 +12,8 @@ import 'package:suaams/features/student/data/nfc_service.dart'
     show NfcAvailability;
 import 'package:suaams/features/student/providers/nfc_provider.dart'
     show nfcAvailabilityProvider;
+import 'package:suaams/features/student/providers/checkin_method_provider.dart'
+    show CheckInChannel, checkInChannelProvider;
 import 'package:suaams/shared/utils/initials.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
 
@@ -36,8 +38,15 @@ class StudentIdCardScreen extends ConsumerWidget {
     // step later. Assumed able while the check is still running.
     final availability =
         ref.watch(nfcAvailabilityProvider).value ?? NfcAvailability.ready;
-    final canTap = !availability.cannotTapIn;
-    final (hintIcon, hintText) = NfcBroadcastSheet.entryHint(availability);
+    // Same rule as the home session card: Bluetooth makes a phone without
+    // NFC able to check in.
+    final channel = ref.watch(checkInChannelProvider);
+    final canTap =
+        channel == CheckInChannel.ble || !availability.cannotTapIn;
+    final (hintIcon, hintText) = NfcBroadcastSheet.entryHint(
+      availability,
+      channel: channel,
+    );
     final colorScheme = Theme.of(context).colorScheme;
                             final terminal = terminalOf(context);
 

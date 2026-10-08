@@ -47,6 +47,15 @@ abstract final class ApiConstants {
   // NfcCheckInNotifier's confirming/unconfirmed states.
   static const String checkinStatusEndpoint = '$baseUrl/student/checkin/status';
 
+  // Which check-in channels the server has switched on ({nfc, ble}). The
+  // app hides Bluetooth entirely when the server has it off.
+  static const String checkinMethodsEndpoint = '$baseUrl/student/checkin/methods';
+
+  // Bluetooth check-in: the phone posts the code it heard from the
+  // terminal's advertisement and gets a definite answer in one request --
+  // no status polling, because no terminal POST is involved.
+  static const String checkinBleEndpoint = '$baseUrl/student/checkin/ble';
+
   // Backs the "TODAY'S PROTOCOL" list on the student dashboard home tab.
   // Deliberately separate from studentDashboardEndpoint above -- dashboard
   // stats barely change, but a course's status here changes live as a

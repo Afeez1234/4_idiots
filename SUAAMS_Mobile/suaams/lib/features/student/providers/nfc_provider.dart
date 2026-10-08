@@ -16,6 +16,9 @@ import 'package:suaams/features/student/providers/today_schedule_provider.dart';
 import 'package:suaams/features/student/providers/course_attendance_history_provider.dart';
 import 'package:suaams/features/student/data/student_service.dart'
     show CheckinStatusResult;
+// Bluetooth fallback: the scanner, and the one rule for choosing a channel.
+import 'package:suaams/features/student/data/ble_scan_service.dart';
+import 'package:suaams/features/student/providers/checkin_method_provider.dart';
 import 'package:suaams/core/network/auth_retry.dart';
 import 'package:suaams/core/services/security_service.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
@@ -24,6 +27,9 @@ enum NfcCheckInStatus {
   idle,
   authenticating,
   broadcasting,
+  // Bluetooth: listening for the terminal's rotating code. The BLE
+  // counterpart of `broadcasting` -- the phone receives instead of sends.
+  scanning,
   // Broadcasting has stopped (window closed) but confirmation polling
   // is still running -- distinct from `broadcasting` so the UI stops
   // showing the radar/countdown for a signal that's no longer being sent.
@@ -50,6 +56,10 @@ enum NfcCheckInStatus {
   // fingerprint prompt, so nothing was minted or broadcast. Deliberately
   // not `error`: the student did nothing wrong, and NFC-off is fixable.
   nfcUnavailable,
+  // Bluetooth can't scan right now: off, permission missing, Location off
+  // (Android 11 and older), or no BLE. See NfcCheckInState.bleReadiness.
+  // Checked before the fingerprint prompt, like nfcUnavailable.
+  bleUnavailable,
   error,
 }
 
@@ -61,6 +71,13 @@ class NfcCheckInState {
   courseCode; // Set on a confirmed check-in or a notEnrolled result
   // Why the phone can't tap in. Set only with status nfcUnavailable.
   final NfcAvailability? availability;
+  // Which channel this attempt is using, so shared states (confirming,
+  // noHardwareDetected, success) can word themselves correctly.
+  final CheckInChannel channel;
+  // Why Bluetooth can't scan. Set only with status bleUnavailable.
+  final BleReadiness? bleReadiness;
+  // Bluetooth: the terminal has been heard, but faintly ("move closer").
+  final bool weakSignal;
 
   NfcCheckInState({
     this.status = NfcCheckInStatus.idle,
@@ -68,6 +85,9 @@ class NfcCheckInState {
     this.errorMessage,
     this.courseCode,
     this.availability,
+    this.channel = CheckInChannel.nfc,
+    this.bleReadiness,
+    this.weakSignal = false,
   });
 
   NfcCheckInState copyWith({
@@ -76,6 +96,9 @@ class NfcCheckInState {
     String? errorMessage,
     String? courseCode,
     NfcAvailability? availability,
+    CheckInChannel? channel,
+    BleReadiness? bleReadiness,
+    bool? weakSignal,
   }) {
     return NfcCheckInState(
       status: status ?? this.status,
@@ -83,6 +106,9 @@ class NfcCheckInState {
       errorMessage: errorMessage ?? this.errorMessage,
       courseCode: courseCode ?? this.courseCode,
       availability: availability ?? this.availability,
+      channel: channel ?? this.channel,
+      bleReadiness: bleReadiness ?? this.bleReadiness,
+      weakSignal: weakSignal ?? this.weakSignal,
     );
   }
 }
@@ -129,6 +155,8 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   // a second final assignment would throw the same LateInitializationError
   // described above.
   NfcService? _nfcService;
+  // Hoisted for the same reason as _nfcService.
+  BleScanService? _bleScanner;
 
   Timer? _broadcastTimer;
   Timer? _confirmationTimer;
@@ -189,6 +217,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     // NfcService instance lives for this container's lifetime and caching
     // the reference here is safe as well as necessary.
     _nfcService = ref.read(nfcServiceProvider);
+    _bleScanner = ref.read(bleScanServiceProvider);
 
     // Register auto-cleanup to prevent memory leaks when sheet is closed
     ref.onDispose(() {
@@ -204,8 +233,13 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     return NfcCheckInState();
   }
 
-  // Enforces biometric check-in and starts the transmission window
-  Future<void> initiateCheckInProtocol() async {
+  // Enforces biometric check-in and starts the transmission window.
+  //
+  // [channel] forces NFC or Bluetooth (the sheet's "Try Bluetooth instead"
+  // and retry buttons). Left null, the channel comes from the student's
+  // preference, this phone's NFC and the server -- see
+  // resolveCheckInChannel, which the entry points use too.
+  Future<void> initiateCheckInProtocol({CheckInChannel? channel}) async {
     // Re-entrancy latch. There are two independent UI entry points
     // (student_home_screen's check-in button and the ID-card screen's),
     // each of which can open the sheet, and the sheet starts the protocol
@@ -219,8 +253,11 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     if (state.status != NfcCheckInStatus.idle &&
         state.status != NfcCheckInStatus.error &&
         // Retried automatically when the student comes back from the NFC
-        // settings screen (see NfcBroadcastSheet's resume handler).
-        state.status != NfcCheckInStatus.nfcUnavailable) {
+        // or Bluetooth settings (see NfcBroadcastSheet's resume handler).
+        state.status != NfcCheckInStatus.nfcUnavailable &&
+        state.status != NfcCheckInStatus.bleUnavailable &&
+        // "Try again" / "Try Bluetooth instead" start from here.
+        state.status != NfcCheckInStatus.noHardwareDetected) {
       debugPrint('[NFC] ignoring check-in start: already ${state.status}');
       return;
     }
@@ -249,6 +286,15 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         );
       }
 
+      // 0a. NFC or Bluetooth? Decided before anything else, because each
+      // has its own "can this phone do it?" check below.
+      final chosen = channel ?? await _resolveChannel();
+      if (!ref.mounted) return;
+      if (chosen == CheckInChannel.ble) {
+        await _runBleCheckIn();
+        return;
+      }
+
       // 0b. Can this phone tap in at all? Before the fingerprint prompt, so
       // a student whose phone can't broadcast isn't asked to authenticate
       // for nothing, and no beacon is minted that could never be read.
@@ -263,41 +309,8 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         return;
       }
 
-      // 1. Check OS hardware capability
-      final canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
-      final isDeviceSupported = await _localAuth.isDeviceSupported();
-
-      // The sheet can be dismissed (drag, back gesture, CANCEL) while any
-      // of these platform calls are in flight, which disposes this
-      // provider. Everything below -- including the catch block -- touches
-      // `ref`, so without this guard a perfectly ordinary cancel turns
-      // into UnmountedRefException.
-      if (!ref.mounted) return;
-
-      if (!canAuthenticateWithBiometrics || !isDeviceSupported) {
-        throw Exception(
-          'Hardware security mismatch: Biometrics are disabled or unsupported.',
-        );
-      }
-
-      // 2. Cross-Version Safe Biometric Call
-      // This call is structurally supported on all versions of local_auth to prevent compile crashes
-      final authenticated = await _localAuth.authenticate(
-        localizedReason: 'Verify identity to activate attendance beacon',
-      );
-
-      // THE critical guard. This await is the widest window in the whole
-      // flow: the student is looking at a system biometric prompt and may
-      // reasonably swipe the sheet away. Previously nothing checked for
-      // disposal here, so execution continued to push a beacon into native
-      // memory on a disposed provider, and then both the state write below
-      // and the catch block's cleanup threw -- leaving the token live and
-      // readable with no wipe ever scheduled.
-      if (!ref.mounted) return;
-
-      if (!authenticated) {
-        throw Exception('Identity verification failed.');
-      }
+      // 1-2. Fingerprint / face / device PIN. Shared with the Bluetooth path.
+      if (!await _verifyIdentity()) return;
 
       // 3. Mint a short-lived beacon, then broadcast THAT over HCE -- not
       // the long-lived session token. Broadcasting the session token
@@ -376,6 +389,179 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     }
   }
 
+  /// The fingerprint / face / device-PIN gate, run before anything is
+  /// minted, broadcast or submitted -- on both channels. Returns false if
+  /// the sheet was dismissed meanwhile; throws if verification failed.
+  Future<bool> _verifyIdentity() async {
+    // 1. Check OS hardware capability
+    final canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
+    final isDeviceSupported = await _localAuth.isDeviceSupported();
+
+    // The sheet can be dismissed (drag, back gesture, CANCEL) while any
+    // of these platform calls are in flight, which disposes this
+    // provider. Everything below -- including the catch block -- touches
+    // `ref`, so without this guard a perfectly ordinary cancel turns
+    // into UnmountedRefException.
+    if (!ref.mounted) return false;
+
+    if (!canAuthenticateWithBiometrics || !isDeviceSupported) {
+      throw Exception(
+        'Hardware security mismatch: Biometrics are disabled or unsupported.',
+      );
+    }
+
+    // 2. Cross-Version Safe Biometric Call
+    // This call is structurally supported on all versions of local_auth to prevent compile crashes
+    final authenticated = await _localAuth.authenticate(
+      localizedReason: 'Verify identity to activate attendance beacon',
+    );
+
+    // THE critical guard. This await is the widest window in the whole
+    // flow: the student is looking at a system biometric prompt and may
+    // reasonably swipe the sheet away. Previously nothing checked for
+    // disposal here, so execution continued to push a beacon into native
+    // memory on a disposed provider, and then both the state write below
+    // and the catch block's cleanup threw -- leaving the token live and
+    // readable with no wipe ever scheduled.
+    if (!ref.mounted) return false;
+
+    if (!authenticated) {
+      throw Exception('Identity verification failed.');
+    }
+    return true;
+  }
+
+  /// Chooses NFC or Bluetooth when the caller didn't force one. Only asks
+  /// the server when the answer could actually be Bluetooth, so a normal
+  /// NFC check-in costs no extra request.
+  Future<CheckInChannel> _resolveChannel() async {
+    final pref = ref.read(checkInMethodPrefProvider);
+    final nfc = await _nfcService?.getAvailability() ?? NfcAvailability.ready;
+    final mightUseBle =
+        pref == CheckInMethodPref.bluetooth ||
+        (pref == CheckInMethodPref.automatic && nfc.cannotTapIn);
+    var serverBle = false;
+    if (mightUseBle && ref.mounted) {
+      try {
+        final methods = await withAuthRetry(
+          ref,
+          (token) => ref.read(studentServiceProvider).fetchCheckinMethods(token),
+        );
+        serverBle = methods.ble;
+      } catch (e) {
+        debugPrint('[BLE] methods unavailable, using NFC: $e');
+      }
+    }
+    return resolveCheckInChannel(pref: pref, nfc: nfc, serverBle: serverBle);
+  }
+
+  /// Bluetooth check-in: readiness, fingerprint, scan, submit.
+  ///
+  /// The server answers in one request, so there's no confirmation polling.
+  /// A stale code ("invalid_code") nearly always means the terminal rotated
+  /// between hearing and submitting, so that gets one automatic rescan.
+  Future<void> _runBleCheckIn() async {
+    final scanner = _bleScanner;
+    if (scanner == null) return;
+
+    final readiness = await scanner.readiness();
+    if (!ref.mounted) return;
+    if (readiness != BleReadiness.ready) {
+      state = NfcCheckInState(
+        status: NfcCheckInStatus.bleUnavailable,
+        channel: CheckInChannel.ble,
+        bleReadiness: readiness,
+      );
+      return;
+    }
+
+    if (!await _verifyIdentity()) return;
+
+    for (var attempt = 0; attempt < 2; attempt++) {
+      state = NfcCheckInState(
+        status: NfcCheckInStatus.scanning,
+        channel: CheckInChannel.ble,
+      );
+      final heard = await scanner.scanForTerminal(
+        onWeakSignal: () {
+          if (ref.mounted &&
+              state.status == NfcCheckInStatus.scanning &&
+              !state.weakSignal) {
+            state = state.copyWith(weakSignal: true);
+          }
+        },
+      );
+      if (!ref.mounted) return;
+
+      if (heard == null) {
+        state = NfcCheckInState(
+          status: NfcCheckInStatus.noHardwareDetected,
+          channel: CheckInChannel.ble,
+        );
+        return;
+      }
+
+      state = NfcCheckInState(
+        status: NfcCheckInStatus.confirming,
+        channel: CheckInChannel.ble,
+      );
+      final result = await withAuthRetry(
+        ref,
+        (token) => ref
+            .read(studentServiceProvider)
+            .submitBleCheckin(
+              token,
+              payloadHex: heard.payloadHex,
+              rssi: heard.rssi,
+            ),
+      );
+      if (!ref.mounted) return;
+
+      if (result.recorded) {
+        state = NfcCheckInState(
+          status: NfcCheckInStatus.success,
+          channel: CheckInChannel.ble,
+          courseCode: result.courseCode,
+        );
+        _scheduleReturnToIdle();
+        _invalidateAttendanceViews();
+        return;
+      }
+      if (result.reason == 'no_active_session') {
+        throw Exception('No active session for you right now.');
+      }
+      // invalid_code: rescan once and resubmit a fresh code.
+      debugPrint('[BLE] code rejected (attempt ${attempt + 1}), rescanning');
+    }
+    throw Exception(
+      "The terminal's code couldn't be verified. Make sure you're near the "
+      'SUAAMS terminal and try again.',
+    );
+  }
+
+  /// Asks for the Bluetooth scan permission, then retries if it's now ready.
+  Future<void> requestBlePermission() async {
+    final readiness = await _bleScanner?.requestPermission();
+    if (!ref.mounted) return;
+    if (readiness == BleReadiness.ready) {
+      await initiateCheckInProtocol(channel: CheckInChannel.ble);
+    } else if (readiness != null) {
+      state = state.copyWith(bleReadiness: readiness);
+    }
+  }
+
+  /// Android's own "turn on Bluetooth?" prompt, then a retry.
+  Future<void> turnOnBluetooth() async {
+    await _bleScanner?.turnOn();
+    if (!ref.mounted) return;
+    await initiateCheckInProtocol(channel: CheckInChannel.ble);
+  }
+
+  /// For a permanently denied permission. The sheet retries on resume.
+  Future<void> openBleSettings() async {
+    await _bleScanner?.openSettings();
+  }
+
   /// Opens the system NFC toggle. The sheet re-runs the check when the app
   /// resumes, so the student doesn't have to reopen it after switching on.
   Future<void> openNfcSettings() async {
@@ -421,7 +607,9 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
           // have succeeded.
           _confirmationTimer?.cancel();
           state = state.copyWith(status: NfcCheckInStatus.noHardwareDetected);
-          _scheduleReturnToIdle();
+          // No return-to-idle here: this screen carries "Try again" and
+          // "Try Bluetooth instead" buttons, and the latch above accepts a
+          // new start from this state directly.
           return;
         }
 

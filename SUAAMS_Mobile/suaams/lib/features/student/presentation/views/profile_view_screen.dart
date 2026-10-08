@@ -7,6 +7,9 @@ import 'package:suaams/core/providers/biometric_status_provider.dart';
 import 'package:suaams/features/student/providers/device_info_provider.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/core/providers/theme_provider.dart';
+import 'package:suaams/features/student/providers/checkin_method_provider.dart'
+    show checkInMethodPrefProvider;
+import 'package:suaams/features/student/presentation/views/checkin_method_sheet.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
@@ -140,6 +143,16 @@ class ProfileView extends ConsumerWidget {
             colorScheme: colorScheme,
             terminal: terminal,
             onTap: () => ref.read(themeProvider.notifier).toggleTheme(),
+          ),
+          const SizedBox(height: 12),
+          // NFC / Bluetooth / Automatic. See checkin_method_provider.dart.
+          _buildPreferenceTile(
+            icon: Icons.contactless_rounded,
+            title: 'Check-in Method',
+            subtitle: checkInMethodLabel(ref.watch(checkInMethodPrefProvider)),
+            colorScheme: colorScheme,
+            terminal: terminal,
+            onTap: () => CheckInMethodSheet.show(context),
           ),
           const SizedBox(height: 12),
           _buildPreferenceTile(
