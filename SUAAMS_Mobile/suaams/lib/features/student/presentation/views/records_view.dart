@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/theme/app_theme.dart';
-import 'package:suaams/core/providers/theme_provider.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
@@ -22,8 +21,8 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
   // PERF FIX: memoization cache for _getFilteredRecords/_groupRecordsByMonth
   // below. Both do O(n) work with per-record DateTime string-parsing, and
   // were previously re-run on every single build() call -- including builds
-  // triggered by unrelated things like a theme toggle (this widget watches
-  // themeProvider) -- even when neither the source records nor the selected
+  // triggered by unrelated things like a theme change (this widget depends
+  // on Theme.of(context)) -- even when neither the source records nor the selected
   // filter had changed. These fields cache the last computed result so the
   // real work only reruns when one of those two inputs actually changes.
   List<RecentAttendance>? _cachedSourceRecords;
@@ -118,8 +117,9 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(studentDashboardProvider);
-    final themeMode = ref.watch(themeProvider);
-    final isDarkMode = themeMode == ThemeMode.dark;
+    // What's actually on screen, not the setting: with Automatic the
+    // setting is `system`, which says nothing about light vs dark.
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
     final data = state.data;

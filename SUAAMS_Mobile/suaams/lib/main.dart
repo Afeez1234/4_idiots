@@ -64,6 +64,9 @@ void main() async {
   // be known before the first frame, or the card visibly flips from masked to
   // revealed a moment after the screen opens.
   final cardDetailsVisible = await readCardDetailsVisible();
+  // And the theme: loaded lazily it started dark and flipped a moment
+  // later, a visible flash for anyone not on dark.
+  final themeMode = await readThemeMode();
 
   runApp(
     ProviderScope(
@@ -74,6 +77,7 @@ void main() async {
         cardPrivacyProvider.overrideWith(
           () => CardPrivacyNotifier.seeded(cardDetailsVisible),
         ),
+        themeProvider.overrideWith(() => ThemeNotifier.seeded(themeMode)),
       ],
       child: const MobileClientApp(),
     ),
