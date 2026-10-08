@@ -16,6 +16,7 @@
    Blocks every page template already uses (unchanged contract):
      title, extra_head, page_title, page_subtitle, content, extra_scripts
    =========================================================================== #}
+{% from '_macros.html' import suaams_mark %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -51,21 +52,10 @@
                class="rail fixed inset-y-0 left-0 z-40 -translate-x-full transition-transform duration-200
                       lg:static lg:translate-x-0">
 
-            <!-- Brand. The shield mark is a 1:1 port of SuaamsLogo's
-                 CustomPainter geometry from the Flutter app
-                 (SUAAMS_Mobile/suaams/lib/shared/widgets/suaams_logo.dart)
-                 -- same shield outline + NFC-wave arcs flanking a center
-                 dot, redrawn as an SVG path/arc on the same 48x48 grid so
-                 the mark stays identical between mobile and web. -->
+            <!-- Brand. suaams_mark (_macros.html) matches the Flutter
+                 app's SuaamsLogo painter on the same 48-unit grid. -->
             <div class="rail-brand">
-                <svg viewBox="0 0 48 48" class="h-8 w-8 shrink-0 text-white" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M24 6 L10 12 L10 24 C10 31.73 16.27 38.92 24 41 C31.73 38.92 38 31.73 38 24 L38 12 Z"/>
-                    <path d="M20.5 27.5 A5 5 0 0 1 20.5 20.5"/>
-                    <path d="M17.6 30.4 A9 9 0 0 1 17.6 17.6" stroke-opacity=".5"/>
-                    <path d="M27.5 27.5 A5 5 0 0 0 27.5 20.5"/>
-                    <path d="M30.4 30.4 A9 9 0 0 0 30.4 17.6" stroke-opacity=".5"/>
-                    <circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/>
-                </svg>
+                {{ suaams_mark('h-8 w-8 shrink-0 text-white') }}
                 <div class="rail-label leading-tight">
                     <p class="text-sm font-bold tracking-wide text-on-rail">SUAAMS</p>
                     <p class="text-2xs uppercase tracking-widest text-on-rail-muted">{% block brand_subtitle %}{% endblock %}</p>

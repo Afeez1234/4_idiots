@@ -32,10 +32,28 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
 
+# Launcher icons: mark C (figure + NFC signal), adopted 2026-10-08. Both
+# PNGs are rendered from the same 48-unit geometry as SuaamsLogo
+# (lib/shared/widgets/suaams_logo.dart). Regenerate the platform files with
+#   dart run flutter_launcher_icons
 flutter_launcher_icons:
   android: true
   ios: true
+  # Opaque square on deep black: iOS and pre-Android-8 launchers.
   image_path: "assets/icon/suaams_icon.png"
+  # iOS rejects icons with an alpha channel.
+  remove_alpha_ios: true
+  # Android 8+: the launcher crops these to its own shape (circle, squircle).
+  # The foreground keeps the mark inside the 66dp safe zone so no shape
+  # clips the signal arcs.
+  adaptive_icon_background: "#0B0F14"
+  adaptive_icon_foreground: "assets/icon/suaams_icon_foreground.png"
+  # The foreground PNG is already sized to the safe zone; the generator's
+  # default 16% inset would shrink the mark a second time.
+  adaptive_icon_foreground_inset: 0
+  # NOTE: 0.14.4 also rewrites ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS
+  # in ios/Runner.xcodeproj/project.pbxproj from YES to "AppIcon" (a bug).
+  # After regenerating, revert that file: git checkout -- ios/Runner.xcodeproj
 
 flutter:
   uses-material-design: true

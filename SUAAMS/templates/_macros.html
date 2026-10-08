@@ -250,3 +250,36 @@
     {% endif %}
   </div>
 {%- endmacro -%}
+
+
+{# ---------------------------------------------------------------------------
+   suaams_mark(class) -- the SUAAMS logo mark.
+
+   A flowing figure whose head is an NFC "tap" dot, with two signal arcs
+   radiating from it. Adopted 2026-10-08 (candidate C of the icon study),
+   replacing the shield-and-waves mark.
+
+   The geometry is on a 48-unit grid and MUST match SuaamsLogo's painter in
+   SUAAMS_Mobile/suaams/lib/shared/widgets/suaams_logo.dart. It lives here
+   once, rather than pasted into each page, because the pasted copies drifted:
+   login.html's copy had lost the leading `M` from every path, so browsers
+   silently drew only the centre dot.
+
+   The figure takes `currentColor`, so the caller's text colour class picks
+   it (text-white on the dark rail, text-ink on a light card). The dot and
+   arcs always use --color-accent: brand blue, never red, which the
+   dashboard reserves for errors.
+   --------------------------------------------------------------------------- #}
+{%- macro suaams_mark(class='h-8 w-8') -%}
+  <svg viewBox="0 0 48 48" class="{{ class }}" role="img" aria-label="SUAAMS">
+    <g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.5 29.5 C7 33.5 8 39.5 13 40.5 C18.5 41.5 22 33 26 22.5"/>
+      <path d="M19.5 41 C23 33.5 26 26 32 23.8 C37.5 21.8 40.5 27.5 39 37"/>
+    </g>
+    <circle cx="30.5" cy="15.5" r="3" style="fill: var(--color-accent)"/>
+    <g fill="none" stroke-width="2.2" stroke-linecap="round" style="stroke: var(--color-accent)">
+      <path d="M31.6 9.9 A5.7 5.7 0 0 1 36.1 16.6"/>
+      <path d="M32.3 6.6 A9.1 9.1 0 0 1 39.5 17.3" stroke-opacity=".5"/>
+    </g>
+  </svg>
+{%- endmacro -%}

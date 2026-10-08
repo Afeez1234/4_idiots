@@ -10,6 +10,7 @@
    .pill/.chip, and a four-way flash-colour mapping copied by hand. It now uses
    the same tokens and the same macros as the rest of the product.
    =========================================================================== #}
+{% from '_macros.html' import suaams_mark %}
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -39,18 +40,11 @@
 
     <div class="card relative z-10 w-full max-w-md p-6 sm:p-8">
 
-        <!-- Header. Shield mark is the same path as _shell.html's brand block,
+        <!-- Header. Same suaams_mark macro as _shell.html's brand block,
              so login and the portal it hands off to share one mark. -->
         <div class="mb-8 text-center">
             <div class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full border border-accent-line bg-accent-soft">
-                <svg viewBox="0 0 48 48" class="h-8 w-8 text-accent" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="24 6 L10 12 L10 24 C10 31.73 16.27 38.92 24 41 C31.73 38.92 38 31.73 38 24 L38 12 Z"/>
-                    <path d="20.5 27.5 A5 5 0 0 1 20.5 20.5"/>
-                    <path d="17.6 30.4 A9 9 0 0 1 17.6 17.6" stroke-opacity=".5"/>
-                    <path d="27.5 27.5 A5 5 0 0 0 27.5 20.5"/>
-                    <path d="30.4 30.4 A9 9 0 0 0 30.4 17.6" stroke-opacity=".5"/>
-                    <circle cx="24" cy="24" r="2" fill="currentColor" stroke="none"/>
-                </svg>
+                {{ suaams_mark('h-9 w-9 text-ink') }}
             </div>
             <h1 class="text-2xl font-extrabold uppercase tracking-widest text-ink">SUAAMS</h1>
             <p class="mt-2 text-2xs font-bold uppercase tracking-widest text-muted">Smart University Attendance &amp; Monitoring</p>
