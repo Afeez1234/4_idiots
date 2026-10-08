@@ -54,7 +54,7 @@
                                 </div>
                             </td>
                             <td class="td td-muted mono text-xs">
-                                {{ s.start_time.strftime('%H:%M') if s.start_time else '—' }}
+                                {{ s.start_time|campus if s.start_time else '—' }}
                             </td>
                             {# .elapsed-cell + data-started-at is the DOM contract with
                                the inline script below. Both the class and the

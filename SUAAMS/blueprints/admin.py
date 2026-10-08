@@ -11,6 +11,7 @@ from models import (
     Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
 )
 from extensions import log_exception, logger, limiter
+from campus_time import campus_now
 from utils import (
     resolve_current_course, session_status_for_course, students_for_announcement,
     VALID_LEVELS, normalize_level,
@@ -765,7 +766,7 @@ def _build_timetable_grid(entries):
 
     hour_labels = [f"{h:02d}:00" for h in range(start_hour, end_hour)]
 
-    today = datetime.now()
+    today = campus_now()  # campus weekday/date, not the server's UTC one
     today_weekday = today.weekday()
 
     placed = []

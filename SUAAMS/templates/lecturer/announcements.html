@@ -69,7 +69,7 @@
                                 <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted">
                                     <span class="flex items-center gap-1">
                                         <span class="material-symbols-rounded text-sm">schedule</span>
-                                        {{ a.created_at.strftime('%d %b %Y, %H:%M') }}
+                                        {{ a.created_at|campus('%d %b %Y, %H:%M') }}
                                     </span>
                                     {# a.course is nullable on the model, so it falls
                                        back rather than raising. #}

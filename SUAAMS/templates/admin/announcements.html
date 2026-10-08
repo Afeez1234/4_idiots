@@ -80,7 +80,7 @@
                         <div class="min-w-0">
                             <h2 class="card-title truncate">{{ a.title }}</h2>
                             <p class="mt-0.5 text-2xs text-muted">
-                                {{ a.created_at.strftime('%d %b %Y, %H:%M') }}
+                                {{ a.created_at|campus('%d %b %Y, %H:%M') }}
                             </p>
                         </div>
                         {# Scope is the badge, not the timestamp line: which

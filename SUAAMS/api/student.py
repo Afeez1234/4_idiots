@@ -13,6 +13,9 @@ from models import db, Student, Course, Session as SessionModel, Attendance, Enr
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from push_notifications import send_push_notification
 from utils import compute_attendance_status
+# Stored UTC moments -> campus time for display; campus "today" for
+# timetable lookups. See campus_time.py.
+from campus_time import campus_fmt, campus_today
 # Compact HCE beacon minting/verification. See beacon.py for why the
 # credential is a 32-char signed handle rather than a ~360-byte JWT.
 from beacon import (
@@ -259,7 +262,7 @@ def get_course_attendance_history(course_id):
                 'planned_start': str(session.planned_start) if session.planned_start else None,
                 'planned_end': str(session.planned_end) if session.planned_end else None,
                 'status': attendance.status if attendance else 'absent',
-                'time_in': attendance.time_in.strftime('%H:%M') if attendance and attendance.time_in else None,
+                'time_in': campus_fmt(attendance.time_in) if attendance and attendance.time_in else None,
             })
 
         return jsonify({
@@ -662,7 +665,7 @@ def get_today_schedule():
         if not student:
             return jsonify({"error": "Student profile not found."}), 404
 
-        today = date.today()
+        today = campus_today()
         # Python's date.weekday(): Monday=0 .. Sunday=6 -- same convention
         # models.py documents for Timetable.day_of_week, so no conversion
         # needed here.
@@ -813,10 +816,12 @@ def get_today_schedule():
                 # (set in start_session()), since there's no scheduled slot
                 # to read from. end_time stays None -- an ad-hoc session has
                 # no defined finish.
+                # planned_start is already campus time; start_time is a
+                # UTC moment and needs converting.
                 'start_time': (
-                    (session.planned_start or session.start_time).strftime('%H:%M')
-                    if (session.planned_start or session.start_time)
-                    else None
+                    session.planned_start.strftime('%H:%M')
+                    if session.planned_start
+                    else campus_fmt(session.start_time, on_date=session.session_date)
                 ),
                 'end_time': (
                     session.planned_end.strftime('%H:%M')

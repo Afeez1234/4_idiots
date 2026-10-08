@@ -36,14 +36,14 @@
                         </span>
                         <span class="flex items-center gap-1.5">
                             <span class="material-symbols-rounded text-base">schedule</span>
-                            Started: {{ session_info.start_time.strftime('%H:%M') if session_info.start_time
+                            Started: {{ session_info.start_time|campus('%H:%M', session_info.session_date) if session_info.start_time
                                           else (session_info.planned_start.strftime('%H:%M') if session_info.planned_start
                                                 else '—') }}
                         </span>
                         {% if session_info.stop_time %}
                             <span class="flex items-center gap-1.5">
                                 <span class="material-symbols-rounded text-base">stop_circle</span>
-                                Ended: {{ session_info.stop_time.strftime('%H:%M') }}
+                                Ended: {{ session_info.stop_time|campus('%H:%M', session_info.session_date) }}
                             </span>
                         {% endif %}
                     </div>
@@ -132,7 +132,7 @@
                         <div>
                             <dt class="text-muted">Time In</dt>
                             <dd class="mono mt-0.5 text-secondary">
-                                {{ record[5].strftime('%H:%M:%S') if record[5] else '—' }}
+                                {{ record[5]|campus('%H:%M:%S') if record[5] else '—' }}
                             </dd>
                         </div>
                     </dl>
@@ -170,7 +170,7 @@
                             <td class="td td-muted">{{ record[2] }}</td>
                             <td class="td td-muted">{{ record[1] }}</td>
                             <td class="td td-muted mono text-xs">
-                                {{ record[5].strftime('%H:%M:%S') if record[5] else '—' }}
+                                {{ record[5]|campus('%H:%M:%S') if record[5] else '—' }}
                             </td>
                             <td class="td">
                                 {% if status == 'present' %}

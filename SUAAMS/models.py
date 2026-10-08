@@ -1,3 +1,4 @@
+from campus_time import campus_today
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timezone
 
@@ -303,7 +304,9 @@ class Session(db.Model):
     # they end it -- a freshly created session has neither yet.
     start_time = db.Column(db.Time, nullable=True)
     stop_time = db.Column(db.Time, nullable=True)
-    session_date = db.Column(db.Date, default=date.today)
+    # Campus date (compared with the timetable's weekday and with "today"
+    # on campus), not the server's -- see campus_time.py.
+    session_date = db.Column(db.Date, default=campus_today)
     is_active = db.Column(db.Boolean, default=False)
     planned_start = db.Column(db.Time, nullable=True)
     planned_end = db.Column(db.Time, nullable=True)

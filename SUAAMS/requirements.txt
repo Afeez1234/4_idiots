@@ -12,3 +12,6 @@ firebase-admin
 # silently does nothing and the app refuses to start for want of
 # credentials -- which is exactly what it is supposed to do.
 python-dotenv
+# Timezone database for campus_time.py. Linux (Render) has one built in;
+# Windows does not, so ZoneInfo("Africa/Lagos") fails there without this.
+tzdata

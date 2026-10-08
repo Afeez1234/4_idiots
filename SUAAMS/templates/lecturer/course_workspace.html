@@ -122,7 +122,7 @@
                                 <td class="td td-muted mono text-xs">{{ record[3] }}</td>
                                 <td class="td td-muted">{{ record[1] }}</td>
                                 <td class="td td-muted mono text-xs">
-                                    {{ record[5].strftime('%H:%M:%S') if record[5] else '—' }}
+                                    {{ record[5]|campus('%H:%M:%S') if record[5] else '—' }}
                                 </td>
                                 <td class="td">
                                     {# Status maps to a tone name, never to an
