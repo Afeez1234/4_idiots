@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, session
 from datetime import timedelta
 from flask_migrate import Migrate
+from campus_time import campus_fmt
 import os
 import logging
 from flask_jwt_extended import JWTManager
@@ -167,6 +168,12 @@ csrf.exempt(api_hardware_bp)
 # had no HOD data available to render an HOD nav section, and vice versa.
 # Replaces the old inject_hod_context() (hod.py) and inject_lecturer_context()
 # (lecturer.py), which this consolidates.
+# `{{ value|campus }}` / `{{ value|campus('%d %b %Y, %H:%M') }}`: shows a
+# stored UTC moment in campus time. Timetable times (planned_start etc.)
+# are already campus time and must NOT go through it. See campus_time.py.
+app.jinja_env.filters['campus'] = campus_fmt
+
+
 @app.context_processor
 def inject_portal_context():
     user_id = session.get('user_id')

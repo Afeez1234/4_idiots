@@ -1,3 +1,4 @@
+from campus_time import campus_today
 import csv
 import io
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response
@@ -628,7 +629,7 @@ def start_session(course_id):
 
         new_session = SessionModel(
             course_id=course_id,
-            session_date=datetime.now(timezone.utc).date(),
+            session_date=campus_today(),  # campus date; start_time stays UTC
             is_active=True,
             # start_time exists on the model precisely for this ("gets set
             # when a lecturer actually starts the session" -- models.py)

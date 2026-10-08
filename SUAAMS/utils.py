@@ -2,6 +2,9 @@ import re
 from datetime import datetime, timedelta
 from flask import session,redirect,url_for,flash
 from functools import wraps
+# Timetable columns hold campus wall-clock times, so "now" must be campus
+# time too. datetime.now() is UTC on Render. See campus_time.py.
+from campus_time import campus_now
 
 
 # The only levels the school runs. Stored as the bare number ("400", never
@@ -98,7 +101,7 @@ def resolve_current_course(semester=None, at=None):
     """
     from models import Timetable, Semester
 
-    now = at or datetime.now()
+    now = at or campus_now()
 
     if semester is None:
         semester = Semester.query.filter_by(is_active=True).first()
@@ -159,14 +162,15 @@ def compute_attendance_status(session, at=None):
     Session.planned_start + LATE_GRACE_MINUTES -> 'present' or 'late' for a
     check-in happening right now. planned_start is optional (a lecturer can
     start a session without one), in which case there's no scheduled time to
-    be late against, so this always returns 'present'. Compares naive local
-    wall-clock time, matching resolve_current_course()'s existing convention
-    for Timetable/Session time columns (none of them are timezone-aware).
+    be late against, so this always returns 'present'. Compares naive
+    CAMPUS wall-clock time, because planned_start is one. This used to use
+    datetime.now(), which is UTC on Render -- an hour behind Lagos -- so every
+    late cutoff was effectively an hour later than the timetable said.
     """
     if session.planned_start is None:
         return 'present'
 
-    now = at or datetime.now()
+    now = at or campus_now()
     session_date = session.session_date or now.date()
     cutoff = datetime.combine(session_date, session.planned_start) + timedelta(minutes=LATE_GRACE_MINUTES)
     return 'late' if now > cutoff else 'present'
@@ -216,7 +220,7 @@ def resolve_timetable_slot_for_course(course_id, semester=None, on_date=None):
     """
     from models import Timetable, Semester
 
-    on_date = on_date or datetime.now()
+    on_date = on_date or campus_now()
 
     if semester is None:
         semester = Semester.query.filter_by(is_active=True).first()

@@ -1,3 +1,4 @@
+from campus_time import campus_fmt, campus_today
 from flask import Blueprint, jsonify, request, Response
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, timezone
@@ -227,7 +228,7 @@ def get_course_workspace(course_id):
                     'matric_number': matric,
                     'level': level,
                     'department': dept_name,
-                    'time_in': time_in.strftime('%H:%M') if time_in else None,
+                    'time_in': campus_fmt(time_in) if time_in else None,
                     'status': att_status,
                 })
 
@@ -338,7 +339,7 @@ def start_session(course_id):
         # (and the lecturer web portal's Active Sessions page) already do.
         new_session = SessionModel(
             course_id=course_id,
-            session_date=datetime.now(timezone.utc).date(),
+            session_date=campus_today(),  # campus date; start_time stays UTC
             is_active=True,
             start_time=datetime.now(timezone.utc).time(),
             planned_start=planned_start,
@@ -522,7 +523,7 @@ def get_session_detail(course_id, session_id):
                 'matric_number': matric,
                 'level': level,
                 'department': dept_name,
-                'time_in': time_in.strftime('%H:%M') if time_in else None,
+                'time_in': campus_fmt(time_in) if time_in else None,
                 'status': att_status,
             })
 
@@ -719,7 +720,7 @@ def get_lecturer_announcements():
                 'body': a.body,
                 'course_id': a.course_id,
                 'course_code': course.course_code if course else None,
-                'created_at': a.created_at.strftime('%d %b %Y, %H:%M') if a.created_at else None,
+                'created_at': campus_fmt(a.created_at, '%d %b %Y, %H:%M') if a.created_at else None,
             })
 
         return jsonify({"success": True, "data": data}), 200
