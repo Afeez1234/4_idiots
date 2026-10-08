@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "data": {
+    "student": {
+      "full_name": "Tunde Adeyemi",
+      "department": "Unknown",
+      "level": "100",
+      "rfid_uid": null,
+      "matric_number": "MCT/2026/101"
+    },
+    "stats": {
+      "overall_rate": 0,
+      "attendance_count": 0,
+      "total_sessions": 0,
+      "at_risk_count": 0,
+      "enrollment_count": 0
+    },
+    "courses": [],
+    "recent_attendance": []
+  }
+}

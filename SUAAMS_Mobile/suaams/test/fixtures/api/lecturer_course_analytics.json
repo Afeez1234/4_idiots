@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "data": {
+    "course": {"id": 7, "title": "Control Systems", "code": "MCT 401"},
+    "summary": {"enrolled_count": 3, "total_sessions": 2, "avg_attendance": 50.0},
+    "trend": [
+      {"session_id": 39, "date": "06 Oct 2026", "present_count": 1, "enrolled_count": 3, "pct": 33.3},
+      {"session_id": 41, "date": "07 Oct 2026", "present_count": 2, "enrolled_count": 3, "pct": 66.7}
+    ],
+    "students": [
+      {"student_id": 31, "full_name": "Chidi Eze", "matric_number": "MCT/2022/027", "attended": 0, "total": 2, "pct": 0},
+      {"student_id": 29, "full_name": "Ada Okafor", "matric_number": "MCT/2022/014", "attended": 2, "total": 2, "pct": 100.0}
+    ]
+  }
+}

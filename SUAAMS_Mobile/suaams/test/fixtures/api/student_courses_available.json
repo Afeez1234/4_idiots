@@ -1,0 +1,10 @@
+{
+  "success": true,
+  "data": {
+    "semester": "2026/2027 First Semester",
+    "courses": [
+      {"id": 7, "course_code": "MCT 401", "course_title": "Control Systems", "credit_units": 3, "lecturer": "Dr. Musa Bello", "enrolled": true},
+      {"id": 15, "course_code": "MCT 421", "course_title": "Mechatronic Design", "credit_units": null, "lecturer": null, "enrolled": false}
+    ]
+  }
+}

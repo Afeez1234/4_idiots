@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "data": {
+    "lecturer": {"full_name": "Dr. Musa Bello", "staff_id": "STF/0042", "department": null},
+    "stats": {"total_courses": 2, "active_sessions": 1, "today_checkins": 18},
+    "courses": [
+      {"id": 7, "title": "Control Systems", "code": "MCT 401", "enrolled_count": 40, "total_sessions": 6, "avg_attendance": 72.5, "has_active_session": true, "active_session_id": 44},
+      {"id": 15, "title": "Mechatronic Design", "code": "MCT 421", "enrolled_count": 0, "total_sessions": 0, "avg_attendance": 0, "has_active_session": false, "active_session_id": null}
+    ]
+  }
+}

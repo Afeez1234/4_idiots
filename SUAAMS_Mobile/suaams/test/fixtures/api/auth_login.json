@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "token": "header.access-payload.signature",
+  "refresh_token": "header.refresh-payload.signature",
+  "user": {
+    "id": 23,
+    "username": "MCT/2022/014",
+    "role": "student",
+    "requires_password_change": true
+  }
+}
