@@ -19,7 +19,8 @@ def find_student_by_rfid(rfid_uid):
 
 def record_attendance(student_id, session):
     record = Attendance(student_id=student_id, session_id=session.id,
-                         status=compute_attendance_status(session))
+                         status=compute_attendance_status(session),
+                         method='rfid')
     db.session.add(record)
     db.session.commit()
 

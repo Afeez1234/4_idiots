@@ -19,6 +19,8 @@ from beacon import (
     mint_beacon, verify_beacon, verify_beacon_signature, BeaconError,
     BEACON_TOKEN_TTL_SECONDS,
 )
+# Rotating Bluetooth codes, the fallback for phones that can't tap in.
+import ble_beacon
 
 # Create the API blueprint for student mobile endpoints
 api_student_bp = Blueprint('api_student', __name__, url_prefix='/api/v1/student')
@@ -408,7 +410,8 @@ def submit_checkin_beacon():
         return jsonify({"success": True, "message": "Attendance already marked"}), 200
 
     record = Attendance(student_id=student.id, session_id=active_session.id,
-                         status=compute_attendance_status(active_session))
+                         status=compute_attendance_status(active_session),
+                         method='nfc')
     db.session.add(record)
     db.session.commit()
 
@@ -500,6 +503,126 @@ def get_checkin_status():
         "success": True,
         "checked_in": True,
         "course_code": active_session.course.course_code if active_session.course else None,
+    }), 200
+
+
+@api_student_bp.route('/checkin/methods', methods=['GET'])
+@jwt_required()
+def get_checkin_methods():
+    """
+    Which check-in channels this deployment has switched on. The app uses
+    it to decide whether to offer Bluetooth at all: with BLE_BEACON_SECRET
+    unset, BLE is off for everyone and the app hides the option rather than
+    letting a student scan for a code the server would refuse.
+
+    Reports configuration only. Whether a particular phone can do NFC is
+    the app's own check (it's a hardware question the server can't see).
+    """
+    return jsonify({
+        "success": True,
+        "nfc": bool(os.environ.get("BEACON_SIGNING_SECRET", "").strip()),
+        "ble": ble_beacon.is_enabled(),
+    }), 200
+
+
+# Same limit and keying as the NFC mint: one call per check-in attempt,
+# with room for a few retries if the first scan heard a stale code.
+@api_student_bp.route('/checkin/ble', methods=['POST'])
+@limiter.limit("10 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def submit_ble_checkin():
+    """
+    Bluetooth check-in, the fallback for phones that can't tap in by NFC.
+
+    The terminal broadcasts a code that rotates every few seconds; the app
+    scans for it after the student passes the fingerprint prompt and posts
+    what it heard here, over its own authenticated connection. Unlike NFC,
+    the terminal is not in this request at all -- hearing a current code is
+    the proof of presence. See ble_beacon.py for the format and for the
+    relay weakness that makes this the fallback rather than the default.
+
+    Body: {"payload": "<28 hex chars>", "rssi": <int, optional>}
+    `payload` is the 14 bytes after the company ID in the advertisement,
+    forwarded as-is so the byte layout lives only here and in the firmware.
+
+    Answers definitively in one round-trip (no status polling): unlike the
+    NFC path, there's no third party whose POST might still be in flight.
+    """
+    claims = get_jwt()
+    if claims.get("role") != "student":
+        return jsonify({"error": "Unauthorized access. Students only."}), 403
+
+    student = Student.query.filter_by(user_id=int(get_jwt_identity())).first()
+    if not student:
+        return jsonify({"error": "Student profile not found"}), 404
+
+    if not ble_beacon.is_enabled():
+        return jsonify({"error": "Bluetooth check-in is not available"}), 503
+
+    data = request.get_json(silent=True) or {}
+    payload_hex = data.get('payload')
+    try:
+        payload = bytes.fromhex(payload_hex) if isinstance(payload_hex, str) else None
+    except ValueError:
+        payload = None
+    if payload is None:
+        return jsonify({"error": "payload must be a hex string"}), 400
+
+    try:
+        terminal, slot = ble_beacon.verify_payload(payload)
+    except ble_beacon.BleBeaconError:
+        # Vague on purpose (same as the NFC submit): don't reveal whether
+        # the code was forged, malformed or just old. In practice it's
+        # almost always old -- the app rescans and retries.
+        return jsonify({"error": "Invalid or expired code", "reason": "invalid_code"}), 401
+
+    # RSSI is phone-reported and therefore spoofable -- logged for
+    # diagnostics and calibration only, never used to decide anything.
+    current_app.logger.info(
+        "BLE check-in: student=%s terminal=%s slot=%s rssi=%s",
+        student.id, terminal, slot, data.get('rssi'),
+    )
+
+    # Same resolver as the NFC mint and /checkin/status, so the three can't
+    # disagree about which session a check-in belongs to. It only returns
+    # running sessions for courses the student is enrolled in.
+    active_session = _active_session_for_student(student)
+    if not active_session:
+        return jsonify({
+            "error": "No active session for you right now",
+            "reason": "no_active_session",
+        }), 404
+
+    course_code = active_session.course.course_code if active_session.course else None
+
+    already = Attendance.query.filter_by(
+        session_id=active_session.id, student_id=student.id
+    ).first()
+    if already:
+        return jsonify({
+            "success": True,
+            "message": "Attendance already marked",
+            "course_code": course_code,
+        }), 200
+
+    record = Attendance(student_id=student.id, session_id=active_session.id,
+                         status=compute_attendance_status(active_session),
+                         method='ble')
+    db.session.add(record)
+    db.session.commit()
+
+    send_push_notification(
+        student.user,
+        'attendance_marked',
+        'Attendance Recorded',
+        f"You've been marked present for {course_code}." if course_code else "You've been marked present.",
+        data={'session_id': active_session.id, 'course_id': active_session.course_id},
+    )
+
+    return jsonify({
+        "success": True,
+        "message": "Attendance recorded successfully.",
+        "course_code": course_code,
     }), 200
 
 
