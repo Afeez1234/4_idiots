@@ -693,6 +693,7 @@ CONTEXTS = {
         ],
         course={"id": 1, "course_code": "CSC 401", "course_title": "Artificial Intelligence"},
         session_info={
+            "id": 3,  # the mark-present form's action URL needs it
             "session_date": date(2026, 9, 27),
             "start_time": time(9, 1),
             # planned_start None so the nested fallback in the "Started:" line
@@ -700,22 +701,29 @@ CONTEXTS = {
             "planned_start": None,
             "stop_time": time(10, 30),
         },
-        # Same positional 6-tuples as course_workspace -- this page renders the
-        # records TWICE (mobile card list + desktop table) and its search input
-        # drives both halves, so a shape error here is the DOM contract's fault.
+        # Positional 7-tuples: course_workspace's 6 plus Attendance.method at
+        # index 6. This page renders the records TWICE (mobile card list +
+        # desktop table) and its search input drives both halves, so a shape
+        # error here is the DOM contract's fault. One of each method, so the
+        # "Marked by lecturer" / "Via Bluetooth" labels both render.
         attendance_records=[
             ("Adebayo Oluwaseun", 400, "Computer Science", "CSC/2021/0451",
-             "Present", datetime(2026, 9, 27, 9, 3, 12)),
+             "Present", datetime(2026, 9, 27, 9, 3, 12), "nfc"),
             ("Chidinma Eze", 400, "Computer Science", "CSC/2021/0452",
-             "Late", datetime(2026, 9, 27, 9, 7, 41)),
+             "Late", datetime(2026, 9, 27, 9, 7, 41), "ble"),
             ("Ibrahim Musa", 400, "Computer Science", "CSC/2021/0453",
-             "Present", datetime(2026, 9, 27, 9, 2, 5)),
+             "Present", datetime(2026, 9, 27, 9, 2, 5), "manual"),
             ("Tunde Bakare", 400, "Computer Science", "CSC/2021/0454",
-             "Absent", None),
+             "Absent", None, None),
             ("Zainab Bello", 400, "Computer Science", "CSC/2021/0455",
-             "Present", datetime(2026, 9, 27, 9, 4, 58)),
+             "Present", datetime(2026, 9, 27, 9, 4, 58), "nfc"),
         ],
         enrolled_count=48,
+        # The manual-marking list. The apostrophe is deliberate: the confirm
+        # prompt reads the name from data-student-name for exactly this case.
+        not_checked_in=[
+            {"id": 7, "full_name": "Kelechi O'Neil", "matric_number": "CSC/2021/0460"},
+        ],
     ),
 
     "lecturer/reports.html": dict(

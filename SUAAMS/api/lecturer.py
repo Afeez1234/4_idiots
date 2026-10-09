@@ -4,7 +4,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, timezone
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Announcement, Timetable
 from extensions import limiter, jwt_identity_or_ip, api_error_response
-from utils import resolve_timetable_slot_for_course, build_course_register_csv
+from utils import (resolve_timetable_slot_for_course, build_course_register_csv,
+                   students_not_checked_in, mark_student_present)
 
 api_lecturer_bp = Blueprint('api_lecturer', __name__, url_prefix='/api/v1/lecturer')
 
@@ -505,27 +506,46 @@ def get_session_detail(course_id, session_id):
 
         # SCHEMA FIX: same Student.department -> Department.name join fix
         # as get_course_workspace/get_live_attendance above.
+        # student_id and method added for manual marking: the app needs the
+        # id to act on a student, and shows the method so a lecturer can
+        # tell a tap (nfc) from a Bluetooth code (ble) from a hand mark
+        # (manual).
         records = db.session.query(
+            Student.id,
             Student.full_name,
             Student.matric_number,
             Student.level,
             Department.name,
             Attendance.time_in,
             Attendance.status,
+            Attendance.method,
         ).join(Attendance, Attendance.student_id == Student.id)\
          .join(Department, Student.department_id == Department.id)\
          .filter(Attendance.session_id == session_id).all()
 
         attendance_list = []
-        for full_name, matric, level, dept_name, time_in, att_status in records:
+        for student_id, full_name, matric, level, dept_name, time_in, att_status, method in records:
             attendance_list.append({
+                'student_id': student_id,
                 'full_name': full_name,
                 'matric_number': matric,
                 'level': level,
                 'department': dept_name,
                 'time_in': campus_fmt(time_in) if time_in else None,
                 'status': att_status,
+                'method': method,
             })
+
+        # Enrolled students with no record yet -- the ones a lecturer can
+        # mark present by hand (see mark_present below).
+        not_checked_in = [
+            {
+                'student_id': s.id,
+                'full_name': s.full_name,
+                'matric_number': s.matric_number,
+            }
+            for s in students_not_checked_in(session)
+        ]
 
         enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
 
@@ -545,6 +565,9 @@ def get_session_detail(course_id, session_id):
                     # the only real time fields on Session.
                     "planned_start": str(session.planned_start) if session.planned_start else None,
                     "planned_end": str(session.planned_end) if session.planned_end else None,
+                    # Lets the app label the screen live vs. ended; manual
+                    # marking itself is allowed on both.
+                    "is_active": bool(session.is_active),
                 },
                 "stats": {
                     "present_count": len(attendance_list),
@@ -552,11 +575,60 @@ def get_session_detail(course_id, session_id):
                     "enrolled_count": enrolled_count,
                 },
                 "attendance": attendance_list,
+                "not_checked_in": not_checked_in,
             }
         }), 200
 
     except Exception:
         return api_error_response("Session Detail API Error", "Failed to load session detail")
+
+
+# ── 7b. Manual marking ────────────────────────────────────────────────────────
+
+# Keyed by lecturer, generous enough to work through a whole class whose
+# terminal failed, while still capping a runaway client.
+@api_lecturer_bp.route('/course/<int:course_id>/session/<int:session_id>/mark-present', methods=['POST'])
+@limiter.limit("60 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def mark_present(course_id, session_id):
+    """
+    Mark one student present by hand -- the fallback when a student's phone
+    can't check in. Works on live and ended sessions (register corrections
+    after class). The rules live in utils.mark_student_present, shared with
+    the web dashboard.
+
+    Body: {"student_id": <int>}
+    """
+    lecturer, error_response, status = get_lecturer_or_403()
+    if error_response:
+        return error_response, status
+
+    data = request.get_json(silent=True) or {}
+    student_id = data.get('student_id')
+    # bool is a subclass of int in Python, so `true` would otherwise pass.
+    if not isinstance(student_id, int) or isinstance(student_id, bool):
+        return jsonify({"error": "student_id must be an integer"}), 400
+
+    try:
+        # Ownership: only the course's own lecturer may vouch for presence.
+        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        if not course:
+            return jsonify({"error": "Course not found or access denied."}), 404
+
+        session = SessionModel.query.filter_by(id=session_id, course_id=course_id).first()
+        if not session:
+            return jsonify({"error": "Session not found."}), 404
+
+        outcome = mark_student_present(session, student_id, lecturer.user)
+        if outcome == 'not_enrolled':
+            return jsonify({"error": "That student isn't registered for this course."}), 400
+        if outcome == 'already_marked':
+            return jsonify({"success": True, "message": "Already marked for this session."}), 200
+        return jsonify({"success": True, "message": "Marked present."}), 200
+
+    except Exception:
+        db.session.rollback()
+        return api_error_response("Mark Present API Error", "Failed to mark student present.")
 
 
 # ── 8. Course analytics ───────────────────────────────────────────────────────

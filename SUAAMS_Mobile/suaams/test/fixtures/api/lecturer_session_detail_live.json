@@ -1,0 +1,17 @@
+{
+  "success": true,
+  "data": {
+    "course": {"id": 7, "title": "Control Systems", "code": "MCT 401"},
+    "session": {"id": 42, "date": "09 Oct 2026", "planned_start": "09:00:00", "planned_end": "11:00:00", "is_active": true},
+    "stats": {"present_count": 3, "absent_count": 2, "enrolled_count": 5},
+    "attendance": [
+      {"student_id": 11, "full_name": "Ada Okafor", "matric_number": "MCT/2022/014", "level": "400", "department": "Mechatronics Engineering", "time_in": "09:04", "status": "present", "method": "nfc"},
+      {"student_id": 12, "full_name": "Bola Ade", "matric_number": "MCT/2022/019", "level": "400", "department": "Mechatronics Engineering", "time_in": "09:12", "status": "late", "method": "ble"},
+      {"student_id": 13, "full_name": "Chidi Eze", "matric_number": "MCT/2022/027", "level": "400", "department": "Mechatronics Engineering", "time_in": "09:40", "status": "present", "method": "manual"}
+    ],
+    "not_checked_in": [
+      {"student_id": 14, "full_name": "Kelechi O'Neil", "matric_number": "MCT/2022/031"},
+      {"student_id": 15, "full_name": "Zainab Bello", "matric_number": "MCT/2022/044"}
+    ]
+  }
+}

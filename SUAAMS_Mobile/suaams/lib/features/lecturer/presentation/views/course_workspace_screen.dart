@@ -212,6 +212,22 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
                       ),
                     ),
                   ),
+                // Manual marking lives on the session detail screen (it
+                // has the "not checked in" list); this is the way there
+                // during a live class. Same relative-path push as HISTORY
+                // above, so it works under either branch that mounts this
+                // screen.
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => context.push(
+                      '${GoRouterState.of(context).uri.path}'
+                      '/history/session/${data.activeSession!.id}',
+                    ),
+                    icon: const Icon(Icons.how_to_reg_rounded, size: 18),
+                    label: const Text('MARK A STUDENT PRESENT'),
+                  ),
+                ),
               ],
               const SizedBox(height: 32),
             ],

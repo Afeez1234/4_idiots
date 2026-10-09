@@ -176,6 +176,88 @@ def compute_attendance_status(session, at=None):
     return 'late' if now > cutoff else 'present'
 
 
+def students_not_checked_in(session):
+    """Enrolled students with no attendance record for this session yet,
+    sorted by name -- the list a lecturer picks from to mark someone present
+    by hand. Nothing in the system writes 'absent' rows, so "no record" is
+    exactly "hasn't been marked".
+    """
+    from models import Student, Enrollment, Attendance
+
+    recorded = Attendance.query.with_entities(Attendance.student_id)\
+        .filter(Attendance.session_id == session.id)
+    return (
+        Student.query
+        .join(Enrollment, Enrollment.student_id == Student.id)
+        .filter(Enrollment.course_id == session.course_id,
+                ~Student.id.in_(recorded))
+        .order_by(Student.full_name)
+        .all()
+    )
+
+
+def mark_student_present(session, student_id, marker_user):
+    """A lecturer marking a student present by hand. Shared by the mobile
+    API and the web dashboard so both apply the same rules. The caller has
+    already checked that `marker_user` owns the session's course.
+
+    This is the fallback for a student whose phone can't check in (no NFC,
+    no strong biometric, or a security key in its 24-hour wait), so it
+    deliberately differs from a self check-in in three ways:
+      * It works on ended sessions too, so a lecturer can correct the
+        register after class.
+      * Status is always 'present', never computed 'late': the lecturer
+        often marks a student well after they actually arrived, and the
+        time of marking says nothing about the time of arrival.
+      * It records method='manual' and who marked it, because there is no
+        device evidence behind it -- only the lecturer's word.
+
+    Returns 'marked', 'already_marked', or 'not_enrolled'.
+    """
+    from sqlalchemy.exc import IntegrityError
+    from models import db, Student, Enrollment, Attendance
+    from push_notifications import send_push_notification
+
+    enrolled = Enrollment.query.filter_by(
+        student_id=student_id, course_id=session.course_id
+    ).first()
+    if not enrolled:
+        return 'not_enrolled'
+
+    if Attendance.query.filter_by(session_id=session.id, student_id=student_id).first():
+        return 'already_marked'
+
+    db.session.add(Attendance(
+        student_id=student_id,
+        session_id=session.id,
+        status='present',
+        method='manual',
+        marked_by=marker_user.id,
+    ))
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Lost a race with the student's own check-in (or a second click);
+        # uq_attendance_student_session let exactly one row in, which is
+        # the outcome we wanted anyway.
+        db.session.rollback()
+        if Attendance.query.filter_by(session_id=session.id, student_id=student_id).first():
+            return 'already_marked'
+        raise
+
+    student = db.session.get(Student, student_id)
+    course = session.course
+    send_push_notification(
+        student.user,
+        'attendance_marked',
+        'Attendance Recorded',
+        f"Your lecturer marked you present for {course.course_code}." if course
+        else "Your lecturer marked you present.",
+        data={'session_id': session.id, 'course_id': session.course_id},
+    )
+    return 'marked'
+
+
 def students_for_announcement(announcement):
     """Every Student an Announcement applies to -- used to fan out push
     notifications the moment one is posted (blueprints/admin.py,
