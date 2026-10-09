@@ -75,8 +75,8 @@ parents (e.g. sessions) are cleared.
 
 **Architecture:** Blueprint-based — auth, admin, lecturer, student, api.
 bcrypt auth, role-based `login_required` decorator. JWT-based endpoints for
-mobile (auth + lecturer flows). Seven-table schema, originally designed
-around ESP32 + RFID attendance capture.
+mobile (auth + lecturer flows). 17-table schema (see `models.py`), grown
+from an original seven-table design built around ESP32 + RFID capture.
 
 ### Known active issue
 
@@ -126,7 +126,7 @@ of queuing; an NFC/BLE handshake (<0.5s) drops that to under 2 minutes.
 Physical readers also cap out at a few hundred to ~1000 local fingerprint
 templates and don't sync reliably across door terminals at scale — using the
 phone's own secure enclave for biometric storage means the ESP32 reader only
-ever handles a 32-byte JWT, so the system scales to any enrollment size
+ever handles a 32-character signed beacon (not a JWT; see `beacon.py`), so the system scales to any enrollment size
 without hardware/template-sync limits.
 
 ## Roadmap (planned, not yet built)

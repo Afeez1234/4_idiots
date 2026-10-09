@@ -47,8 +47,18 @@ def attendance_already_recorded(session_id, student_id):
 def home():
     return redirect(url_for('auth.login'))
 
+# Both /sessions/active routes used to answer anyone, telling an outsider
+# which courses had a class running and when. They're now gated by the
+# same terminal secret as /attendance. No current client calls them -- the
+# HCE terminal never did, and the app gets session data from its own JWT
+# endpoints -- so if nothing needs them, delete them with the RFID route.
 @api_hardware_bp.route('/sessions/active', methods=['GET'])
 def get_active_sessions():
+    from api.student import _check_terminal_auth
+
+    if not _check_terminal_auth():
+        return jsonify({"error": "Unauthorized terminal"}), 401
+
     sessions = get_all_active_sessions()
     active_sessions = []
     for s in sessions:
@@ -63,6 +73,11 @@ def get_active_sessions():
 
 @api_hardware_bp.route('/sessions/active/<int:course_id>', methods=['GET'])
 def get_active_sessions_by_course_id(course_id):
+    from api.student import _check_terminal_auth
+
+    if not _check_terminal_auth():
+        return jsonify({"error": "Unauthorized terminal"}), 401
+
     session = Session.query.filter_by(
         is_active=True,
         course_id=course_id

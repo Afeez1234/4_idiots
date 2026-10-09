@@ -40,7 +40,7 @@ the same student in the same session, and both attendance_already_recorded
 and the uq_attendance_student_session unique constraint make that
 idempotent. A DB-backed handle would give strict single-use, but this
 project has no cache layer and no working migration path, so that would
-mean a new table plus two extra round-trips inside the 3-second window.
+mean a new table plus two extra round-trips inside the 10-second window.
 """
 
 import base64
