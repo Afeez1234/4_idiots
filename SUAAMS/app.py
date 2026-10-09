@@ -200,7 +200,7 @@ def inject_portal_context():
 # free-tier dyno never fully spins down from inactivity in the first place --
 # a cold dyno is what turned a single beacon-token POST into a ~1.8s round
 # trip during hardware testing, which is enough on its own to blow past the
-# 3-second BEACON_TOKEN_TTL_SECONDS window (see api/student.py). Deliberately
+# BEACON_TOKEN_TTL_SECONDS window (10s; see beacon.py). Deliberately
 # doesn't touch the DB: this only needs to keep the web process itself alive,
 # and a DB failure here would give the external monitor a false "down".
 @app.route('/healthz')

@@ -162,7 +162,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   Timer? _confirmationTimer;
   Timer? _idleTimer;
 
-  // Confirmation polling runs on its own clock, independent of the 3s
+  // Confirmation polling runs on its own clock, independent of the 10s
   // broadcast window. It starts the same moment broadcasting does, but
   // keeps going for longer than the broadcast itself.
   //
@@ -366,7 +366,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         secondsRemaining: _broadcastWindowSeconds,
       );
 
-      // Both timers start together. Broadcasting is capped at 3s
+      // Both timers start together. Broadcasting is capped at 10s
       // regardless of confirmation state -- that's the anti-relay security
       // window, not something to extend for confirmation's sake.
       // Confirmation polling runs longer, on its own schedule, and can

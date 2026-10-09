@@ -8,8 +8,10 @@ abstract final class ApiConstants {
 
   static const String loginEndpoint = '$baseUrl/auth/login';
   static const String studentDashboardEndpoint = '$baseUrl/student/dashboard';
-  static const String attendanceEndpoint = '$baseUrl/attendance';
-  static const String studentCoursesEndpoint = '$baseUrl/student/courses';
+  // attendanceEndpoint ('/api/v1/attendance') and studentCoursesEndpoint
+  // ('/api/v1/student/courses') were removed: nothing referenced them and
+  // neither route exists on the server. The legacy RFID route is /attendance
+  // with no /api/v1 prefix, and it is terminal-only anyway.
   static const String notificationsEndpoint = '$baseUrl/student/notifications';
 
   // Registers/refreshes this app instance's FCM token (see
@@ -33,8 +35,7 @@ abstract final class ApiConstants {
   static const String logoutEndpoint = '$baseUrl/auth/logout';
 
   // Mints the short-lived HCE "beacon" token (see api/student.py on the
-  // backend). This is a different endpoint from attendanceEndpoint above --
-  // the phone calls this one over its normal authenticated connection to
+  // backend). The phone calls this one over its normal authenticated connection to
   // get a token to broadcast; the ESP32 terminal is the one that later
   // posts that beacon token to POST /student/checkin (no Dart client for
   // that second endpoint since only hardware calls it).
