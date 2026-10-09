@@ -40,6 +40,13 @@
 
 #include "secrets.h"  // WiFi + terminal credentials. NOT in git.
 
+// Server certificate verification (useVerifiedTls below) relies on the CA
+// bundle built into arduino-esp32 3.x. On a 2.x core this would fail to
+// compile with a confusing error, so say what's wrong instead.
+#if !defined(ESP_ARDUINO_VERSION_MAJOR) || ESP_ARDUINO_VERSION_MAJOR < 3
+#error "SUAAMS_HCE needs the esp32 board package 3.x (Boards Manager) for its built-in CA bundle."
+#endif
+
 // Older secrets.h files predate Bluetooth check-in. Fail the build with
 // instructions rather than silently running without it.
 #if !defined(BLE_BEACON_SECRET) || !defined(BLE_TERMINAL_NUMBER)
@@ -88,7 +95,7 @@ unsigned long lastAttemptEnd = 0;
 // already marked" rather than double-recording.
 const uint8_t POST_ATTEMPTS = 2;
 
-// Socket/TLS timeout. The beacon expires 3s after it was minted on the
+// Socket/TLS timeout. The beacon expires 10s after it was minted on the
 // phone, and by the time a request reaches the terminal that budget is
 // already partly spent. A 15s timeout therefore just meant holding the
 // radio field for 15s to be told "expired" -- in the field log, attempts
@@ -104,7 +111,7 @@ const uint16_t HTTP_TIMEOUT_MS = 6000;
 // A Render free-tier dyno spins down after a period without traffic, and
 // the next request pays the full boot cost. Measured on this project's
 // deployment: 8.5s cold (beacon rejected), 5.0-5.3s barely-warm (accepted
-// by luck). The beacon acceptance window is 3s, so a cold backend means the
+// by luck). The beacon acceptance window is 10s, so a cold backend means the
 // student's tap is silently lost -- the app reports "could not confirm" and
 // the record never appears.
 //
@@ -459,6 +466,47 @@ void appendToBacklog(const String &token) {
   Serial.println(") -- will NOT become attendance, logged for review");
 }
 
+// ---------------- TLS ----------------
+// Every HTTPS request used to call client.setInsecure(). That encrypts the
+// connection but never checks WHO is on the other end: anyone on the venue
+// Wi-Fi could answer as the backend with their own certificate, and the
+// terminal would hand them X-Terminal-Secret -- the one credential that
+// proves a tap happened at a real door. With it, a student could submit
+// their own beacon from anywhere.
+//
+// Now the server's certificate must chain to a public root CA in the
+// core's built-in bundle (Mozilla's list), and must be issued for the
+// URL's hostname. Deliberately the whole bundle rather than one pinned
+// root: Render issues from Google Trust Services today (WE1 -> GTS Root R4,
+// checked 2026-10-09) and also uses Let's Encrypt, and this terminal has no
+// OTA -- a pinned root Render later moved away from would silently break
+// every terminal until each one was opened and reflashed. The bundle also
+// loads only the matching root per handshake, which matters on a heap
+// already squeezed by Wi-Fi + BLE.
+//
+// Not checked: certificate expiry dates. This core is built without
+// MBEDTLS_HAVE_TIME_DATE, so verification doesn't depend on the clock, and
+// an unsynced clock at boot can't break check-in. The chain and hostname
+// checks are what stop an impostor.
+//
+// A rejected certificate shows up as an ordinary transport failure (HTTP
+// -1), so the tap falls through to the offline backlog instead of being
+// lost -- it fails closed, and logTlsError() says why.
+void useVerifiedTls(WiFiClientSecure& client) {
+  client.useBuiltinCACertBundle();
+}
+
+// Explains a -1. Without this, "certificate rejected" and "Wi-Fi dropped"
+// print identically, and a misconfigured terminal would look merely
+// offline while quietly queuing every tap.
+void logTlsError(WiFiClientSecure& client, const char* tag) {
+  char buf[100];
+  int err = client.lastError(buf, sizeof(buf));
+  if (err != 0) {
+    Serial.printf("[%s] TLS error %d: %s\n", tag, err, buf);
+  }
+}
+
 // POSTs the queue and clears it on success.
 //
 // Clears only when the server actually accepted the batch. A transport
@@ -489,7 +537,7 @@ bool flushBacklog() {
   String payload = "{\"records\":[" + records + "]}";
 
   WiFiClientSecure client;
-  client.setInsecure();
+  useVerifiedTls(client);  // was setInsecure(); see the TLS section above
 
   HTTPClient http;
   http.begin(client, BACKLOG_URL);
@@ -514,6 +562,7 @@ bool flushBacklog() {
 
   if (code == -1) {
     Serial.println(" no response -- queue RETAINED, will retry later");
+    logTlsError(client, "QUEUE");
   } else {
     // Real answer from a reachable server. Keeping these would wedge the
     // queue permanently, so drop them -- the server has the record either way.
@@ -545,7 +594,7 @@ void maybeKeepBackendWarm(bool force = false) {
   }
 
   WiFiClientSecure client;
-  client.setInsecure();
+  useVerifiedTls(client);  // was setInsecure(); see the TLS section above
 
   HTTPClient http;
   http.begin(client, HEALTHZ_URL);
@@ -569,6 +618,9 @@ void maybeKeepBackendWarm(bool force = false) {
     Serial.print(" in ");
     Serial.print(dur);
     Serial.println("ms -- backend may be cold");
+    // The boot-time ping is the first HTTPS call, so a certificate problem
+    // shows up here before any student taps.
+    if (code == -1) logTlsError(client, "WARM");
   }
 }
 
@@ -699,7 +751,7 @@ void submitBeaconToken(const String &token) {
   // them just wastes the student's remaining window.
   for (uint8_t attempt = 1; attempt <= POST_ATTEMPTS; attempt++) {
     WiFiClientSecure client;
-    client.setInsecure();
+    useVerifiedTls(client);  // was setInsecure(); see the TLS section above
 
     HTTPClient http;
     http.begin(client, CHECKIN_URL);
@@ -740,6 +792,7 @@ void submitBeaconToken(const String &token) {
     // capture gets queued for the backlog endpoint.
     if (httpResponseCode == -1) {
       Serial.println("[POST] No response (transport failure) -- will retry");
+      logTlsError(client, "POST");
       // Back off briefly so we don't hammer a link that's already struggling.
       delay(1500);
       continue;
@@ -749,7 +802,7 @@ void submitBeaconToken(const String &token) {
       Serial.println("[POST] REJECTED by server -- not retrying. If this was 401,");
       Serial.println("[POST] the beacon likely expired before the server saw it.");
       Serial.println("[POST] Check: is the Render dyno warm? A cold start costs 5-9s,");
-      Serial.println("[POST] and the acceptance window is only 3s.");
+      Serial.println("[POST] and the acceptance window is only 10s.");
     }
     // Any real HTTP status means the backend WAS reachable, so this isn't an
     // outage and must not be queued -- the server has given its answer.

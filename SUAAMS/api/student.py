@@ -46,9 +46,12 @@ def _check_terminal_auth():
     This is a shared-secret header check, not a signature. It authenticates
     the terminal rather than the request, so a captured secret could be
     replayed -- which is why it only meaningfully helps alongside real TLS.
-    The firmware currently uses client.setInsecure(), so treat this as
-    attribution plus a meaningful hurdle, not as a complete fix. Pinning a
-    CA bundle on the ESP32 is the follow-up.
+    The firmware now verifies this server's certificate against the ESP32
+    core's CA bundle (useVerifiedTls in SUAAMS_HCE.ino; it used to call
+    setInsecure()), so the secret can't be lifted by impersonating the
+    server on the venue Wi-Fi. It is still one secret shared by every
+    terminal, so a dumped board exposes all of them -- per-terminal
+    secrets are the follow-up.
 
     Fails closed when unconfigured, for the same reason as
     BEACON_SIGNING_SECRET: a missing secret must disable the route, not
