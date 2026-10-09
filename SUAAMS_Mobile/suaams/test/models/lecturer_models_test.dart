@@ -118,6 +118,33 @@ void main() {
       expect(m.attendance.last.status, 'excused');
       expect(m.attendance.last.timeIn, isNull);
     });
+
+    // The fixture above is the response shape from before manual marking.
+    // The app must still read it (an old server, or deploy order slipping),
+    // with the new fields falling back to safe defaults.
+    test('reads a pre-manual-marking response with safe defaults', () {
+      final m = SessionDetailModel.fromJson(
+        loadApiData('lecturer_session_detail'),
+      );
+
+      expect(m.notCheckedIn, isEmpty);
+      expect(m.session.isActive, isFalse);
+      expect(m.attendance.first.method, isNull);
+    });
+
+    test('parses check-in methods and the not-checked-in list', () {
+      final m = SessionDetailModel.fromJson(
+        loadApiData('lecturer_session_detail_live'),
+      );
+
+      expect(m.session.isActive, isTrue);
+      expect(m.attendance.map((a) => a.method), ['nfc', 'ble', 'manual']);
+
+      expect(m.notCheckedIn, hasLength(2));
+      expect(m.notCheckedIn.first.studentId, 14);
+      expect(m.notCheckedIn.first.fullName, "Kelechi O'Neil");
+      expect(m.notCheckedIn.first.matricNumber, 'MCT/2022/031');
+    });
   });
 
   group('CourseAnalyticsModel (GET /lecturer/course/<id>/analytics)', () {

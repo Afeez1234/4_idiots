@@ -6,6 +6,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/models/session_detail_model.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
+import 'package:suaams/features/lecturer/providers/course_workspace_provider.dart';
 import 'package:suaams/core/network/auth_retry.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
 
@@ -72,5 +73,33 @@ class SessionDetailNotifier extends Notifier<SessionDetailState> {
         errorMessage: userFacingError(e),
       );
     }
+  }
+
+  /// Lecturer marks one student present by hand. Returns null on success,
+  /// or a message for the screen to show. Returned rather than written to
+  /// state.errorMessage, because that field drives the full-screen error
+  /// view -- a failed mark shouldn't replace the whole register.
+  Future<String?> markPresent(int studentId) async {
+    try {
+      final lecturerService = ref.read(lecturerServiceProvider);
+      await withAuthRetry(
+        ref,
+        (token) => lecturerService.markStudentPresent(
+          token,
+          args.courseId,
+          args.sessionId,
+          studentId,
+        ),
+      );
+    } catch (e) {
+      return userFacingError(e);
+    }
+
+    if (!ref.mounted) return null;
+    // The course workspace's live list shows the same session's records,
+    // so it would be stale until its own pull-to-refresh otherwise.
+    ref.invalidate(courseWorkspaceProvider(args.courseId));
+    await loadDetail();
+    return null;
   }
 }

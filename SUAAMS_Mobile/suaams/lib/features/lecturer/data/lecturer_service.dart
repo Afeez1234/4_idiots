@@ -208,6 +208,40 @@ class LecturerService {
     }
   }
 
+  // Manual marking. "Already marked" comes back as success too (the
+  // student checked in themselves a moment earlier), so the caller just
+  // reloads either way.
+  Future<void> markStudentPresent(
+    String token,
+    int courseId,
+    int sessionId,
+    int studentId,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConstants.markPresentEndpoint(courseId, sessionId)),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'student_id': studentId}),
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (!(response.statusCode == 200 && responseData['success'] == true)) {
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
+        throw Exception(errorMsg);
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   Future<CourseAnalyticsModel> fetchCourseAnalytics(
     String token,
     int courseId,

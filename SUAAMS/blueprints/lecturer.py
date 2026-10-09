@@ -3,7 +3,8 @@ import csv
 import io
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response
 from datetime import date, datetime, timezone
-from utils import login_required, resolve_timetable_slot_for_course, students_for_announcement, build_course_register_csv
+from utils import (login_required, resolve_timetable_slot_for_course, students_for_announcement,
+                   build_course_register_csv, students_not_checked_in, mark_student_present)
 from push_notifications import send_push_notification
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
 from extensions import log_exception, limiter
@@ -723,14 +724,20 @@ def session_detail(course_id, session_id):
         # api/lecturer.py, and api/hardware.py. Column position kept the
         # same (index 2) since session_detail.html indexes this tuple by
         # position (record[2]).
+        # Attendance.method appended at index 6 (positions 0-5 unchanged, so
+        # the template's existing indexes still hold) to label manual and
+        # Bluetooth marks.
         attendance_records = db.session.query(
             Student.full_name, Student.level, Department.name,
-            Student.matric_number, Attendance.status, Attendance.time_in
+            Student.matric_number, Attendance.status, Attendance.time_in,
+            Attendance.method
         ).join(Attendance, Attendance.student_id == Student.id)\
          .join(Department, Student.department_id == Department.id)\
          .filter(Attendance.session_id == session_id).all()
-         
+
         enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
+        # Who the lecturer can still mark present by hand.
+        not_checked_in = students_not_checked_in(session_info)
 
     except Exception:
         log_exception("Session Detail Error")
@@ -743,6 +750,54 @@ def session_detail(course_id, session_id):
         session_info=session_info,
         attendance_records=attendance_records,
         enrolled_count=enrolled_count,
+        not_checked_in=not_checked_in,
         active_page='session_history',
         active_course_id=course.id,
     )
+
+
+@lecturer_bp.route('/lecturer/course/<int:course_id>/session/<int:session_id>/mark-present', methods=['POST'])
+@limiter.limit("60 per minute")
+@login_required(('lecturer', 'hod'))
+def mark_present_r(course_id, session_id):
+    """Web twin of POST /api/v1/lecturer/.../mark-present. Same rules, via
+    utils.mark_student_present -- this route only adds the ownership check
+    and the form handling."""
+    back = redirect(url_for('lecturer.session_detail', course_id=course_id, session_id=session_id))
+
+    lecturer = Lecturer.query.filter_by(user_id=session.get('user_id')).first()
+    if not lecturer:
+        flash('Lecturer profile not found.', 'error')
+        return redirect(url_for('auth.login'))
+
+    course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+    if not course:
+        flash('Course not found or access denied.', 'error')
+        return redirect(url_for('lecturer.dashboard'))
+
+    session_info = SessionModel.query.filter_by(id=session_id, course_id=course_id).first()
+    if not session_info:
+        flash('Session not found.', 'error')
+        return redirect(url_for('lecturer.course_workspace', course_id=course_id))
+
+    student_id = request.form.get('student_id', type=int)
+    if student_id is None:
+        flash('No student selected.', 'error')
+        return back
+
+    try:
+        outcome = mark_student_present(session_info, student_id, lecturer.user)
+    except Exception:
+        db.session.rollback()
+        log_exception("Mark Present Error")
+        flash('Failed to mark student present.', 'error')
+        return back
+
+    if outcome == 'not_enrolled':
+        flash("That student isn't registered for this course.", 'error')
+    elif outcome == 'already_marked':
+        flash('That student is already marked for this session.', 'success')
+    else:
+        student = Student.query.get(student_id)
+        flash(f'{student.full_name} marked present.', 'success')
+    return back

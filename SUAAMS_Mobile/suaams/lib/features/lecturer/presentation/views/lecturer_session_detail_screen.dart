@@ -7,6 +7,7 @@ import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/shared/widgets/confirm_dialog.dart';
 
 String _fmtTime(String? raw) {
   if (raw == null || raw.length < 5) return '--:--';
@@ -106,6 +107,12 @@ class LecturerSessionDetailScreen extends ConsumerWidget {
                   ),
                 ),
               const SizedBox(height: 32),
+
+              // Manual marking: the fallback for a student whose phone
+              // can't check in. Offered on ended sessions too, so the
+              // register can be corrected after class.
+              _NotCheckedInSection(args: args, students: data.notCheckedIn),
+              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -192,10 +199,156 @@ class _AttendanceCard extends StatelessWidget {
                   letterSpacing: 0.5,
                 ),
               ),
+              // Only the non-default methods are labelled: a hand mark has
+              // no device evidence behind it, and a Bluetooth code is weaker
+              // evidence than a tap. An NFC tap is the normal case.
+              if (_methodLabel(record.method) case final label?) ...[
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: AppTheme.accent(
+                    size: 9,
+                    letterSpacing: 0.5,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+String? _methodLabel(String? method) => switch (method) {
+  'manual' => 'BY LECTURER',
+  'ble' => 'BLUETOOTH',
+  _ => null,
+};
+
+class _NotCheckedInSection extends ConsumerStatefulWidget {
+  final SessionDetailArgs args;
+  final List<NotCheckedInStudent> students;
+
+  const _NotCheckedInSection({required this.args, required this.students});
+
+  @override
+  ConsumerState<_NotCheckedInSection> createState() =>
+      _NotCheckedInSectionState();
+}
+
+class _NotCheckedInSectionState extends ConsumerState<_NotCheckedInSection> {
+  // The student whose mark is in flight. Disables every button meanwhile,
+  // so a double tap can't fire two requests.
+  int? _busyStudentId;
+
+  Future<void> _markPresent(NotCheckedInStudent student) async {
+    // A manual mark vouches for presence under the lecturer's name with
+    // no device evidence, so it's confirmed rather than one-tap.
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Mark present?',
+      message:
+          'Mark ${student.fullName} present for this session? '
+          'Only do this if you can see them in class. '
+          'It is recorded under your name.',
+      confirmLabel: 'MARK PRESENT',
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _busyStudentId = student.studentId);
+    final error = await ref
+        .read(sessionDetailProvider(widget.args).notifier)
+        .markPresent(student.studentId);
+    if (!mounted) return;
+    setState(() => _busyStudentId = null);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error ?? '${student.fullName} marked present.'),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'NOT CHECKED IN',
+          style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
+        ),
+        const SizedBox(height: 16),
+        if (widget.students.isEmpty)
+          const AppStateView(
+            kind: AppStateKind.empty,
+            icon: Icons.task_alt_rounded,
+            title: 'Everyone is accounted for',
+            message: 'Every enrolled student has a record for this session.',
+            compact: true,
+          )
+        else
+          ...widget.students.map(
+            (student) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colorScheme.outline.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            student.fullName,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            student.matricNumber,
+                            style: AppTheme.accent(
+                              size: 10,
+                              color: colorScheme.onSurface.withValues(
+                                alpha: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_busyStudentId == student.studentId)
+                      const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    else
+                      TextButton(
+                        onPressed: _busyStudentId == null
+                            ? () => _markPresent(student)
+                            : null,
+                        child: const Text('MARK PRESENT'),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

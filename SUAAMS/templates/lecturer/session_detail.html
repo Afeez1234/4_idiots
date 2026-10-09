@@ -1,6 +1,17 @@
 {% extends "base_portal.html" %}
 {% from '_macros.html' import pill, avatar, progress_bar, at_risk_tone, card_heading %}
 
+{# How a record got there, shown only when it isn't an ordinary NFC tap:
+   a hand mark has no device evidence behind it, and a Bluetooth code is
+   weaker evidence than a tap (see ble_beacon.py). method is record[6]. #}
+{%- macro method_tag(method) -%}
+    {%- if method == 'manual' -%}
+        <p class="mt-2 text-xs text-muted">Marked by lecturer</p>
+    {%- elif method == 'ble' -%}
+        <p class="mt-2 text-xs text-muted">Via Bluetooth</p>
+    {%- endif -%}
+{%- endmacro -%}
+
 {% block title %}Session Detail | SUAAMS Lecturer{% endblock %}
 {% block page_title %}Session Detail{% endblock %}
 {% block page_subtitle %}
@@ -116,6 +127,7 @@
                             {{ pill(record[4]|capitalize, 'neutral') }}
                         {% endif %}
                     </div>
+                    {{ method_tag(record[6]) }}
                     <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
                         <div>
                             <dt class="text-muted">Matric Number</dt>
@@ -182,6 +194,7 @@
                                 {% else %}
                                     {{ pill(record[4]|capitalize, 'neutral') }}
                                 {% endif %}
+                                {{ method_tag(record[6]) }}
                             </td>
                         </tr>
                     {% else %}
@@ -191,6 +204,47 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    {# Manual marking: enrolled students with no record yet. The fallback for
+       a student whose phone can't check in. Allowed on ended sessions too,
+       so the register can be corrected after class. #}
+    <div class="card-clip">
+        <div class="px-5 pt-5 pb-4">
+            {{ card_heading('Not Checked In') }}
+            <p class="mt-1 text-xs text-muted">
+                Only mark a student present if you can see them in class. Each mark is recorded under your name.
+            </p>
+        </div>
+        <div class="divide-y divide-divider border-t border-divider">
+            {% for student in not_checked_in %}
+                <div class="flex items-center justify-between gap-3 px-5 py-4">
+                    <div class="flex min-w-0 items-center gap-3">
+                        {{ avatar(student.full_name) }}
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-medium">{{ student.full_name }}</p>
+                            <p class="mono text-xs text-muted">{{ student.matric_number }}</p>
+                        </div>
+                    </div>
+                    {# Name goes in data-student-name, not an inline onsubmit:
+                       an apostrophe ("O'Brien") would break a JS string
+                       built in an attribute. Same pattern as the unbind
+                       form in admin/students.html. #}
+                    <form method="POST" class="mark-present-form"
+                          data-student-name="{{ student.full_name }}"
+                          action="{{ url_for('lecturer.mark_present_r', course_id=course.id, session_id=session_info.id) }}">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="student_id" value="{{ student.id }}">
+                        <button type="submit" class="btn-secondary btn-sm">
+                            <span class="material-symbols-rounded text-base">task_alt</span>
+                            Mark present
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <p class="empty-state">Every enrolled student has a record for this session.</p>
+            {% endfor %}
         </div>
     </div>
 
@@ -217,5 +271,15 @@
             });
         });
     }
+
+    // Confirm before a manual mark -- it vouches for presence under the
+    // lecturer's name, so a stray click shouldn't do it.
+    document.querySelectorAll('.mark-present-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (!confirm(`Mark ${form.dataset.studentName} present?`)) {
+                e.preventDefault();
+            }
+        });
+    });
 </script>
 {% endblock %}

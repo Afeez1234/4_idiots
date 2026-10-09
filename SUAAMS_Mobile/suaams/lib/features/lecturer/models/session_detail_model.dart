@@ -9,12 +9,16 @@ class SessionDetailModel {
   final SessionInfo session;
   final SessionDetailStats stats;
   final List<SessionAttendanceRecord> attendance;
+  // Enrolled students with no record yet -- the ones the lecturer can mark
+  // present by hand. `not_checked_in` in the JSON.
+  final List<NotCheckedInStudent> notCheckedIn;
 
   SessionDetailModel({
     required this.course,
     required this.session,
     required this.stats,
     required this.attendance,
+    required this.notCheckedIn,
   });
 
   factory SessionDetailModel.fromJson(Map<String, dynamic> json) {
@@ -25,6 +29,11 @@ class SessionDetailModel {
       attendance: (json['attendance'] as List)
           .map((a) => SessionAttendanceRecord.fromJson(a))
           .toList(),
+      // `?? const []` so this build still reads a server that predates
+      // manual marking (deploy order: backend first, but don't crash if not).
+      notCheckedIn: ((json['not_checked_in'] as List?) ?? const [])
+          .map((s) => NotCheckedInStudent.fromJson(s))
+          .toList(),
     );
   }
 }
@@ -34,8 +43,16 @@ class SessionInfo {
   final String? date;
   final String? plannedStart;
   final String? plannedEnd;
+  // Live vs. ended. Manual marking works on both; this only changes wording.
+  final bool isActive;
 
-  SessionInfo({required this.id, this.date, this.plannedStart, this.plannedEnd});
+  SessionInfo({
+    required this.id,
+    this.date,
+    this.plannedStart,
+    this.plannedEnd,
+    this.isActive = false,
+  });
 
   factory SessionInfo.fromJson(Map<String, dynamic> json) {
     return SessionInfo(
@@ -43,6 +60,27 @@ class SessionInfo {
       date: json['date'] as String?,
       plannedStart: json['planned_start'] as String?,
       plannedEnd: json['planned_end'] as String?,
+      isActive: json['is_active'] as bool? ?? false,
+    );
+  }
+}
+
+class NotCheckedInStudent {
+  final int studentId;
+  final String fullName;
+  final String matricNumber;
+
+  NotCheckedInStudent({
+    required this.studentId,
+    required this.fullName,
+    required this.matricNumber,
+  });
+
+  factory NotCheckedInStudent.fromJson(Map<String, dynamic> json) {
+    return NotCheckedInStudent(
+      studentId: json['student_id'] as int,
+      fullName: json['full_name'] as String,
+      matricNumber: json['matric_number'] as String,
     );
   }
 }
@@ -77,6 +115,10 @@ class SessionAttendanceRecord {
   final String? department;
   final String? timeIn;
   final String status;
+  // 'nfc' | 'ble' | 'manual' | 'rfid', or null for rows recorded before
+  // Attendance.method existed. Shown so a lecturer can tell a tap from a
+  // Bluetooth code from a hand mark.
+  final String? method;
 
   SessionAttendanceRecord({
     required this.fullName,
@@ -85,6 +127,7 @@ class SessionAttendanceRecord {
     this.department,
     this.timeIn,
     required this.status,
+    this.method,
   });
 
   factory SessionAttendanceRecord.fromJson(Map<String, dynamic> json) {
@@ -95,6 +138,7 @@ class SessionAttendanceRecord {
       department: json['department'] as String?,
       timeIn: json['time_in'] as String?,
       status: json['status'] as String,
+      method: json['method'] as String?,
     );
   }
 }

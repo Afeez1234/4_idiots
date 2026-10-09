@@ -110,6 +110,11 @@ abstract final class ApiConstants {
   static String sessionDetailEndpoint(int courseId, int sessionId) =>
       '$baseUrl/lecturer/course/$courseId/session/$sessionId';
 
+  // Lecturer marks one student present by hand -- see mark_present in
+  // api/lecturer.py.
+  static String markPresentEndpoint(int courseId, int sessionId) =>
+      '$baseUrl/lecturer/course/$courseId/session/$sessionId/mark-present';
+
   static String courseAnalyticsEndpoint(int courseId) =>
       '$baseUrl/lecturer/course/$courseId/analytics';
 
