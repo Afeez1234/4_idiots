@@ -50,7 +50,9 @@ class StudentTimetableScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SkeletonBox(width: 80, height: 10),
+                // 13dp: the THIS WEEK eyebrow's line height, so the tiles
+                // below start exactly where the real ones do.
+                const SkeletonBox(width: 80, height: 13),
                 const SizedBox(height: 16),
                 for (var i = 0; i < _days.length; i++)
                   const SkeletonListCard(trailing: SkeletonTrailing.chevron),

@@ -742,7 +742,10 @@ class _HomeSkeleton extends StatelessWidget {
                   if (i > 0) const SizedBox(width: 12),
                   Expanded(
                     child: Container(
-                      height: 74,
+                      // Measured on a Galaxy S24 at default text size: the
+                      // real AppStatBox is ~62dp. 74 left a visible jump
+                      // when the data replaced the skeleton.
+                      height: 62,
                       decoration: BoxDecoration(
                         color: cardColor,
                         borderRadius: BorderRadius.circular(12),
