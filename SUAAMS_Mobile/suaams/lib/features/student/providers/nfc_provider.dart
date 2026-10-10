@@ -445,7 +445,8 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       try {
         final methods = await withAuthRetry(
           ref,
-          (token) => ref.read(studentServiceProvider).fetchCheckinMethods(token),
+          (token) =>
+              ref.read(studentServiceProvider).fetchCheckinMethods(token),
         );
         serverBle = methods.ble;
       } catch (e) {
@@ -734,8 +735,24 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   /// providers, so invalidating one that's already been disposed is a
   /// no-op rather than an error -- safe to call unconditionally.
   void _invalidateAttendanceViews() {
-    ref.invalidate(studentDashboardProvider);
-    ref.invalidate(todayScheduleProvider);
+    // The dashboard and today's schedule are refreshed IN PLACE rather than
+    // invalidated. Invalidating threw their data away, so the home screen
+    // dropped back to its first-load state -- full-screen loading -- right
+    // as the success sheet closed, then rebuilt from nothing. Both loaders
+    // now keep the old data visible until the new data lands.
+    //
+    // ref.exists keeps the "safe to call unconditionally" property the
+    // invalidate version had: if nothing is watching a provider it isn't
+    // alive, and ref.read would create it just to fetch data nobody shows.
+    // The next screen to watch it fetches fresh data in build() anyway.
+    if (ref.exists(studentDashboardProvider)) {
+      unawaited(
+        ref.read(studentDashboardProvider.notifier).loadDashboardData(),
+      );
+    }
+    if (ref.exists(todayScheduleProvider)) {
+      unawaited(ref.read(todayScheduleProvider.notifier).loadTodaySchedule());
+    }
     ref.invalidate(courseAttendanceHistoryProvider);
   }
 

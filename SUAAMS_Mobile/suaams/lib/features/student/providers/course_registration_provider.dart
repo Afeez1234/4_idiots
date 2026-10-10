@@ -3,6 +3,8 @@
 // without touching dashboard/courses-tab state, and the dashboard's own
 // CourseBreakdown list only ever contains courses already enrolled in, so
 // it can't answer "what else is there to register for" on its own.
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/student/models/available_course_model.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
@@ -45,10 +47,11 @@ class CourseRegistrationState {
   }
 }
 
-final courseRegistrationProvider = NotifierProvider.autoDispose<
-  CourseRegistrationNotifier,
-  CourseRegistrationState
->(CourseRegistrationNotifier.new);
+final courseRegistrationProvider =
+    NotifierProvider.autoDispose<
+      CourseRegistrationNotifier,
+      CourseRegistrationState
+    >(CourseRegistrationNotifier.new);
 
 class CourseRegistrationNotifier extends Notifier<CourseRegistrationState> {
   @override
@@ -116,17 +119,28 @@ class CourseRegistrationNotifier extends Notifier<CourseRegistrationState> {
   /// version invalidated optimistically, which refetched three endpoints
   /// on every tap and then landed stale data again if the call failed.
   ///
-  /// Safe to call unconditionally: these are autoDispose, so invalidating
-  /// one that is currently disposed is a no-op, not an error. Mirrors
+  /// Safe to call unconditionally: invalidating a disposed autoDispose
+  /// provider is a no-op, and the in-place refreshes below are skipped for
+  /// providers that aren't alive (ref.exists). Mirrors
   /// `_invalidateAttendanceViews` in nfc_provider.dart, which does the
   /// same thing after a check-in.
   void _invalidateEnrollmentViews() {
     // Timetable tab + Day Detail.
     ref.invalidate(weekScheduleProvider);
-    // "Today's Protocol" list on the dashboard Home tab.
-    ref.invalidate(todayScheduleProvider);
-    // Courses tab (CourseBreakdown list) + dashboard stats.
-    ref.invalidate(studentDashboardProvider);
+    // "Today's Protocol" list on the dashboard Home tab, and the Courses tab
+    // (CourseBreakdown list) + dashboard stats. Refreshed in place rather
+    // than invalidated, so those tabs keep showing their current data until
+    // the new data arrives instead of dropping back to a loading state --
+    // see _invalidateAttendanceViews in nfc_provider.dart. ref.exists skips
+    // providers nothing is watching, as invalidate did.
+    if (ref.exists(todayScheduleProvider)) {
+      unawaited(ref.read(todayScheduleProvider.notifier).loadTodaySchedule());
+    }
+    if (ref.exists(studentDashboardProvider)) {
+      unawaited(
+        ref.read(studentDashboardProvider.notifier).loadDashboardData(),
+      );
+    }
   }
 
   // Shared register/drop plumbing: marks the row pending, calls the

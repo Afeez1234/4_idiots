@@ -46,7 +46,15 @@ class StudentDashboardNotifier extends Notifier<StudentDashboardState> {
   }
 
   Future<void> loadDashboardData() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    // Same rule as loadTodaySchedule: only raise isLoading when there's
+    // nothing on screen yet. A refresh after a check-in or a course
+    // registration used to blank every tab watching this provider back to
+    // its loading state for a round-trip, even though the old data was
+    // still perfectly good to show until the new data arrived.
+    final isBackgroundRefresh = state.data != null;
+    if (!isBackgroundRefresh) {
+      state = state.copyWith(isLoading: true, errorMessage: null);
+    }
 
     try {
       final studentService = ref.read(studentServiceProvider);
@@ -60,8 +68,19 @@ class StudentDashboardNotifier extends Notifier<StudentDashboardState> {
         (token) => studentService.fetchDashboardData(token),
       );
 
+      // autoDispose: every tab watching this may have gone away while the
+      // request was in flight, and writing state to a disposed notifier
+      // throws.
+      if (!ref.mounted) return;
+      // copyWith always takes errorMessage as given, so this also clears
+      // any error left from an earlier failed first load.
       state = state.copyWith(isLoading: false, data: dashboardData);
     } catch (e) {
+      if (!ref.mounted) return;
+      // A failed background refresh keeps the last good data rather than
+      // swapping the screen for an error -- slightly stale numbers beat a
+      // dead end. The next refresh will try again.
+      if (isBackgroundRefresh) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: userFacingError(e),
