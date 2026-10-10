@@ -62,7 +62,11 @@ class TodayScheduleNotifier extends Notifier<TodayScheduleState> {
 
   @override
   TodayScheduleState build() {
-    state = TodayScheduleState();
+    // Starts in the loading state: build() always kicks off a fetch, and
+    // starting at isLoading=false gave watchers one frame of "not loading,
+    // no data, no error" -- which screens rendered as the error or empty
+    // view before the skeleton appeared.
+    state = TodayScheduleState(isLoading: true);
     Future.microtask(() {
       loadTodaySchedule();
       _startPolling();

@@ -66,7 +66,7 @@ the feature.
 | Digital ID card | On-screen student ID | — | `student_id_card_screen.dart`, `core/providers/card_privacy_provider.dart` | — | — |
 | Announcements | Course/dept/university notices | `api/student.py` `/announcements`, `/announcements/seen` | `student_announcements_provider.dart`, `announcements_screen.dart` | — | `announcements` |
 | Notifications + push | In-app list, FCM push | `api/student.py` `/notifications`, `/device-token`; `push_notifications.py` | `core/services/notification_service.dart`, `notifications_provider.dart` | — | `notifications`, `device_tokens` |
-| Loading skeletons | Placeholder layout on first load (home screen + today's list so far); refreshes keep old data on screen | — | `shared/widgets/app_skeleton.dart`, `student_home_screen.dart` `_HomeSkeleton`, `student_provider.dart` `loadDashboardData` | — | — |
+| Loading skeletons | Placeholder layout on first load: home, today's list, timetable, day detail, attendance courses, history. Refreshes keep old data on screen; a failed first load shows a retry | — | `shared/widgets/app_skeleton.dart`; `student_home_screen.dart` `_HomeSkeleton`; `courses_view.dart` `_CoursesSkeleton`; `records_view.dart`; `student_timetable_screen.dart`; `day_detail_screen.dart`. Loaders: `student_provider.dart`, `today_schedule_provider.dart`, `week_schedule_provider.dart` | — | — |
 | Theme | Automatic / Dark / Light | — | `core/providers/theme_provider.dart`, `shared/widgets/theme_mode_sheet.dart` | — | — |
 | Student web portal | Dashboard, courses, attendance, announcements | `blueprints/student.py` | — | — | — |
 

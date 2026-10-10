@@ -123,11 +123,35 @@ class SkeletonBox extends StatelessWidget {
   }
 }
 
+/// What sits at the right-hand end of a [SkeletonListCard], matching the
+/// real row it stands in for.
+enum SkeletonTrailing {
+  /// A status pill or time badge (today's protocol, records).
+  pill,
+
+  /// A navigation chevron (timetable day tiles).
+  chevron,
+
+  /// A short line of text (a class's time range).
+  text,
+}
+
 /// A list-row placeholder matching the app's standard card: rounded
-/// container, a title line and a short subtitle line, and a pill on the
-/// right. Used for "today's protocol", records and similar lists.
+/// container, a title line and a short subtitle line, and something on the
+/// right. Used for "today's protocol", records, the timetable and similar
+/// lists.
 class SkeletonListCard extends StatelessWidget {
-  const SkeletonListCard({super.key});
+  final SkeletonTrailing trailing;
+
+  /// A small circle before the text, for rows that start with a status dot
+  /// (the attendance records list).
+  final bool leadingDot;
+
+  const SkeletonListCard({
+    super.key,
+    this.trailing = SkeletonTrailing.pill,
+    this.leadingDot = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -140,9 +164,13 @@ class SkeletonListCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: colorScheme.outline.withValues(alpha: 0.1)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Expanded(
+          if (leadingDot) ...[
+            const SkeletonBox.circle(size: 12),
+            const SizedBox(width: 16),
+          ],
+          const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -160,8 +188,16 @@ class SkeletonListCard extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(width: 12),
-          SkeletonBox(width: 64, height: 26),
+          const SizedBox(width: 12),
+          switch (trailing) {
+            SkeletonTrailing.pill => const SkeletonBox(width: 64, height: 26),
+            SkeletonTrailing.chevron => const SkeletonBox(
+              width: 14,
+              height: 14,
+              radius: 3,
+            ),
+            SkeletonTrailing.text => const SkeletonBox(width: 84, height: 12),
+          },
         ],
       ),
     );
@@ -171,14 +207,24 @@ class SkeletonListCard extends StatelessWidget {
 /// [count] list cards under one pulse.
 class SkeletonList extends StatelessWidget {
   final int count;
+  final SkeletonTrailing trailing;
+  final bool leadingDot;
 
-  const SkeletonList({super.key, this.count = 3});
+  const SkeletonList({
+    super.key,
+    this.count = 3,
+    this.trailing = SkeletonTrailing.pill,
+    this.leadingDot = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SkeletonPulse(
       child: Column(
-        children: [for (var i = 0; i < count; i++) const SkeletonListCard()],
+        children: [
+          for (var i = 0; i < count; i++)
+            SkeletonListCard(trailing: trailing, leadingDot: leadingDot),
+        ],
       ),
     );
   }

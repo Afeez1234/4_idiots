@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/features/student/providers/week_schedule_provider.dart';
 import 'package:suaams/features/student/models/week_schedule_entry.dart';
 
@@ -26,17 +29,62 @@ class StudentTimetableScreen extends ConsumerWidget {
     final state = ref.watch(weekScheduleProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
+    // Built once and shared by every state below, so the title is already
+    // in place while the week loads instead of popping in with the data.
+    final appBar = AppBar(
+      title: const Text('Timetable'),
+      backgroundColor: colorScheme.surface,
+      elevation: 0,
+    );
+
     if (state.isLoading && state.entries.isEmpty) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      // Seven placeholder tiles, one per day -- the loaded screen always
+      // shows all seven, so the skeleton is the exact shape of what's coming.
+      return Scaffold(
+        backgroundColor: colorScheme.surface,
+        appBar: appBar,
+        body: SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          child: SkeletonPulse(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SkeletonBox(width: 80, height: 10),
+                const SizedBox(height: 16),
+                for (var i = 0; i < _days.length; i++)
+                  const SkeletonListCard(trailing: SkeletonTrailing.chevron),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (state.errorMessage != null && state.entries.isEmpty) {
+      // Was a small red sentence under THIS WEEK with no way to retry
+      // except discovering pull-to-refresh. A failed refresh no longer
+      // reaches here -- loadWeekSchedule keeps the old week -- so this is
+      // only a first load that never succeeded.
+      return Scaffold(
+        backgroundColor: colorScheme.surface,
+        appBar: appBar,
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.calendar_month_rounded,
+          title: "Couldn't load your timetable",
+          message: isGenericServerMessage(state.errorMessage)
+              ? 'Check your connection and try again.'
+              : state.errorMessage,
+          onRetry: () =>
+              ref.read(weekScheduleProvider.notifier).loadWeekSchedule(),
+        ),
+      );
     }
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Timetable'),
-        backgroundColor: colorScheme.surface,
-        elevation: 0,
-      ),
+      appBar: appBar,
       body: RefreshIndicator(
         onRefresh: () =>
             ref.read(weekScheduleProvider.notifier).loadWeekSchedule(),
@@ -48,27 +96,23 @@ class StudentTimetableScreen extends ConsumerWidget {
             children: [
               Text(
                 'THIS WEEK',
-                style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
+                style: AppTheme.eyebrow(
+                  colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
               ),
               const SizedBox(height: 16),
-              if (state.errorMessage != null)
-                Text(
-                  'Could not load timetable.',
-                  style: TextStyle(color: colorScheme.error, fontSize: 12),
-                )
-              else
-                ..._days.asMap().entries.map((mapEntry) {
-                  final dayIndex = mapEntry.key;
-                  final dayName = mapEntry.value;
-                  final dayEntries = state.entries
-                      .where((e) => e.dayOfWeek == dayIndex)
-                      .toList();
-                  return _DayTile(
-                    day: dayName,
-                    entries: dayEntries,
-                    colorScheme: colorScheme,
-                  );
-                }),
+              ..._days.asMap().entries.map((mapEntry) {
+                final dayIndex = mapEntry.key;
+                final dayName = mapEntry.value;
+                final dayEntries = state.entries
+                    .where((e) => e.dayOfWeek == dayIndex)
+                    .toList();
+                return _DayTile(
+                  day: dayName,
+                  entries: dayEntries,
+                  colorScheme: colorScheme,
+                );
+              }),
             ],
           ),
         ),

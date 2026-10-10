@@ -39,8 +39,11 @@ final studentDashboardProvider =
 class StudentDashboardNotifier extends Notifier<StudentDashboardState> {
   @override
   StudentDashboardState build() {
-    // We initialize the state here directly using the Notifier base class property
-    state = StudentDashboardState();
+    // Starts in the loading state: build() always kicks off a fetch, and
+    // starting at isLoading=false gave watchers one frame of "not loading,
+    // no data, no error" -- which screens rendered as the error or empty
+    // view before the skeleton appeared.
+    state = StudentDashboardState(isLoading: true);
     Future.microtask(() => loadDashboardData());
     return state;
   }

@@ -84,10 +84,12 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
     final data = state.data;
 
     // First load only: nothing to show yet, so draw the layout that's about
-    // to arrive. This used to be a bare full-screen spinner. Keyed on
-    // `data == null` as well as isLoading so a refresh with data already on
-    // screen keeps showing that data instead of blanking the tab.
-    if (data == null && state.isLoading) {
+    // to arrive. This used to be a bare full-screen spinner. Keyed on "no
+    // data and no error" rather than isLoading, so any state that isn't a
+    // definite failure shows the skeleton -- it used to start at
+    // isLoading=false, and that first frame fell through to the error view.
+    // A refresh with data already on screen keeps showing that data.
+    if (data == null && state.errorMessage == null) {
       return Scaffold(
         backgroundColor: colorScheme.surface,
         body: Stack(

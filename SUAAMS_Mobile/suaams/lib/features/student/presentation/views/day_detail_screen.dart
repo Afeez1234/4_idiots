@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/features/student/providers/week_schedule_provider.dart';
 import 'package:suaams/features/student/models/week_schedule_entry.dart';
@@ -29,14 +31,43 @@ class DayDetailScreen extends ConsumerWidget {
     final state = ref.watch(weekScheduleProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
+    // Shared by the loading and error states so the day's name is on screen
+    // from the first frame, matching the loaded screen's app bar.
+    final appBar = AppBar(
+      title: Text(day),
+      backgroundColor: colorScheme.surface,
+      elevation: 0,
+    );
+
     if (state.isLoading && state.entries.isEmpty) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      // Usually never seen: this screen is pushed from the Timetable tab,
+      // which already loaded the week. It appears on a deep link or after
+      // the provider was disposed. Two cards is a typical day.
+      return Scaffold(
+        backgroundColor: colorScheme.surface,
+        appBar: appBar,
+        body: const Padding(
+          padding: EdgeInsets.all(24),
+          child: SkeletonList(count: 2, trailing: SkeletonTrailing.text),
+        ),
+      );
     }
 
     if (state.errorMessage != null && state.entries.isEmpty) {
+      // Was the raw error string centred on a blank screen, with no retry.
       return Scaffold(
-        appBar: AppBar(title: Text(day)),
-        body: Center(child: Text(state.errorMessage!)),
+        backgroundColor: colorScheme.surface,
+        appBar: appBar,
+        body: AppStateView(
+          kind: AppStateKind.error,
+          icon: Icons.calendar_month_rounded,
+          title: "Couldn't load $day's classes",
+          message: isGenericServerMessage(state.errorMessage)
+              ? 'Check your connection and try again.'
+              : state.errorMessage,
+          onRetry: () =>
+              ref.read(weekScheduleProvider.notifier).loadWeekSchedule(),
+        ),
       );
     }
 
@@ -47,11 +78,7 @@ class DayDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: Text(day),
-        backgroundColor: colorScheme.surface,
-        elevation: 0,
-      ),
+      appBar: appBar,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
