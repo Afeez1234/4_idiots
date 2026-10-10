@@ -15,6 +15,7 @@ import 'package:suaams/features/student/providers/checkin_method_provider.dart'
     show CheckInChannel, checkInChannelProvider;
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/providers/today_schedule_provider.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/shared/utils/date_label.dart';
 import 'package:suaams/features/student/providers/student_announcements_provider.dart';
@@ -80,11 +81,31 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
-    if (state.isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    final data = state.data;
+
+    // First load only: nothing to show yet, so draw the layout that's about
+    // to arrive. This used to be a bare full-screen spinner. Keyed on
+    // `data == null` as well as isLoading so a refresh with data already on
+    // screen keeps showing that data instead of blanking the tab.
+    if (data == null && state.isLoading) {
+      return Scaffold(
+        backgroundColor: colorScheme.surface,
+        body: Stack(
+          children: [
+            // Same background as the loaded screen, so the swap from
+            // skeleton to content changes only the foreground.
+            RepaintBoundary(
+              child: DashboardBackground(
+                isDarkMode: isDarkMode,
+                colorScheme: colorScheme,
+              ),
+            ),
+            const SafeArea(child: _HomeSkeleton()),
+          ],
+        ),
+      );
     }
 
-    final data = state.data;
     if (data == null) {
       // The dashboard fetch failed and there is no cached data to fall back
       // on. This is the state a student sees if they're at the door on a
@@ -95,8 +116,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
           icon: Icons.cloud_off_rounded,
           title: "Couldn't load your dashboard",
           message: isGenericServerMessage(state.errorMessage)
-                      ? 'Check your connection and try again.'
-                      : state.errorMessage,
+              ? 'Check your connection and try again.'
+              : state.errorMessage,
           onRetry: () =>
               ref.read(studentDashboardProvider.notifier).loadDashboardData(),
         ),
@@ -255,16 +276,14 @@ class _DashboardHeader extends ConsumerWidget {
               Builder(
                 builder: (context) {
                   final unread = ref.watch(
-                    studentAnnouncementsProvider.select(
-                      (s) => s.unreadCount,
-                    ),
+                    studentAnnouncementsProvider.select((s) => s.unreadCount),
                   );
                   return Stack(
                     clipBehavior: Clip.none,
                     children: [
                       IconButton(
-                        onPressed: () => context
-                            .push('/student/home/announcements'),
+                        onPressed: () =>
+                            context.push('/student/home/announcements'),
                         style: IconButton.styleFrom(
                           backgroundColor: colorScheme.surfaceContainer,
                           shape: RoundedRectangleBorder(
@@ -303,34 +322,34 @@ class _DashboardHeader extends ConsumerWidget {
               // GestureDetector it replaced -- a destructive action
               // should not be the smallest target in the header.
               SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Material(
-                    color: colorScheme.surfaceContainer,
-                    shape: const CircleBorder(),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: () => _showLogoutDialog(context, ref),
-                      child: Center(
-                        child: Text(
-                          avatarLetter,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                            // Explicit, and load-bearing. CircleAvatar
-                            // derives its text colour as onPrimary, which
-                            // measures 1.23:1 against surfaceContainer in
-                            // dark mode and 1.00:1 in light -- black on
-                            // near-black, then white on white. The initial
-                            // was invisible in both themes until this was
-                            // set. onSurface gives 17:1 either way.
-                            color: colorScheme.onSurface,
-                          ),
+                width: 48,
+                height: 48,
+                child: Material(
+                  color: colorScheme.surfaceContainer,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: () => _showLogoutDialog(context, ref),
+                    child: Center(
+                      child: Text(
+                        avatarLetter,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          // Explicit, and load-bearing. CircleAvatar
+                          // derives its text colour as onPrimary, which
+                          // measures 1.23:1 against surfaceContainer in
+                          // dark mode and 1.00:1 in light -- black on
+                          // near-black, then white on white. The initial
+                          // was invisible in both themes until this was
+                          // set. onSurface gives 17:1 either way.
+                          color: colorScheme.onSurface,
                         ),
                       ),
                     ),
                   ),
                 ),
+              ),
             ],
           ),
         ),
@@ -436,8 +455,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
     // in too, so "can't tap in" only greys the card when NFC is the
     // channel. See resolveCheckInChannel for how the channel is chosen.
     final channel = ref.watch(checkInChannelProvider);
-    final canTap =
-        channel == CheckInChannel.ble || !availability.cannotTapIn;
+    final canTap = channel == CheckInChannel.ble || !availability.cannotTapIn;
     final armed = isLive && canTap;
     final (hintIcon, hintText) = NfcBroadcastSheet.entryHint(
       availability,
@@ -649,6 +667,107 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
   }
 }
 
+// The Home tab's first-load placeholder. Mirrors the loaded layout block for
+// block -- header, check-in card, three stat boxes, the TODAY'S PROTOCOL
+// heading and its cards -- with the same padding and gaps as build() above,
+// so nothing shifts when the real content replaces it. If the loaded layout
+// changes, change this to match.
+class _HomeSkeleton extends StatelessWidget {
+  const _HomeSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final cardColor = colorScheme.surfaceContainer.withValues(alpha: 0.5);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      // Nothing to scroll to yet; the loaded screen's physics take over once
+      // data arrives.
+      physics: const NeverScrollableScrollPhysics(),
+      child: SkeletonPulse(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: eyebrow + name on the left, two 48dp controls right.
+            const Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SkeletonBox(width: 96, height: 10),
+                      SizedBox(height: 8),
+                      SkeletonBox(width: 180, height: 22),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12),
+                SkeletonBox(width: 48, height: 48, radius: 12),
+                SizedBox(width: 8),
+                SkeletonBox.circle(size: 48),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // Check-in card: subtitle, course title, time, CTA strip.
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SkeletonBox(width: 150, height: 10),
+                  SizedBox(height: 12),
+                  SkeletonBox(width: 200, height: 16),
+                  SizedBox(height: 8),
+                  SkeletonBox(width: 110, height: 11),
+                  SizedBox(height: 20),
+                  SkeletonBox(width: double.infinity, height: 46, radius: 8),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Stat row: three equal boxes, like AppStatRow.
+            Row(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      height: 74,
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // TODAY'S PROTOCOL heading + date line, then the list.
+            const SkeletonBox(width: 120, height: 10),
+            const SizedBox(height: 8),
+            const SkeletonBox(width: 90, height: 10),
+            const SizedBox(height: 16),
+            // Plain cards, not SkeletonList: they're already inside this
+            // screen's pulse, and a second controller would fade out of
+            // step with the blocks above.
+            for (var i = 0; i < 3; i++) const SkeletonListCard(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _StatsGrid extends StatelessWidget {
   final DashboardStats stats;
 
@@ -678,16 +797,11 @@ class _ProtocolList extends ConsumerWidget {
     final scheduleState = ref.watch(todayScheduleProvider);
 
     if (scheduleState.isLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
+      // Placeholder cards the same shape as _ProtocolCard, replacing a small
+      // centred spinner. loadTodaySchedule() only raises isLoading when the
+      // list is empty, so the 30s poll never brings this back over real
+      // entries.
+      return const SkeletonList(count: 3);
     }
 
     if (scheduleState.errorMessage != null) {
