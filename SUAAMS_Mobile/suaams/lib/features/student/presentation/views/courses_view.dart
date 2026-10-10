@@ -6,6 +6,74 @@ import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
+
+// First-load placeholder for the Attendance tab: the heading and three
+// cards shaped like _buildCourseCard (code badge + percentage, course name,
+// ATTENDANCE / sessions line, progress bar), with the same padding and
+// gaps so nothing moves when the real cards arrive.
+class _CoursesSkeleton extends StatelessWidget {
+  const _CoursesSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(24),
+      child: SkeletonPulse(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SkeletonBox(width: 140, height: 10),
+            const SizedBox(height: 16),
+            for (var i = 0; i < 3; i++)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: colorScheme.outline.withValues(alpha: 0.15),
+                  ),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        SkeletonBox(width: 72, height: 24),
+                        SkeletonBox(width: 48, height: 20),
+                      ],
+                    ),
+                    SizedBox(height: 16),
+                    FractionallySizedBox(
+                      widthFactor: 0.7,
+                      child: SkeletonBox(height: 16),
+                    ),
+                    SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        SkeletonBox(width: 80, height: 10),
+                        SkeletonBox(width: 90, height: 10),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    SkeletonBox(width: double.infinity, height: 6, radius: 3),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class CoursesView extends ConsumerWidget {
   const CoursesView({super.key});
@@ -17,7 +85,22 @@ class CoursesView extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     final data = state.data;
-    if (data == null) return const SizedBox.shrink();
+    // Was an empty SizedBox for both loading and a failed load, so the
+    // Attendance tab could sit blank with no way to retry. Same fix as
+    // records_view.dart.
+    if (data == null) {
+      if (state.errorMessage == null) return const _CoursesSkeleton();
+      return AppStateView(
+        kind: AppStateKind.error,
+        icon: Icons.school_rounded,
+        title: "Couldn't load your courses",
+        message: isGenericServerMessage(state.errorMessage)
+            ? 'Check your connection and try again.'
+            : state.errorMessage,
+        onRetry: () =>
+            ref.read(studentDashboardProvider.notifier).loadDashboardData(),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -26,7 +109,9 @@ class CoursesView extends ConsumerWidget {
         children: [
           Text(
             'ACADEMIC MODULES',
-            style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
+            style: AppTheme.eyebrow(
+              colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
           ),
           const SizedBox(height: 16),
 

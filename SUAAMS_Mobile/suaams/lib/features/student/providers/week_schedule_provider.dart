@@ -39,13 +39,25 @@ final weekScheduleProvider =
 class WeekScheduleNotifier extends Notifier<WeekScheduleState> {
   @override
   WeekScheduleState build() {
-    state = WeekScheduleState();
+    // Starts in the loading state: build() always kicks off a fetch, and
+    // starting at isLoading=false gave watchers one frame of "not loading,
+    // no data, no error" -- which screens rendered as the error or empty
+    // view before the skeleton appeared.
+    state = WeekScheduleState(isLoading: true);
     Future.microtask(() => loadWeekSchedule());
     return state;
   }
 
   Future<void> loadWeekSchedule() async {
-    state = state.copyWith(isLoading: true, errorMessage: null);
+    // Same rule as loadDashboardData / loadTodaySchedule: only show the
+    // loading state when there's nothing on screen. A pull-to-refresh used
+    // to set errorMessage on failure, and the timetable renders the error
+    // INSTEAD of the week -- so one dropped request on a weak signal wiped
+    // a perfectly good timetable off the screen.
+    final isBackgroundRefresh = state.entries.isNotEmpty;
+    if (!isBackgroundRefresh) {
+      state = state.copyWith(isLoading: true, errorMessage: null);
+    }
 
     try {
       final studentService = ref.read(studentServiceProvider);
@@ -59,6 +71,9 @@ class WeekScheduleNotifier extends Notifier<WeekScheduleState> {
       }
     } catch (e) {
       if (!ref.mounted) return;
+      // Keep the week on screen if a refresh fails; see the top of this
+      // method. Only a failed first load shows the error view.
+      if (isBackgroundRefresh) return;
       state = state.copyWith(
         isLoading: false,
         errorMessage: userFacingError(e),

@@ -6,6 +6,9 @@ import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
+import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
+import 'package:suaams/shared/widgets/app_state_view.dart';
 
 class RecordsView extends ConsumerStatefulWidget {
   const RecordsView({super.key});
@@ -123,7 +126,46 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
     final colorScheme = Theme.of(context).colorScheme;
 
     final data = state.data;
-    if (data == null) return const SizedBox.shrink();
+    // This used to return an empty SizedBox whenever data was null -- for
+    // loading AND for a failed load -- so a student who opened History on a
+    // cold start or a bad connection saw a blank screen with no way out.
+    if (data == null) {
+      if (state.errorMessage == null) {
+        // Heading, the filter bar, then rows shaped like _buildLogEntry
+        // (status dot, two lines, time badge).
+        return const SingleChildScrollView(
+          physics: NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.all(24),
+          child: SkeletonPulse(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SkeletonBox(width: 150, height: 10),
+                SizedBox(height: 16),
+                SkeletonBox(width: double.infinity, height: 44, radius: 12),
+                SizedBox(height: 24),
+                SkeletonBox(width: 100, height: 10),
+                SizedBox(height: 12),
+                SkeletonListCard(leadingDot: true),
+                SkeletonListCard(leadingDot: true),
+                SkeletonListCard(leadingDot: true),
+                SkeletonListCard(leadingDot: true),
+              ],
+            ),
+          ),
+        );
+      }
+      return AppStateView(
+        kind: AppStateKind.error,
+        icon: Icons.history_rounded,
+        title: "Couldn't load your attendance history",
+        message: isGenericServerMessage(state.errorMessage)
+            ? 'Check your connection and try again.'
+            : state.errorMessage,
+        onRetry: () =>
+            ref.read(studentDashboardProvider.notifier).loadDashboardData(),
+      );
+    }
 
     // PERF FIX: only recompute filtering/grouping when the source list or
     // the selected filter actually changed (see field doc-comments above).
@@ -146,7 +188,9 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
           // Header
           Text(
             'ATTENDANCE HISTORY',
-            style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
+            style: AppTheme.eyebrow(
+              colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -281,7 +325,10 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
     ColorScheme colorScheme,
     bool isDarkMode,
   ) {
-    final statusColor = attendanceStatusText(record.status, terminalOf(context));
+    final statusColor = attendanceStatusText(
+      record.status,
+      terminalOf(context),
+    );
     final statusText = attendanceStatusLabel(record.status);
 
     final courseName = record.course.isEmpty ? 'UNKNOWN MODULE' : record.course;
