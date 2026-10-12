@@ -12,7 +12,7 @@ from datetime import date, datetime, timezone
 from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester, Announcement, OfflineCheckinLog
 from extensions import limiter, jwt_identity_or_ip, api_error_response, client_ip
 from push_notifications import send_push_notification
-from utils import compute_attendance_status
+from utils import compute_attendance_status, student_course_attendance
 # Stored UTC moments -> campus time for display; campus "today" for
 # timetable lookups. See campus_time.py.
 from campus_time import campus_fmt, campus_today
@@ -134,41 +134,29 @@ def get_student_dashboard():
             return jsonify({"error": "Student profile not found."}), 404
 
         # 3) Count enrollments using our new direct relationship!
-        enrollment_count = len(student.courses)
+        # Per-course counts come from utils.student_course_attendance --
+        # three queries in total instead of two per course, and the same
+        # numbers the student web portal shows.
+        stats = student_course_attendance(student)
+        enrollment_count = len(stats)
 
         course_breakdown = []
         attended_sessions_count = 0
         total_sessions_count = 0
 
-        # 4) Iterate through the enrolled courses cleanly without raw SQL JOINs
-        for course in student.courses:
-            # Count all active sessions for this course
-            total_sessions = SessionModel.query.filter_by(course_id=course.id).count()
-
-            # Count attended sessions using an ORM join
-            attended_sessions = Attendance.query.join(SessionModel).filter(
-                SessionModel.course_id == course.id,
-                Attendance.student_id == student.id
-            ).count()
-
-            total_sessions_count += total_sessions
-            attended_sessions_count += attended_sessions
-
-            # Calculate the percentage safely
-            pct = round((attended_sessions / total_sessions * 100) if total_sessions else 0, 1)
+        for row in stats:
+            course = row['course']
+            total_sessions_count += row['total']
+            attended_sessions_count += row['attended']
             course_breakdown.append({
                 'id': course.id,
-                # SCHEMA UPDATE: course_title/course_code (v2 schema
-                # redesign renamed title/code -> course_title/course_code;
-                # JSON key names 'name'/'code' are unchanged).
                 'name': course.course_title,
                 'code': course.course_code,
-                'pct': pct,
-                'attended': attended_sessions,
-                'total': total_sessions,
+                'pct': row['pct'],
+                'attended': row['attended'],
+                'total': row['total'],
             })
 
-        # 5) Calculate overall stats
         overall_rate = round((attended_sessions_count / total_sessions_count * 100) if total_sessions_count else 0, 1)
         at_risk_count = sum(1 for course in course_breakdown if course['pct'] < 75)
 

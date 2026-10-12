@@ -196,6 +196,55 @@ def students_not_checked_in(session):
     )
 
 
+def student_course_attendance(student):
+    """[{'course', 'attended', 'total', 'pct'}, ...] for every course the
+    student is registered for. Shared by the app dashboard (api/student.py)
+    and the student web portal (blueprints/student.py), which each had a
+    copy.
+
+    PERF: both copies ran two counting queries per course (plus, on the web,
+    one more to load each course's lecturer) -- about 13 trips to the
+    database for six courses, on every dashboard open. Now three queries
+    whatever the course count. Same arithmetic: every attendance row counts,
+    against every session the course has run.
+    """
+    from sqlalchemy.orm import joinedload
+    from models import db, Course, Enrollment, Session as SessionModel, Attendance
+
+    courses = (Course.query
+               .join(Enrollment, Enrollment.course_id == Course.id)
+               .filter(Enrollment.student_id == student.id)
+               .options(joinedload(Course.lecturer))
+               .all())
+    course_ids = [c.id for c in courses]
+    if not course_ids:
+        return []
+
+    totals = dict(
+        db.session.query(SessionModel.course_id, db.func.count(SessionModel.id))
+        .filter(SessionModel.course_id.in_(course_ids))
+        .group_by(SessionModel.course_id)
+    )
+    attended = dict(
+        db.session.query(SessionModel.course_id, db.func.count(Attendance.id))
+        .join(Attendance, Attendance.session_id == SessionModel.id)
+        .filter(SessionModel.course_id.in_(course_ids), Attendance.student_id == student.id)
+        .group_by(SessionModel.course_id)
+    )
+
+    rows = []
+    for course in courses:
+        total = totals.get(course.id, 0)
+        count = attended.get(course.id, 0)
+        rows.append({
+            'course': course,
+            'attended': count,
+            'total': total,
+            'pct': round((count / total * 100) if total else 0, 1),
+        })
+    return rows
+
+
 def _lock_owned_course(lecturer, course_id):
     """The lecturer's own course, row-locked until the caller commits, or None.
 

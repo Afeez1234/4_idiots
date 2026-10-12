@@ -547,8 +547,17 @@ def get_course_analytics(course_id):
         if not course:
             return jsonify({"error": "Course not found or access denied."}), 404
 
-        enrollments = Enrollment.query.filter_by(course_id=course_id).all()
-        enrolled_count = len(enrollments)
+        # PERF: this used to run one query per session and two per student
+        # (load the student, count their attendance) -- about 415 queries
+        # for a 200-student course after 15 sessions, every time the screen
+        # opened. Now four queries, whatever the size. Same numbers.
+        enrolled_students = (
+            Student.query
+            .join(Enrollment, Enrollment.student_id == Student.id)
+            .filter(Enrollment.course_id == course_id)
+            .all()
+        )
+        enrolled_count = len(enrolled_students)
 
         sessions = (
             SessionModel.query
@@ -558,11 +567,19 @@ def get_course_analytics(course_id):
         )
         total_sessions = len(sessions)
 
+        # Present count per completed session, in one grouped query.
+        present_by_session = dict(
+            db.session.query(Attendance.session_id, db.func.count(Attendance.id))
+            .join(SessionModel, Attendance.session_id == SessionModel.id)
+            .filter(SessionModel.course_id == course_id, SessionModel.is_active == False)  # noqa: E712
+            .group_by(Attendance.session_id)
+        )
+
         # Chronological trend -- one point per completed session.
         trend = []
         pct_sum = 0.0
         for session in sessions:
-            present_count = Attendance.query.filter_by(session_id=session.id).count()
+            present_count = present_by_session.get(session.id, 0)
             pct = round((present_count / enrolled_count * 100) if enrolled_count else 0, 1)
             pct_sum += pct
             trend.append({
@@ -577,16 +594,17 @@ def get_course_analytics(course_id):
         # total-possible) -- matches what the trend line itself shows.
         avg_attendance = round(pct_sum / total_sessions, 1) if total_sessions else 0
 
+        # Completed sessions attended per student, in one grouped query.
+        attended_by_student = dict(
+            db.session.query(Attendance.student_id, db.func.count(Attendance.id))
+            .join(SessionModel, Attendance.session_id == SessionModel.id)
+            .filter(SessionModel.course_id == course_id, SessionModel.is_active == False)  # noqa: E712
+            .group_by(Attendance.student_id)
+        )
+
         students = []
-        for enrollment in enrollments:
-            student = Student.query.get(enrollment.student_id)
-            if student is None:
-                continue
-            attended = Attendance.query.join(SessionModel).filter(
-                SessionModel.course_id == course_id,
-                SessionModel.is_active == False,
-                Attendance.student_id == student.id,
-            ).count()
+        for student in enrolled_students:
+            attended = attended_by_student.get(student.id, 0)
             pct = round((attended / total_sessions * 100) if total_sessions else 0, 1)
             students.append({
                 'student_id': student.id,

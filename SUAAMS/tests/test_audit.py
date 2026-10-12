@@ -295,6 +295,35 @@ class AuditTestCase(unittest.TestCase):
         self.upload(self.csv_rows(0, BULK_UPLOAD_MAX_ROWS + 1))
         self.assertEqual(Student.query.count(), 0)
 
+    def test_enrol_by_matric_number(self):
+        # Finding 11: the enrol form takes a matric number instead of a
+        # dropdown of every student.
+        user = User(username='MCT/19/0099', password_hash='x', role='student')
+        db.session.add(user)
+        db.session.flush()
+        student = Student(full_name='Ola', matric_number='MCT/19/0099', level='400',
+                          department_id=self.dept.id, user_id=user.id)
+        lect_user = User(username='lect', password_hash='x', role='lecturer')
+        db.session.add_all([student, lect_user])
+        db.session.flush()
+        lecturer = Lecturer(full_name='Dr Ade', staff_id='S1', department_id=self.dept.id,
+                            user_id=lect_user.id)
+        db.session.add(lecturer)
+        db.session.flush()
+        course = Course(course_title='Control', course_code='MCT 401',
+                        lecturer_id=lecturer.id, department_id=self.dept.id)
+        db.session.add(course)
+        db.session.commit()
+
+        self.sign_in(self.admin)
+        self.client.post('/admin/courses', data={
+            'action': 'enroll_student', 'matric_number': 'mct/19/9999', 'course_id': course.id})
+        self.assertEqual(self.entries('enrollment.create'), [])   # unknown matric
+        self.client.post('/admin/courses', data={
+            'action': 'enroll_student', 'matric_number': ' mct/19/0099 ', 'course_id': course.id})
+        self.assertEqual([c.id for c in db.session.get(Student, student.id).courses], [course.id])
+        self.assertIn('MCT/19/0099', self.entries('enrollment.create')[0].summary)
+
     def test_activity_filters_by_person(self):
         audit.log_action('a.b', 'one', actor=(1, 'tunde', 'admin'))
         audit.log_action('a.b', 'two', actor=(2, 'amaka', 'admin'))

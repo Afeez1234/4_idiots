@@ -1,5 +1,5 @@
 from flask import Blueprint, flash, render_template, redirect, session, url_for
-from utils import login_required
+from utils import login_required, student_course_attendance
 from models import db, Student, Course, Session as SessionModel, Attendance, Announcement, Semester
 from extensions import log_exception
 
@@ -31,23 +31,20 @@ def _course_breakdown(student):
     """Per-course attendance stats for this student. Shared by dashboard()
     (top-4 preview) and my_courses() (full list) so the two pages can't
     drift apart on the percentage formula."""
+    # Counts come from utils.student_course_attendance (three queries in
+    # total, shared with the app's dashboard).
     breakdown = []
-    for course in student.courses:
-        total_sessions = SessionModel.query.filter_by(course_id=course.id).count()
-        attended_sessions = Attendance.query.join(SessionModel).filter(
-            SessionModel.course_id == course.id,
-            Attendance.student_id == student.id
-        ).count()
-        pct = round((attended_sessions / total_sessions * 100) if total_sessions else 0, 1)
+    for row in student_course_attendance(student):
+        course = row['course']
         breakdown.append({
             'id': course.id,
             'name': course.course_title,
             'code': course.course_code,
             'lecturer_name': course.lecturer.full_name if course.lecturer else None,
             'credit_units': course.credit_units,
-            'pct': pct,
-            'attended': attended_sessions,
-            'total': total_sessions,
+            'pct': row['pct'],
+            'attended': row['attended'],
+            'total': row['total'],
         })
     return breakdown
 

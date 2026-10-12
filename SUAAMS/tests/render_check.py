@@ -168,7 +168,6 @@ CONTEXTS = {
         ],
         lecturers=[{"id": 1, "full_name": "Dr. Jane Doe"}],
         semesters=[{"id": 1, "name": "2025/2026 First Semester"}],
-        students=[{"id": 1, "full_name": "Aisha Bello", "matric_number": "CPE/20/1123"}],
     ),
 
     "admin/hods.html": dict(

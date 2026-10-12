@@ -93,14 +93,14 @@
                         {% include '_csrf_field.html' %}
                         <input type="hidden" name="action" value="enroll_student">
 
+                        {# A matric number box, not a dropdown of every student:
+                           the dropdown loaded and drew the whole student body on
+                           every visit, which grows every term. The admin is
+                           usually holding the student's ID card anyway. #}
                         <div>
-                            <label class="form-label" for="enroll-student">Student</label>
-                            <select name="student_id" id="enroll-student" required class="form-select">
-                                <option value="" disabled selected>Select student</option>
-                                {% for student in students %}
-                                    <option value="{{ student.id }}">{{ student.full_name }} ({{ student.matric_number }})</option>
-                                {% endfor %}
-                            </select>
+                            <label class="form-label" for="enroll-student">Student's matric number</label>
+                            <input type="text" name="matric_number" id="enroll-student" required
+                                   placeholder="e.g. CPE/20/1123" autocomplete="off" class="form-input mono">
                         </div>
 
                         <div>

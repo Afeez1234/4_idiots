@@ -780,12 +780,40 @@ def courses_page():
         action = request.form.get('action', 'create_course')
 
         if action == 'enroll_student':
-            student_id = request.form.get('student_id')
+            # Looked up by matric number: the form used to be a dropdown of
+            # every student in the school (see courses.html).
+            matric = (request.form.get('matric_number') or '').strip()
             course_id = request.form.get('course_id')
 
-            if not student_id or not course_id:
-                flash('Select both a student and a course to enroll.', 'error')
+            if not matric or not course_id:
+                flash('Enter a matric number and select a course.', 'error')
                 return redirect(url_for('admin.courses_page'))
+
+            try:
+                student = Student.query.filter(
+                    db.func.lower(Student.matric_number) == matric.lower()
+                ).first()
+                course = db.session.get(Course, int(course_id))
+                if not student:
+                    flash(f"No student with matric number '{matric}'.", 'error')
+                elif not course:
+                    flash('That course no longer exists.', 'error')
+                elif Enrollment.query.filter_by(student_id=student.id, course_id=course.id).first():
+                    flash('That student is already enrolled in this course.', 'error')
+                else:
+                    db.session.add(Enrollment(student_id=student.id, course_id=course.id))
+                    log_action('enrollment.create',
+                               f"Enrolled {student.full_name} ({student.matric_number}) in {course.course_code}",
+                               'enrollment', None,
+                               {'student_id': student.id, 'course_id': course.id})
+                    db.session.commit()
+                    flash(f"{student.full_name} enrolled in {course.course_code}.", 'success')
+            except Exception:
+                db.session.rollback()
+                flash('Failed to enroll student.', 'error')
+                log_exception("Enrollment Create Error")
+
+            return redirect(url_for('admin.courses_page'))
 
             try:
                 existing = Enrollment.query.filter_by(
@@ -852,14 +880,12 @@ def courses_page():
     departments = Department.query.all()
     lecturers = Lecturer.query.all()
     semesters = Semester.query.all()
-    students = Student.query.all()
     return render_template(
         'admin/courses.html',
         courses=courses,
         departments=departments,
         lecturers=lecturers,
         semesters=semesters,
-        students=students,
         active_page='courses',
     )
 
