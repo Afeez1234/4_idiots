@@ -33,8 +33,8 @@ if you know the date.
 - **Chose:** A PN532 over I²C. It can list an ISO 14443-4 target and exchange
   APDUs with it (`inListPassiveTarget` + `inDataExchange`).
 - **Trade-off:** It's a different library, different wiring and a mode
-  switch to get right. The old sketches and the `/attendance` RFID route are
-  kept for reference only.
+  switch to get right. The old sketches are kept for reference only; the
+  server's `/attendance` RFID route was removed on 2026-10-12.
 
 ### D3. ~360-byte JWT in six chunks → 34-byte signed code in one exchange (2026-09-25)
 

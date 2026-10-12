@@ -1,21 +1,23 @@
 import re
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for
 from datetime import datetime, timezone
-from utils import login_required
+from utils import login_required, normalize_level
 from models import db, HOD, Department, Lecturer, Course, Student, Session as SessionModel, Attendance, Enrollment
 from extensions import log_exception
 
 hod_bp = Blueprint('hod', __name__)
 
 
-def _normalize_level(raw):
-    """Student.level is a free-text String(20) (admins may enter '400' or
-    '400L'), so pull the leading digits out rather than trusting the whole
-    string to be a clean int. Returns None if nothing numeric is found."""
-    if not raw:
-        return None
-    match = re.match(r'\d+', raw.strip())
-    return int(match.group()) if match else None
+def _student_level(raw):
+    """A student's level as an int (400), or None if it isn't a real level.
+
+    Uses the same rule as the admin pages (utils.normalize_level). This used
+    to have its own copy that accepted any leading number, so a typo like
+    "1000" showed up on the HOD pages as a real "1000L" level while the
+    admin student list marked it invalid.
+    """
+    level = normalize_level(raw)
+    return int(level) if level else None
 
 
 def _course_level(course_code):
@@ -189,7 +191,7 @@ def levels():
 
         student_counts = {}
         for student in students:
-            level = _normalize_level(student.level)
+            level = _student_level(student.level)
             if level is not None:
                 student_counts[level] = student_counts.get(level, 0) + 1
 
@@ -241,7 +243,7 @@ def students():
         )
 
         all_students = Student.query.filter_by(department_id=hod.department_id).all()
-        levels_present = sorted({lvl for lvl in (_normalize_level(s.level) for s in all_students) if lvl is not None})
+        levels_present = sorted({lvl for lvl in (_student_level(s.level) for s in all_students) if lvl is not None})
 
         requested_level = request.args.get('level', type=int)
         selected_level = requested_level if requested_level in levels_present else (levels_present[0] if levels_present else None)
@@ -249,7 +251,7 @@ def students():
         roster = []
         flagged_count = 0
         for student in all_students:
-            if _normalize_level(student.level) != selected_level:
+            if _student_level(student.level) != selected_level:
                 continue
             overall, per_course = attendance.get(student.id, (None, []))
             if overall is not None and overall < 75:

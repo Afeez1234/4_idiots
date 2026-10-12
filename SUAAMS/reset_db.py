@@ -10,6 +10,10 @@ personal login and the Activity page can say who did what.
 Requires the same env vars app.py needs (DB_HOST/DB_USER/DB_PASSWORD/
 DB_NAME/...) to already be set, since it imports `app` directly.
 """
+import os
+
+from flask_migrate import stamp
+
 from app import app
 from models import db
 
@@ -30,6 +34,11 @@ def reset_db():
 
         db.drop_all()
         db.create_all()
+        # Tell Alembic the fresh tables are already at the latest migration.
+        # Without this the next `flask db upgrade` starts again from the very
+        # first migration and fails on "duplicate column", because
+        # create_all() has already made every table at its final shape.
+        stamp(directory=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'migrations'))
         print(f"All tables in '{db_name}' dropped and recreated from current models.py.")
 
 if __name__ == '__main__':

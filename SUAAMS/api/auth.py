@@ -285,6 +285,13 @@ def mobile_refresh():
     if not user:
         return jsonify({"error": "User not found"}), 404
 
+    # A disabled account gets no new tokens. Without this, switching an
+    # account off (is_active=False) only stopped NEW logins: a phone already
+    # signed in kept refreshing every 30 minutes indefinitely -- a lecturer
+    # who had left could still mark students present from the app.
+    if not user.is_active:
+        return jsonify({"error": "Account is disabled"}), 401
+
     if not user.current_refresh_jti or user.current_refresh_jti != presented_jti:
         return jsonify({"error": "Session has been revoked. Please log in again."}), 401
 

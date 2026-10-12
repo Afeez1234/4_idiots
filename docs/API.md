@@ -108,15 +108,13 @@ end for completeness.
 | POST | `/course/<course_id>/announcements` | Post (pushes to enrolled students) |
 | DELETE | `/announcements/<announcement_id>` | Delete |
 
-## Legacy hardware routes (no `/api/v1` prefix)
+## Removed: old RFID-card routes
 
-These are kept for the old MFRC522 RFID prototype, which hardcoded these paths.
-
-| Method | Path | Auth | Notes |
-|---|---|---|---|
-| POST | `/attendance` | Terminal | `{RFID_UID}`. Marks the newest active session, `method = rfid`. Delete it if the RFID path is truly retired |
-| GET | `/sessions/active` | Terminal | Lists active sessions. No current client calls it |
-| GET | `/sessions/active/<course_id>` | Terminal | Active session for one course. No current client calls it |
+`POST /attendance` and `GET /sessions/active[/<course_id>]`, used by the
+retired MFRC522 card prototype, were removed on 2026-10-12. Nothing called
+them, and `/attendance` credited "the newest active session in any course",
+the mistake the signed check-in code exists to prevent. Only `GET /`
+(redirect to the login page) is left in `api/hardware.py`.
 
 ## Web dashboards (session cookie, not JSON)
 

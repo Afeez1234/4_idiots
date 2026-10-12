@@ -28,7 +28,7 @@ the feature.
 | Offline queue | Stores up to 16 tokens in flash, uploads on reconnect | `api/student.py` `sync_offline_checkin_backlog` | — | `HCE.ino` `appendToBacklog`, `flushBacklog` | `offline_checkin_logs` |
 | Keep server warm | Pings `/healthz` every 4 min and before a POST if not warm | `app.py` `healthz` | — | `HCE.ino` `maybeKeepBackendWarm`, `ensureBackendWarmForPost` | — |
 | Present vs late | `late` if > 10 min after `planned_start` (campus time) | `utils.py` `compute_attendance_status` | `shared/utils/attendance_status.dart` (display) | — | `attendance` |
-| Legacy RFID capture | Old MFRC522 card route, terminal-secret gated | `api/hardware.py` `/attendance` | — | `SUAAMS_ESP/`, `SUAAMS_/` (old sketches) | `students.rfid_uid` |
+| Legacy RFID capture | **Removed 2026-10-12.** The old sketches remain for reference and would now get a 404 | — | — | `SUAAMS_ESP/`, `SUAAMS_/` (old sketches) | `students.rfid_uid` (unused) |
 
 ## Security
 

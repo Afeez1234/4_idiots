@@ -102,6 +102,11 @@ app = Flask(__name__)
 
 # Core config
 app.secret_key = SECRET_KEY
+# Send the web session cookie over HTTPS only. Without this, someone typing
+# http://suaams... on public Wi-Fi sends their signed-in cookie unencrypted
+# before the redirect to HTTPS, where anyone on that network can copy it.
+# Local development still works: browsers treat http://localhost as secure.
+app.config['SESSION_COOKIE_SECURE'] = True
 app.config['JWT_SECRET_KEY'] = JWT_SECRET
 
 # Explicit JWT lifetimes -- previously unset, which silently rode on
@@ -208,11 +213,9 @@ def healthz():
     return jsonify({"status": "ok"}), 200
 
 
-# The ESP32-facing routes (/, /sessions/active, /sessions/active/<id>,
-# /attendance) and their helper functions used to live here. Moved to
-# api/hardware.py (api_hardware_bp, registered above) -- same kind of JSON
-# API blueprint as api/auth.py and api/student.py, just never migrated
-# when those were extracted.
+# The old RFID-card terminal's routes used to live here, then in
+# api/hardware.py; they were removed on 2026-10-12 (see that file). Only
+# the site-root redirect is left there.
 
 
 if __name__ == '__main__':

@@ -233,8 +233,21 @@ class AuthService {
       }
     }
 
-    await _secureStorage.deleteAll();
+    // Only the sign-in keys written at login. This used to be deleteAll(),
+    // which also wiped the phone's settings stored alongside them -- theme,
+    // check-in method, ID-card privacy and the "seen onboarding" flags -- so
+    // every sign-out reset them and replayed onboarding.
+    await Future.wait(_sessionKeys.map((key) => _secureStorage.delete(key: key)));
   }
+
+  /// Everything login() writes, and nothing else -- see logout().
+  static const _sessionKeys = [
+    'jwt_token',
+    'refresh_token',
+    'user_role',
+    'username',
+    'requires_password_change',
+  ];
 
   Future<void> _notifyServerLogout(String refreshToken) async {
     try {

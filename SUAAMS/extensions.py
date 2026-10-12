@@ -77,8 +77,8 @@ limiter = Limiter(key_func=lambda: jwt_identity_or_ip())
 
 # CSRF protection for the session-cookie-authenticated web dashboards
 # (blueprints/auth.py, admin.py, lecturer.py). Applies to the whole app by
-# default once initialized, which is why the mobile API blueprints and the
-# bare ESP32-facing /attendance route in app.py are explicitly exempted --
+# default once initialized, which is why the mobile API blueprints (the
+# terminal's routes among them) are explicitly exempted in app.py --
 # both are authenticated via an Authorization header (JWT) or not
 # authenticated via cookies at all, never via a browser-managed session
 # cookie, so they aren't CSRF-vulnerable the way the web forms are, and a

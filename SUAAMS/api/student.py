@@ -375,9 +375,8 @@ def submit_checkin_beacon():
     phone) after it reads the beacon token off the phone via HCE/APDU.
     Deliberately has no @jwt_required(): the ESP32 has no login session of
     its own -- it's just relaying what it physically read -- so the beacon
-    token itself, once decoded and checked below, is the credential. This
-    mirrors the existing unauthenticated /attendance route in app.py, which
-    is posted to directly by ESP32 hardware the same way.
+    token itself, once decoded and checked below, is the credential, and
+    _check_terminal_auth() proves the request came from a real terminal.
     """
     data = request.get_json()
 
@@ -1253,6 +1252,16 @@ def drop_course(course_id):
         enrollment = Enrollment.query.filter_by(student_id=student.id, course_id=course_id).first()
         if not enrollment:
             return jsonify({"error": "You are not registered for this course."}), 404
+
+        # Same rule as registering: only courses in the active semester.
+        # This check was missing, so a student could drop LAST semester's
+        # course after the fact -- and since the attendance register export
+        # starts from registrations, they vanished from that course's
+        # register and exam-eligibility list.
+        active_semester = Semester.query.filter_by(is_active=True).first()
+        course = db.session.get(Course, course_id)
+        if not active_semester or not course or course.semester_id != active_semester.id:
+            return jsonify({"error": "Only courses in the current semester can be dropped."}), 400
 
         db.session.delete(enrollment)
         db.session.commit()
