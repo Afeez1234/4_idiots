@@ -82,11 +82,26 @@ const uint8_t SW2_SUCCESS  = 0x00;
 const uint8_t SW1_NO_TOKEN = 0x6A;
 const uint8_t SW2_NO_TOKEN = 0x88;
 
-// Throttle repeated reads of one held phone. This is only a cadence guard
-// -- it is NOT the duplicate-attendance defence, which is the backend's
-// already_recorded check.
-const uint16_t READ_COOLDOWN_MS = 2000;
+// Short gap between read attempts, so a phone the reader has only half
+// detected isn't hammered with SELECTs.
+//
+// THROUGHPUT FIX: this used to be a 2000ms pause after EVERY tap, meant to
+// stop one held phone being read over and over. But it paused for the next
+// student too: read (~0.1s) + upload (~0.5s) + pause (2s) = ~2.6s per
+// student, about 23 a minute -- a 200-student hall took ~9 minutes, not the
+// "under 2 minutes" the project claims. Repeats are now caught by comparing
+// codes (below), so the gap only needs to be short.
+const uint16_t READ_GAP_MS = 300;
 unsigned long lastAttemptEnd = 0;
+
+// The last code this terminal sent, and when. A phone still resting on the
+// reader keeps returning the same code until it expires (10s), so a match
+// within this window is the same student, not a new tap -- skip it. This is
+// only to save uploads; the server's already-recorded check is still what
+// stops double attendance.
+const unsigned long SAME_CODE_WINDOW_MS = 15000;
+String lastSubmittedToken = "";
+unsigned long lastSubmittedAt = 0;
 
 // Transport-level retry for the POST. HTTPClient returns -1 when the
 // connection or TLS handshake fails outright, which a marginal WiFi link
@@ -786,6 +801,14 @@ void submitBeaconToken(const String &token) {
 
     http.end();
 
+    // Any real HTTP answer proves the server is awake, just like a /healthz
+    // ping does. Without this, during a busy class the pre-flight check
+    // re-pinged /healthz once a minute even though uploads were landing,
+    // making one student a minute wait for a pointless extra round trip.
+    if (httpResponseCode > 0) {
+      lastWarmPingOk = millis();
+    }
+
     // -1 means no response at all: connection refused, DNS failure, or a
     // TLS handshake that didn't complete. Worth another go, and if every
     // attempt fails that is an outage from our point of view, so the
@@ -912,7 +935,7 @@ void loop() {
     }
   }
 
-  if (millis() - lastAttemptEnd < READ_COOLDOWN_MS) {
+  if (millis() - lastAttemptEnd < READ_GAP_MS) {
     delay(1);
     return;
   }
@@ -935,7 +958,16 @@ void loop() {
   Serial.println("ms");
 
   if (gotToken && token.length() > 0) {
-    submitBeaconToken(token);
+    if (token == lastSubmittedToken && millis() - lastSubmittedAt < SAME_CODE_WINDOW_MS) {
+      // Same phone still on the reader -- already sent.
+      Serial.println("[TAP] Same code as the last tap (phone still held) -- skipped");
+    } else {
+      // Recorded BEFORE submitting, so a code that ends up in the offline
+      // queue isn't queued a second time while the phone is still held.
+      lastSubmittedToken = token;
+      lastSubmittedAt = millis();
+      submitBeaconToken(token);
+    }
   }
 
   lastAttemptEnd = millis();

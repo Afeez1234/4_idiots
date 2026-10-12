@@ -105,14 +105,14 @@ only works with the right positions.
 |---|---|---|
 | NFC code size | 34 bytes, single APDU exchange (about 0.1 s) | The old ~360-byte JWT in six chunks kept failing |
 | Code lifetime | 10 s from mint | 3 s rejected real students who were still positioning the phone |
-| Read cooldown | 2 s between reads | Stops one held phone being read repeatedly. It is not the duplicate defence; the server is |
+| Read gap / repeats | 0.3 s between read attempts; the same code is not sent again for 15 s | A held phone returns the same code, so it's skipped. A new student is read straight away. It used to be a 2 s pause after every tap, which capped a terminal at ~23 students a minute. The server's already-recorded check is still the real duplicate defence |
 | POST retries | 2 attempts, only on transport failure (`-1`), 1.5 s apart | Safe because the submit is idempotent. A real 4xx/5xx is never retried |
 | HTTP timeout | 6 s | 15 s used to hold the field for 16–20 s just to be told "expired" |
 | BLE broadcast | New code every 5 s; server accepts current ±1 slot | Limits how long a relayed code is useful |
 | BLE before NTP | Broadcasts nothing | A code from a 1970 clock would only be rejected |
 | BLE self-test | Known-answer check at boot; refuses to broadcast on mismatch | Proves firmware and server compute the same HMAC |
 | Offline queue | Up to 16 taps in NVS flash (survives power loss), oldest dropped when full, flushed every 30 s when the field is empty | Stored as "pending verification". Expired codes must not become automatic attendance |
-| Keep-alive ping | At boot, every 4 minutes when idle, and before a POST if not confirmed warm in 60 s | Render free tier sleeps and took 8.5 s to wake, longer than a code lasts |
+| Keep-alive ping | At boot, every 4 minutes when idle, and before a POST if not confirmed warm in 60 s. Any real upload response also counts as "warm" | Render free tier sleeps and took 8.5 s to wake, longer than a code lasts |
 | TLS | Server certificate verified against the core's CA bundle (chain + hostname, not expiry) | Stops a fake server on the venue Wi-Fi collecting the terminal secret. Was `setInsecure()` |
 | Wi-Fi at boot | Waits 20 s at most, then carries on offline and retries every 5 s | Used to loop forever and wedge the board until a power cycle |
 | Wi-Fi + BLE | Share one radio (coexistence is handled by the ESP32 core) | **FILL IN:** whether BLE has ever dropped out during uploads. Also note the lowest `[HEAP] lowest-ever` value seen after a run of taps |
