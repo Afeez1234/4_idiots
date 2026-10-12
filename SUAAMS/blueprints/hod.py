@@ -2,7 +2,7 @@ import re
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for
 from datetime import datetime, timezone
 from utils import login_required
-from models import db, HOD, Department, Lecturer, Course, Student, Session as SessionModel, Attendance
+from models import db, HOD, Department, Lecturer, Course, Student, Session as SessionModel, Attendance, Enrollment
 from extensions import log_exception
 
 hod_bp = Blueprint('hod', __name__)
@@ -29,34 +29,73 @@ def _course_level(course_code):
     return int(match.group()[0]) * 100
 
 
-def _student_attendance(student, course_ids):
-    """Overall attendance % and a per-course breakdown for one student,
-    scoped to the given course ids (the HOD's department). Courses with no
-    sessions yet are excluded rather than counted as 0% -- there's been no
-    attendance opportunity yet, so 0% would misrepresent an absence that
-    hasn't happened. Returns (overall_pct_or_None, [{'code','title','pct'}]).
+def _department_attendance(courses):
+    """Attendance for every student in the given courses (the HOD's
+    department), as {student_id: (overall_pct_or_None, [{'code','title','pct'}])}.
+
+    Courses with no sessions yet are excluded rather than counted as 0% --
+    there's been no attendance opportunity yet, so 0% would misrepresent an
+    absence that hasn't happened. A student with no attendance opportunity
+    at all is absent from the result; callers treat that as (None, []).
+
+    PERF: this used to be _student_attendance(student, ...), called once per
+    student, running three queries per course for each one -- about 10,000
+    queries for a 500-student department on one dashboard load, far past
+    Render's 30s request limit. Now three grouped queries for the whole
+    department, whatever its size; the arithmetic is unchanged.
     """
-    enrolled_ids = {c.id for c in student.courses} & set(course_ids)
-    per_course = []
-    total_sessions = 0
-    total_attended = 0
-    for course_id in enrolled_ids:
-        course = Course.query.get(course_id)
-        session_count = SessionModel.query.filter_by(course_id=course_id).count()
-        if session_count == 0:
-            continue
-        attended = Attendance.query.join(SessionModel).filter(
-            Attendance.student_id == student.id,
-            SessionModel.course_id == course_id,
-            Attendance.status.in_(['present', 'late']),
-        ).count()
-        pct = round(attended / session_count * 100)
-        per_course.append({'code': course.course_code, 'title': course.course_title, 'pct': pct})
-        total_sessions += session_count
-        total_attended += attended
-    overall = round(total_attended / total_sessions * 100) if total_sessions else None
-    per_course.sort(key=lambda c: c['code'])
-    return overall, per_course
+    course_ids = [c.id for c in courses]
+    if not course_ids:
+        return {}
+    courses_by_id = {c.id: c for c in courses}
+
+    # Sessions per course. All sessions, active or not -- same as before.
+    session_counts = dict(
+        db.session.query(SessionModel.course_id, db.func.count(SessionModel.id))
+        .filter(SessionModel.course_id.in_(course_ids))
+        .group_by(SessionModel.course_id)
+    )
+
+    # Who is registered for what (Student.courses is this same table).
+    enrolled = {}
+    for student_id, course_id in (
+        db.session.query(Enrollment.student_id, Enrollment.course_id)
+        .filter(Enrollment.course_id.in_(course_ids))
+    ):
+        enrolled.setdefault(student_id, []).append(course_id)
+
+    # Attended sessions per (student, course). Late counts as attended.
+    attended = {
+        (student_id, course_id): count
+        for student_id, course_id, count in (
+            db.session.query(Attendance.student_id, SessionModel.course_id,
+                             db.func.count(Attendance.id))
+            .join(SessionModel, Attendance.session_id == SessionModel.id)
+            .filter(SessionModel.course_id.in_(course_ids),
+                    Attendance.status.in_(['present', 'late']))
+            .group_by(Attendance.student_id, SessionModel.course_id)
+        )
+    }
+
+    result = {}
+    for student_id, student_course_ids in enrolled.items():
+        per_course = []
+        total_sessions = 0
+        total_attended = 0
+        for course_id in student_course_ids:
+            session_count = session_counts.get(course_id, 0)
+            if session_count == 0:
+                continue
+            count = attended.get((student_id, course_id), 0)
+            course = courses_by_id[course_id]
+            per_course.append({'code': course.course_code, 'title': course.course_title,
+                               'pct': round(count / session_count * 100)})
+            total_sessions += session_count
+            total_attended += count
+        overall = round(total_attended / total_sessions * 100) if total_sessions else None
+        per_course.sort(key=lambda c: c['code'])
+        result[student_id] = (overall, per_course)
+    return result
 
 
 def _require_hod():
@@ -100,9 +139,10 @@ def dashboard():
         ).all() if course_ids else []
 
         students = Student.query.filter_by(department_id=hod.department_id).all()
+        attendance = _department_attendance(courses)
         flagged_count = 0
         for student in students:
-            overall, _ = _student_attendance(student, course_ids)
+            overall, _ = attendance.get(student.id, (None, []))
             if overall is not None and overall < 75:
                 flagged_count += 1
 
@@ -196,7 +236,9 @@ def students():
         if not hod:
             return redirect(url_for('auth.login'))
 
-        course_ids = [c.id for c in Course.query.filter_by(department_id=hod.department_id).all()]
+        attendance = _department_attendance(
+            Course.query.filter_by(department_id=hod.department_id).all()
+        )
 
         all_students = Student.query.filter_by(department_id=hod.department_id).all()
         levels_present = sorted({lvl for lvl in (_normalize_level(s.level) for s in all_students) if lvl is not None})
@@ -209,7 +251,7 @@ def students():
         for student in all_students:
             if _normalize_level(student.level) != selected_level:
                 continue
-            overall, per_course = _student_attendance(student, course_ids)
+            overall, per_course = attendance.get(student.id, (None, []))
             if overall is not None and overall < 75:
                 flagged_count += 1
             roster.append({
