@@ -2,8 +2,10 @@
 One-time destructive reset: drops every table and recreates them from the
 current models.py (14-table schema). Run this ONCE against the production
 DB to move past the old schema without going through the migration chain,
-then run seed_admin.py to recreate the admin account (wiped along with
-everything else).
+then run `python create_admin.py <your-username>` to recreate an admin
+account (wiped along with everything else). seed_admin.py used to do this
+with a fixed admin/admin1234 login; it was removed so every admin has a
+personal login and the Activity page can say who did what.
 
 Requires the same env vars app.py needs (DB_HOST/DB_USER/DB_PASSWORD/
 DB_NAME/...) to already be set, since it imports `app` directly.

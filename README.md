@@ -173,6 +173,9 @@ history, announcements), but the app is the main way students use SUAAMS.
   should be running
 - University-, department- or course-wide announcements
 - Attendance reports with CSV export
+- **Activity log**: who changed what on the dashboard. Each person who runs
+  the dashboard gets their own login (see §9), so every change has a name
+  on it
 
 ---
 
@@ -296,8 +299,14 @@ python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\act
 pip install -r requirements.txt
 cp .env.example .env        # then fill in the values (ask the project lead)
 flask --app app.py db upgrade
+python create_admin.py <your-username>   # prints a one-time password
 flask --app app.py run
 ```
+
+Give each person who manages the dashboard their own login the same way
+(`python create_admin.py <their-username>`), and never share one. To switch
+someone off: `python create_admin.py <username> --disable`. Their past
+changes stay on the Activity page under their name.
 
 The server refuses to start until `.env` has the database details,
 `SECRET_KEY` and `JWT_SECRET_KEY`. Check-in also needs

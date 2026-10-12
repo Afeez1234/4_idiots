@@ -44,6 +44,18 @@ class Dept:
         self.name = name
 
 
+def _pagination(total, page, pages, per_page=50):
+    """Stand-in for Flask-SQLAlchemy's Pagination: just the attributes the
+    paginated admin pages (students, activity) read."""
+    first = (page - 1) * per_page + 1
+    return {
+        "total": total, "page": page, "pages": pages,
+        "first": first, "last": min(first + per_page - 1, total),
+        "has_prev": page > 1, "has_next": page < pages,
+        "prev_num": page - 1, "next_num": page + 1,
+    }
+
+
 def render(template, spec):
     """Render one template with a synthetic session + context."""
     from flask import session
@@ -340,6 +352,43 @@ CONTEXTS = {
             {"id": 1, "name": "Computer Engineering"},
             {"id": 2, "name": "Systems Engineering"},
         ],
+        # Added when the roster gained search, filters and pages -- this
+        # entry was never updated, so the page failed to render here.
+        # pages=2 so the Previous/Next footer is exercised too.
+        pagination=_pagination(total=60, page=1, pages=2),
+        levels=["100", "200", "300", "400", "500"],
+        valid_levels=["100", "200", "300", "400", "500"],
+        filters={"q": "", "dept": None, "level": "", "device": ""},
+        filter_args={},
+        is_filtered=False,
+    ),
+
+    "admin/activity.html": dict(
+        role="admin",
+        active_page="activity",
+        active_semester=None,
+        # (entry, tone) pairs, as activity_page() builds them. One of each
+        # pill tone the page uses, so a missing data-tone rule shows up.
+        entries=[
+            ({"actor_label": "tunde", "created_at": datetime(2026, 10, 12, 9, 5),
+              "summary": "Created student Ada Obi (MCT/19/0001)",
+              "action": "student.create"}, "success"),
+            ({"actor_label": "amaka", "created_at": datetime(2026, 10, 12, 8, 40),
+              "summary": "Deleted department Physics and everything under it (3 students)",
+              "action": "department.delete"}, "error"),
+            ({"actor_label": "cli:N9ne", "created_at": datetime(2026, 10, 11, 18, 0),
+              "summary": "Failed sign-in attempt for tunde",
+              "action": "auth.login_failed"}, "warning"),
+            ({"actor_label": "tunde", "created_at": datetime(2026, 10, 11, 17, 0),
+              "summary": "tunde set a new password",
+              "action": "auth.password_change"}, "neutral"),
+        ],
+        pagination=_pagination(total=120, page=2, pages=3),
+        people=["amaka", "cli:N9ne", "tunde"],
+        categories={"auth": "Sign-ins & passwords", "student": "Students"},
+        filters={"who": "tunde", "what": ""},
+        filter_args={"who": "tunde"},
+        is_filtered=True,
     ),
 
     # ---- HOD portal (blueprints/hod.py) ---------------------------------

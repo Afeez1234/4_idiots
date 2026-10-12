@@ -548,3 +548,50 @@ class OfflineCheckinLog(db.Model):
         # Reconciliation queries filter by session then status.
         db.Index('ix_offline_checkin_session_status', 'session_id', 'status'),
     )
+
+
+# ==========================================
+# AUDIT TRAIL
+# ==========================================
+class AuditLog(db.Model):
+    """One row per change someone made through the admin dashboard (plus
+    admin logins, password changes, and accounts created from the command
+    line). Written by audit.log_action(); read by the admin Activity page.
+
+    Append-only by convention: nothing in the app updates or deletes these
+    rows. That is what makes it worth trusting when several people share
+    admin access -- each of them has a personal login (create_admin.py), and
+    every entry names who did it.
+    """
+    __tablename__ = 'audit_logs'
+
+    # Integer, not BigInteger: 2 billion entries is far beyond this
+    # project's life, and SQLite (the test database) only auto-increments a
+    # plain INTEGER primary key.
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(
+        db.DateTime, nullable=False, index=True,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    # Who did it. actor_id is deliberately NOT a foreign key: an audit
+    # entry must outlive the account it describes, and even ON DELETE SET
+    # NULL would erase which account it was. actor_label is a snapshot of
+    # the username at the time, so a later rename doesn't rewrite history.
+    actor_id = db.Column(db.Integer, nullable=True, index=True)
+    actor_label = db.Column(db.String(100), nullable=False)
+    actor_role = db.Column(db.String(20), nullable=True)
+
+    # What happened, as "thing.verb" -- e.g. "student.create",
+    # "faculty.delete". Indexed because the Activity page filters on it.
+    action = db.Column(db.String(60), nullable=False, index=True)
+    entity_type = db.Column(db.String(40), nullable=True)
+    entity_id = db.Column(db.String(64), nullable=True)
+    # A short human sentence for the Activity page ("Created student Ada Obi
+    # (MCT/19/0001)"), so reading the log never needs a database lookup that
+    # would fail once the thing has been deleted.
+    summary = db.Column(db.String(255), nullable=False)
+    # Machine-readable specifics: before/after values, counts, filenames.
+    # Secrets are stripped before they get here (audit._scrub).
+    details = db.Column(db.JSON, nullable=True)
+    ip_address = db.Column(db.String(45), nullable=True)

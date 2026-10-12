@@ -44,6 +44,8 @@ that isn't true, usually for an absent friend. Secondary assets are accounts
 | T15 | **Stolen refresh token** | Rotation on every refresh; single current `jti` per user; logout revokes | `api/auth.py`, `users.current_refresh_jti` |
 | T16 | **Leaked secrets** | No defaults; server won't start without core secrets; `.env`, `secrets.h`, Firebase key gitignored | `app.py`, `.gitignore` |
 | T17 | **Web CSRF** | Flask-WTF on dashboard forms | `extensions.py` |
+| T18 | **Untraceable admin changes** (several people sharing one admin login) | Personal admin logins; every dashboard change, admin sign-in and failed admin sign-in is recorded with the person's name; the log is read-only in the app | `create_admin.py`, `audit.py`, `/admin/activity` |
+| T19 | **Temporary passwords left in place** | Web requests are refused until the password is changed; disabled accounts are signed out at once | `blueprints/auth.py` `enforce_account_state` |
 
 ## 4. Known gaps (honest list)
 

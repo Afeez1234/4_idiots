@@ -86,4 +86,16 @@
       </a>
     </div>
   </div>
+
+  {# Audit trail: who changed what. Its own section so it reads as oversight,
+     not as another thing to manage. #}
+  <div>
+    <p class="nav-section">Oversight</p>
+    <div class="space-y-1">
+      <a href="{{ url_for('admin.activity_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'activity' }}">
+        <span class="material-symbols-rounded text-xl">history</span>
+        <span class="rail-label">Activity</span>
+      </a>
+    </div>
+  </div>
 {% endblock %}

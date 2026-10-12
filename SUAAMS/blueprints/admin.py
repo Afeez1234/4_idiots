@@ -9,6 +9,7 @@ from sqlalchemy.orm import joinedload
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
     Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
+    AuditLog,
 )
 from extensions import log_exception, logger, limiter
 from campus_time import campus_now
@@ -17,6 +18,7 @@ from utils import (
     VALID_LEVELS, normalize_level,
 )
 from push_notifications import send_push_notification
+from audit import log_action, changes
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
 # same as Python's date.weekday()) -- shared by the create-form <select> and
@@ -168,7 +170,11 @@ def organization_page():
                 flash('Faculty name is required.', 'error')
             else:
                 try:
-                    db.session.add(Faculty(name=name.strip()))
+                    faculty = Faculty(name=name.strip())
+                    db.session.add(faculty)
+                    db.session.flush()
+                    log_action('faculty.create', f"Created faculty {faculty.name}",
+                               'faculty', faculty.id)
                     db.session.commit()
                     flash(f"Faculty '{name}' added successfully.", 'success')
                 except Exception:
@@ -183,7 +189,14 @@ def organization_page():
                 flash('All fields are required to create a department.', 'error')
             else:
                 try:
-                    db.session.add(Department(name=name.strip(), faculty_id=int(faculty_id)))
+                    department = Department(name=name.strip(), faculty_id=int(faculty_id))
+                    db.session.add(department)
+                    db.session.flush()
+                    faculty = db.session.get(Faculty, department.faculty_id)
+                    log_action('department.create',
+                               f"Created department {department.name}"
+                               + (f" under {faculty.name}" if faculty else ''),
+                               'department', department.id)
                     db.session.commit()
                     flash(f"Department '{name}' added successfully.", 'success')
                 except Exception:
@@ -203,6 +216,24 @@ def organization_page():
     )
 
 
+def _cascade_counts(department_ids):
+    """How many students, lecturers and courses sit under these departments
+    -- what a cascade delete is about to remove. Recorded in the audit log."""
+    if not department_ids:
+        return {'students': 0, 'lecturers': 0, 'courses': 0}
+    return {
+        'students': Student.query.filter(Student.department_id.in_(department_ids)).count(),
+        'lecturers': Lecturer.query.filter(Lecturer.department_id.in_(department_ids)).count(),
+        'courses': Course.query.filter(Course.department_id.in_(department_ids)).count(),
+    }
+
+
+def _describe_counts(counts):
+    """{'students': 3, 'courses': 0} -> '3 students'. 'nothing else' if all 0."""
+    parts = [f"{n} {name if n != 1 else name[:-1]}" for name, n in counts.items() if n]
+    return ', '.join(parts) if parts else 'nothing else'
+
+
 @admin_bp.route('/faculties/<int:faculty_id>/delete', methods=['POST'])
 @limiter.limit("10 per minute")
 def delete_faculty(faculty_id):
@@ -216,7 +247,17 @@ def delete_faculty(faculty_id):
     faculty = Faculty.query.get_or_404(faculty_id)
     try:
         name = faculty.name
+        # Counted BEFORE the delete: afterwards there is nothing left to
+        # count. This is the entry you'd look for after an accident, and
+        # "deleted faculty X" alone wouldn't say how much went with it.
+        dept_ids = [d.id for d in faculty.departments]
+        removed = _cascade_counts(dept_ids)
+        removed['departments'] = len(dept_ids)
         db.session.delete(faculty)
+        log_action('faculty.delete',
+                   f"Deleted faculty {name} and everything under it "
+                   f"({_describe_counts(removed)})",
+                   'faculty', faculty_id, {'removed': removed})
         db.session.commit()
         flash(f"Faculty '{name}' and everything under it was deleted.", 'success')
     except Exception:
@@ -234,7 +275,12 @@ def delete_department(department_id):
     department = Department.query.get_or_404(department_id)
     try:
         name = department.name
+        removed = _cascade_counts([department.id])  # before the delete; see delete_faculty
         db.session.delete(department)
+        log_action('department.delete',
+                   f"Deleted department {name} and everything under it "
+                   f"({_describe_counts(removed)})",
+                   'department', department_id, {'removed': removed})
         db.session.commit()
         flash(f"Department '{name}' and everything under it was deleted.", 'success')
     except Exception:
@@ -283,6 +329,11 @@ def lecturers_page():
                 user_id=user.id,
             )
             db.session.add(lecturer)
+            db.session.flush()
+            log_action('lecturer.create',
+                       f"Created lecturer {lecturer.full_name} ({lecturer.staff_id})",
+                       'lecturer', lecturer.id,
+                       {'department_id': lecturer.department_id, 'user_id': user.id})
             db.session.commit()
             flash(f"Lecturer account created successfully for {full_name}.", 'success')
         except Exception:
@@ -371,6 +422,11 @@ def students_page():
                 user_id=new_user.id,
             )
             db.session.add(new_student)
+            db.session.flush()
+            log_action('student.create',
+                       f"Created student {new_student.full_name} ({new_student.matric_number})",
+                       'student', new_student.id,
+                       {'level': level, 'department_id': new_student.department_id})
             db.session.commit()
             flash(f"Student profile created successfully for {full_name}.", 'success')
         except Exception:
@@ -524,32 +580,59 @@ def bulk_enroll_students():
                 default_pwd = matric_no
                 hashed_password = bcrypt.hashpw(default_pwd.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-                user = User(
-                    username=matric_no,
-                    password_hash=hashed_password,
-                    role='student',
-                    is_active=True,
-                    requires_password_change=True,
-                )
-                db.session.add(user)
-                db.session.flush()
+                # BUG FIX: one savepoint per row. This used to call
+                # db.session.rollback() when a row failed, which undoes the
+                # WHOLE uncommitted batch -- every row added before it --
+                # while success_count still counted them. An upload could
+                # report "enrolled 40" having saved only the rows after the
+                # failure. A savepoint failing rolls back this row alone.
+                with db.session.begin_nested():
+                    user = User(
+                        username=matric_no,
+                        password_hash=hashed_password,
+                        role='student',
+                        is_active=True,
+                        requires_password_change=True,
+                    )
+                    db.session.add(user)
+                    db.session.flush()
 
-                student = Student(
-                    full_name=name,
-                    matric_number=matric_no,
-                    level=level,
-                    rfid_uid=rfid,
-                    department_id=department.id,
-                    user_id=user.id,
-                )
-                db.session.add(student)
+                    student = Student(
+                        full_name=name,
+                        matric_number=matric_no,
+                        level=level,
+                        rfid_uid=rfid,
+                        department_id=department.id,
+                        user_id=user.id,
+                    )
+                    db.session.add(student)
+                    # Flushed inside the savepoint so a duplicate RFID UID
+                    # (a unique column) fails THIS row here, not the final
+                    # commit for the whole file.
+                    db.session.flush()
                 success_count += 1
             except Exception as row_error:
-                db.session.rollback()
                 error_count += 1
                 skipped_records.append(f"{name} (System exception: {row_error})")
                 log_exception("Row Enrollment Error")
 
+        # One entry for the whole file, not one per row -- a 2,000-row
+        # upload would otherwise bury every other entry on the Activity
+        # page. The first skipped rows are kept so "why were 12 skipped?"
+        # can be answered from the log.
+        if success_count or error_count:
+            log_action(
+                'student.bulk_import',
+                f"Uploaded {file.filename}: {success_count} students created, "
+                f"{error_count} skipped",
+                'student', None,
+                {
+                    'filename': file.filename,
+                    'created': success_count,
+                    'skipped': error_count,
+                    'skipped_examples': skipped_records[:20],
+                },
+            )
         db.session.commit()
 
         if success_count > 0:
@@ -575,6 +658,12 @@ def reset_student_binding(student_id):
     """
     try:
         student = Student.query.get_or_404(student_id)
+        # Unbinding is the step that lets an account move to another phone,
+        # so it's the one most worth being able to trace back to a person.
+        log_action('student.unbind',
+                   f"Unbound the phone of {student.full_name} ({student.matric_number})",
+                   'student', student.id,
+                   {'had_device': student.device_id is not None})
         student.device_id = None
         # Clearing current_refresh_jti too -- unbinding used to only clear
         # device_id, which blocks a *future* login from the old device but
@@ -639,6 +728,13 @@ def courses_page():
                 else:
                     enrollment = Enrollment(student_id=int(student_id), course_id=int(course_id))
                     db.session.add(enrollment)
+                    student = db.session.get(Student, int(student_id))
+                    course = db.session.get(Course, int(course_id))
+                    log_action('enrollment.create',
+                               f"Enrolled {student.full_name if student else f'student #{student_id}'}"
+                               f" in {course.course_code if course else f'course #{course_id}'}",
+                               'enrollment', None,
+                               {'student_id': int(student_id), 'course_id': int(course_id)})
                     db.session.commit()
                     flash('Student enrolled successfully.', 'success')
             except Exception:
@@ -669,6 +765,12 @@ def courses_page():
                 credit_units=int(credit_units) if credit_units else None,
             )
             db.session.add(course)
+            db.session.flush()
+            log_action('course.create',
+                       f"Created course {course.course_code}: {course.course_title}",
+                       'course', course.id,
+                       {'department_id': course.department_id, 'lecturer_id': course.lecturer_id,
+                        'semester_id': course.semester_id, 'credit_units': course.credit_units})
             db.session.commit()
             flash(f"Course '{code}' assigned and registered successfully.", 'success')
         except Exception:
@@ -845,6 +947,26 @@ def _validate_timetable_slot(course, semester_id, day_of_week, start_time, end_t
     return None
 
 
+def _slot_fields(entry):
+    """A timetable slot's editable fields, for before/after audit entries."""
+    return {
+        'course_id': entry.course_id,
+        'semester_id': entry.semester_id,
+        'day': WEEKDAY_NAMES[entry.day_of_week] if entry.day_of_week is not None else None,
+        'start': entry.start_time.strftime('%H:%M') if entry.start_time else None,
+        'end': entry.end_time.strftime('%H:%M') if entry.end_time else None,
+        'room': entry.room,
+        'type': entry.type,
+    }
+
+
+def _slot_label(entry):
+    """'MCT 401, Monday 10:00-12:00' -- readable without looking anything up."""
+    course = db.session.get(Course, entry.course_id) if entry.course_id else None
+    f = _slot_fields(entry)
+    return f"{course.course_code if course else '?'}, {f['day']} {f['start']}-{f['end']}"
+
+
 @admin_bp.route('/timetable', methods=['GET', 'POST'])
 # 20/min -- an admin setting up a semester's schedule adds many slots in
 # quick succession, same reasoning as courses_page's enroll_student burst.
@@ -857,6 +979,8 @@ def timetable_page():
             timetable_id = request.form.get('timetable_id')
             try:
                 entry = Timetable.query.get_or_404(int(timetable_id))
+                log_action('timetable.delete', f"Removed timetable slot {_slot_label(entry)}",
+                           'timetable', entry.id, _slot_fields(entry))
                 db.session.delete(entry)
                 db.session.commit()
                 flash('Timetable slot removed.', 'success')
@@ -919,6 +1043,7 @@ def timetable_page():
         try:
             if action == 'update' and timetable_id:
                 entry = Timetable.query.get_or_404(int(timetable_id))
+                before = _slot_fields(entry)
                 entry.course_id = course.id
                 entry.semester_id = semester_id_int
                 entry.day_of_week = day_of_week_int
@@ -926,6 +1051,11 @@ def timetable_page():
                 entry.end_time = end_time
                 entry.room = room.strip() if room else None
                 entry.type = slot_type
+                diff = changes(before, _slot_fields(entry))
+                # Saving the form unchanged isn't worth an entry.
+                if diff:
+                    log_action('timetable.update', f"Changed timetable slot {_slot_label(entry)}",
+                               'timetable', entry.id, {'changes': diff})
                 db.session.commit()
                 flash('Timetable slot updated.', 'success')
             else:
@@ -940,6 +1070,9 @@ def timetable_page():
                     created_by=session['user_id'],
                 )
                 db.session.add(entry)
+                db.session.flush()
+                log_action('timetable.create', f"Added timetable slot {_slot_label(entry)}",
+                           'timetable', entry.id, _slot_fields(entry))
                 db.session.commit()
                 flash('Timetable slot added.', 'success')
         except Exception:
@@ -992,6 +1125,14 @@ def semesters_page():
             semester_id = request.form.get('semester_id')
             try:
                 semester = Semester.query.get_or_404(int(semester_id))
+                previous = Semester.query.filter_by(is_active=True).first()
+                # Switching the active semester changes what every student
+                # can register for, so the entry names what it replaced.
+                log_action('semester.activate',
+                           f"Made {semester.name} the active semester"
+                           + (f" (was {previous.name})" if previous and previous.id != semester.id else ''),
+                           'semester', semester.id,
+                           {'previous_semester_id': previous.id if previous else None})
                 # Deactivate every other semester in the SAME transaction --
                 # is_active has no DB-level "only one true" constraint
                 # (models.py's own comment on Semester.is_active flags this
@@ -1018,6 +1159,10 @@ def semesters_page():
                         end_date=datetime.strptime(end_date, '%Y-%m-%d').date(),
                     )
                     db.session.add(semester)
+                    db.session.flush()
+                    log_action('semester.create', f"Created semester {semester.name}",
+                               'semester', semester.id,
+                               {'start_date': semester.start_date, 'end_date': semester.end_date})
                     db.session.commit()
                     flash(f"Semester '{name}' created successfully.", 'success')
                 except Exception:
@@ -1095,6 +1240,11 @@ def hods_page():
                     user_id=lecturer.user_id,
                 )
                 db.session.add(hod)
+                db.session.flush()
+                log_action('hod.promote',
+                           f"Made lecturer {lecturer.full_name} HOD of {hod.department.name}",
+                           'hod', hod.id,
+                           {'lecturer_id': lecturer.id, 'department_id': hod.department_id})
                 db.session.commit()
                 flash(f"{lecturer.full_name} promoted to HOD.", 'success')
 
@@ -1129,6 +1279,10 @@ def hods_page():
                     user_id=user.id,
                 )
                 db.session.add(hod)
+                db.session.flush()
+                log_action('hod.create',
+                           f"Created HOD {hod.full_name} ({hod.staff_id}) for {hod.department.name}",
+                           'hod', hod.id, {'department_id': hod.department_id})
                 db.session.commit()
                 flash(f"HOD account created successfully for {full_name}.", 'success')
         except Exception:
@@ -1185,6 +1339,12 @@ def announcements_page():
                 course_id=int(course_id) if scope == 'course' and course_id else None,
             )
             db.session.add(announcement)
+            db.session.flush()
+            log_action('announcement.create',
+                       f"Posted {scope} announcement \"{announcement.title}\"",
+                       'announcement', announcement.id,
+                       {'scope': scope, 'department_id': announcement.department_id,
+                        'course_id': announcement.course_id})
             db.session.commit()
 
             # Best-effort push to every student this announcement reaches --
@@ -1236,6 +1396,8 @@ def delete_announcement(announcement_id):
 
     try:
         announcement.is_active = False
+        log_action('announcement.delete', f"Deleted announcement \"{announcement.title}\"",
+                   'announcement', announcement.id)
         db.session.commit()
         flash(f"Announcement '{announcement.title}' deleted.", 'success')
     except Exception:
@@ -1279,6 +1441,78 @@ def _all_course_attendance_reports():
     return rows
 
 
+# ==========================================
+# ACTIVITY (audit trail)
+# ==========================================
+ACTIVITY_PER_PAGE = 50
+
+# The Activity page's "What" filter: the part of an action name before the
+# dot ("student.create" -> "student"), with a readable label. Order is the
+# dropdown order.
+ACTIVITY_CATEGORIES = {
+    'auth': 'Sign-ins & passwords',
+    'admin': 'Admin accounts',
+    'student': 'Students',
+    'enrollment': 'Enrolments',
+    'lecturer': 'Lecturers',
+    'hod': 'HODs',
+    'course': 'Courses',
+    'timetable': 'Timetable',
+    'semester': 'Semesters',
+    'faculty': 'Faculties',
+    'department': 'Departments',
+    'announcement': 'Announcements',
+    'report': 'Reports',
+}
+
+
+def _activity_tone(action):
+    """Pill colour for an action: deletions and failed sign-ins stand out."""
+    if action.endswith('.delete') or action == 'admin.disable':
+        return 'error'
+    if action in ('auth.login_failed', 'student.unbind', 'semester.activate'):
+        return 'warning'
+    if action.endswith('.create') or action in ('hod.promote', 'student.bulk_import'):
+        return 'success'
+    return 'neutral'
+
+
+@admin_bp.route('/activity', methods=['GET'])
+def activity_page():
+    """Who changed what, newest first. Read-only: nothing here edits or
+    deletes an entry, which is what makes the trail worth trusting."""
+    who = request.args.get('who', '').strip()
+    what = request.args.get('what', '').strip()
+    page = request.args.get('page', 1, type=int)
+
+    query = AuditLog.query
+    if who:
+        query = query.filter(AuditLog.actor_label == who)
+    if what in ACTIVITY_CATEGORIES:
+        query = query.filter(AuditLog.action.like(f'{what}.%'))
+    pagination = query.order_by(AuditLog.created_at.desc(), AuditLog.id.desc()).paginate(
+        page=page, per_page=ACTIVITY_PER_PAGE, error_out=False,
+    )
+
+    # Everyone who appears in the log, including people whose accounts have
+    # since been disabled -- their past changes still need to be findable.
+    people = [row.actor_label for row in
+              db.session.query(AuditLog.actor_label).distinct().order_by(AuditLog.actor_label)]
+
+    filter_args = {k: v for k, v in (('who', who), ('what', what)) if v}
+    return render_template(
+        'admin/activity.html',
+        entries=[(e, _activity_tone(e.action)) for e in pagination.items],
+        pagination=pagination,
+        people=people,
+        categories=ACTIVITY_CATEGORIES,
+        filters={'who': who, 'what': what},
+        filter_args=filter_args,
+        is_filtered=bool(filter_args),
+        active_page='activity',
+    )
+
+
 @admin_bp.route('/reports', methods=['GET'])
 def reports_page():
     try:
@@ -1314,7 +1548,14 @@ def export_reports():
                 row['session_count'],
                 row['average_attendance'],
             ])
+        # Changes nothing, but it's data leaving the system -- worth knowing
+        # who took a copy and when.
+        log_action('report.export',
+                   f"Downloaded the attendance report ({len(course_reports)} courses)",
+                   'report', None)
+        db.session.commit()
     except Exception:
+        db.session.rollback()
         log_exception("Admin Reports Export Error")
         flash('Failed to export attendance report.', 'error')
         return redirect(url_for('admin.reports_page'))

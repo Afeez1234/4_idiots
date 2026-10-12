@@ -202,6 +202,10 @@ VERIFIED_MATERIAL_SYMBOLS = {
     "visibility", "visibility_off", "warning", "workspace_premium",
     # `inbox` is the empty_state() macro's default only -- no page passes it.
     "inbox",
+    # "Accept all" on the lecturer's offline-tap review. Checked 2026-10-12
+    # against Google's MaterialSymbolsRounded codepoints file (e877), which
+    # also confirms graduation_cap above is absent from this family.
+    "done_all",
     # Assigned from JS rather than markup: the rail collapse control swaps its
     # glyph via textContent so it keeps pointing the way the rail is about to
     # move. Included here because the markup scan below cannot see it.

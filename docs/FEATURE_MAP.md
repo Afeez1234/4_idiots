@@ -49,8 +49,10 @@ the feature.
 |---|---|---|---|---|---|
 | Mobile login | Password + device binding, issues JWT pair | `api/auth.py` `mobile_login` | `features/auth/data/auth_service.dart`, `presentation/login_screen.dart` | — | `users`, `students` |
 | Token refresh / logout | Rotating refresh token; logout revokes it | `api/auth.py` `/refresh`, `/logout` | `core/network/auth_retry.dart`, `auth_service.dart` | — | `users.current_refresh_jti` |
-| Forced password change | First-login change | `api/auth.py` `/change-password`, `blueprints/auth.py` | `features/auth/presentation/change_password_screen.dart` | — | `users.requires_password_change` |
-| Web login | Session-cookie login for dashboards | `blueprints/auth.py`, `utils.py` `login_required` | — | — | `users` |
+| Forced password change | First-login change. On the web it's enforced on every request (`enforce_account_state`), so it can't be skipped | `api/auth.py` `/change-password`, `blueprints/auth.py` | `features/auth/presentation/change_password_screen.dart` | — | `users.requires_password_change` |
+| Web login | Session-cookie login for dashboards; a disabled account is signed out mid-session | `blueprints/auth.py`, `utils.py` `login_required` | — | — | `users` |
+| Personal admin logins | One login per person who runs the dashboard; create or disable from the command line | `create_admin.py` | — | — | `users` |
+| Activity log (audit trail) | Who changed what on the admin dashboard, plus admin sign-ins; filter by person and type at `/admin/activity` | `audit.py` `log_action`; `blueprints/admin.py` `activity_page`; `templates/admin/activity.html` | — | — | `audit_logs` |
 | Onboarding | First-run screens | — | `features/onboarding/presentation/onboarding_screen.dart`, `core/providers/onboarding_provider.dart` | — | — |
 | Routing / role shells | Sends each role to its home | — | `core/router/app_router.dart`, `student_shell_screen.dart`, `lecturer_shell_screen.dart` | — | — |
 
@@ -82,7 +84,7 @@ the feature.
 | CSV export | Course register / reports | `api/lecturer.py` `/course/<id>/export`; `utils.py` `build_course_register_csv` | `course_export_provider.dart`, `reports_list_screen.dart` | — | `attendance` |
 | Announcements | Post/delete; pushes to students | `api/lecturer.py` `/announcements`; `utils.py` `students_for_announcement` | `announcements_provider.dart`, `create_announcement_screen.dart` | — | `announcements`, `notifications` |
 | Manual marking | Lecturer marks an enrolled student present (during or after the session). Never overwrites a real check-in; always `present`; `method = manual` | `utils.py` `mark_student_present`; `api/lecturer.py` `mark_present`; `blueprints/lecturer.py` `mark_present_r` | `lecturer_service.dart`, `session_detail_provider.dart`, `lecturer_session_detail_screen.dart` | — | `attendance` (`marked_by`) |
-| Offline-tap review | **Not built** (rows exist in `offline_checkin_logs`) | — | — | — | `offline_checkin_logs` |
+| Offline-tap review | Lecturer accepts or rejects taps the terminal saved while offline; accepted ones become attendance with `method = offline` | `utils.py` `review_offline_tap`, `accept_all_offline_taps`; `api/lecturer.py`; `blueprints/lecturer.py` | `lecturer_service.dart`, `session_detail_provider.dart`, `lecturer_session_detail_screen.dart` | — | `offline_checkin_logs`, `attendance` |
 
 ## Admin and HOD (web only)
 

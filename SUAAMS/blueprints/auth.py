@@ -2,8 +2,46 @@ from flask import Blueprint, flash, render_template, redirect, request, session,
 import bcrypt
 from models import db, User  # Imported 'db' to allow committing password changes
 from extensions import limiter
+from audit import log_action
 
 auth_bp = Blueprint('auth', __name__)
+
+# Pages a signed-in user may still reach while they owe a password change.
+# Everything else redirects to the change-password page.
+_PASSWORD_CHANGE_ALLOWED = {'auth.web_change_password', 'auth.logout', 'static'}
+
+
+@auth_bp.before_app_request
+def enforce_account_state():
+    """Server-side checks on every web request from a signed-in user.
+
+    1. A temporary password must be replaced before anything else. Login
+       used to redirect to the change-password page once and then trust the
+       browser to stay there -- typing /admin/dashboard skipped it, and the
+       temporary password (sent over chat, printed by create_admin.py) stayed
+       valid forever.
+    2. A disabled account is signed out at once, not at its next login. An
+       admin switched off with `create_admin.py --disable` would otherwise
+       keep working until they happened to log out.
+
+    Only web requests carry the session cookie this reads; the mobile API
+    authenticates with JWTs and is unaffected. One primary-key lookup per
+    page view.
+    """
+    user_id = session.get('user_id')
+    if not user_id or request.endpoint in (None, 'static'):
+        return None
+
+    user = db.session.get(User, user_id)
+    if user is None or not user.is_active:
+        session.clear()
+        flash('Your account is no longer active. Contact an administrator.', 'error')
+        return redirect(url_for('auth.login'))
+
+    if user.requires_password_change and request.endpoint not in _PASSWORD_CHANGE_ALLOWED:
+        flash('Set a new password before continuing.', 'warning')
+        return redirect(url_for('auth.web_change_password'))
+    return None
 
 
 def redirect_to_dashboard():
@@ -56,6 +94,15 @@ def login():
             password_bytes,
             user.password_hash.encode('utf-8')
         ):
+            # Failed guesses at an ADMIN account are worth seeing on the
+            # Activity page (someone trying a colleague's login). Students'
+            # and lecturers' typos are not -- there would be thousands.
+            if user.role == 'admin':
+                log_action(
+                    'auth.login_failed', f'Failed sign-in attempt for {user.username}',
+                    'user', user.id, actor=(None, user.username, 'admin'),
+                )
+                db.session.commit()
             flash('Invalid username or password', 'error')
             return render_template('auth/login.html')
 
@@ -63,6 +110,10 @@ def login():
         session['user_id'] = user.id
         session['username'] = user.username
         session['role'] = user.role
+
+        if user.role == 'admin':
+            log_action('auth.login', f'{user.username} signed in', 'user', user.id)
+            db.session.commit()
 
         # SECURITY CHECK: Force password change on first login
         if user.requires_password_change:
@@ -110,6 +161,11 @@ def web_change_password():
         
         user.password_hash = hashed_password
         user.requires_password_change = False
+        # Admins only, matching the sign-in entries above. The password
+        # itself never reaches the log (and audit._scrub would strip it).
+        if user.role == 'admin':
+            log_action('auth.password_change', f'{user.username} set a new password',
+                       'user', user.id)
         db.session.commit()
 
         flash('Authorization code updated successfully! Welcome to SUAAMS.', 'success')
