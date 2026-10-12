@@ -1,10 +1,10 @@
-from campus_time import campus_fmt, campus_today
+from campus_time import campus_fmt
 from flask import Blueprint, jsonify, request, Response
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime, timezone
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Announcement, Timetable
 from extensions import limiter, jwt_identity_or_ip, api_error_response
-from utils import (resolve_timetable_slot_for_course, build_course_register_csv,
+from utils import (build_course_register_csv, start_class_session, end_class_session,
                    students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps,
                    notify_announcement)
@@ -184,222 +184,13 @@ def get_course_workspace(course_id):
         return error_response, status
 
     try:
-        course = Course.query.filter_by(
-            id=course_id,
-            lecturer_id=lecturer.id
-        ).first()
-        if not course:
+        # Shared with the web portal; closes every running session for the
+        # course, so a duplicate can never be left open (see utils).
+        outcome, active_session = end_class_session(lecturer, course_id)
+        if outcome == 'not_found':
             return jsonify({"error": "Course not found or access denied."}), 404
-
-        active_session = SessionModel.query.filter_by(
-            course_id=course_id,
-            is_active=True
-        ).first()
-
-        enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
-        total_sessions = SessionModel.query.filter_by(course_id=course_id).count()
-        total_attendance = Attendance.query.join(SessionModel).filter(
-            SessionModel.course_id == course_id
-        ).count()
-
-        avg_attendance = round(
-            (total_attendance / (total_sessions * enrolled_count) * 100)
-            if total_sessions and enrolled_count else 0, 1
-        )
-
-        live_attendance = []
-        if active_session:
-            # SCHEMA FIX: Student.department is a relationship, not a
-            # column -- selecting it directly in this tuple-query's column
-            # list (as the original draft did) is invalid query
-            # construction, not just a serialization problem. Joining
-            # Department explicitly and selecting Department.name instead.
-            records = db.session.query(
-                Student.full_name,
-                Student.matric_number,
-                Student.level,
-                Department.name,
-                Attendance.time_in,
-                Attendance.status,
-            ).join(Attendance, Attendance.student_id == Student.id)\
-             .join(Department, Student.department_id == Department.id)\
-             .filter(Attendance.session_id == active_session.id).all()
-
-            for full_name, matric, level, dept_name, time_in, att_status in records:
-                live_attendance.append({
-                    'full_name': full_name,
-                    'matric_number': matric,
-                    'level': level,
-                    'department': dept_name,
-                    'time_in': campus_fmt(time_in) if time_in else None,
-                    'status': att_status,
-                })
-
-        return jsonify({
-            "success": True,
-            "data": {
-                "course": {
-                    "id": course.id,
-                    # SCHEMA UPDATE: course_title/course_code (see comment
-                    # in get_dashboard_data above).
-                    "title": course.course_title,
-                    "code": course.course_code,
-                },
-                "stats": {
-                    "enrolled_count": enrolled_count,
-                    "total_sessions": total_sessions,
-                    "avg_attendance": avg_attendance,
-                    "present_now": len(live_attendance),
-                },
-                "active_session": {
-                    "id": active_session.id,
-                    # SCHEMA FIX: Session has no start_time/stop_time
-                    # columns, only planned_start/planned_end -- dropped the
-                    # redundant/nonexistent start_time key, planned_start/
-                    # planned_end below are the only real time fields.
-                    "planned_start": str(active_session.planned_start) if active_session.planned_start else None,
-                    "planned_end": str(active_session.planned_end) if active_session.planned_end else None,
-                    "session_date": str(active_session.session_date),
-                } if active_session else None,
-                "live_attendance": live_attendance,
-            }
-        }), 200
-
-    except Exception:
-        return api_error_response("Course Workspace API Error", "Failed to load course workspace")
-
-
-# ── 3. Start session ──────────────────────────────────────────────────────────
-
-@api_lecturer_bp.route('/course/<int:course_id>/start-session', methods=['POST'])
-@limiter.limit("10 per minute", key_func=jwt_identity_or_ip)
-@jwt_required()
-def start_session(course_id):
-    lecturer, error_response, status = get_lecturer_or_403()
-    if error_response:
-        return error_response, status
-
-    data = request.get_json() or {}
-
-    # BUG FIX: the request sends planned_start/planned_end as "HH:MM"
-    # strings, but Session.planned_start/planned_end are db.Time columns.
-    # Passing the raw string straight into the constructor (as this draft
-    # and blueprints/lecturer.py's web version both did) raises a hard
-    # TypeError against SQLite, and isn't correct SQLAlchemy usage
-    # regardless of whether a given MySQL driver happens to coerce it
-    # silently. Parsing explicitly here so this works regardless of
-    # backend -- confirmed by testing against a real SQLite DB.
-    # Returns (value, error_message) instead of raising -- avoids the
-    # str(e)-on-a-caught-exception pattern flagged elsewhere in this
-    # codebase (api/auth.py, api/student.py, blueprints/lecturer.py all have
-    # "SECURITY FIX" comments removing that pattern), even though the
-    # message here was always self-authored and never leaked anything from
-    # the exception itself.
-    def _parse_time(value, field_name):
-        if not value:
-            return None, None
-        try:
-            return datetime.strptime(value, '%H:%M').time(), None
-        except ValueError:
-            return None, f"{field_name} must be in HH:MM format"
-
-    planned_start, error_message = _parse_time(data.get('planned_start'), 'planned_start')
-    if error_message is None:
-        planned_end, error_message = _parse_time(data.get('planned_end'), 'planned_end')
-    if error_message:
-        return jsonify({"error": error_message}), 400
-
-    try:
-        course = Course.query.filter_by(
-            id=course_id,
-            lecturer_id=lecturer.id
-        ).first()
-        if not course:
-            return jsonify({"error": "Course not found or access denied."}), 404
-
-        existing = SessionModel.query.filter_by(
-            course_id=course_id,
-            is_active=True
-        ).first()
-        if existing:
-            return jsonify({"error": "A session is already active for this course."}), 409
-
-        # Mirrors blueprints/lecturer.py's web start_session(): if the
-        # client didn't send explicit times, fall back to today's Timetable
-        # slot for this course instead of recording NULL.
-        if planned_start is None and planned_end is None:
-            slot = resolve_timetable_slot_for_course(course_id)
-            if slot:
-                planned_start = slot.start_time
-                planned_end = slot.end_time
-
-        # STALE COMMENT FIX: this used to say Session had no start_time/
-        # stop_time columns and that passing them would raise TypeError --
-        # both columns do exist (models.py: "RE-ADDED: actual start/stop
-        # timestamps"), they were just never being written from here.
-        # Populating start_time now so this session's elapsed time can be
-        # computed the same way blueprints/lecturer.py's web start_session()
-        # (and the lecturer web portal's Active Sessions page) already do.
-        new_session = SessionModel(
-            course_id=course_id,
-            session_date=campus_today(),  # campus date; start_time stays UTC
-            is_active=True,
-            start_time=datetime.now(timezone.utc).time(),
-            planned_start=planned_start,
-            planned_end=planned_end,
-        )
-        db.session.add(new_session)
-        db.session.commit()
-
-        return jsonify({
-            "success": True,
-            "message": "Session started successfully.",
-            "session": {
-                "id": new_session.id,
-                "planned_start": str(new_session.planned_start) if new_session.planned_start else None,
-                "session_date": str(new_session.session_date),
-            }
-        }), 201
-
-    except Exception:
-        db.session.rollback()
-        return api_error_response("Start Session API Error", "Failed to start session.")
-
-
-# ── 4. End session ────────────────────────────────────────────────────────────
-
-@api_lecturer_bp.route('/course/<int:course_id>/end-session', methods=['POST'])
-@limiter.limit("10 per minute", key_func=jwt_identity_or_ip)
-@jwt_required()
-def end_session(course_id):
-    lecturer, error_response, status = get_lecturer_or_403()
-    if error_response:
-        return error_response, status
-
-    try:
-        course = Course.query.filter_by(
-            id=course_id,
-            lecturer_id=lecturer.id
-        ).first()
-        if not course:
-            return jsonify({"error": "Course not found or access denied."}), 404
-
-        active_session = SessionModel.query.filter_by(
-            course_id=course_id,
-            is_active=True
-        ).first()
-        if not active_session:
+        if outcome == 'none_active':
             return jsonify({"error": "No active session found for this course."}), 404
-
-        # STALE COMMENT FIX: this used to say Session had no stop_time
-        # column and dropped the assignment as dead code -- the column does
-        # exist (models.py: "RE-ADDED: actual start/stop timestamps"), it
-        # was just never being written from here. Same gap existed on the
-        # web side (blueprints/lecturer.py's end_session_r) and has now
-        # been fixed there too, so both surfaces record a real stop time.
-        active_session.is_active = False
-        active_session.stop_time = datetime.now(timezone.utc).time()
-        db.session.commit()
 
         final_count = Attendance.query.filter_by(
             session_id=active_session.id

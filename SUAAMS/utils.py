@@ -196,6 +196,95 @@ def students_not_checked_in(session):
     )
 
 
+def _lock_owned_course(lecturer, course_id):
+    """The lecturer's own course, row-locked until the caller commits, or None.
+
+    The lock (SELECT ... FOR UPDATE on MySQL) is what makes "is a session
+    already running?" and "start one" a single step. Two Start requests
+    sent together -- a double tap on a slow connection -- used to both see
+    no active session and both create one; ending the class then closed only
+    the first, leaving the other open and accepting check-ins. Now the second
+    request waits for the first to commit and then sees its session.
+    (SQLite, used by the tests, ignores FOR UPDATE.)
+    """
+    from models import Course
+    return (Course.query
+            .filter_by(id=course_id, lecturer_id=lecturer.id)
+            .with_for_update()
+            .first())
+
+
+def start_class_session(lecturer, course_id, planned_start=None, planned_end=None):
+    """Start a session for one of the lecturer's courses.
+
+    Shared by the lecturer app (api/lecturer.py) and the web portal
+    (blueprints/lecturer.py), which each had their own copy. Returns
+    (outcome, session): 'started', 'already_active' (session = the running
+    one) or 'not_found' (no such course, or not theirs).
+
+    With no planned times given, uses today's timetable slot, so the late
+    cut-off still has a scheduled start to work from.
+    """
+    from models import db, Session as SessionModel
+    from campus_time import campus_today
+
+    if _lock_owned_course(lecturer, course_id) is None:
+        db.session.rollback()  # release the (empty) lock
+        return 'not_found', None
+
+    running = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
+    if running:
+        db.session.rollback()
+        return 'already_active', running
+
+    if planned_start is None and planned_end is None:
+        slot = resolve_timetable_slot_for_course(course_id)
+        if slot:
+            planned_start, planned_end = slot.start_time, slot.end_time
+
+    new_session = SessionModel(
+        course_id=course_id,
+        session_date=campus_today(),  # campus date; start_time stays UTC
+        is_active=True,
+        start_time=datetime.now(timezone.utc).time(),
+        planned_start=planned_start,
+        planned_end=planned_end,
+    )
+    db.session.add(new_session)
+    db.session.commit()
+    return 'started', new_session
+
+
+def end_class_session(lecturer, course_id):
+    """End every running session for one of the lecturer's courses.
+
+    Returns (outcome, session): 'ended' (session = the most recent one
+    closed), 'none_active' or 'not_found'. Closes ALL running sessions, not
+    just the first: if a duplicate ever exists (see _lock_owned_course), one
+    End must not leave the other open.
+    """
+    from models import db, Session as SessionModel
+
+    if _lock_owned_course(lecturer, course_id) is None:
+        db.session.rollback()
+        return 'not_found', None
+
+    running = (SessionModel.query
+               .filter_by(course_id=course_id, is_active=True)
+               .order_by(SessionModel.id.desc())
+               .all())
+    if not running:
+        db.session.rollback()
+        return 'none_active', None
+
+    stopped_at = datetime.now(timezone.utc).time()
+    for s in running:
+        s.is_active = False
+        s.stop_time = stopped_at
+    db.session.commit()
+    return 'ended', running[0]
+
+
 def mark_student_present(session, student_id, marker_user):
     """A lecturer marking a student present by hand. Shared by the mobile
     API and the web dashboard so both apply the same rules. The caller has

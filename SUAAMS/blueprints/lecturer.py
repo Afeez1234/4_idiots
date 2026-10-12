@@ -1,9 +1,9 @@
-from campus_time import campus_today
 import csv
 import io
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response
 from datetime import date, datetime, timezone
 from utils import (login_required, resolve_timetable_slot_for_course, notify_announcement,
+                   start_class_session, end_class_session,
                    build_course_register_csv, students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps)
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
@@ -587,57 +587,24 @@ def start_session(course_id):
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
 
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
-        if not course:
-            flash('Course not found or access denied.', 'error')
-            return redirect(url_for('lecturer.dashboard'))
-
-        active_session = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
-        if active_session:
-            flash('A session is already active for this course.', 'error')
-            return redirect(url_for('lecturer.course_workspace', course_id=course_id))
-
-        # BUG FIX: request.form.get() returns "HH:MM" strings (from the
-        # <input type="time"> in course_workspace.html), but
-        # Session.planned_start/planned_end are db.Time columns expecting
-        # actual datetime.time objects. Passing the raw string through (as
-        # this used to) works on some DB drivers but not others -- confirmed
-        # to raise a hard TypeError against SQLite; same bug existed in
-        # api/lecturer.py's version of this endpoint, already fixed there.
-        # A parse failure here falls through to the except block below
-        # (flash + log), which is fine since <input type="time"> is
-        # browser-validated -- only a forged request would hit it.
+        # A parse failure falls through to the except block below (flash +
+        # log), which is fine since <input type="time"> is browser-validated
+        # -- only a forged request would hit it.
         planned_start_raw = request.form.get('planned_start') or None
         planned_end_raw = request.form.get('planned_end') or None
         planned_start = datetime.strptime(planned_start_raw, '%H:%M').time() if planned_start_raw else None
         planned_end = datetime.strptime(planned_end_raw, '%H:%M').time() if planned_end_raw else None
 
-        # The form pre-fills these from today's Timetable slot, but a
-        # lecturer can still clear/skip them entirely (both fields are
-        # marked optional) -- fall back to the timetable slot here too so a
-        # blank submission still records the scheduled time instead of NULL.
-        if planned_start is None and planned_end is None:
-            slot = resolve_timetable_slot_for_course(course_id)
-            if slot:
-                planned_start = slot.start_time
-                planned_end = slot.end_time
+        # Ownership, "already running?" and the timetable fallback live in
+        # utils.start_class_session, shared with the lecturer app.
+        outcome, _ = start_class_session(lecturer, course_id, planned_start, planned_end)
+        if outcome == 'not_found':
+            flash('Course not found or access denied.', 'error')
+            return redirect(url_for('lecturer.dashboard'))
+        if outcome == 'already_active':
+            flash('A session is already active for this course.', 'error')
+            return redirect(url_for('lecturer.course_workspace', course_id=course_id))
 
-        new_session = SessionModel(
-            course_id=course_id,
-            session_date=campus_today(),  # campus date; start_time stays UTC
-            is_active=True,
-            # start_time exists on the model precisely for this ("gets set
-            # when a lecturer actually starts the session" -- models.py)
-            # but was never actually being written here. Populating it now
-            # so pages that need a real elapsed time (Active Sessions) have
-            # something other than planned_start to read.
-            start_time=datetime.now(timezone.utc).time(),
-            planned_start=planned_start,
-            planned_end=planned_end
-        )
-        
-        db.session.add(new_session)
-        db.session.commit()
         flash('Session started successfully.', 'success')
         
     except Exception:
@@ -663,19 +630,15 @@ def end_session_r(course_id):
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
 
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
-        if not course:
+        # Shared with the lecturer app; closes every running session for the
+        # course (see utils.end_class_session).
+        outcome, _ = end_class_session(lecturer, course_id)
+        if outcome == 'not_found':
             flash('Course not found or access denied.', 'error')
             return redirect(url_for('lecturer.dashboard'))
-
-        active_session = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
-        if not active_session:
+        if outcome == 'none_active':
             flash('No active session found for this course.', 'error')
             return redirect(url_for('lecturer.course_workspace', course_id=course_id))
-            
-        active_session.is_active = False
-        active_session.stop_time = datetime.now(timezone.utc).time()
-        db.session.commit()
 
         flash('Session ended successfully.', 'success')
         
