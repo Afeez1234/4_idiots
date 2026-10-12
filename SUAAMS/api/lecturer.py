@@ -5,7 +5,8 @@ from datetime import datetime, timezone
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Announcement, Timetable
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from utils import (resolve_timetable_slot_for_course, build_course_register_csv,
-                   students_not_checked_in, mark_student_present)
+                   students_not_checked_in, mark_student_present,
+                   pending_offline_taps, review_offline_tap, accept_all_offline_taps)
 
 api_lecturer_bp = Blueprint('api_lecturer', __name__, url_prefix='/api/v1/lecturer')
 
@@ -547,6 +548,21 @@ def get_session_detail(course_id, session_id):
             for s in students_not_checked_in(session)
         ]
 
+        # Taps the terminal read while it couldn't reach the server, waiting
+        # for the lecturer to accept or reject (see review_offline_tap).
+        # tapped_at is when the student actually tapped, in campus time.
+        offline_taps = [
+            {
+                'id': log.id,
+                'student_id': log.student_id,
+                'full_name': log.student.full_name,
+                'matric_number': log.student.matric_number,
+                'tapped_at': campus_fmt(log.captured_at, '%H:%M:%S'),
+                'terminal_id': log.terminal_id,
+            }
+            for log in pending_offline_taps(session)
+        ]
+
         enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
 
         return jsonify({
@@ -576,6 +592,7 @@ def get_session_detail(course_id, session_id):
                 },
                 "attendance": attendance_list,
                 "not_checked_in": not_checked_in,
+                "offline_taps": offline_taps,
             }
         }), 200
 
@@ -629,6 +646,93 @@ def mark_present(course_id, session_id):
     except Exception:
         db.session.rollback()
         return api_error_response("Mark Present API Error", "Failed to mark student present.")
+
+
+# ── 7c. Offline tap review ───────────────────────────────────────────────────
+
+def _owned_session_or_404(lecturer, course_id, session_id):
+    """(session, None) if the lecturer owns the course and the session is in
+    it, else (None, (response, status)). Same ownership rule as mark_present."""
+    course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+    if not course:
+        return None, (jsonify({"error": "Course not found or access denied."}), 404)
+    session = SessionModel.query.filter_by(id=session_id, course_id=course_id).first()
+    if not session:
+        return None, (jsonify({"error": "Session not found."}), 404)
+    return session, None
+
+
+@api_lecturer_bp.route('/course/<int:course_id>/session/<int:session_id>/offline-taps/<int:tap_id>/review',
+                       methods=['POST'])
+@limiter.limit("60 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def review_offline_tap_api(course_id, session_id, tap_id):
+    """
+    Accept or reject one tap a terminal read while it was offline. Accepting
+    creates attendance with method='offline' at the time of the tap. Rules
+    live in utils.review_offline_tap, shared with the web dashboard.
+
+    Body: {"accept": true | false}
+    """
+    lecturer, error_response, status = get_lecturer_or_403()
+    if error_response:
+        return error_response, status
+
+    data = request.get_json(silent=True) or {}
+    accept = data.get('accept')
+    if not isinstance(accept, bool):
+        return jsonify({"error": "accept must be true or false"}), 400
+
+    try:
+        session, failure = _owned_session_or_404(lecturer, course_id, session_id)
+        if failure:
+            return failure
+
+        outcome = review_offline_tap(session, tap_id, lecturer.user, accept)
+        if outcome == 'not_found':
+            return jsonify({"error": "That tap isn't part of this session."}), 404
+        messages = {
+            'accepted': "Tap accepted.",
+            'rejected': "Tap rejected.",
+            'already_marked': "Student already has attendance for this session.",
+            'already_reviewed': "That tap was already reviewed.",
+            'not_enrolled': "Student is no longer registered for this course, so the tap was rejected.",
+        }
+        return jsonify({"success": True, "outcome": outcome, "message": messages[outcome]}), 200
+
+    except Exception:
+        db.session.rollback()
+        return api_error_response("Offline Tap Review API Error", "Failed to review the tap.")
+
+
+@api_lecturer_bp.route('/course/<int:course_id>/session/<int:session_id>/offline-taps/accept-all',
+                       methods=['POST'])
+@limiter.limit("20 per minute", key_func=jwt_identity_or_ip)
+@jwt_required()
+def accept_all_offline_taps_api(course_id, session_id):
+    """Accept every pending offline tap for the session. See
+    utils.accept_all_offline_taps for why bulk acceptance is safe."""
+    lecturer, error_response, status = get_lecturer_or_403()
+    if error_response:
+        return error_response, status
+
+    try:
+        session, failure = _owned_session_or_404(lecturer, course_id, session_id)
+        if failure:
+            return failure
+
+        counts = accept_all_offline_taps(session, lecturer.user)
+        accepted = counts.get('accepted', 0)
+        return jsonify({
+            "success": True,
+            "accepted": accepted,
+            "counts": counts,
+            "message": f"Accepted {accepted} tap{'s' if accepted != 1 else ''}.",
+        }), 200
+
+    except Exception:
+        db.session.rollback()
+        return api_error_response("Accept All Offline Taps API Error", "Failed to accept the taps.")
 
 
 # ── 8. Course analytics ───────────────────────────────────────────────────────

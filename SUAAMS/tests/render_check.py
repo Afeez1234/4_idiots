@@ -717,12 +717,23 @@ CONTEXTS = {
              "Absent", None, None),
             ("Zainab Bello", 400, "Computer Science", "CSC/2021/0455",
              "Present", datetime(2026, 9, 27, 9, 4, 58), "nfc"),
+            ("Musa Danjuma", 400, "Computer Science", "CSC/2021/0456",
+             "Present", datetime(2026, 9, 27, 9, 5, 30), "offline"),
         ],
         enrolled_count=48,
         # The manual-marking list. The apostrophe is deliberate: the confirm
         # prompt reads the name from data-student-name for exactly this case.
         not_checked_in=[
             {"id": 7, "full_name": "Kelechi O'Neil", "matric_number": "CSC/2021/0460"},
+        ],
+        # Two pending offline taps, so the "Accept all" form (shown only for
+        # more than one) renders too. captured_at is naive UTC, as MySQL
+        # returns it; the template converts it with the campus filter.
+        offline_taps=[
+            {"id": 11, "captured_at": datetime(2026, 9, 27, 8, 4, 10),
+             "student": {"full_name": "Kelechi O'Neil", "matric_number": "CSC/2021/0460"}},
+            {"id": 12, "captured_at": datetime(2026, 9, 27, 8, 6, 2),
+             "student": {"full_name": "Amaka Obi", "matric_number": "CSC/2021/0461"}},
         ],
     ),
 

@@ -20,7 +20,10 @@ Verify first (read-only):
     python add_offline_checkin_log.py --check
 
 Matches OfflineCheckinLog in models.py. If you change that model, change
-this too -- there is no migration to catch the drift.
+this too. Since 2026-10-12 migration f2c9a7e4b158 also knows this table:
+it creates it if missing and otherwise adds the review columns, so on a
+database that runs `flask db upgrade` this script is no longer needed. On
+a table this script created before then, run the upgrade to add them.
 """
 
 import sys
@@ -39,13 +42,16 @@ CREATE TABLE IF NOT EXISTS offline_checkin_logs (
     terminal_id VARCHAR(64) NOT NULL,
     captured_at DATETIME NOT NULL,
     synced_at DATETIME NOT NULL,
-    status ENUM('pending_verification','superseded','rejected') NOT NULL DEFAULT 'pending_verification',
+    status ENUM('pending_verification','superseded','accepted','rejected') NOT NULL DEFAULT 'pending_verification',
     reason VARCHAR(120) NULL,
+    reviewed_by INT NULL,
+    reviewed_at DATETIME NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uq_offline_checkin_student_session (student_id, session_id),
     KEY ix_offline_checkin_session_status (session_id, status),
     CONSTRAINT fk_offline_checkin_student FOREIGN KEY (student_id) REFERENCES students (id),
-    CONSTRAINT fk_offline_checkin_session FOREIGN KEY (session_id) REFERENCES sessions (id)
+    CONSTRAINT fk_offline_checkin_session FOREIGN KEY (session_id) REFERENCES sessions (id),
+    CONSTRAINT fk_offline_checkin_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 """
 

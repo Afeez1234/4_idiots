@@ -116,6 +116,14 @@ abstract final class ApiConstants {
   static String markPresentEndpoint(int courseId, int sessionId) =>
       '$baseUrl/lecturer/course/$courseId/session/$sessionId/mark-present';
 
+  // Lecturer accepts or rejects one offline tap, or accepts them all -- see
+  // review_offline_tap_api / accept_all_offline_taps_api in api/lecturer.py.
+  static String reviewOfflineTapEndpoint(int courseId, int sessionId, int tapId) =>
+      '$baseUrl/lecturer/course/$courseId/session/$sessionId/offline-taps/$tapId/review';
+
+  static String acceptAllOfflineTapsEndpoint(int courseId, int sessionId) =>
+      '$baseUrl/lecturer/course/$courseId/session/$sessionId/offline-taps/accept-all';
+
   static String courseAnalyticsEndpoint(int courseId) =>
       '$baseUrl/lecturer/course/$courseId/analytics';
 

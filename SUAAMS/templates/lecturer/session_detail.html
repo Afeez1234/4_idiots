@@ -9,6 +9,8 @@
         <p class="mt-2 text-xs text-muted">Marked by lecturer</p>
     {%- elif method == 'ble' -%}
         <p class="mt-2 text-xs text-muted">Via Bluetooth</p>
+    {%- elif method == 'offline' -%}
+        <p class="mt-2 text-xs text-muted">Offline tap, accepted</p>
     {%- endif -%}
 {%- endmacro -%}
 
@@ -207,6 +209,65 @@
         </div>
     </div>
 
+    {# Offline taps: reads the terminal made while it couldn't reach the
+       server. Each is a genuine signed tap for this session, but it only
+       becomes attendance once the lecturer accepts it. Hidden when there's
+       nothing to review. #}
+    {% if offline_taps %}
+        <div class="card-clip">
+            <div class="flex flex-wrap items-start justify-between gap-4 px-5 pt-5 pb-4">
+                <div>
+                    {{ card_heading('Taps While Offline (' ~ offline_taps|length ~ ')') }}
+                    <p class="mt-1 text-xs text-muted">
+                        The terminal read these students' phones but couldn't reach the server.
+                        Accepted taps count at the time shown and are recorded under your name.
+                    </p>
+                </div>
+                {% if offline_taps|length > 1 %}
+                    <form method="POST" id="accept-all-offline-form"
+                          data-count="{{ offline_taps|length }}"
+                          action="{{ url_for('lecturer.accept_all_offline_taps_r', course_id=course.id, session_id=session_info.id) }}">
+                        {% include '_csrf_field.html' %}
+                        <button type="submit" class="btn-primary btn-sm">
+                            <span class="material-symbols-rounded text-base">done_all</span>
+                            Accept all
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+            <div class="divide-y divide-divider border-t border-divider">
+                {% for tap in offline_taps %}
+                    <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                        <div class="flex min-w-0 items-center gap-3">
+                            {{ avatar(tap.student.full_name) }}
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-medium">{{ tap.student.full_name }}</p>
+                                <p class="mono text-xs text-muted">
+                                    {{ tap.student.matric_number }} &middot; tapped {{ tap.captured_at|campus('%H:%M:%S') }}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            {# decision rides on the clicked button's name/value. #}
+                            <form method="POST" class="offline-tap-form"
+                                  data-student-name="{{ tap.student.full_name }}"
+                                  action="{{ url_for('lecturer.review_offline_tap_r', course_id=course.id, session_id=session_info.id, tap_id=tap.id) }}">
+                                {% include '_csrf_field.html' %}
+                                <button type="submit" name="decision" value="reject" class="btn-secondary btn-sm">
+                                    Reject
+                                </button>
+                                <button type="submit" name="decision" value="accept" class="btn-secondary btn-sm">
+                                    <span class="material-symbols-rounded text-base">task_alt</span>
+                                    Accept
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endif %}
+
     {# Manual marking: enrolled students with no record yet. The fallback for
        a student whose phone can't check in. Allowed on ended sessions too,
        so the register can be corrected after class. #}
@@ -281,5 +342,27 @@
             }
         });
     });
+
+    // Only rejecting a single tap asks first: accepting is the expected
+    // action for a genuine signed tap, while a reject throws away the only
+    // evidence the student was there.
+    // e.submitter is the button that was clicked (decision=accept|reject).
+    document.querySelectorAll('.offline-tap-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (e.submitter && e.submitter.value === 'reject' &&
+                !confirm(`Reject ${form.dataset.studentName}'s offline tap? They won't be marked present.`)) {
+                e.preventDefault();
+            }
+        });
+    });
+
+    const acceptAllForm = document.getElementById('accept-all-offline-form');
+    if (acceptAllForm) {
+        acceptAllForm.addEventListener('submit', function (e) {
+            if (!confirm(`Accept all ${acceptAllForm.dataset.count} offline taps? Each student is marked at the time they tapped, under your name.`)) {
+                e.preventDefault();
+            }
+        });
+    }
 </script>
 {% endblock %}

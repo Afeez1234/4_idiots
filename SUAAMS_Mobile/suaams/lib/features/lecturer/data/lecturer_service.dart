@@ -242,6 +242,69 @@ class LecturerService {
     }
   }
 
+  // Offline tap review. Returns the server's message, which differs by
+  // outcome ("Tap accepted.", "Student already has attendance...", or the
+  // tap being rejected because the student dropped the course) -- all of
+  // them are success responses, so the screen shows whichever came back.
+  Future<String> reviewOfflineTap(
+    String token,
+    int courseId,
+    int sessionId,
+    int tapId, {
+    required bool accept,
+  }) async {
+    return _postForMessage(
+      ApiConstants.reviewOfflineTapEndpoint(courseId, sessionId, tapId),
+      token,
+      {'accept': accept},
+    );
+  }
+
+  Future<String> acceptAllOfflineTaps(
+    String token,
+    int courseId,
+    int sessionId,
+  ) async {
+    return _postForMessage(
+      ApiConstants.acceptAllOfflineTapsEndpoint(courseId, sessionId),
+      token,
+      const {},
+    );
+  }
+
+  // POST a JSON body, expect {"success": true, "message": ...}. Same error
+  // handling as markStudentPresent.
+  Future<String> _postForMessage(
+    String url,
+    String token,
+    Map<String, dynamic> body,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+
+      final Map<String, dynamic> responseData = jsonDecode(response.body);
+
+      if (!(response.statusCode == 200 && responseData['success'] == true)) {
+        final errorMsg =
+            responseData['error'] ??
+            responseData['msg'] ??
+            responseData['message'] ??
+            'Server returned status ${response.statusCode}';
+        throw Exception(errorMsg);
+      }
+      return responseData['message'] as String? ?? 'Done.';
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   Future<CourseAnalyticsModel> fetchCourseAnalytics(
     String token,
     int courseId,

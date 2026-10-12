@@ -117,8 +117,12 @@ If the terminal can't reach the server, it saves up to 16 taps and uploads
 them when it reconnects. These **do not** count as attendance automatically,
 because by then the codes have expired, and accepting expired codes would
 reopen the cheating loophole. Instead the server stores them as "pending
-verification" with the time of each tap, so a lecturer can decide. (The
-records are stored, but there isn't a screen to review them yet. See §7.)
+verification" with the time of each tap, so a lecturer can decide. They
+appear on the session page (app and web) under "Taps while offline", where
+the lecturer accepts or rejects each one, or accepts them all at once. An
+accepted tap counts at the time the student actually tapped (so it can
+still be late), is saved under the lecturer's name, and is shown as an
+"offline tap".
 
 ---
 
@@ -145,6 +149,8 @@ history, announcements), but the app is the main way students use SUAAMS.
 - **Mark a student present by hand** when their phone can't check in, during
   or after the session. Every manual mark is saved with the lecturer's name
   and shown as "by lecturer", so it's never confused with a real tap.
+- **Review taps the terminal saved while offline**: accept or reject each
+  one, or accept all (see §3c)
 - Session history and per-session detail, showing how each student checked
   in (tap, Bluetooth or by lecturer)
 - Course analytics (attendance rates)
@@ -229,8 +235,6 @@ when a student checked in, are stored in UTC and converted when displayed.
   phone's *current* set of enrolled fingerprints, so adding a friend's
   fingerprint to your phone would stop working. Right now the app accepts
   any successful fingerprint or PIN unlock from the phone.
-- **Reviewing offline taps**: offline taps are saved (see §3c), but there is
-  no screen yet for a lecturer to accept or reject them.
 - **Automatic sessions**: sessions are started by hand. The timetable shows
   what *should* be running, but nothing starts or ends sessions
   automatically yet.

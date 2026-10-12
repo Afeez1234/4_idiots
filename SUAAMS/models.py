@@ -330,12 +330,15 @@ class Attendance(db.Model):
     # How the student checked in: 'nfc' (phone tap at the terminal), 'ble'
     # (Bluetooth code, the fallback for phones that can't tap), 'rfid' (ID
     # card on the terminal), 'manual' (marked by the lecturer -- see
-    # mark_student_present in utils.py). BLE is weaker evidence of presence
+    # mark_student_present in utils.py), 'offline' (a tap the terminal read
+    # while it couldn't reach the server, accepted by the lecturer -- see
+    # review_offline_tap in utils.py). BLE is weaker evidence of presence
     # than NFC (see ble_beacon.py), so this is what lets a lecturer see the mix.
     # NULL = recorded before this column existed; method unknown. Not
     # backfilled, because guessing would be worse than admitting it.
     method = db.Column(db.String(8), nullable=True)
-    # Who marked it, for method='manual' only (NULL for every self check-in).
+    # Who marked it, for method='manual' and 'offline' (NULL for every self
+    # check-in).
     # A manual mark is a human vouching for presence with no device evidence
     # behind it, so it has to be attributable. ON DELETE SET NULL rather than
     # a cascade: removing a lecturer's account must not delete the
@@ -463,9 +466,10 @@ class OfflineCheckinLog(db.Model):
     The roadmap calls for terminals to log taps offline and push the
     backlog when connectivity returns. That is implemented, but with one
     hard limit baked in: a beacon is only valid for
-    BEACON_TOKEN_TTL_SECONDS (3), which is the anti-relay window CLAUDE.md
+    BEACON_TOKEN_TTL_SECONDS (beacon.py), the anti-relay window CLAUDE.md
     calls canonical. A beacon captured offline has therefore ALWAYS expired
-    by the time it syncs, and the server will not -- must not -- credit it.
+    by the time it syncs, and the server will not -- must not -- credit it
+    automatically.
 
     So this table records PROVENANCE, not attendance: "a terminal
     physically read a genuine beacon for this student and this session at
@@ -474,10 +478,13 @@ class OfflineCheckinLog(db.Model):
     not forged, and the student/session binding still comes out of the
     token itself.
 
-    A lecturer can use this to reconcile a disputed tap. It deliberately
-    does NOT create an Attendance row, because doing so would let anyone
-    with a captured RF signal mark a peer present hours later -- exactly
-    the buddy-punching vector the 3-second window exists to prevent.
+    The sync itself deliberately does NOT create an Attendance row, because
+    doing so would let anyone with a captured RF signal mark a peer present
+    hours later -- exactly the buddy-punching vector the short window exists
+    to prevent. Instead the course lecturer reviews pending rows on the
+    session page and accepts or rejects them (utils.review_offline_tap). An
+    accepted tap becomes attendance with method='offline' and the lecturer
+    as marked_by: a person vouches for it, backed by a genuine signed read.
 
     captured_at is derived server-side from the beacon's own `exp` field
     (minus the TTL), not sent by the terminal. The ESP32 has no RTC and
@@ -510,16 +517,26 @@ class OfflineCheckinLog(db.Model):
     #                        lecturer to look at it.
     # superseded          -- attendance for this student/session was already
     #                        recorded live, so this adds nothing.
-    # rejected            -- signature invalid, or the student/session no
-    #                        longer resolves. Kept for the audit trail.
+    # accepted            -- the lecturer accepted it; an Attendance row with
+    #                        method='offline' now exists.
+    # rejected            -- the lecturer rejected it, or the student is no
+    #                        longer enrolled. Kept for the audit trail.
     status = db.Column(
-        db.Enum('pending_verification', 'superseded', 'rejected'),
+        db.Enum('pending_verification', 'superseded', 'accepted', 'rejected'),
         default='pending_verification',
         nullable=False,
     )
-    # Why a record landed in 'rejected' -- kept short and human-readable so
-    # a lecturer reviewing the log sees a reason, not a stack trace.
+    # Why a record landed in 'rejected' or 'superseded' -- kept short and
+    # human-readable so the audit trail shows a reason, not a stack trace.
     reason = db.Column(db.String(120), nullable=True)
+
+    # Which lecturer accepted or rejected it, and when. NULL while pending.
+    # ON DELETE SET NULL for the same reason as Attendance.marked_by:
+    # removing a lecturer's account must not erase the review history.
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+
+    student = db.relationship('Student')
 
     __table_args__ = (
         # One row per student per session. The terminal may capture the

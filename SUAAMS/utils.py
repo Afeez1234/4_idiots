@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import session,redirect,url_for,flash
 from functools import wraps
 # Timetable columns hold campus wall-clock times, so "now" must be campus
@@ -256,6 +256,156 @@ def mark_student_present(session, student_id, marker_user):
         data={'session_id': session.id, 'course_id': session.course_id},
     )
     return 'marked'
+
+
+def pending_offline_taps(session):
+    """Offline taps for this session still waiting on the lecturer, oldest
+    first. Leaves out students who already have attendance (they checked in
+    live, or were marked by hand, after the tap was queued) -- accepting
+    those would do nothing, so showing them would only be noise. The row
+    itself is settled as 'superseded' if the lecturer acts on it anyway.
+    """
+    from models import OfflineCheckinLog, Attendance
+
+    recorded = Attendance.query.with_entities(Attendance.student_id)\
+        .filter(Attendance.session_id == session.id)
+    return (
+        OfflineCheckinLog.query
+        .filter(OfflineCheckinLog.session_id == session.id,
+                OfflineCheckinLog.status == 'pending_verification',
+                ~OfflineCheckinLog.student_id.in_(recorded))
+        .order_by(OfflineCheckinLog.captured_at)
+        .all()
+    )
+
+
+def review_offline_tap(session, log_id, reviewer_user, accept, notify=True):
+    """A lecturer accepting or rejecting one tap a terminal read while it was
+    offline. Shared by the mobile API and the web dashboard. The caller has
+    already checked that `reviewer_user` owns the session's course.
+
+    Differences from mark_student_present, and why:
+      * The time of the tap is known. The terminal read a signed beacon and
+        the server derived captured_at from it, so time_in is that moment
+        and status is computed present/late against it, exactly as a live
+        tap would have been. A hand mark knows neither.
+      * method='offline', not 'manual': a genuine signed read of the
+        student's phone stands behind it, which is stronger evidence than a
+        lecturer's word alone. marked_by still records who accepted it.
+
+    `notify=False` lets accept_all_offline_taps skip the per-student push
+    and send nothing until the batch is done.
+
+    Returns 'accepted', 'rejected', 'already_marked' (attendance already
+    exists; the row is settled as superseded), 'not_enrolled' (student
+    dropped the course; the row is rejected), 'already_reviewed', or
+    'not_found'.
+    """
+    from sqlalchemy.exc import IntegrityError
+    from models import db, Enrollment, Attendance, OfflineCheckinLog
+    from campus_time import to_campus
+
+    log = OfflineCheckinLog.query.filter_by(id=log_id, session_id=session.id).first()
+    if not log:
+        return 'not_found'
+    if log.status != 'pending_verification':
+        return 'already_reviewed'
+
+    def settle(status, reason=None):
+        log.status = status
+        log.reason = reason
+        log.reviewed_by = reviewer_user.id
+        log.reviewed_at = datetime.now(timezone.utc)
+
+    if not accept:
+        settle('rejected', 'Rejected by lecturer')
+        db.session.commit()
+        return 'rejected'
+
+    if Attendance.query.filter_by(session_id=session.id, student_id=log.student_id).first():
+        settle('superseded', 'Already had attendance')
+        db.session.commit()
+        return 'already_marked'
+
+    # Enrolment is checked now, not at sync time: a student who dropped the
+    # course since the tap must not land on its register.
+    if not Enrollment.query.filter_by(student_id=log.student_id,
+                                      course_id=session.course_id).first():
+        settle('rejected', 'Not enrolled in this course')
+        db.session.commit()
+        return 'not_enrolled'
+
+    # captured_at is stored as naive UTC; compute_attendance_status compares
+    # naive campus wall-clock time.
+    tapped_campus = to_campus(log.captured_at).replace(tzinfo=None)
+    db.session.add(Attendance(
+        student_id=log.student_id,
+        session_id=session.id,
+        time_in=log.captured_at,
+        status=compute_attendance_status(session, at=tapped_campus),
+        method='offline',
+        marked_by=reviewer_user.id,
+    ))
+    settle('accepted')
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Lost a race with a live check-in or a hand mark for the same
+        # student; uq_attendance_student_session kept exactly one row.
+        db.session.rollback()
+        log = db.session.get(OfflineCheckinLog, log_id)
+        if log.status == 'pending_verification':
+            settle('superseded', 'Already had attendance')
+            db.session.commit()
+        return 'already_marked'
+
+    if notify:
+        _notify_offline_tap_accepted(session, log.student)
+    return 'accepted'
+
+
+def _notify_offline_tap_accepted(session, student):
+    from push_notifications import send_push_notification
+
+    course = session.course
+    send_push_notification(
+        student.user,
+        'attendance_marked',
+        'Attendance Recorded',
+        f"Your tap for {course.course_code} while the terminal was offline was accepted."
+        if course else "Your tap while the terminal was offline was accepted.",
+        data={'session_id': session.id, 'course_id': session.course_id},
+    )
+
+
+def accept_all_offline_taps(session, reviewer_user):
+    """Accept every pending offline tap for the session in one go -- for a
+    class whose terminal was offline, where checking 30+ taps one by one
+    isn't realistic. Each tap still goes through review_offline_tap, so the
+    enrolment and already-marked rules apply per student.
+
+    Bulk acceptance is safe to offer because every tap is already a
+    signature-verified read bound to this session: the beacon could only be
+    minted while this session was live, after the student's own biometric
+    check. The lecturer is confirming "the terminal was down", not vouching
+    for each face.
+
+    Returns a dict of outcome -> count.
+    """
+    counts = {}
+    accepted_students = []
+    for log in pending_offline_taps(session):
+        student = log.student
+        outcome = review_offline_tap(session, log.id, reviewer_user, accept=True, notify=False)
+        counts[outcome] = counts.get(outcome, 0) + 1
+        if outcome == 'accepted':
+            accepted_students.append(student)
+
+    # Pushes go out after every row is committed, so a slow or failing
+    # notification can't leave the batch half-applied.
+    for student in accepted_students:
+        _notify_offline_tap_accepted(session, student)
+    return counts
 
 
 def students_for_announcement(announcement):

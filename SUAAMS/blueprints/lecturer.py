@@ -4,7 +4,8 @@ import io
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response
 from datetime import date, datetime, timezone
 from utils import (login_required, resolve_timetable_slot_for_course, students_for_announcement,
-                   build_course_register_csv, students_not_checked_in, mark_student_present)
+                   build_course_register_csv, students_not_checked_in, mark_student_present,
+                   pending_offline_taps, review_offline_tap, accept_all_offline_taps)
 from push_notifications import send_push_notification
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
 from extensions import log_exception, limiter
@@ -738,6 +739,8 @@ def session_detail(course_id, session_id):
         enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
         # Who the lecturer can still mark present by hand.
         not_checked_in = students_not_checked_in(session_info)
+        # Taps the terminal read while offline, waiting for review.
+        offline_taps = pending_offline_taps(session_info)
 
     except Exception:
         log_exception("Session Detail Error")
@@ -751,6 +754,7 @@ def session_detail(course_id, session_id):
         attendance_records=attendance_records,
         enrolled_count=enrolled_count,
         not_checked_in=not_checked_in,
+        offline_taps=offline_taps,
         active_page='session_history',
         active_course_id=course.id,
     )
@@ -800,4 +804,86 @@ def mark_present_r(course_id, session_id):
     else:
         student = Student.query.get(student_id)
         flash(f'{student.full_name} marked present.', 'success')
+    return back
+
+
+def _owned_session_for_form(course_id, session_id):
+    """(lecturer, session_info, None) for the logged-in lecturer's own session,
+    or (None, None, redirect) after flashing why not. Same checks as
+    mark_present_r."""
+    lecturer = Lecturer.query.filter_by(user_id=session.get('user_id')).first()
+    if not lecturer:
+        flash('Lecturer profile not found.', 'error')
+        return None, None, redirect(url_for('auth.login'))
+
+    course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+    if not course:
+        flash('Course not found or access denied.', 'error')
+        return None, None, redirect(url_for('lecturer.dashboard'))
+
+    session_info = SessionModel.query.filter_by(id=session_id, course_id=course_id).first()
+    if not session_info:
+        flash('Session not found.', 'error')
+        return None, None, redirect(url_for('lecturer.course_workspace', course_id=course_id))
+    return lecturer, session_info, None
+
+
+@lecturer_bp.route('/lecturer/course/<int:course_id>/session/<int:session_id>/offline-taps/<int:tap_id>/review',
+                   methods=['POST'])
+@limiter.limit("60 per minute")
+@login_required(('lecturer', 'hod'))
+def review_offline_tap_r(course_id, session_id, tap_id):
+    """Web twin of POST /api/v1/lecturer/.../offline-taps/<id>/review. The
+    form posts decision=accept or decision=reject."""
+    back = redirect(url_for('lecturer.session_detail', course_id=course_id, session_id=session_id))
+    lecturer, session_info, failure = _owned_session_for_form(course_id, session_id)
+    if failure:
+        return failure
+
+    decision = request.form.get('decision')
+    if decision not in ('accept', 'reject'):
+        flash('Choose accept or reject.', 'error')
+        return back
+
+    try:
+        outcome = review_offline_tap(session_info, tap_id, lecturer.user, decision == 'accept')
+    except Exception:
+        db.session.rollback()
+        log_exception("Offline Tap Review Error")
+        flash('Failed to review the tap.', 'error')
+        return back
+
+    message, category = {
+        'accepted': ('Tap accepted.', 'success'),
+        'rejected': ('Tap rejected.', 'success'),
+        'already_marked': ('That student already has attendance for this session.', 'success'),
+        'already_reviewed': ('That tap was already reviewed.', 'success'),
+        'not_enrolled': ("That student is no longer registered for this course, so the tap was rejected.", 'error'),
+        'not_found': ("That tap isn't part of this session.", 'error'),
+    }[outcome]
+    flash(message, category)
+    return back
+
+
+@lecturer_bp.route('/lecturer/course/<int:course_id>/session/<int:session_id>/offline-taps/accept-all',
+                   methods=['POST'])
+@limiter.limit("20 per minute")
+@login_required(('lecturer', 'hod'))
+def accept_all_offline_taps_r(course_id, session_id):
+    """Web twin of POST /api/v1/lecturer/.../offline-taps/accept-all."""
+    back = redirect(url_for('lecturer.session_detail', course_id=course_id, session_id=session_id))
+    lecturer, session_info, failure = _owned_session_for_form(course_id, session_id)
+    if failure:
+        return failure
+
+    try:
+        counts = accept_all_offline_taps(session_info, lecturer.user)
+    except Exception:
+        db.session.rollback()
+        log_exception("Accept All Offline Taps Error")
+        flash('Failed to accept the taps.', 'error')
+        return back
+
+    accepted = counts.get('accepted', 0)
+    flash(f"Accepted {accepted} tap{'s' if accepted != 1 else ''}.", 'success')
     return back

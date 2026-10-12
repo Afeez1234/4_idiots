@@ -128,6 +128,7 @@ void main() {
       );
 
       expect(m.notCheckedIn, isEmpty);
+      expect(m.offlineTaps, isEmpty);
       expect(m.session.isActive, isFalse);
       expect(m.attendance.first.method, isNull);
     });
@@ -144,6 +145,21 @@ void main() {
       expect(m.notCheckedIn.first.studentId, 14);
       expect(m.notCheckedIn.first.fullName, "Kelechi O'Neil");
       expect(m.notCheckedIn.first.matricNumber, 'MCT/2022/031');
+    });
+
+    test('parses pending offline taps', () {
+      final m = SessionDetailModel.fromJson(
+        loadApiData('lecturer_session_detail_live'),
+      );
+
+      expect(m.offlineTaps, hasLength(1));
+      final tap = m.offlineTaps.single;
+      // The log row's id, not the student's -- the review endpoint takes it.
+      expect(tap.id, 301);
+      expect(tap.studentId, 15);
+      expect(tap.fullName, 'Zainab Bello');
+      expect(tap.tappedAt, '09:06:41');
+      expect(tap.terminalId, 'TERM-01');
     });
   });
 

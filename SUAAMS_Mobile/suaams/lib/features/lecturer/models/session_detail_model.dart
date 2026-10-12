@@ -12,6 +12,9 @@ class SessionDetailModel {
   // Enrolled students with no record yet -- the ones the lecturer can mark
   // present by hand. `not_checked_in` in the JSON.
   final List<NotCheckedInStudent> notCheckedIn;
+  // Taps the terminal read while it couldn't reach the server, waiting for
+  // the lecturer to accept or reject. `offline_taps` in the JSON.
+  final List<OfflineTap> offlineTaps;
 
   SessionDetailModel({
     required this.course,
@@ -19,6 +22,7 @@ class SessionDetailModel {
     required this.stats,
     required this.attendance,
     required this.notCheckedIn,
+    this.offlineTaps = const [],
   });
 
   factory SessionDetailModel.fromJson(Map<String, dynamic> json) {
@@ -33,6 +37,10 @@ class SessionDetailModel {
       // manual marking (deploy order: backend first, but don't crash if not).
       notCheckedIn: ((json['not_checked_in'] as List?) ?? const [])
           .map((s) => NotCheckedInStudent.fromJson(s))
+          .toList(),
+      // Same fallback: a server from before offline-tap review sends none.
+      offlineTaps: ((json['offline_taps'] as List?) ?? const [])
+          .map((t) => OfflineTap.fromJson(t))
           .toList(),
     );
   }
@@ -85,6 +93,39 @@ class NotCheckedInStudent {
   }
 }
 
+// One pending offline tap -- see pending_offline_taps in utils.py.
+class OfflineTap {
+  // The log row's id, which the review endpoints act on (not the student id).
+  final int id;
+  final int studentId;
+  final String fullName;
+  final String matricNumber;
+  // When the student actually tapped, campus time, "HH:MM:SS". Accepting
+  // records attendance at this time, so it's shown to the lecturer.
+  final String? tappedAt;
+  final String? terminalId;
+
+  OfflineTap({
+    required this.id,
+    required this.studentId,
+    required this.fullName,
+    required this.matricNumber,
+    this.tappedAt,
+    this.terminalId,
+  });
+
+  factory OfflineTap.fromJson(Map<String, dynamic> json) {
+    return OfflineTap(
+      id: json['id'] as int,
+      studentId: json['student_id'] as int,
+      fullName: json['full_name'] as String,
+      matricNumber: json['matric_number'] as String,
+      tappedAt: json['tapped_at'] as String?,
+      terminalId: json['terminal_id'] as String?,
+    );
+  }
+}
+
 class SessionDetailStats {
   final int presentCount;
   final int absentCount;
@@ -115,9 +156,9 @@ class SessionAttendanceRecord {
   final String? department;
   final String? timeIn;
   final String status;
-  // 'nfc' | 'ble' | 'manual' | 'rfid', or null for rows recorded before
-  // Attendance.method existed. Shown so a lecturer can tell a tap from a
-  // Bluetooth code from a hand mark.
+  // 'nfc' | 'ble' | 'manual' | 'offline' | 'rfid', or null for rows
+  // recorded before Attendance.method existed. Shown so a lecturer can tell
+  // a tap from a Bluetooth code from a hand mark from an accepted offline tap.
   final String? method;
 
   SessionAttendanceRecord({

@@ -54,7 +54,7 @@ end for completeness.
 - **Caller:** terminal. **Auth:** Terminal. **Limit:** 30/min per IP. **Max** 50 records.
 - **Request:** `{"records": [{"beacon_token": "..."}, ...]}`
 - **200:** `{"success": true, "accepted": n, "received": n, "results": [{"beacon_token", "status": "pending_verification"|"superseded"|"rejected", "reason"?, "captured_at"?, ...}]}`
-- Creates rows in `offline_checkin_logs` and **never** in `attendance`.
+- Creates rows in `offline_checkin_logs` and **never** in `attendance`. A lecturer turns them into attendance by reviewing them (see the lecturer `offline-taps` routes).
 
 ### `GET /healthz`
 - **Caller:** terminal keep-warm ping. **Auth:** none. **200:** `{"status": "ok"}`. It doesn't touch the database.
@@ -100,6 +100,8 @@ end for completeness.
 | GET | `/course/<course_id>/history` | Past sessions |
 | GET | `/course/<course_id>/session/<session_id>` | Who attended, live or past |
 | POST | `/course/<course_id>/session/<session_id>/mark-present` | Mark an enrolled student present by hand (60/min). Stored as `method = manual` with `marked_by` |
+| POST | `/course/<course_id>/session/<session_id>/offline-taps/<tap_id>/review` | `{accept: true\|false}` (60/min). Accept creates attendance with `method = offline`, `time_in` = tap time, present/late from the tap time, `marked_by` = lecturer. `200 {success, outcome, message}`; `outcome` is `accepted`, `rejected`, `already_marked`, `already_reviewed` or `not_enrolled` |
+| POST | `/course/<course_id>/session/<session_id>/offline-taps/accept-all` | Accept every pending tap (20/min). `200 {success, accepted, counts, message}` |
 | GET | `/course/<course_id>/analytics` | Attendance rates |
 | GET | `/course/<course_id>/export` | CSV register |
 | GET | `/announcements` | Own announcements |

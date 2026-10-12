@@ -167,5 +167,5 @@ fallback defaults.
 git history. They're treated as burned.
 
 **Q: What would you do with more time?**
-Biometric invalidation, offline-tap review,
+Biometric invalidation,
 automatic session start/stop from the timetable, per-terminal secrets, and a real iPhone test.

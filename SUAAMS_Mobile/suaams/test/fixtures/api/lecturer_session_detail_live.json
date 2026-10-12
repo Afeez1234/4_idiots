@@ -12,6 +12,9 @@
     "not_checked_in": [
       {"student_id": 14, "full_name": "Kelechi O'Neil", "matric_number": "MCT/2022/031"},
       {"student_id": 15, "full_name": "Zainab Bello", "matric_number": "MCT/2022/044"}
+    ],
+    "offline_taps": [
+      {"id": 301, "student_id": 15, "full_name": "Zainab Bello", "matric_number": "MCT/2022/044", "tapped_at": "09:06:41", "terminal_id": "TERM-01"}
     ]
   }
 }

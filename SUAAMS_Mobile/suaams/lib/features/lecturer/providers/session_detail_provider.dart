@@ -5,6 +5,7 @@
 // elsewhere in this codebase (see course_workspace_provider.dart).
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/lecturer/models/session_detail_model.dart';
+import 'package:suaams/features/lecturer/data/lecturer_service.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/features/lecturer/providers/course_workspace_provider.dart';
 import 'package:suaams/core/network/auth_retry.dart';
@@ -101,5 +102,49 @@ class SessionDetailNotifier extends Notifier<SessionDetailState> {
     ref.invalidate(courseWorkspaceProvider(args.courseId));
     await loadDetail();
     return null;
+  }
+
+  /// Accept or reject one offline tap. Returns the message to show either
+  /// way (the server's on success, the error otherwise) -- same reasoning
+  /// as markPresent for not writing to state.errorMessage.
+  Future<String> reviewOfflineTap(int tapId, {required bool accept}) async {
+    return _runAndReload(
+      (service, token) => service.reviewOfflineTap(
+        token,
+        args.courseId,
+        args.sessionId,
+        tapId,
+        accept: accept,
+      ),
+    );
+  }
+
+  /// Accept every pending offline tap for this session.
+  Future<String> acceptAllOfflineTaps() async {
+    return _runAndReload(
+      (service, token) =>
+          service.acceptAllOfflineTaps(token, args.courseId, args.sessionId),
+    );
+  }
+
+  Future<String> _runAndReload(
+    Future<String> Function(LecturerService service, String token) call,
+  ) async {
+    final String message;
+    try {
+      final lecturerService = ref.read(lecturerServiceProvider);
+      message = await withAuthRetry(
+        ref,
+        (token) => call(lecturerService, token),
+      );
+    } catch (e) {
+      return userFacingError(e);
+    }
+
+    if (!ref.mounted) return message;
+    // Accepted taps become attendance, so the workspace's live list changes too.
+    ref.invalidate(courseWorkspaceProvider(args.courseId));
+    await loadDetail();
+    return message;
   }
 }
