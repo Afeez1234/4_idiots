@@ -408,32 +408,43 @@ def accept_all_offline_taps(session, reviewer_user):
     return counts
 
 
-def students_for_announcement(announcement):
-    """Every Student an Announcement applies to -- used to fan out push
-    notifications the moment one is posted (blueprints/admin.py,
-    blueprints/lecturer.py). Mirrors get_student_announcements() in
-    api/student.py, which resolves the opposite direction (student -> which
-    announcements apply to them); keep both in sync if this scoping rule
-    ever changes.
-    """
-    from models import Student, Enrollment
+def announcement_user_ids(announcement):
+    """User ids of every student an Announcement applies to. Mirrors
+    get_student_announcements() in api/student.py, which resolves the
+    opposite direction (student -> which announcements apply to them); keep
+    both in sync if this scoping rule ever changes.
 
+    Selects only Student.user_id: the old version loaded every Student row
+    and then each student's User one query at a time, just to get this id.
+    """
+    from models import db, Student, Enrollment
+
+    query = db.session.query(Student.user_id)
     if announcement.scope == 'university':
-        return Student.query.all()
-    if announcement.scope == 'department':
-        if announcement.department_id is None:
-            return []
-        return Student.query.filter_by(department_id=announcement.department_id).all()
-    if announcement.scope == 'course':
-        if announcement.course_id is None:
-            return []
-        return (
-            Student.query
-            .join(Enrollment, Enrollment.student_id == Student.id)
-            .filter(Enrollment.course_id == announcement.course_id)
-            .all()
-        )
-    return []
+        pass
+    elif announcement.scope == 'department' and announcement.department_id is not None:
+        query = query.filter(Student.department_id == announcement.department_id)
+    elif announcement.scope == 'course' and announcement.course_id is not None:
+        query = (query.join(Enrollment, Enrollment.student_id == Student.id)
+                 .filter(Enrollment.course_id == announcement.course_id))
+    else:
+        return []
+    return [user_id for (user_id,) in query]
+
+
+def notify_announcement(announcement):
+    """Notify every student an announcement reaches, in bulk. Called after
+    the announcement is committed, by the admin dashboard, the lecturer web
+    portal AND the lecturer app -- the app's route used to skip this
+    entirely, so announcements posted from a phone reached nobody's
+    notifications."""
+    from push_notifications import notify_users
+
+    body = announcement.body
+    preview = body if len(body) <= 120 else body[:117] + '...'
+    notify_users(announcement_user_ids(announcement), 'announcement',
+                 announcement.title, preview,
+                 data={'announcement_id': announcement.id})
 
 
 def resolve_timetable_slot_for_course(course_id, semester=None, on_date=None):

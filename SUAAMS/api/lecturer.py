@@ -6,7 +6,8 @@ from models import db, Lecturer, Course, Session as SessionModel, Attendance, St
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from utils import (resolve_timetable_slot_for_course, build_course_register_csv,
                    students_not_checked_in, mark_student_present,
-                   pending_offline_taps, review_offline_tap, accept_all_offline_taps)
+                   pending_offline_taps, review_offline_tap, accept_all_offline_taps,
+                   notify_announcement)
 
 api_lecturer_bp = Blueprint('api_lecturer', __name__, url_prefix='/api/v1/lecturer')
 
@@ -936,6 +937,11 @@ def create_lecturer_announcement(course_id):
         )
         db.session.add(announcement)
         db.session.commit()
+
+        # Same notification as the web portal's version. This route used to
+        # save the announcement and stop, so posting from the app reached no
+        # one's notifications.
+        notify_announcement(announcement)
 
         return jsonify({"success": True, "message": "Announcement posted."}), 201
 

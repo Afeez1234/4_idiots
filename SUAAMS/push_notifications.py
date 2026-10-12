@@ -10,6 +10,7 @@ import logging
 
 import firebase_admin
 from firebase_admin import credentials, messaging
+from sqlalchemy import insert as sa_insert
 
 from models import db, DeviceToken, Notification
 
@@ -45,60 +46,101 @@ def _get_firebase_app():
     return _firebase_app
 
 
-def send_push_notification(user, notif_type, title, body, data=None):
-    """
-    Call this from inside the same request/transaction as the event that
-    triggers it (e.g. right after an Attendance row is committed). Always
-    persists the in-app Notification row first -- that's the source of
-    truth the notification list screen reads from, so a student who was
-    offline (or never granted notification permission) still sees it next
-    time they open the app. The FCM push itself is best-effort on top: any
-    failure here is logged and swallowed, never raised, so a transient push
-    failure can't fail the caller's own request (e.g. attendance still gets
-    recorded even if FCM is down).
+# Rows per bulk INSERT / IN (...) lookup.
+_DB_CHUNK = 500
 
-    `data` is an optional dict of extra fields (e.g. {"session_id": 5}) used
-    for deep-linking a notification tap to the relevant screen client-side.
+# Messages per FCM send_each() call. send_each sends every message as its
+# own HTTPS request, in parallel, with ONE THREAD PER MESSAGE (see
+# firebase_admin.messaging). 500 is FCM's ceiling; 100 keeps a batch to 100
+# threads on Render's small free-tier instance while still being ~100x
+# faster than one-at-a-time.
+_PUSH_BATCH = 100
+
+
+def _chunks(items, size):
+    for i in range(0, len(items), size):
+        yield items[i:i + size]
+
+
+def notify_users(user_ids, notif_type, title, body, data=None):
+    """Save an in-app notification for each user, then push it to their phones.
+
+    The Notification rows are saved (and committed) first -- they're what
+    the app's notification list reads, so a student who was offline or never
+    allowed notifications still sees it. The push on top is best-effort:
+    failures are logged and swallowed, never raised, so a Firebase outage
+    can't fail the caller's request (e.g. attendance is still recorded).
+
+    PERF: announcements used to call send_push_notification once per
+    student: a commit, a token lookup and a blocking FCM request each, ~0.3-
+    0.5s per student. A university-wide announcement to 1,000 students ran
+    for minutes, was killed at Render's 30s limit (502) half-way through,
+    and the admin's retry posted it twice. Now: one bulk INSERT, one token
+    lookup and one FCM call per 100 phones.
+
+    `data` is an optional dict (e.g. {"session_id": 5}) the app uses to open
+    the right screen when the notification is tapped.
     """
-    notification = Notification(
-        user_id=user.id, type=notif_type, title=title, body=body, data=data,
-    )
-    db.session.add(notification)
+    user_ids = list(dict.fromkeys(user_ids))  # de-duplicate, keep order
+    if not user_ids:
+        return
+
+    for chunk in _chunks(user_ids, _DB_CHUNK):
+        db.session.execute(sa_insert(Notification), [
+            {'user_id': uid, 'type': notif_type, 'title': title, 'body': body, 'data': data}
+            for uid in chunk
+        ])
     db.session.commit()
 
-    tokens = DeviceToken.query.filter_by(user_id=user.id).all()
+    tokens = []
+    for chunk in _chunks(user_ids, _DB_CHUNK):
+        tokens.extend(DeviceToken.query.filter(DeviceToken.user_id.in_(chunk)).all())
     if not tokens:
-        return notification
+        return
 
     try:
         app = _get_firebase_app()
     except Exception:
         logger.exception("Firebase not configured -- skipping push send, notification saved in-app only")
-        return notification
+        return
 
     # FCM data-message payload values must all be strings.
     payload = {str(k): str(v) for k, v in (data or {}).items()}
     payload['type'] = notif_type
 
     stale_token_ids = []
-    for device_token in tokens:
-        message = messaging.Message(
-            notification=messaging.Notification(title=title, body=body),
-            data=payload,
-            token=device_token.fcm_token,
-        )
+    for batch in _chunks(tokens, _PUSH_BATCH):
+        messages = [
+            messaging.Message(
+                notification=messaging.Notification(title=title, body=body),
+                data=payload,
+                token=t.fcm_token,
+            )
+            for t in batch
+        ]
         try:
-            messaging.send(message, app=app)
-        except messaging.UnregisteredError:
-            # Token belongs to an app instance that no longer exists
-            # (uninstalled, or Firebase reissued a new token for it) --
-            # prune it so it isn't retried forever on every future push.
-            stale_token_ids.append(device_token.id)
+            response = messaging.send_each(messages, app=app)
         except Exception:
-            logger.exception(f"Push send failed for device_token id={device_token.id}")
+            logger.exception("Push batch failed (%d messages)", len(messages))
+            continue
+        for device_token, result in zip(batch, response.responses):
+            if result.success:
+                continue
+            if isinstance(result.exception, messaging.UnregisteredError):
+                # The app instance behind this token no longer exists
+                # (uninstalled, or Firebase issued it a new token) -- prune
+                # it so it isn't retried on every future push.
+                stale_token_ids.append(device_token.id)
+            else:
+                logger.warning("Push send failed for device_token id=%s: %s",
+                               device_token.id, result.exception)
 
     if stale_token_ids:
         DeviceToken.query.filter(DeviceToken.id.in_(stale_token_ids)).delete(synchronize_session=False)
         db.session.commit()
 
-    return notification
+
+def send_push_notification(user, notif_type, title, body, data=None):
+    """One user's notification (check-in confirmed, device unlocked, ...).
+    Same path as notify_users, so there is one way notifications are sent."""
+    notify_users([user.id], notif_type, title, body, data)

@@ -14,7 +14,7 @@ from models import (
 from extensions import log_exception, logger, limiter
 from campus_time import campus_now
 from utils import (
-    resolve_current_course, session_status_for_course, students_for_announcement,
+    resolve_current_course, session_status_for_course, notify_announcement,
     VALID_LEVELS, normalize_level,
 )
 from push_notifications import send_push_notification
@@ -1415,18 +1415,9 @@ def announcements_page():
                         'course_id': announcement.course_id})
             db.session.commit()
 
-            # Best-effort push to every student this announcement reaches --
-            # same fire-after-commit, never-fail-the-request pattern as
-            # api/student.py's attendance-confirmation push. A student who
-            # never granted notification permission (or was offline) still
-            # sees it in-app, since send_push_notification always persists
-            # the Notification row before attempting FCM delivery.
-            preview = announcement.body if len(announcement.body) <= 120 else announcement.body[:117] + '...'
-            for student in students_for_announcement(announcement):
-                send_push_notification(
-                    student.user, 'announcement', announcement.title, preview,
-                    data={'announcement_id': announcement.id},
-                )
+            # Notify every student it reaches, in bulk -- after the commit,
+            # and a push failure never fails the request (see notify_users).
+            notify_announcement(announcement)
 
             flash(f"Announcement '{title}' posted successfully.", 'success')
         except Exception:

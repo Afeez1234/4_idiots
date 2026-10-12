@@ -1009,7 +1009,7 @@ def mark_notification_read(notification_id):
 def get_student_announcements():
     """Every announcement that applies to the signed-in student --
     university-wide, their own department, or any course they're currently
-    enrolled in. Mirrors students_for_announcement() in utils.py (which
+    enrolled in. Mirrors announcement_user_ids() in utils.py (which
     resolves the opposite direction: announcement -> students, used to fan
     out push notifications when one is posted) -- keep both in sync if this
     scoping rule ever changes.

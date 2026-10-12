@@ -3,10 +3,9 @@ import csv
 import io
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response
 from datetime import date, datetime, timezone
-from utils import (login_required, resolve_timetable_slot_for_course, students_for_announcement,
+from utils import (login_required, resolve_timetable_slot_for_course, notify_announcement,
                    build_course_register_csv, students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps)
-from push_notifications import send_push_notification
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
 from extensions import log_exception, limiter
 
@@ -298,14 +297,8 @@ def announcements():
             db.session.add(announcement)
             db.session.commit()
 
-            # Best-effort push to every enrolled student -- same pattern as
-            # admin.announcements_page()'s fan-out.
-            preview = announcement.body if len(announcement.body) <= 120 else announcement.body[:117] + '...'
-            for student in students_for_announcement(announcement):
-                send_push_notification(
-                    student.user, 'announcement', announcement.title, preview,
-                    data={'announcement_id': announcement.id},
-                )
+            # Notify every enrolled student, in bulk (see notify_users).
+            notify_announcement(announcement)
 
             flash(f"Announcement '{title}' posted successfully.", 'success')
         except Exception:
