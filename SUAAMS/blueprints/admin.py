@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, Response
 import bcrypt
-from sqlalchemy import or_
+from sqlalchemy import or_, insert as sa_insert
 from sqlalchemy.orm import joinedload
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
@@ -502,6 +502,81 @@ def students_page():
     )
 
 
+# Largest CSV accepted in one upload. With the batched inserts below, 1,000
+# rows is a few seconds even on Render's free tier -- well inside the
+# request timeout. Bigger files are refused outright rather than half-run.
+BULK_UPLOAD_MAX_ROWS = 1000
+
+# Rows per IN (...) lookup and per INSERT batch. Keeps each statement well
+# under MySQL's max_allowed_packet however big the file is.
+_BULK_CHUNK = 500
+
+# bcrypt cost for DEFAULT passwords created by a bulk upload. Every other
+# password in the app uses bcrypt's default (12).
+#
+# Why lower here: the default password IS the student's matric number --
+# printed on their ID card and present in the uploaded CSV. A slow hash
+# protects a password an attacker can't guess; it adds nothing to one they
+# already know. What protects these accounts is the forced change at first
+# sign-in, and the new password is hashed at full cost (12) by the
+# change-password routes. Meanwhile cost 12 is ~0.3s per hash on a fast PC
+# and roughly 3s on Render's free tier, which is what made uploads time out.
+# Cost 4 (bcrypt's minimum) is ~1ms.
+BULK_DEFAULT_PASSWORD_ROUNDS = 4
+
+
+def _existing_values(column, values):
+    """Which of `values` already exist in `column`, in a few IN queries."""
+    found = set()
+    unique = list(dict.fromkeys(values))
+    for i in range(0, len(unique), _BULK_CHUNK):
+        chunk = unique[i:i + _BULK_CHUNK]
+        found.update(v for (v,) in db.session.query(column).filter(column.in_(chunk)))
+    return found
+
+
+def _bulk_create_students(valid):
+    """Insert users + student profiles for pre-validated rows.
+
+    Bulk INSERTs (one multi-row statement per chunk) instead of one ORM
+    object and flush per student. Users go in first; their ids are read
+    back by username in one query, since MySQL can't return generated ids
+    from a multi-row INSERT. Not committed here -- the caller commits
+    together with its audit entry.
+    """
+    for i in range(0, len(valid), _BULK_CHUNK):
+        chunk = valid[i:i + _BULK_CHUNK]
+        db.session.execute(sa_insert(User), [
+            {
+                'username': matric,
+                # Default password = the student's own matric number.
+                'password_hash': bcrypt.hashpw(
+                    matric.encode('utf-8'),
+                    bcrypt.gensalt(BULK_DEFAULT_PASSWORD_ROUNDS),
+                ).decode('utf-8'),
+                'role': 'student',
+                'is_active': True,
+                'requires_password_change': True,
+            }
+            for matric, _name, _level, _dept, _rfid in chunk
+        ])
+        user_ids = dict(
+            db.session.query(User.username, User.id)
+            .filter(User.username.in_([row[0] for row in chunk]))
+        )
+        db.session.execute(sa_insert(Student), [
+            {
+                'full_name': name,
+                'matric_number': matric,
+                'level': level,
+                'rfid_uid': rfid,
+                'department_id': dept_id,
+                'user_id': user_ids[matric],
+            }
+            for matric, name, level, dept_id, rfid in chunk
+        ])
+
+
 @admin_bp.route('/students/bulk-enroll', methods=['POST'])
 @limiter.limit("10 per minute")
 def bulk_enroll_students():
@@ -531,16 +606,39 @@ def bulk_enroll_students():
             flash('CSV missing required headers: matric_number, full_name, level, department_name', 'error')
             return redirect(url_for('admin.students_page'))
 
-        success_count = 0
+        rows = list(csv_reader)
+        if len(rows) > BULK_UPLOAD_MAX_ROWS:
+            flash(f"This file has {len(rows)} rows. Upload at most {BULK_UPLOAD_MAX_ROWS} at a time: "
+                  f"split it into smaller files. Nothing was saved.", 'error')
+            return redirect(url_for('admin.students_page'))
+
+        # PERF: this used to do everything per row -- two lookup queries, a
+        # savepoint, two flushed INSERTs and a full-strength bcrypt hash --
+        # so about 6 database round trips and ~3s of CPU per student on
+        # Render's free tier. Gunicorn kills a request after 30s, so any
+        # upload past ~10 students died with a 502, freezing the site for
+        # everyone while it ran. Now: validate every row in memory against
+        # three up-front lookups, then insert all valid rows in bulk. The
+        # round trips no longer grow with the file size.
+        departments = {d.name.strip().lower(): d for d in Department.query.all()}
+        matrics = [r['matric_number'].strip() for r in rows if (r.get('matric_number') or '').strip()]
+        rfids = [r['rfid_uid'].strip() for r in rows if (r.get('rfid_uid') or '').strip()]
+        # Lower-cased: MySQL's default collation compares case-insensitively,
+        # so "mct/19/0001" would collide with "MCT/19/0001" at INSERT time.
+        taken_matrics = {m.lower() for m in _existing_values(User.username, matrics)}
+        taken_matrics |= {m.lower() for m in _existing_values(Student.matric_number, matrics)}
+        taken_rfids = {r.lower() for r in _existing_values(Student.rfid_uid, rfids)}
+
         error_count = 0
         skipped_records = []
+        valid = []  # (matric, name, level, department_id, rfid)
 
-        for row in csv_reader:
-            matric_no = row['matric_number'].strip()
-            name = row['full_name'].strip()
-            level_str = row['level'].strip()
-            dept_name = row['department_name'].strip()
-            rfid = row.get('rfid_uid', '').strip() or None
+        for row in rows:
+            matric_no = (row.get('matric_number') or '').strip()
+            name = (row.get('full_name') or '').strip()
+            level_str = (row.get('level') or '').strip()
+            dept_name = (row.get('department_name') or '').strip()
+            rfid = (row.get('rfid_uid') or '').strip() or None
 
             if not matric_no or not name or not level_str or not dept_name:
                 error_count += 1
@@ -556,65 +654,32 @@ def bulk_enroll_students():
                 skipped_records.append(f"{name} (Invalid level '{level_str}': use 100-500)")
                 continue
 
-            existing_user = User.query.filter_by(username=matric_no).first()
-            if existing_user:
-                error_count += 1
-                skipped_records.append(f"{name} (Matric number already registered)")
-                continue
-
-            department = Department.query.filter(
-                db.func.lower(Department.name) == dept_name.lower()
-            ).first()
-
+            department = departments.get(dept_name.lower())
             if not department:
                 error_count += 1
                 skipped_records.append(f"{name} (Department '{dept_name}' not found)")
                 continue
 
-            try:
-                # BUG FIX: default password is this row's OWN matric number
-                # -- previously hashed once, outside the loop, from a
-                # `matric_no` that didn't exist yet at that point in the
-                # file (NameError), which meant every bulk-enroll POST
-                # crashed immediately before reading a single CSV row.
-                default_pwd = matric_no
-                hashed_password = bcrypt.hashpw(default_pwd.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-                # BUG FIX: one savepoint per row. This used to call
-                # db.session.rollback() when a row failed, which undoes the
-                # WHOLE uncommitted batch -- every row added before it --
-                # while success_count still counted them. An upload could
-                # report "enrolled 40" having saved only the rows after the
-                # failure. A savepoint failing rolls back this row alone.
-                with db.session.begin_nested():
-                    user = User(
-                        username=matric_no,
-                        password_hash=hashed_password,
-                        role='student',
-                        is_active=True,
-                        requires_password_change=True,
-                    )
-                    db.session.add(user)
-                    db.session.flush()
-
-                    student = Student(
-                        full_name=name,
-                        matric_number=matric_no,
-                        level=level,
-                        rfid_uid=rfid,
-                        department_id=department.id,
-                        user_id=user.id,
-                    )
-                    db.session.add(student)
-                    # Flushed inside the savepoint so a duplicate RFID UID
-                    # (a unique column) fails THIS row here, not the final
-                    # commit for the whole file.
-                    db.session.flush()
-                success_count += 1
-            except Exception as row_error:
+            # Checked against the database AND earlier rows of this same
+            # file: a matric number or RFID that appears twice in one upload
+            # would otherwise fail the whole batch at INSERT time.
+            if matric_no.lower() in taken_matrics:
                 error_count += 1
-                skipped_records.append(f"{name} (System exception: {row_error})")
-                log_exception("Row Enrollment Error")
+                skipped_records.append(f"{name} (Matric number already registered)")
+                continue
+            if rfid and rfid.lower() in taken_rfids:
+                error_count += 1
+                skipped_records.append(f"{name} (RFID UID '{rfid}' already in use)")
+                continue
+
+            taken_matrics.add(matric_no.lower())
+            if rfid:
+                taken_rfids.add(rfid.lower())
+            valid.append((matric_no, name, level, department.id, rfid))
+
+        success_count = len(valid)
+        if valid:
+            _bulk_create_students(valid)
 
         # One entry for the whole file, not one per row -- a 2,000-row
         # upload would otherwise bury every other entry on the Activity
@@ -643,7 +708,10 @@ def bulk_enroll_students():
 
     except Exception:
         db.session.rollback()
-        flash('Failed to process bulk CSV enrollment. Check data formatting.', 'error')
+        # All-or-nothing: rows are validated first and saved in one
+        # transaction, so a failure here (bad encoding, or a matric number
+        # someone else registered a moment ago) saves none of the file.
+        flash('Failed to process the CSV. Nothing was saved -- check the file and try again.', 'error')
         log_exception("Bulk CSV Execution Error")
 
     return redirect(url_for('admin.students_page'))

@@ -212,3 +212,23 @@ if you know the date.
 - **Trade-off:** It trusts any public CA, not just Render's. Certificate
   dates aren't checked because the core has no time support, so an unsynced
   clock can't break check-in. It also requires board package 3.x.
+
+### D17. Bulk uploads: batched inserts and a cheap hash for default passwords (2026-10-12)
+
+- **Problem:** Uploading a CSV of students returned a 502. Each row cost
+  about 6 database round trips plus a bcrypt hash at cost 12 (~0.3 s on a
+  PC, roughly 3 s on Render's free tier). Past about 10 students the request
+  outlived gunicorn's 30 s limit and was killed, freezing the site for
+  everyone while it ran.
+- **Tried:** Raising the timeout alone. That only makes the site freeze for
+  longer: a 500-student upload would block the single worker for ~25 minutes.
+- **Chose:** Validate every row in memory against three up-front lookups,
+  then insert in bulk, so round trips no longer grow with the file. Hash the
+  *default* passwords at bcrypt cost 4 (~1 ms). Cap uploads at 1,000 rows.
+  1,000 students now take ~1.3 s on a PC.
+- **Trade-off:** A default password is the student's own matric number, which
+  is printed on their ID card and in the CSV. A slow hash can't protect a
+  password that's already known; the forced change at first sign-in is the
+  protection, and the new password is hashed at full cost (12). Accounts
+  created one at a time on the form keep cost 12. The upload is now
+  all-or-nothing: a failure saves none of the file, rather than part of it.

@@ -229,6 +229,72 @@ class AuditTestCase(unittest.TestCase):
         self.assertEqual(entry.details['created'], 2)
         self.assertEqual(entry.details['skipped'], 1)
 
+    # ---- bulk upload speed and rules -------------------------------------------
+
+    def upload(self, csv_text):
+        self.sign_in(self.admin)
+        return self.client.post('/admin/students/bulk-enroll', data={
+            'file': (io.BytesIO(csv_text.encode()), 'students.csv'),
+        }, content_type='multipart/form-data')
+
+    @staticmethod
+    def csv_rows(start, count):
+        header = 'matric_number,full_name,level,department_name\n'
+        return header + ''.join(
+            f'MCT/20/{n:04d},Student {n},300,Mechatronics\n'
+            for n in range(start, start + count))
+
+    def count_statements(self, fn):
+        """Database statements issued while fn runs. An executemany (one
+        multi-row INSERT) counts once -- it's one round trip."""
+        from sqlalchemy import event
+        count = [0]
+
+        def on_execute(*_args, **_kwargs):
+            count[0] += 1
+        event.listen(db.engine, 'before_cursor_execute', on_execute)
+        try:
+            fn()
+        finally:
+            event.remove(db.engine, 'before_cursor_execute', on_execute)
+        return count[0]
+
+    def test_upload_round_trips_do_not_grow_with_the_file(self):
+        # The 502: ~6 round trips + a full-cost hash PER ROW made uploads
+        # past ~10 students outlive Render's 30s request limit.
+        small = self.count_statements(lambda: self.upload(self.csv_rows(0, 20)))
+        large = self.count_statements(lambda: self.upload(self.csv_rows(100, 200)))
+        self.assertEqual(Student.query.count(), 220)
+        self.assertEqual(small, large)
+
+    def test_uploaded_students_sign_in_with_their_matric_number(self):
+        self.upload(self.csv_rows(0, 1))
+        user = User.query.filter_by(username='MCT/20/0000').one()
+        self.assertTrue(bcrypt.checkpw(b'MCT/20/0000', user.password_hash.encode()))
+        self.assertTrue(user.requires_password_change)
+        self.assertEqual(user.role, 'student')
+
+    def test_existing_and_repeated_matric_numbers_are_skipped(self):
+        self.upload(self.csv_rows(0, 1))                      # MCT/20/0000 now exists
+        self.upload(
+            'matric_number,full_name,level,department_name\n'
+            'MCT/20/0000,Already Here,300,Mechatronics\n'
+            'MCT/20/0001,New,300,Mechatronics\n'
+            'mct/20/0001,Same Again Lowercase,300,Mechatronics\n'
+            'MCT/20/0002,Bad Dept,300,Underwater Basketry\n'
+        )
+        self.assertEqual(
+            {s.matric_number for s in Student.query.all()},
+            {'MCT/20/0000', 'MCT/20/0001'},
+        )
+        entry = self.entries('student.bulk_import')[-1]
+        self.assertEqual((entry.details['created'], entry.details['skipped']), (1, 3))
+
+    def test_oversized_upload_is_refused_and_saves_nothing(self):
+        from blueprints.admin import BULK_UPLOAD_MAX_ROWS
+        self.upload(self.csv_rows(0, BULK_UPLOAD_MAX_ROWS + 1))
+        self.assertEqual(Student.query.count(), 0)
+
     def test_activity_filters_by_person(self):
         audit.log_action('a.b', 'one', actor=(1, 'tunde', 'admin'))
         audit.log_action('a.b', 'two', actor=(2, 'amaka', 'admin'))
