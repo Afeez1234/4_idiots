@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 # We import db and User instead of connect_to_database
 from models import db, User, Student
-from extensions import limiter, jwt_identity_or_ip, api_error_response
+from extensions import limiter, jwt_identity_or_ip, api_error_response, login_username_key, client_ip
 from push_notifications import send_push_notification
 
 # Create the API blueprint for mobile authentication
@@ -56,11 +56,15 @@ def _issue_token_pair(user):
     user.current_refresh_jti = decode_token(refresh_token)["jti"]
     return access_token, refresh_token
 
-# Rate limited by IP (no JWT exists yet at login time) -- caps brute-force
-# username/password guessing. 5/minute is generous for a real user who
-# mistypes a password, tight enough to make guessing impractical.
+# Two limits. 5/minute PER USERNAME caps password guessing against any one
+# account -- generous for a real user who mistypes. 200/minute per address
+# caps one machine trying many accounts while still letting a full lecture
+# hall on one campus Wi-Fi address sign in during the same minute. This used to be a single 5/minute
+# per address, which on campus Wi-Fi (hundreds of students behind one
+# public IP) let only five students in the whole hall log in each minute.
 @api_auth_bp.route('/login', methods=['POST'])
-@limiter.limit("5 per minute")
+@limiter.limit("5 per minute", key_func=login_username_key)
+@limiter.limit("200 per minute", key_func=client_ip)
 def mobile_login():
     data = request.get_json()
     

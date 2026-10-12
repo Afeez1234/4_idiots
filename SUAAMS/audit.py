@@ -20,8 +20,9 @@ so the change and its log entry are saved together or not at all:
 The model itself (AuditLog) lives in models.py with the other tables, so
 Flask-Migrate sees it.
 """
-from flask import has_request_context, request, session
+from flask import has_request_context, session
 
+from extensions import client_ip
 from models import db, AuditLog
 
 # Keys whose values are never written to the log, at any depth in
@@ -62,22 +63,11 @@ def _current_actor():
 
 
 def _client_ip():
-    """Best guess at the user's IP address.
-
-    On Render the app sits behind a proxy, so request.remote_addr is the
-    proxy's address, not the user's. The proxy appends the address it saw to
-    X-Forwarded-For, so the LAST entry is the one Render vouches for. Earlier
-    entries come from the client's own request headers and can be anything
-    it likes, which is why the first entry is not used.
-    """
+    """The user's IP address, or None outside a request. Same rule as the
+    rate limiter (extensions.client_ip), so the two never disagree."""
     if not has_request_context():
         return None
-    forwarded = request.headers.get('X-Forwarded-For', '')
-    if forwarded:
-        last = forwarded.split(',')[-1].strip()
-        if last:
-            return last[:45]
-    return request.remote_addr
+    return client_ip()
 
 
 def _scrub(value):

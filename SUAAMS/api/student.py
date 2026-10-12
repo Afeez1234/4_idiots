@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone
 # (added Enrollment here for the check-in endpoints, Timetable for the
 # today's-schedule endpoint below)
 from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester, Announcement, OfflineCheckinLog
-from extensions import limiter, jwt_identity_or_ip, api_error_response
+from extensions import limiter, jwt_identity_or_ip, api_error_response, client_ip
 from push_notifications import send_push_notification
 from utils import compute_attendance_status
 # Stored UTC moments -> campus time for display; campus "today" for
@@ -73,6 +73,19 @@ def _check_terminal_auth():
     if not hmac.compare_digest(supplied_secret, expected_secret):
         return False
     return hmac.compare_digest(supplied_id, expected_id)
+
+
+def terminal_or_ip_key():
+    """Rate-limit key for terminal routes: the terminal, once it has proved
+    its secret; otherwise the caller's address.
+
+    Only a request that passes _check_terminal_auth gets a per-terminal
+    allowance, so making up an X-Terminal-Id header buys nothing -- failed
+    attempts all share their sender's address-based allowance.
+    """
+    if _check_terminal_auth():
+        return f"terminal:{request.headers.get('X-Terminal-Id', '')}"
+    return client_ip()
 
 
 def _active_session_for_student(student):
@@ -348,12 +361,14 @@ def mint_checkin_beacon():
     }), 200
 
 
-# No JWT here to key by (see docstring below), so this falls back to
-# per-IP limiting. 30/minute is generous for one ESP32 terminal handling a
-# stream of students tapping in, while still capping brute-force/DoS
-# attempts against an unauthenticated endpoint.
+# Keyed per terminal (terminal_or_ip_key). 120/minute: a 200-student hall
+# arriving over a few minutes is 50-100 taps a minute at ONE terminal. This
+# used to be 30/minute per address -- and since every request arrives via
+# the same proxy address, that was 30/minute shared by every terminal. The
+# terminal treats a 429 as a final answer (no retry, not queued), so taps
+# past the limit were simply lost.
 @api_student_bp.route('/checkin', methods=['POST'])
-@limiter.limit("30 per minute")
+@limiter.limit("120 per minute", key_func=terminal_or_ip_key)
 def submit_checkin_beacon():
     """
     Step 2 of the HCE check-in flow. Called by the ESP32 terminal (not the
@@ -1260,7 +1275,7 @@ def drop_course(course_id):
 # writing an Attendance row. Crediting them would reinstate exactly the
 # relay/buddy-punching hole the short window exists to close.
 @api_student_bp.route('/checkin/backlog', methods=['POST'])
-@limiter.limit("30 per minute")
+@limiter.limit("30 per minute", key_func=terminal_or_ip_key)
 def sync_offline_checkin_backlog():
     """Accept a batch of beacons a terminal captured while it was offline.
 

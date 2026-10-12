@@ -3,10 +3,9 @@
 # reason models.py declares `db = SQLAlchemy()` on its own and app.py calls
 # `db.init_app(app)` later, instead of blueprints importing `app` directly.
 import logging
-from flask import jsonify
+from flask import jsonify, request, session
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from flask_wtf import CSRFProtect
 
 # Single named logger for the whole backend. Using Python's logging module
@@ -27,7 +26,54 @@ logger = logging.getLogger("suaams")
 # past a single worker, set storage_uri to a redis:// URL (Render Redis
 # add-on or Upstash) here -- none of the @limiter.limit(...) call sites
 # elsewhere in the codebase need to change.
-limiter = Limiter(key_func=get_remote_address)
+_logged_proxy_headers = False
+
+
+def client_ip():
+    """The visitor's real IP address.
+
+    The app runs behind Cloudflare and Render's load balancer, so
+    request.remote_addr is a proxy's address -- the same for every visitor.
+    Keying rate limits on it made every limit shared by the whole school:
+    the 6th person to log in within a minute was refused.
+
+    Order:
+      1. CF-Connecting-IP -- Cloudflare sets this to the visitor's address
+         and overwrites any value the visitor sent, so it can't be faked
+         through Cloudflare. (Every *.onrender.com request goes through
+         Cloudflare; the response headers show `Server: cloudflare`.)
+      2. The LAST X-Forwarded-For entry -- added by the nearest proxy.
+         Earlier entries are whatever the client claimed.
+      3. remote_addr, for local development with no proxy in front.
+    """
+    global _logged_proxy_headers
+    if not _logged_proxy_headers:
+        # Once per process, so the assumption above can be checked in the
+        # Render logs after a deploy. Remove once confirmed.
+        _logged_proxy_headers = True
+        logger.info(
+            "Proxy headers check: remote_addr=%s CF-Connecting-IP=%s X-Forwarded-For=%s",
+            request.remote_addr,
+            request.headers.get('CF-Connecting-IP'),
+            request.headers.get('X-Forwarded-For'),
+        )
+
+    cf = request.headers.get('CF-Connecting-IP', '').strip()
+    if cf:
+        return cf[:45]
+    forwarded = request.headers.get('X-Forwarded-For', '')
+    if forwarded:
+        last = forwarded.split(',')[-1].strip()
+        if last:
+            return last[:45]
+    return request.remote_addr or 'unknown'
+
+
+# Default key for every @limiter.limit without its own key_func: the
+# signed-in person (see jwt_identity_or_ip below), falling back to their
+# address. Keying by address alone breaks on campus Wi-Fi, where hundreds of
+# students share one public IP.
+limiter = Limiter(key_func=lambda: jwt_identity_or_ip())
 
 # CSRF protection for the session-cookie-authenticated web dashboards
 # (blueprints/auth.py, admin.py, lecturer.py). Applies to the whole app by
@@ -58,7 +104,13 @@ def jwt_identity_or_ip():
     call here even though @jwt_required() will call the equivalent
     verification again immediately after -- it just re-parses the same
     Authorization header, no side effects.
+
+    Also the app-wide default key (see `limiter` above), so it checks the
+    web dashboards' session cookie too: web limits then track "this
+    lecturer/admin" rather than "this network".
     """
+    if session.get('user_id'):
+        return f"user:{session['user_id']}"
     try:
         verify_jwt_in_request(optional=True)
         identity = get_jwt_identity()
@@ -66,7 +118,23 @@ def jwt_identity_or_ip():
             return f"user:{identity}"
     except Exception:
         pass
-    return get_remote_address()
+    return client_ip()
+
+
+def login_username_key():
+    """Rate-limit key for the two login routes: the username being tried.
+
+    Logins happen before anyone is signed in, so there's no user to key on,
+    and keying on the address puts a whole lecture hall on campus Wi-Fi
+    behind one "5 per minute". Per username still stops password guessing
+    against any one account; a looser per-address limit on the same routes
+    stops one machine trying many accounts.
+    """
+    data = request.get_json(silent=True) if request.is_json else None
+    username = (data or {}).get('username') if data else request.form.get('username')
+    if username and isinstance(username, str) and username.strip():
+        return f"login:{username.strip().lower()}"
+    return client_ip()
 
 
 def log_exception(label):
