@@ -76,6 +76,22 @@ def _timetable_import_plan():
     return ImportPlan(semester_id=1, sheets=[sheet, broken])
 
 
+def _bulk_course_plan():
+    """A course-upload preview with a new row, an existing one and an error,
+    built from the real dataclasses (bulk_upload.py)."""
+    from bulk_upload import BulkPlan, BulkRow
+    new = BulkRow(2, {"course_code": "MCT401", "course_title": "Control Systems",
+                      "department": "Mechatronics", "credit_units": "3", "lecturers": "STF/1; STF/2"},
+                  resolved={"lecturer_names": ["Dr Ade", "Dr Bola"]})
+    exists = BulkRow(3, {"course_code": "GST212", "course_title": "Logic", "department": "",
+                         "credit_units": "", "lecturers": "STF/3"},
+                     status="exists", note="Already in 2025/2026 Second Semester -- skipped, not changed.")
+    bad = BulkRow(4, {"course_code": "MCT405", "course_title": "Robotics", "department": "Mechatronics",
+                      "credit_units": "x", "lecturers": "STF/9"},
+                  status="error", errors=["No lecturer with staff ID STF/9. Upload the lecturers file first."])
+    return BulkPlan("courses", "courses.csv", [new, exists, bad], semester_id=1)
+
+
 def _timetable_grid_with_a_draft():
     from types import SimpleNamespace
     entry = SimpleNamespace(
@@ -395,6 +411,16 @@ CONTEXTS = {
         filters={"q": "", "dept": None, "level": "", "device": ""},
         filter_args={},
         is_filtered=False,
+    ),
+
+    # Lecturer/course CSV upload preview (bulk_upload.py).
+    "admin/bulk_preview.html": dict(
+        role="admin",
+        active_page="courses",
+        plan=_bulk_course_plan(),
+        semester={"id": 1, "name": "2025/2026 Second Semester"},
+        plan_json="{}",
+        back_url="/admin/courses",
     ),
 
     "admin/timetable_import.html": dict(

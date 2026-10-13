@@ -51,6 +51,32 @@
                     </form>
                 </div>
             </div>
+
+            {# ============ BULK UPLOAD (CSV) ============
+               Upload -> preview -> confirm (bulk_upload.py). Nothing is saved
+               until the preview is confirmed; existing rows are skipped. #}
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Bulk Upload (CSV)', info=true) }}
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('admin.bulk_upload_preview', kind='lecturers') }}" method="POST"
+                          enctype="multipart/form-data" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+
+                        <div>
+                            <label class="form-label" for="bulk-lecturers-file">CSV File</label>
+                            <input type="file" name="file" id="bulk-lecturers-file" accept=".csv,text/csv" required class="form-file">
+                            <p class="form-help">
+                                Columns: staff_id, full_name, department (its exact name). Up to 1,000 rows. Each lecturer's first password is their staff ID. Staff IDs already registered are skipped.
+                                <a href="{{ url_for('admin.bulk_template', kind='lecturers') }}" class="text-accent">Download the template</a>.
+                            </p>
+                        </div>
+
+                        <button type="submit" class="btn-secondary mt-2 w-full">Preview upload</button>
+                    </form>
+                </div>
+            </div>
         </div>
 
         <!-- Directory -->

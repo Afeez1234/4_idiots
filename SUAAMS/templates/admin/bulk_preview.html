@@ -1,0 +1,111 @@
+{% extends "base_admin.html" %}
+{% from '_macros.html' import pill, card_heading %}
+
+{# Preview of a lecturer or course CSV upload (bulk_upload.py). Nothing has
+   been saved when this page shows. "Save" posts the rows back as JSON,
+   where they are checked again from scratch before saving. #}
+
+{% set noun = 'lecturer' if plan.kind == 'lecturers' else 'course' %}
+{% set new_count = plan.count('new') %}
+{% set exists_count = plan.count('exists') %}
+{% set error_count = plan.count('error') %}
+
+{% block title %}Upload preview | SUAAMS Admin{% endblock %}
+{% block page_title %}{{ plan.kind|capitalize }} upload{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">Preview &mdash; nothing has been saved yet</p>
+{% endblock %}
+
+{% block content %}
+    <div class="card card-body space-y-4">
+        {{ card_heading('Summary') }}
+        <p class="text-sm text-secondary">
+            <span class="mono">{{ plan.filename }}</span>{% if semester %} &middot; into <span class="font-medium text-ink">{{ semester.name }}</span>{% endif %}
+            &middot; {{ plan.rows|length }} row{{ '' if plan.rows|length == 1 else 's' }}:
+            {{ new_count }} new, {{ exists_count }} already exist{% if error_count %}, {{ error_count }} with problems{% endif %}.
+        </p>
+
+        {% if plan.ok and new_count %}
+            <p class="text-sm text-secondary">
+                Everything checks out. Saving creates {{ new_count }} {{ noun }}{{ '' if new_count == 1 else 's' }}{% if exists_count %};
+                the {{ exists_count }} that already exist are left unchanged{% endif %}.
+            </p>
+            <form action="{{ url_for('admin.bulk_upload_confirm') }}" method="POST" class="flex flex-wrap gap-2">
+                {% include '_csrf_field.html' %}
+                <input type="hidden" name="plan" value="{{ plan_json }}">
+                <button type="submit" class="btn-primary">Save {{ new_count }} {{ noun }}{{ '' if new_count == 1 else 's' }}</button>
+                <a href="{{ back_url }}" class="btn-ghost">Cancel</a>
+            </form>
+        {% elif plan.ok %}
+            <p class="text-sm text-secondary">Every row already exists. There is nothing new to save.</p>
+            <a href="{{ back_url }}" class="btn-secondary">Back</a>
+        {% else %}
+            <div class="alert" data-tone="warning">
+                <span>
+                    {{ error_count }} row{{ '' if error_count == 1 else 's' }} below must be fixed before anything can be
+                    saved. Fix the CSV and upload it again. Nothing has been saved.
+                </span>
+            </div>
+            <a href="{{ back_url }}" class="btn-secondary">Back</a>
+        {% endif %}
+    </div>
+
+    <div class="card-clip mt-6">
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th class="th">Line</th>
+                        {% if plan.kind == 'lecturers' %}
+                            <th class="th">Staff ID</th>
+                            <th class="th">Name</th>
+                            <th class="th">Department</th>
+                        {% else %}
+                            <th class="th">Code</th>
+                            <th class="th">Title</th>
+                            <th class="th">Department</th>
+                            <th class="th">Units</th>
+                            <th class="th">Lecturers</th>
+                        {% endif %}
+                        <th class="th">Check</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {# Problems first, so they can't hide on page 20 of a long file. #}
+                    {# 'error' < 'exists' < 'new' alphabetically, so a plain sort does it. #}
+                    {% for r in plan.rows|sort(attribute='status') %}
+                        <tr>
+                            <td class="td td-muted mono text-xs">{{ r.line }}</td>
+                            {% if plan.kind == 'lecturers' %}
+                                <td class="td mono">{{ r.values.staff_id }}</td>
+                                <td class="td">{{ r.values.full_name }}</td>
+                                <td class="td td-muted">{{ r.values.department }}</td>
+                            {% else %}
+                                <td class="td mono">{{ r.values.course_code }}</td>
+                                <td class="td">{{ r.values.course_title }}</td>
+                                <td class="td td-muted">{{ r.values.department or 'General' }}</td>
+                                <td class="td td-muted">{{ r.values.credit_units or '—' }}</td>
+                                <td class="td td-muted">
+                                    {% if r.resolved.lecturer_names %}
+                                        {{ r.resolved.lecturer_names[0] }} <span class="text-2xs">(coordinator)</span>{% if r.resolved.lecturer_names|length > 1 %}, {{ r.resolved.lecturer_names[1:]|join(', ') }}{% endif %}
+                                    {% else %}
+                                        <span class="mono">{{ r.values.lecturers }}</span>
+                                    {% endif %}
+                                </td>
+                            {% endif %}
+                            <td class="td">
+                                {% if r.errors %}
+                                    {% for e in r.errors %}<p class="text-xs text-error">{{ e }}</p>{% endfor %}
+                                {% elif r.status == 'exists' %}
+                                    {{ pill('Exists', 'neutral') }} <span class="text-2xs text-muted">{{ r.note }}</span>
+                                {% else %}
+                                    {{ pill('New', 'success') }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

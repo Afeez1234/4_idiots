@@ -25,6 +25,7 @@ from audit import log_action, changes
 import timetable_import as tt_import
 from timetable_pdf import KINDS
 from timetable_publish import publish_drafts, published_schedules, notify_schedule_changes
+import bulk_upload
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
 # same as Python's date.weekday()) -- shared by the create-form <select> and
@@ -356,6 +357,120 @@ def lecturers_page():
         lecturers=lecturers,
         departments=departments,
         active_page='lecturers',
+    )
+
+
+# ==========================================
+# BULK UPLOAD: LECTURERS AND COURSES
+# ==========================================
+# Upload -> preview -> confirm, like the timetable import. Nothing is saved
+# by the upload itself; the preview's rows come back with the confirm form
+# as JSON and are checked again from scratch there. See bulk_upload.py.
+
+BULK_PAGES = {'lecturers': 'admin.lecturers_page', 'courses': 'admin.courses_page'}
+
+
+@admin_bp.route('/bulk/<kind>/template.csv', methods=['GET'])
+def bulk_template(kind):
+    """An example CSV with the expected headers."""
+    if kind not in BULK_PAGES:
+        return redirect(url_for('admin.dashboard'))
+    return Response(bulk_upload.template_csv(kind), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename=suaams_{kind}_template.csv'})
+
+
+@admin_bp.route('/bulk/<kind>', methods=['POST'])
+@limiter.limit("10 per minute")
+def bulk_upload_preview(kind):
+    if kind not in BULK_PAGES:
+        return redirect(url_for('admin.dashboard'))
+    back = url_for(BULK_PAGES[kind])
+    upload = request.files.get('file')
+    if not upload or not upload.filename:
+        flash('Choose a CSV file.', 'error')
+        return redirect(back)
+    semester = None
+    if kind == 'courses':
+        semester = db.session.get(Semester, request.form.get('semester_id', type=int) or 0)
+        if not semester:
+            flash('Choose the semester these courses belong to.', 'error')
+            return redirect(back)
+
+    try:
+        # 2 MB is ~20,000 typical rows -- far past MAX_ROWS; anything bigger
+        # isn't a lecturer or course list.
+        data = upload.read(2 * 1024 * 1024 + 1)
+        if len(data) > 2 * 1024 * 1024:
+            raise bulk_upload.BulkCsvError('The file is over 2 MB -- split it into smaller files.')
+        rows = bulk_upload.read_csv(data, kind)
+        plan = (bulk_upload.plan_lecturers(rows, upload.filename) if kind == 'lecturers'
+                else bulk_upload.plan_courses(rows, upload.filename, semester))
+    except bulk_upload.BulkCsvError as e:
+        flash(f"{e} Nothing was saved.", 'error')
+        return redirect(back)
+    except Exception:
+        log_exception("Bulk Upload Read Error")
+        flash('Something went wrong reading that file. Nothing was saved.', 'error')
+        return redirect(back)
+    return _render_bulk_preview(plan, semester)
+
+
+@admin_bp.route('/bulk/confirm', methods=['POST'])
+@limiter.limit("10 per minute")
+def bulk_upload_confirm():
+    try:
+        payload = json.loads(request.form.get('plan') or '{}')
+    except ValueError:
+        payload = {}
+    kind = payload.get('kind')
+    if kind not in BULK_PAGES:
+        flash('That preview is no longer valid. Upload the file again.', 'error')
+        return redirect(url_for('admin.dashboard'))
+    back = url_for(BULK_PAGES[kind])
+    semester = db.session.get(Semester, payload.get('semester_id') or 0) if kind == 'courses' else None
+
+    try:
+        plan = bulk_upload.plan_from_json(payload, semester)
+        if not plan.ok:
+            # Something changed since the preview (someone added the same
+            # staff ID, a department was renamed). Show the fresh result.
+            flash('Something changed since the preview -- see the errors below. Nothing was saved.', 'error')
+            return _render_bulk_preview(plan, semester)
+
+        if kind == 'lecturers':
+            created = bulk_upload.apply_lecturers(plan)
+            what = f"{created} lecturers"
+        else:
+            created = bulk_upload.apply_courses(plan, semester)
+            what = f"{created} courses for {semester.name}"
+        skipped = plan.count('exists')
+        # One entry for the whole file, like the student upload.
+        log_action(f"{kind[:-1]}.bulk_import",
+                   f"Uploaded {plan.filename}: {what} created, {skipped} already existed",
+                   kind[:-1], None,
+                   {'filename': plan.filename, 'created': created, 'skipped_existing': skipped,
+                    'semester_id': semester.id if semester else None})
+        db.session.commit()
+        flash(f"Created {what}." + (f" {skipped} already existed and were left unchanged." if skipped else '')
+              + (" Each signs in with their staff ID as the first password." if kind == 'lecturers' and created else ''),
+              'success')
+    except bulk_upload.BulkCsvError as e:
+        flash(f"{e} Nothing was saved.", 'error')
+    except Exception:
+        db.session.rollback()
+        log_exception("Bulk Upload Save Error")
+        flash('Failed to save the upload. Nothing was saved.', 'error')
+    return redirect(back)
+
+
+def _render_bulk_preview(plan, semester):
+    return render_template(
+        'admin/bulk_preview.html',
+        plan=plan,
+        semester=semester,
+        plan_json=json.dumps(plan.to_json()),
+        back_url=url_for(BULK_PAGES[plan.kind]),
+        active_page=plan.kind,
     )
 
 
@@ -1962,7 +2077,7 @@ def _activity_tone(action):
         return 'error'
     if action in ('auth.login_failed', 'student.unbind', 'semester.activate'):
         return 'warning'
-    if action.endswith('.create') or action in ('hod.promote', 'student.bulk_import'):
+    if action.endswith('.create') or action.endswith('.bulk_import') or action == 'hod.promote':
         return 'success'
     return 'neutral'
 
