@@ -21,6 +21,7 @@ Run with:  python tests/render_check.py
 import pathlib
 import sys
 import warnings
+from types import SimpleNamespace
 from datetime import date, datetime, time
 
 warnings.filterwarnings("ignore")
@@ -420,6 +421,7 @@ CONTEXTS = {
         weekday_names=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
         current_course=None,
         draft_count=1,
+        draft_semesters=[(SimpleNamespace(id=1, name="2025/2026 Second Semester"), 1, 1)],
         import_max_files=10,
     ),
 

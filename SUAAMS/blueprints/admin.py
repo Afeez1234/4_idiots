@@ -24,6 +24,7 @@ from audit import log_action, changes
 # endpoint name), which would otherwise replace the module.
 import timetable_import as tt_import
 from timetable_pdf import KINDS
+from timetable_publish import publish_drafts, published_schedules, notify_schedule_changes
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
 # same as Python's date.weekday()) -- shared by the create-form <select> and
@@ -1155,6 +1156,24 @@ def _slot_label(entry):
     return f"{course.course_code if course else '?'}, {f['day']} {f['start']}-{f['end']}"
 
 
+def _timetable_snapshot(keys):
+    """{(semester_id, course_id): published schedule} before a hand edit."""
+    return {(sem_id, cid): published_schedules(sem_id, [cid])[cid] for sem_id, cid in keys}
+
+
+def _notify_timetable_edit(before):
+    """After a hand edit is committed: tell the students and lecturers of any
+    course whose PUBLISHED schedule changed (editing a draft tells no one).
+    Best-effort -- a notification failure never undoes the edit."""
+    try:
+        for sem_id in {s for s, _ in before}:
+            semester = db.session.get(Semester, sem_id)
+            old = {cid: sched for (s, cid), sched in before.items() if s == sem_id}
+            notify_schedule_changes(semester, old, published_schedules(sem_id, list(old)))
+    except Exception:
+        log_exception("Timetable Change Notification Error")
+
+
 @admin_bp.route('/timetable', methods=['GET', 'POST'])
 # 20/min -- an admin setting up a semester's schedule adds many slots in
 # quick succession, same reasoning as courses_page's enroll_student burst.
@@ -1167,10 +1186,12 @@ def timetable_page():
             timetable_id = request.form.get('timetable_id')
             try:
                 entry = Timetable.query.get_or_404(int(timetable_id))
+                before = _timetable_snapshot({(entry.semester_id, entry.course_id)})
                 log_action('timetable.delete', f"Removed timetable slot {_slot_label(entry)}",
                            'timetable', entry.id, _slot_fields(entry))
                 db.session.delete(entry)
                 db.session.commit()
+                _notify_timetable_edit(before)
                 flash('Timetable slot removed.', 'success')
             except Exception:
                 db.session.rollback()
@@ -1232,6 +1253,10 @@ def timetable_page():
             if action == 'update' and timetable_id:
                 entry = Timetable.query.get_or_404(int(timetable_id))
                 before = _slot_fields(entry)
+                # Old and new course/semester: moving a class between courses
+                # changes both courses' schedules.
+                published_before = _timetable_snapshot({(entry.semester_id, entry.course_id),
+                                                        (semester_id_int, course.id)})
                 entry.course_id = course.id
                 entry.semester_id = semester_id_int
                 entry.day_of_week = day_of_week_int
@@ -1245,8 +1270,10 @@ def timetable_page():
                     log_action('timetable.update', f"Changed timetable slot {_slot_label(entry)}",
                                'timetable', entry.id, {'changes': diff})
                 db.session.commit()
+                _notify_timetable_edit(published_before)
                 flash('Timetable slot updated.', 'success')
             else:
+                published_before = _timetable_snapshot({(semester_id_int, course.id)})
                 entry = Timetable(
                     course_id=course.id,
                     semester_id=semester_id_int,
@@ -1262,6 +1289,7 @@ def timetable_page():
                 log_action('timetable.create', f"Added timetable slot {_slot_label(entry)}",
                            'timetable', entry.id, _slot_fields(entry))
                 db.session.commit()
+                _notify_timetable_edit(published_before)
                 flash('Timetable slot added.', 'success')
         except Exception:
             db.session.rollback()
@@ -1284,6 +1312,7 @@ def timetable_page():
         grid=_build_timetable_grid(timetable_entries),
         current_course=resolve_current_course(),
         draft_count=sum(1 for e in timetable_entries if not e.is_published),
+        draft_semesters=_draft_semesters(timetable_entries),
         import_max_files=tt_import.MAX_FILES,
         active_page='timetable',
     )
@@ -1296,6 +1325,46 @@ def timetable_page():
 # "Save as draft" saves it. The preview travels back with the confirm form as
 # JSON and is re-checked from scratch there (timetable_import.plan_slots), so
 # a stale or edited preview can't save anything the checks would reject.
+
+def _draft_semesters(entries):
+    """[(semester, draft classes, courses)] for semesters with drafts to publish."""
+    out = {}
+    for e in entries:
+        if not e.is_published:
+            sem, count, courses = out.get(e.semester_id, (e.semester, 0, set()))
+            courses.add(e.course_id)
+            out[e.semester_id] = (sem, count + 1, courses)
+    return [(sem, count, len(courses)) for sem, count, courses in out.values()]
+
+
+@admin_bp.route('/timetable/publish', methods=['POST'])
+@limiter.limit("5 per minute")
+def timetable_publish():
+    """Publish a semester's draft timetable: students and lecturers see it,
+    and everyone whose classes changed is told once (timetable_publish.py)."""
+    semester = db.session.get(Semester, request.form.get('semester_id', type=int) or 0)
+    if not semester:
+        flash('Choose a semester to publish.', 'error')
+        return redirect(url_for('admin.timetable_page'))
+    drafts = Timetable.query.filter_by(semester_id=semester.id, is_published=False).all()
+    if not drafts:
+        flash(f"{semester.name} has no draft classes to publish.", 'info')
+        return redirect(url_for('admin.timetable_page'))
+    try:
+        # Logged before publishing so the entry commits together with the swap.
+        log_action('timetable.publish',
+                   f"Published the {semester.name} timetable: {len(drafts)} classes for "
+                   f"{len({d.course_id for d in drafts})} courses",
+                   'semester', semester.id, {'classes': len(drafts)})
+        result = publish_drafts(semester, session['user_id'])
+        flash(f"Published {result['slots']} classes for {result['courses']} courses. "
+              f"{result['notified']} student(s) and lecturer(s) were notified.", 'success')
+    except Exception:
+        db.session.rollback()
+        log_exception("Timetable Publish Error")
+        flash('Failed to publish the timetable. Nothing changed.', 'error')
+    return redirect(url_for('admin.timetable_page'))
+
 
 @admin_bp.route('/timetable/import', methods=['POST'])
 @limiter.limit("10 per minute")

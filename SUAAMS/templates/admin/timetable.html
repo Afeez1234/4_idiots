@@ -41,6 +41,17 @@
                     {{ draft_count }} draft class{{ '' if draft_count == 1 else 'es' }} waiting to be published
                     (marked &ldquo;Draft&rdquo; on the grid; students and lecturers can't see them yet).
                 </p>
+                {# One Publish per semester with drafts. Publishing replaces those
+                   courses' current classes and notifies the people affected
+                   (timetable_publish.py), so it asks first. #}
+                {% for sem, count, course_count in draft_semesters %}
+                    <form action="{{ url_for('admin.timetable_publish') }}" method="POST" class="publish-form mt-3"
+                          data-message="Publish {{ count }} class{{ '' if count == 1 else 'es' }} for {{ course_count }} course{{ '' if course_count == 1 else 's' }} in {{ sem.name }}? They replace those courses' current classes, and students and lecturers whose classes change will be notified.">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="semester_id" value="{{ sem.id }}">
+                        <button type="submit" class="btn-primary w-full">Publish {{ sem.name }} ({{ count }})</button>
+                    </form>
+                {% endfor %}
             {% endif %}
             <form action="{{ url_for('admin.timetable_import') }}" method="POST"
                   enctype="multipart/form-data" class="mt-5 space-y-4">
@@ -516,6 +527,15 @@
             if (window.confirm('Remove this timetable slot (' + courseCode + ')?')) {
                 document.getElementById('slot-delete-form').submit();
             }
+        });
+
+        // ---------- Publish confirm ----------
+        // Publishing swaps classes and sends notifications, so ask first. The
+        // message (with counts) is rendered server-side into data-message.
+        document.querySelectorAll('.publish-form').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                if (!window.confirm(form.dataset.message)) e.preventDefault();
+            });
         });
 
         // ---------- mobile agenda day-tab switcher ----------
