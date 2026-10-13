@@ -56,6 +56,40 @@ def _pagination(total, page, pages, per_page=50):
     }
 
 
+def _timetable_import_plan():
+    """A preview with one good class, one shared class and one with errors,
+    built from the real dataclasses so the template is checked against them."""
+    from types import SimpleNamespace
+    from timetable_import import ImportPlan, SheetPlan, PlannedSlot
+    course = SimpleNamespace(id=1, course_title="Control Systems", course_code="MCT401")
+    ok = PlannedSlot("MCT401", "L", 0, time(8), time(10), "LR 1", course=course)
+    shared = PlannedSlot("GST212", "L", 1, time(15), time(17), "MAIN HALL",
+                         course=SimpleNamespace(id=2, course_title="Logic", course_code="GST212"),
+                         shared_with=["Electrical · 200 level"])
+    bad = PlannedSlot("NOPE999", "T", 3, time(9), time(10), "",
+                      errors=["No course NOPE999 in 2025/2026 Second Semester. Create it on the Courses page, then upload again."])
+    sheet = SheetPlan("acc200.pdf", "Accounting", 200, "Second Semester 2025/2026",
+                      slots=[ok, shared, bad],
+                      notes=["Mon 09:00: couldn't read \"X\" -- skipped."])
+    broken = SheetPlan("scan.pdf", errors=["This PDF has 4 pages. The timetable must be on ONE landscape page."])
+    return ImportPlan(semester_id=1, sheets=[sheet, broken])
+
+
+def _timetable_grid_with_a_draft():
+    from types import SimpleNamespace
+    entry = SimpleNamespace(
+        id=1, course_id=1, day_of_week=0, start_time=time(8), end_time=time(10),
+        room="LR 1", semester_id=1, semester=SimpleNamespace(name="2025/2026 Second Semester"),
+        type="scheduled", is_published=False,
+        course=SimpleNamespace(course_code="MCT401", course_title="Control Systems",
+                               lecturer_names="Dr Ade, Dr Bola"))
+    placed = {"entry": entry, "day_col": 2, "row_start": 1, "row_span": 4,
+              "width_pct": 100, "left_pct": 0, "lane_count": 1, "today_status": None}
+    grid = {"placed": [placed], "today_weekday": 0, "total_rows": 20,
+            "hour_labels": [f"{h:02d}:00" for h in range(8, 18)]}
+    return [entry], grid
+
+
 def render(template, spec):
     """Render one template with a synthetic session + context."""
     from flask import session
@@ -360,6 +394,33 @@ CONTEXTS = {
         filters={"q": "", "dept": None, "level": "", "device": ""},
         filter_args={},
         is_filtered=False,
+    ),
+
+    "admin/timetable_import.html": dict(
+        role="admin",
+        active_page="timetable",
+        active_semester=None,
+        plan=_timetable_import_plan(),
+        semester={"id": 1, "name": "2025/2026 Second Semester"},
+        plan_json="{}",
+        day_names=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        kind_names={"L": "Lecture", "T": "Tutorial", "P": "Practical"},
+    ),
+
+    # Added with the PDF import: the import card and the "Draft" label on
+    # grid chips. The page had no render check before.
+    "admin/timetable.html": dict(
+        role="admin",
+        active_page="timetable",
+        active_semester={"id": 1, "name": "2025/2026 Second Semester"},
+        timetable_entries=_timetable_grid_with_a_draft()[0],
+        grid=_timetable_grid_with_a_draft()[1],
+        courses=[{"id": 1, "course_code": "MCT401", "course_title": "Control Systems"}],
+        semesters=[{"id": 1, "name": "2025/2026 Second Semester"}],
+        weekday_names=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+        current_course=None,
+        draft_count=1,
+        import_max_files=10,
     ),
 
     "admin/activity.html": dict(

@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 from collections import defaultdict
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, Response
@@ -19,6 +20,10 @@ from utils import (
 )
 from push_notifications import send_push_notification
 from audit import log_action, changes
+# Aliased: the route below is also called timetable_import (its URL
+# endpoint name), which would otherwise replace the module.
+import timetable_import as tt_import
+from timetable_pdf import KINDS
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
 # same as Python's date.weekday()) -- shared by the create-form <select> and
@@ -1278,6 +1283,98 @@ def timetable_page():
         weekday_names=WEEKDAY_NAMES,
         grid=_build_timetable_grid(timetable_entries),
         current_course=resolve_current_course(),
+        draft_count=sum(1 for e in timetable_entries if not e.is_published),
+        import_max_files=tt_import.MAX_FILES,
+        active_page='timetable',
+    )
+
+
+# ==========================================
+# TIMETABLE IMPORT (Student Affairs PDFs)
+# ==========================================
+# Two steps so nothing is saved unseen: "Read sheets" shows a preview,
+# "Save as draft" saves it. The preview travels back with the confirm form as
+# JSON and is re-checked from scratch there (timetable_import.plan_slots), so
+# a stale or edited preview can't save anything the checks would reject.
+
+@admin_bp.route('/timetable/import', methods=['POST'])
+@limiter.limit("10 per minute")
+def timetable_import():
+    semester = db.session.get(Semester, request.form.get('semester_id', type=int) or 0)
+    if not semester:
+        flash('Choose the semester to import into.', 'error')
+        return redirect(url_for('admin.timetable_page'))
+
+    uploads = [f for f in request.files.getlist('files') if f and f.filename]
+    if not uploads:
+        flash('Choose at least one PDF.', 'error')
+        return redirect(url_for('admin.timetable_page'))
+    if len(uploads) > tt_import.MAX_FILES:
+        flash(f"Upload at most {tt_import.MAX_FILES} sheets at a time "
+              f"(you chose {len(uploads)}). Reading each takes a few seconds.", 'error')
+        return redirect(url_for('admin.timetable_page'))
+
+    files = []
+    for f in uploads:
+        data = f.read(tt_import.MAX_FILE_BYTES + 1)
+        if len(data) > tt_import.MAX_FILE_BYTES:
+            flash(f"{f.filename} is over 5 MB -- that isn't a timetable sheet.", 'error')
+            return redirect(url_for('admin.timetable_page'))
+        files.append((f.filename, data))
+
+    try:
+        plan = tt_import.plan_sheets(files, semester)
+    except Exception:
+        log_exception("Timetable Import Read Error")
+        flash('Something went wrong reading those sheets. Nothing was saved.', 'error')
+        return redirect(url_for('admin.timetable_page'))
+    return _render_import_preview(plan, semester)
+
+
+@admin_bp.route('/timetable/import/confirm', methods=['POST'])
+@limiter.limit("10 per minute")
+def timetable_import_confirm():
+    semester = db.session.get(Semester, request.form.get('semester_id', type=int) or 0)
+    try:
+        payload = json.loads(request.form.get('plan') or '{}')
+    except ValueError:
+        payload = None
+    if not semester or not payload or payload.get('semester_id') != semester.id:
+        flash('That preview is no longer valid. Upload the sheets again.', 'error')
+        return redirect(url_for('admin.timetable_page'))
+
+    try:
+        plan = tt_import.plan_slots(payload, semester)
+        if not plan.ok:
+            # Something changed since the preview (a course deleted, a slot
+            # added by hand that now clashes). Show the fresh result.
+            flash('Something changed since the preview -- see the errors below. Nothing was saved.', 'error')
+            return _render_import_preview(plan, semester)
+
+        counts = tt_import.apply_plan(plan, semester, session['user_id'])
+        sheets = ', '.join(sheet.title for sheet in plan.sheets)
+        log_action('timetable.import',
+                   f"Imported {counts['saved']} classes as draft for {semester.name} ({sheets})",
+                   'semester', semester.id,
+                   {'sheets': [sheet.filename for sheet in plan.sheets], **counts})
+        db.session.commit()
+        flash(f"Saved {counts['saved']} classes for {counts['courses']} courses as a draft. "
+              "Students and lecturers won't see them until the timetable is published.", 'success')
+    except Exception:
+        db.session.rollback()
+        log_exception("Timetable Import Save Error")
+        flash('Failed to save the timetable. Nothing was saved.', 'error')
+    return redirect(url_for('admin.timetable_page'))
+
+
+def _render_import_preview(plan, semester):
+    return render_template(
+        'admin/timetable_import.html',
+        plan=plan,
+        semester=semester,
+        plan_json=json.dumps(plan.to_json()),
+        day_names=tt_import.DAY_NAMES,
+        kind_names=KINDS,
         active_page='timetable',
     )
 

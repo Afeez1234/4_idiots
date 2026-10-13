@@ -685,6 +685,7 @@ def get_today_schedule():
         timetable_entries = Timetable.query.filter(
             Timetable.day_of_week == today_weekday,
             Timetable.course_id.in_(courses_by_id.keys()),
+            Timetable.is_published.is_(True),  # drafts stay hidden until published
         ).order_by(Timetable.start_time.asc()).all()
 
         today_protocol = []
@@ -873,7 +874,8 @@ def get_week_schedule():
             return jsonify({"success": True, "week": []}), 200
 
         entries = Timetable.query.filter(
-            Timetable.course_id.in_(courses_by_id.keys())
+            Timetable.course_id.in_(courses_by_id.keys()),
+            Timetable.is_published.is_(True),  # drafts stay hidden until published
         ).order_by(Timetable.day_of_week.asc(), Timetable.start_time.asc()).all()
 
         week = []

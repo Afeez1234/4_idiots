@@ -118,6 +118,7 @@ def resolve_current_course(semester=None, at=None):
             Timetable.day_of_week == today_weekday,
             Timetable.start_time <= current_time,
             Timetable.end_time > current_time,
+            Timetable.is_published.is_(True),  # a draft isn't "happening now"
         )
         .order_by(Timetable.start_time.asc(), Timetable.id.asc())
         .all()
@@ -648,6 +649,7 @@ def resolve_timetable_slot_for_course(course_id, semester=None, on_date=None):
             Timetable.course_id == course_id,
             Timetable.semester_id == semester.id,
             Timetable.day_of_week == on_date.weekday(),
+            Timetable.is_published.is_(True),  # drafts don't set planned times
         )
         .order_by(Timetable.start_time.asc(), Timetable.id.asc())
         .first()

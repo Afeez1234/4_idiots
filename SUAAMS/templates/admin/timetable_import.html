@@ -1,0 +1,115 @@
+{% extends "base_admin.html" %}
+{% from '_macros.html' import pill, card_heading, table_empty %}
+
+{# Preview of a Student Affairs PDF import (timetable_import.py). Nothing has
+   been saved when this page shows. "Save as draft" posts the plan back as
+   JSON, where it is checked again from scratch before saving. Uses only
+   classes already in output.css. #}
+
+{% block title %}Timetable import | SUAAMS Admin{% endblock %}
+{% block page_title %}Timetable import{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">Preview &mdash; nothing has been saved yet</p>
+{% endblock %}
+
+{% block content %}
+    {% set slots = plan.unique_slots %}
+
+    <div class="card card-body space-y-4">
+        {{ card_heading('Summary') }}
+        <p class="text-sm text-secondary">
+            Semester: <span class="font-medium text-ink">{{ semester.name }}</span> &middot;
+            {{ plan.sheets|length }} sheet{{ '' if plan.sheets|length == 1 else 's' }} &middot;
+            {{ slots|length }} class{{ '' if slots|length == 1 else 'es' }}
+            for {{ slots|map(attribute='course')|select|map(attribute='id')|unique|list|length }} course(s).
+        </p>
+        {% if plan.replaces_drafts %}
+            <p class="text-sm text-secondary">
+                Replaces {{ plan.replaces_drafts }} earlier draft class{{ '' if plan.replaces_drafts == 1 else 'es' }}
+                for these courses. Published classes stay as they are until you publish.
+            </p>
+        {% endif %}
+
+        {% if plan.ok %}
+            <p class="text-sm text-secondary">
+                Everything checks out. Saving stores these classes as a <strong>draft</strong>:
+                students and lecturers won't see them until the timetable is published.
+            </p>
+            <form action="{{ url_for('admin.timetable_import_confirm') }}" method="POST" class="flex flex-wrap gap-2">
+                {% include '_csrf_field.html' %}
+                <input type="hidden" name="semester_id" value="{{ semester.id }}">
+                <input type="hidden" name="plan" value="{{ plan_json }}">
+                <button type="submit" class="btn-primary">Save as draft</button>
+                <a href="{{ url_for('admin.timetable_page') }}" class="btn-ghost">Cancel</a>
+            </form>
+        {% else %}
+            <div class="alert" data-tone="warning">
+                <span>
+                    {{ plan.problem_count }} problem{{ '' if plan.problem_count == 1 else 's' }} below must be fixed before
+                    anything can be saved &mdash; in the sheet, or by creating missing courses on the
+                    Courses page. Then upload the sheets again. Nothing has been saved.
+                </span>
+            </div>
+            <a href="{{ url_for('admin.timetable_page') }}" class="btn-secondary">Back to the timetable</a>
+        {% endif %}
+    </div>
+
+    {% for sheet in plan.sheets %}
+        <div class="card-clip mt-6">
+            <div class="px-5 pt-5 pb-3">
+                <h2 class="card-title">{{ sheet.title }}</h2>
+                <p class="text-2xs text-muted mono">{{ sheet.filename }}{% if sheet.semester_label %} &middot; {{ sheet.semester_label }}{% endif %}</p>
+            </div>
+
+            {% for message in sheet.errors %}
+                <div class="px-5 pb-3"><div class="alert" data-tone="warning"><span><strong>Can't use this sheet:</strong> {{ message }}</span></div></div>
+            {% endfor %}
+            {% for message in sheet.notes %}
+                <p class="px-5 mb-2 text-xs text-secondary">&#9432; {{ message }}</p>
+            {% endfor %}
+
+            {% if sheet.slots %}
+            <div class="table-wrap border-t border-divider">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="th">Day</th>
+                            <th class="th">Time</th>
+                            <th class="th">Course</th>
+                            <th class="th">Kind</th>
+                            <th class="th">Room</th>
+                            <th class="th">Check</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in sheet.slots %}
+                            <tr>
+                                <td class="td">{{ day_names[s.day] }}</td>
+                                <td class="td td-muted mono text-xs">{{ s.start.strftime('%H:%M') }}&ndash;{{ s.end.strftime('%H:%M') }}</td>
+                                <td class="td">
+                                    <span class="font-medium mono">{{ s.code }}</span>
+                                    {% if s.course %}<span class="text-2xs text-muted"> {{ s.course.course_title }}</span>{% endif %}
+                                </td>
+                                <td class="td td-muted">{{ kind_names[s.kind] if s.kind in kind_names else s.kind }}</td>
+                                <td class="td td-muted">{{ s.room or '—' }}</td>
+                                <td class="td">
+                                    {% if s.errors %}
+                                        {% for e in s.errors %}<p class="text-xs text-error">{{ e }}</p>{% endfor %}
+                                    {% else %}
+                                        {{ pill('OK', 'success') }}
+                                        {% if s.shared_with %}
+                                            <span class="text-2xs text-muted">also on {{ s.shared_with|join(', ') }} &mdash; saved once</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% elif not sheet.errors %}
+                <p class="empty-state">No classes found on this sheet.</p>
+            {% endif %}
+        </div>
+    {% endfor %}
+{% endblock %}

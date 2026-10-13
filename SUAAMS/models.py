@@ -323,6 +323,17 @@ class Timetable(db.Model):
     # reasoning as Announcement.sender_id/Result.entered_by below).
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
+    # Lecture / Tutorial / Practical ('L', 'T', 'P'), as printed on the
+    # Student Affairs sheets: "ACC204(T)". NULL for slots added by hand.
+    kind = db.Column(db.String(1), nullable=True)
+
+    # Draft slots (from a timetable import that hasn't been published yet)
+    # are invisible to students and lecturers, and aren't used for the "what
+    # should be running now" lookups -- but they still count for clash
+    # checks, because a planned class still occupies its room. Slots added
+    # one at a time on the form are published straight away, as before.
+    is_published = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+
     # Sessions can optionally trace back to the timetable slot they were
     # generated from (see Session.timetable_id below) -- no cascade here
     # either, deleting a timetable entry shouldn't retroactively delete

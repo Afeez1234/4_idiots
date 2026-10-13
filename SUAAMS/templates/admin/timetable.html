@@ -27,8 +27,50 @@
 
     <div class="form-grid form-grid-wide">
 
+        <div class="form-col">
+
+        {# ============ IMPORT FROM STUDENT AFFAIRS PDFs ============
+           Up to 10 one-page sheets at a time. Nothing is saved until the
+           preview (timetable_import.html) has been checked and confirmed;
+           confirmed classes are saved as DRAFTS, invisible to students and
+           lecturers until published. See timetable_import.py. #}
+        <div class="card card-body">
+            {{ card_heading('Import from PDF') }}
+            {% if draft_count %}
+                <p class="mt-3 text-xs text-secondary">
+                    {{ draft_count }} draft class{{ '' if draft_count == 1 else 'es' }} waiting to be published
+                    (marked &ldquo;Draft&rdquo; on the grid; students and lecturers can't see them yet).
+                </p>
+            {% endif %}
+            <form action="{{ url_for('admin.timetable_import') }}" method="POST"
+                  enctype="multipart/form-data" class="mt-5 space-y-4">
+                {% include '_csrf_field.html' %}
+                <div>
+                    <label class="form-label" for="import-semester-id">Semester</label>
+                    <select name="semester_id" id="import-semester-id" required class="form-select">
+                        {% for semester in semesters %}
+                            <option value="{{ semester.id }}" {{ 'selected' if active_semester and semester.id == active_semester.id else '' }}>
+                                {{ semester.name }}{{ ' (active)' if active_semester and semester.id == active_semester.id else '' }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="import-files">Timetable sheets (PDF)</label>
+                    <input type="file" name="files" id="import-files" accept=".pdf,application/pdf"
+                           multiple required class="form-file">
+                    <p class="form-help">
+                        Student Affairs' sheets, one department and level per PDF, each on a single
+                        landscape page. Up to {{ import_max_files }} at a time. You'll see a preview
+                        before anything is saved.
+                    </p>
+                </div>
+                <button type="submit" class="btn-secondary w-full">Read sheets</button>
+            </form>
+        </div>
+
         {# ============ ADD TIMETABLE SLOT ============ #}
-        <div class="card card-body form-col sticky top-0">
+        <div class="card card-body">
             {{ card_heading('Add Timetable Slot') }}
 
             <form id="create-slot-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="mt-5 space-y-4">
@@ -108,6 +150,8 @@
             </form>
         </div>
 
+        </div>
+
         {# ============ WEEKLY CALENDAR ============ #}
         <div class="card-clip form-main">
             <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
@@ -158,7 +202,7 @@
                                         data-today-status="{{ p.today_status.status if p.today_status else '' }}"
                                         data-today-present="{{ p.today_status.present_count if p.today_status and p.today_status.present_count is not none else '' }}">
                                     <div class="flex items-center justify-between gap-2">
-                                        <p class="truncate text-sm font-bold text-accent">{{ entry.course.course_code if entry.course else 'Unknown' }}</p>
+                                        <p class="truncate text-sm font-bold text-accent">{{ entry.course.course_code if entry.course else 'Unknown' }}{% if not entry.is_published %} <span class="text-2xs font-medium text-muted">&middot; Draft</span>{% endif %}</p>
                                         <span class="shrink-0 text-2xs text-muted">{{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}</span>
                                     </div>
                                     <p class="mt-1 truncate text-xs text-secondary">
@@ -238,7 +282,7 @@
                                 data-type="{{ entry.type }}"
                                 data-today-status="{{ p.today_status.status if p.today_status else '' }}"
                                 data-today-present="{{ p.today_status.present_count if p.today_status and p.today_status.present_count is not none else '' }}">
-                            <p class="truncate text-2xs font-bold text-accent">{{ entry.course.course_code if entry.course else 'Unknown' }}</p>
+                            <p class="truncate text-2xs font-bold text-accent">{{ entry.course.course_code if entry.course else 'Unknown' }}{% if not entry.is_published %} <span class="font-medium text-muted">&middot; Draft</span>{% endif %}</p>
                             <p class="truncate text-2xs text-secondary">
                                 {{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}{% if entry.room %} &middot; {{ entry.room }}{% endif %}
                             </p>
