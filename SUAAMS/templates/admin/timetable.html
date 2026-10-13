@@ -1,5 +1,5 @@
 {% extends "base_admin.html" %}
-{% from '_macros.html' import empty_state, card_heading %}
+{% from '_macros.html' import empty_state, card_heading, pill, table_empty %}
 
 {% block title %}Timetable | SUAAMS Admin{% endblock %}
 {% block page_title %}Timetable{% endblock %}
@@ -9,6 +9,53 @@
 
 {% block content %}
 
+    {# ============ FILTERS ============
+       Plain GET form, like the student roster: the view lives in the URL.
+       No department+level chosen -> the coverage table; both chosen -> that
+       class's week on the grid. See _timetable_view() in blueprints/admin.py. #}
+    <div class="card-clip mb-6">
+        <form method="GET" action="{{ url_for('admin.timetable_page') }}" id="timetable-filters"
+              class="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+                <label class="form-label" for="filter-semester">Semester</label>
+                <select name="semester" id="filter-semester" class="form-select">
+                    {% for semester in semesters %}
+                        <option value="{{ semester.id }}" {% if view.semester_id == semester.id %}selected{% endif %}>
+                            {{ semester.name }}{{ ' (active)' if active_semester and semester.id == active_semester.id else '' }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="filter-dept">Department</label>
+                <select name="dept" id="filter-dept" class="form-select">
+                    <option value="">All departments</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if view.dept == dept.id|string %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                    <option value="general" {% if view.dept == 'general' %}selected{% endif %}>General (no department)</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="filter-level">Level</label>
+                <select name="level" id="filter-level" class="form-select">
+                    <option value="">All levels</option>
+                    {% for level in levels %}
+                        <option value="{{ level }}" {% if view.level == level %}selected{% endif %}>{{ level }} level</option>
+                    {% endfor %}
+                    <option value="other" {% if view.level == 'other' %}selected{% endif %}>Other (no level in the code)</option>
+                </select>
+            </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="btn-primary flex-1">Show</button>
+                {% if view.dept or view.level %}
+                    <a href="{{ url_for('admin.timetable_page', semester=view.semester_id) }}" class="btn-ghost">All</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    {% if view.is_grid %}
     {# ============ HAPPENING NOW ============
        Skeleton only -- JS fetches /admin/timetable/current on load and on a
        60s poll, and renders whatever it gets back. The day/time/semester
@@ -24,6 +71,7 @@
             <p class="text-sm font-bold text-ink">Checking today's schedule&hellip;</p>
         </div>
     </div>
+    {% endif %}
 
     <div class="form-grid form-grid-wide">
 
@@ -80,11 +128,14 @@
             </form>
         </div>
 
-        {# ============ ADD TIMETABLE SLOT ============ #}
+        {# ============ ADD TIMETABLE SLOT ============
+           Only for one department+level: single corrections now, bulk entry
+           is the PDF import. The course list is that class's courses. #}
+        {% if view.is_grid %}
         <div class="card card-body">
             {{ card_heading('Add Timetable Slot') }}
 
-            <form id="create-slot-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="mt-5 space-y-4">
+            <form id="create-slot-form" action="{{ url_for('admin.timetable_page', **view.args) }}" method="POST" class="mt-5 space-y-4">
                 {% include '_csrf_field.html' %}
                 <input type="hidden" name="action" value="create">
 
@@ -160,13 +211,64 @@
                 <button type="submit" class="btn-primary w-full">Add Slot</button>
             </form>
         </div>
+        {% endif %}
 
         </div>
 
-        {# ============ WEEKLY CALENDAR ============ #}
+        {% if not view.is_grid %}
+        {# ============ COVERAGE ============
+           One row per department+level with courses this semester. Answers
+           "who still needs a timetable / has a draft waiting" at a glance;
+           each row opens that class's week on the grid. #}
+        <div class="card-clip form-main">
+            <div class="px-5 pt-5 pb-4">
+                {{ card_heading('Timetable coverage') }}
+                <p class="mt-1 text-xs text-muted">
+                    {{ view.semester.name if view.semester else 'No semester yet' }}
+                    &middot; open a row to see that class's week and fix single classes.
+                </p>
+            </div>
+            <div class="table-wrap border-t border-divider">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="th">Department</th>
+                            <th class="th">Level</th>
+                            <th class="th">Courses with classes</th>
+                            <th class="th">Drafts</th>
+                            <th class="th">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in coverage %}
+                            {% set href = url_for('admin.timetable_page', semester=view.semester_id, dept=row.dept, level=row.level) %}
+                            <tr>
+                                <td class="td"><a href="{{ href }}" class="font-medium text-accent">{{ row.dept_name }}</a></td>
+                                <td class="td td-muted">{{ row.level ~ ' level' if row.level != 'other' else 'Other' }}</td>
+                                <td class="td td-muted">{{ row.scheduled }} of {{ row.courses }}</td>
+                                <td class="td td-muted">{{ row.drafts or '—' }}</td>
+                                <td class="td">
+                                    {% if row.status == 'draft' %}{{ pill('Draft waiting', 'warning') }}
+                                    {% elif row.status == 'published' %}{{ pill('Published', 'success') }}
+                                    {% else %}{{ pill('No timetable yet') }}{% endif %}
+                                </td>
+                            </tr>
+                        {% else %}
+                            {{ table_empty(5, 'No courses match. Courses are listed by the semester they belong to.') }}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        {# ============ WEEKLY CALENDAR ============
+           One department+level: the week those students see in the app. #}
         <div class="card-clip form-main">
             <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
-                {{ card_heading('Weekly Timetable') }}
+                <div>
+                    {{ card_heading(view.dept_name ~ ' · ' ~ (view.level ~ ' level' if view.level != 'other' else 'other courses')) }}
+                    <a href="{{ url_for('admin.timetable_page', semester=view.semester_id) }}" class="text-xs text-accent">&larr; All departments</a>
+                </div>
                 <span class="text-xs text-muted">{{ timetable_entries|length }} slot{{ '' if timetable_entries|length == 1 else 's' }}</span>
             </div>
 
@@ -303,12 +405,18 @@
             </div>
             {% else %}
                 <div class="border-t border-divider">
-                    {{ empty_state('No timetable slots yet. Add one on the left — it will show up here in the grid.', 'event_busy') }}
+                    {% if courses %}
+                        {{ empty_state('No classes for this level yet. Import its sheet, or add one on the left.', 'event_busy') }}
+                    {% else %}
+                        {{ empty_state('This department has no courses at this level this semester.', 'event_busy') }}
+                    {% endif %}
                 </div>
             {% endif %}
         </div>
+        {% endif %}
     </div>
 
+    {% if view.is_grid %}
     {# ============ SLOT DETAILS / EDIT MODAL ============ #}
     <div id="slot-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
         <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-card p-6 shadow-pop">
@@ -338,7 +446,7 @@
             </div>
 
             {# Edit form (hidden until "Edit" is clicked) #}
-            <form id="slot-edit-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="hidden space-y-4">
+            <form id="slot-edit-form" action="{{ url_for('admin.timetable_page', **view.args) }}" method="POST" class="hidden space-y-4">
                 {% include '_csrf_field.html' %}
                 <input type="hidden" name="action" value="update">
                 <input type="hidden" name="timetable_id" id="edit-timetable-id">
@@ -405,17 +513,31 @@
                lightweight native confirm is enough here (unlike the
                type-the-name modal organization.html uses for cascading
                faculty/department deletes). #}
-            <form id="slot-delete-form" action="{{ url_for('admin.timetable_page') }}" method="POST" class="hidden">
+            <form id="slot-delete-form" action="{{ url_for('admin.timetable_page', **view.args) }}" method="POST" class="hidden">
                 {% include '_csrf_field.html' %}
                 <input type="hidden" name="action" value="delete">
                 <input type="hidden" name="timetable_id" id="delete-timetable-id">
             </form>
         </div>
     </div>
+    {% endif %}
 
 {% endblock %}
 
 {% block extra_scripts %}
+<script>
+    // ---------- Publish confirm ----------
+    // Publishing swaps classes and sends notifications, so ask first. The
+    // message (with counts) is rendered server-side into data-message.
+    document.querySelectorAll('.publish-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (!window.confirm(form.dataset.message)) e.preventDefault();
+        });
+    });
+</script>
+{# Everything below drives the grid, the slot modal and the banner, which
+   only exist on the one-department+level view. #}
+{% if view.is_grid %}
 <script>
     (function () {
         var ACTIVE_SEMESTER_ID = {{ active_semester.id if active_semester else 'null' }};
@@ -529,15 +651,6 @@
             }
         });
 
-        // ---------- Publish confirm ----------
-        // Publishing swaps classes and sends notifications, so ask first. The
-        // message (with counts) is rendered server-side into data-message.
-        document.querySelectorAll('.publish-form').forEach(function (form) {
-            form.addEventListener('submit', function (e) {
-                if (!window.confirm(form.dataset.message)) e.preventDefault();
-            });
-        });
-
         // ---------- mobile agenda day-tab switcher ----------
         // Toggles the .tab-pill-active component class rather than the old
         // set of bare utilities. Both names are real rules in input.css, so
@@ -610,7 +723,7 @@
         }
 
         function pollNowBanner() {
-            fetch('{{ url_for("admin.timetable_current") }}')
+            fetch('{{ url_for("admin.timetable_current", **view.args) }}')
                 .then(function (r) { return r.json(); })
                 .then(renderNowBanner)
                 .catch(function () {});
@@ -619,4 +732,5 @@
         setInterval(pollNowBanner, 60000);
     })();
 </script>
+{% endif %}
 {% endblock %}

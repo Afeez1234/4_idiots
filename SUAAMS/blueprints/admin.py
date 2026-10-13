@@ -16,7 +16,7 @@ from extensions import log_exception, logger, limiter
 from campus_time import campus_now
 from utils import (
     resolve_current_course, session_status_for_course, notify_announcement,
-    VALID_LEVELS, normalize_level,
+    VALID_LEVELS, normalize_level, course_level,
 )
 from push_notifications import send_push_notification
 from audit import log_action, changes
@@ -1200,7 +1200,7 @@ def timetable_page():
                 # exists under this slot.
                 flash('Could not delete: sessions already exist for this slot.', 'error')
                 log_exception("Timetable Delete Error")
-            return redirect(url_for('admin.timetable_page'))
+            return redirect(_timetable_back())
 
         timetable_id = request.form.get('timetable_id')  # set only for action == 'update'
         course_id = request.form.get('course_id')
@@ -1213,7 +1213,7 @@ def timetable_page():
 
         if not all([course_id, semester_id, day_of_week, start_time_raw, end_time_raw]):
             flash('Course, semester, day, start time, and end time are all required.', 'error')
-            return redirect(url_for('admin.timetable_page'))
+            return redirect(_timetable_back())
 
         try:
             semester_id_int = int(semester_id)
@@ -1223,7 +1223,7 @@ def timetable_page():
             course = Course.query.get(int(course_id))
         except (ValueError, TypeError):
             flash('Invalid timetable slot data.', 'error')
-            return redirect(url_for('admin.timetable_page'))
+            return redirect(_timetable_back())
 
         # Sidebar's active semester is the intended default -- picking a
         # different one requires an explicit confirmation checkbox so a
@@ -1239,7 +1239,7 @@ def timetable_page():
                 f'({active_semester.name}). Check "Use a different semester" below and resubmit to proceed.',
                 'error',
             )
-            return redirect(url_for('admin.timetable_page'))
+            return redirect(_timetable_back())
 
         error = _validate_timetable_slot(
             course, semester_id_int, day_of_week_int, start_time, end_time, room,
@@ -1247,7 +1247,7 @@ def timetable_page():
         )
         if error:
             flash(error, 'error')
-            return redirect(url_for('admin.timetable_page'))
+            return redirect(_timetable_back())
 
         try:
             if action == 'update' and timetable_id:
@@ -1296,26 +1296,130 @@ def timetable_page():
             flash('Failed to save timetable slot.', 'error')
             log_exception("Timetable Save Error")
 
-        return redirect(url_for('admin.timetable_page'))
+        return redirect(_timetable_back())
 
-    timetable_entries = Timetable.query.order_by(
-        Timetable.day_of_week.asc(), Timetable.start_time.asc()
-    ).all()
-    courses = Course.query.all()
-    semesters = Semester.query.all()
-    return render_template(
-        'admin/timetable.html',
-        timetable_entries=timetable_entries,
-        courses=courses,
-        semesters=semesters,
+    view = _timetable_view()
+    # Drafts and Publish are deliberately NOT filtered: narrowing to one
+    # department must never hide a semester's drafts waiting to go out.
+    drafts = Timetable.query.filter_by(is_published=False).all()
+    common = dict(
+        view=view,
+        semesters=Semester.query.order_by(Semester.start_date.desc()).all(),
+        departments=Department.query.order_by(Department.name).all(),
+        levels=VALID_LEVELS,
         weekday_names=WEEKDAY_NAMES,
-        grid=_build_timetable_grid(timetable_entries),
-        current_course=resolve_current_course(),
-        draft_count=sum(1 for e in timetable_entries if not e.is_published),
-        draft_semesters=_draft_semesters(timetable_entries),
+        draft_count=len(drafts),
+        draft_semesters=_draft_semesters(drafts),
         import_max_files=tt_import.MAX_FILES,
         active_page='timetable',
     )
+    if not view['is_grid']:
+        return render_template('admin/timetable.html', coverage=_timetable_coverage(view), **common)
+
+    # One department + level: the week those students see in the app.
+    courses = view['courses']
+    timetable_entries = (Timetable.query
+                         .filter(Timetable.semester_id == view['semester_id'],
+                                 Timetable.course_id.in_([c.id for c in courses]))
+                         .order_by(Timetable.day_of_week.asc(), Timetable.start_time.asc())
+                         .all()) if courses else []
+    return render_template(
+        'admin/timetable.html',
+        timetable_entries=timetable_entries,
+        courses=sorted(courses, key=lambda c: c.course_code),
+        grid=_build_timetable_grid(timetable_entries),
+        **common,
+    )
+
+
+# ---- department / level view ---------------------------------------------------
+# With ~20 departments x 5 levels one grid of every class is unreadable, so the
+# page has two views over one semester (GET ?semester=&dept=&level=):
+#   * coverage (default): a row per department+level -- has it got a
+#     timetable, is a draft waiting -- each row linking into...
+#   * the grid, once a department AND a level are chosen: exactly the week
+#     those students see in the app; where single classes are added/fixed.
+# A course's level comes from its code (utils.course_level); "other" catches
+# codes without one, "general" courses without a department.
+
+def _timetable_view():
+    """The page's filters from the query string, plus the courses they match."""
+    semester = db.session.get(Semester, request.args.get('semester', type=int) or 0)
+    if semester is None:
+        semester = (Semester.query.filter_by(is_active=True).first()
+                    or Semester.query.order_by(Semester.start_date.desc()).first())
+    dept = request.args.get('dept', '')
+    level = request.args.get('level', '')
+    department = db.session.get(Department, int(dept)) if dept.isdigit() else None
+    if dept != 'general' and department is None:     # junk or a deleted department
+        dept = ''
+    if level != 'other' and level not in VALID_LEVELS:
+        level = ''
+
+    # A semester's courses: those tied to it, plus older ones with no semester
+    # (the same rule the PDF import matches course codes by).
+    courses = Course.query.filter(or_(Course.semester_id == semester.id,
+                                      Course.semester_id.is_(None))).all() if semester else []
+    matching = [c for c in courses
+                if (not dept or _dept_key(c) == dept)
+                and (not level or _level_key(c) == level)]
+    return {
+        'semester': semester,
+        'semester_id': semester.id if semester else None,
+        'dept': dept, 'level': level,
+        'dept_name': department.name if department else ('General (no department)' if dept == 'general' else None),
+        'is_grid': bool(dept and level),
+        'courses': matching,
+        # Passed back on every link and form so the page comes back as it was.
+        'args': {k: v for k, v in (('semester', semester.id if semester else None),
+                                   ('dept', dept), ('level', level)) if v},
+    }
+
+
+def _dept_key(course):
+    return str(course.department_id) if course.department_id else 'general'
+
+
+def _level_key(course):
+    return course_level(course.course_code) or 'other'
+
+
+def _timetable_back():
+    """The timetable page with the filters the form was posted from."""
+    return url_for('admin.timetable_page',
+                   **{k: request.args[k] for k in ('semester', 'dept', 'level') if request.args.get(k)})
+
+
+def _timetable_coverage(view):
+    """A row per department+level with courses this semester: how many of its
+    courses have published classes, and how many draft classes wait. Two
+    narrow queries, no per-row lookups."""
+    if not view['semester_id']:
+        return []
+    classes = defaultdict(lambda: [0, 0])          # course_id -> [published, drafts]
+    for course_id, published in (db.session.query(Timetable.course_id, Timetable.is_published)
+                                 .filter(Timetable.semester_id == view['semester_id'])):
+        classes[course_id][0 if published else 1] += 1
+    dept_names = dict(db.session.query(Department.id, Department.name).all())
+
+    rows = {}
+    for c in view['courses']:      # already narrowed by a lone dept or level filter
+        key = (_dept_key(c), _level_key(c))
+        row = rows.setdefault(key, {
+            'dept': key[0], 'level': key[1],
+            'dept_name': dept_names.get(c.department_id, 'General (no department)'),
+            'courses': 0, 'scheduled': 0, 'published': 0, 'drafts': 0,
+        })
+        published, drafts = classes.get(c.id, (0, 0))
+        row['courses'] += 1
+        row['scheduled'] += 1 if published else 0
+        row['published'] += published
+        row['drafts'] += drafts
+    for row in rows.values():
+        row['status'] = 'draft' if row['drafts'] else 'published' if row['published'] else 'none'
+    # General last; "other" level last within a department.
+    return sorted(rows.values(), key=lambda r: (r['dept'] == 'general', r['dept_name'].lower(),
+                                                 r['level'] == 'other', r['level']))
 
 
 # ==========================================
@@ -1458,7 +1562,13 @@ def timetable_current():
     entirely in resolve_current_course() on the backend; the frontend only
     displays whatever this endpoint returns.
     """
-    return jsonify(resolve_current_course())
+    # Scoped to the department/level being viewed (same query string as the
+    # page); the all-departments view has no banner -- dozens of classes can
+    # be on at once there.
+    view = _timetable_view()
+    return jsonify(resolve_current_course(
+        semester=view['semester'],
+        course_ids=[c.id for c in view['courses']] if view['is_grid'] else None))
 
 
 # ==========================================

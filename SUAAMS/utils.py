@@ -32,6 +32,21 @@ def normalize_level(raw):
     return value if value in VALID_LEVELS else None
 
 #it finally worked !!!!!!!!!
+def course_level(course_code):
+    """A course's level read from its code: the first digit of the number is
+    the level ("MCT401" -> "400", "GST 212" -> "200", "XYZ-SAM101" -> "100").
+    None when the code doesn't follow that rule ("PROJ", "MCT901").
+
+    Courses have no level column -- only students do. Every course code the
+    school issues follows this convention, so reading it beats a column
+    admins would have to fill in and keep correct. Used by the timetable
+    page's department/level view.
+    """
+    match = re.search(r'\d', course_code or '')
+    level = f"{match.group()}00" if match else None
+    return level if level in VALID_LEVELS else None
+
+
 def login_required(role):
     """`role` accepts either a single role string (the common case) or an
     iterable of roles -- the latter is for routes an HOD-who's-also-a-
@@ -76,7 +91,7 @@ def session_status_for_course(course_id, on_date):
     return status, Attendance.query.filter_by(session_id=session_row.id).count()
 
 
-def resolve_current_course(semester=None, at=None):
+def resolve_current_course(semester=None, at=None, course_ids=None):
     """
     Timetable -> "what's happening right now" resolution (day of week +
     current time + active academic session -> matching Timetable slot ->
@@ -98,6 +113,10 @@ def resolve_current_course(semester=None, at=None):
       should prevent this going forward, but older/imported rows might
       still collide); the earliest start_time (then lowest id) is used as
       the deterministic pick.
+
+    course_ids limits the search to those courses -- the admin timetable's
+    department/level view asks "what's on now for Mechatronics 400", since
+    campus-wide there can be dozens of classes at once.
     """
     from models import Timetable, Semester
 
@@ -121,8 +140,10 @@ def resolve_current_course(semester=None, at=None):
             Timetable.is_published.is_(True),  # a draft isn't "happening now"
         )
         .order_by(Timetable.start_time.asc(), Timetable.id.asc())
-        .all()
     )
+    if course_ids is not None:
+        candidates = candidates.filter(Timetable.course_id.in_(course_ids))
+    candidates = candidates.all()
     # Defensive: course_id/start_time/end_time are all NOT NULL in the
     # schema, so this should never filter anything out in practice -- kept
     # anyway so a malformed/orphaned row can't turn into a 500 here.

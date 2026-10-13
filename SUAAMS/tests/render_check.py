@@ -419,7 +419,13 @@ CONTEXTS = {
         courses=[{"id": 1, "course_code": "MCT401", "course_title": "Control Systems"}],
         semesters=[{"id": 1, "name": "2025/2026 Second Semester"}],
         weekday_names=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-        current_course=None,
+        # The grid view (one department + level). The coverage view is
+        # rendered for real by tests/test_timetable_view.py.
+        view={"is_grid": True, "semester_id": 1, "semester": {"id": 1, "name": "2025/2026 Second Semester"},
+              "dept": "1", "level": "400", "dept_name": "Mechatronics",
+              "args": {"semester": 1, "dept": "1", "level": "400"}},
+        departments=[{"id": 1, "name": "Mechatronics"}],
+        levels=("100", "200", "300", "400", "500"),
         draft_count=1,
         draft_semesters=[(SimpleNamespace(id=1, name="2025/2026 Second Semester"), 1, 1)],
         import_max_files=10,
