@@ -2,6 +2,7 @@ import 'package:suaams/shared/widgets/dashboard_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:suaams/core/services/notification_service.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/shared/widgets/suaams_logo.dart';
 
@@ -38,6 +39,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         } else {
           context.go('/login');
         }
+        // The app was opened by tapping a notification: go there now that
+        // the session is restored and the home screen is underneath.
+        NotificationService.instance.openPendingTap();
       } else {
         context.go('/login');
       }

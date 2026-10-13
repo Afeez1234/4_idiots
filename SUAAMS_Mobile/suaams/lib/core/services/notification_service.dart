@@ -11,12 +11,17 @@ import 'dart:io';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:suaams/features/auth/data/auth_service.dart';
+import 'package:suaams/features/auth/providers/auth_provider.dart';
+import 'package:suaams/features/lecturer/providers/lecturer_week_schedule_provider.dart';
 import 'package:suaams/features/student/data/student_service.dart';
+import 'package:suaams/features/student/providers/today_schedule_provider.dart';
+import 'package:suaams/features/student/providers/week_schedule_provider.dart';
 import 'package:suaams/core/router/app_router.dart';
 
 // Must be a top-level function (not a class method/closure) -- Firebase
@@ -50,6 +55,13 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+
+  // A tap that arrived before the app could act on it: the cold-start tap
+  // (getInitialMessage runs in initialize(), before runApp, so there is no
+  // navigator yet) or one made while signed out. The splash screen replays
+  // it via openPendingTap() once the session is restored. Memory only --
+  // dies with the process, so it can't fire unexpectedly days later.
+  Map<String, dynamic>? _pendingTap;
 
   Future<void> initialize() async {
     // main() calls this once at startup -- guards against a second call
@@ -136,6 +148,15 @@ class NotificationService {
   // state (unlike background/terminated), so this is the one path
   // responsible for actually showing something to the user.
   void _onForegroundMessage(RemoteMessage message) {
+    // A timetable change while the app is open: reload the schedules now,
+    // so a timetable already on screen shows the new times without a tap.
+    if (message.data['type'] == 'timetable') {
+      final context = rootNavigatorKey.currentContext;
+      if (context != null) {
+        _refreshSchedules(ProviderScope.containerOf(context, listen: false));
+      }
+    }
+
     final notification = message.notification;
     if (notification == null) return;
 
@@ -177,22 +198,64 @@ class NotificationService {
 
   // Single place deciding where a tap lands, regardless of which of the
   // three paths above triggered it (foreground/local-notification tap,
-  // background/system-tray tap, or cold-start-from-terminated). Only
-  // 'attendance_marked' has enough context (session_id) to deep-link
-  // somewhere specific -- the security-alert types (device_unlocked/
-  // device_lockout_alert) have no dedicated detail screen yet, so they
-  // fall through to the notification list itself, same as an unrecognized
-  // future type would.
+  // background/system-tray tap, or cold-start-from-terminated):
+  //   * 'timetable' (published/updated, see timetable_publish.py) -> the
+  //     user's own timetable tab, reloaded first;
+  //   * 'attendance_marked' with a session_id -> that session's record;
+  //   * anything else -> students' notification list. Lecturers have no
+  //     notification screen, so the app just opens where it is -- before,
+  //     every tap went to /student/profile/notifications, a student route,
+  //     even for a lecturer.
   void _routeForData(Map<String, dynamic> data) {
     final context = rootNavigatorKey.currentContext;
-    if (context == null) return;
+    final user = context == null
+        ? null
+        : ProviderScope.containerOf(
+            context,
+            listen: false,
+          ).read(authProvider).user;
+    if (context == null || user == null || user.requiresPasswordChange) {
+      _pendingTap = data;
+      return;
+    }
+    final container = ProviderScope.containerOf(context, listen: false);
+    final isStudent = user.role == 'student';
+    final isLecturer = user.role == 'lecturer' || user.role == 'hod';
+
+    if (data['type'] == 'timetable') {
+      _refreshSchedules(container);
+      // go, not push: the timetable is a bottom-nav tab, not a page on top.
+      if (isStudent) context.go('/student/timetable');
+      if (isLecturer) context.go('/lecturer/timetable');
+      return;
+    }
 
     final sessionId = data['session_id'];
-    if (data['type'] == 'attendance_marked' && sessionId != null) {
+    if (isStudent && data['type'] == 'attendance_marked' && sessionId != null) {
       context.push('/student/attendance/history/session/$sessionId');
       return;
     }
 
-    context.push('/student/profile/notifications');
+    if (isStudent) context.push('/student/profile/notifications');
+  }
+
+  // Called by the splash screen right after it has routed a restored session
+  // to its home screen. Runs after that frame so the home route is in place
+  // underneath (a pushed page then has something to go back to).
+  void openPendingTap() {
+    final data = _pendingTap;
+    _pendingTap = null;
+    if (data == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _routeForData(data));
+  }
+
+  // The timetable tabs live in a StatefulShellBranch, so their providers stay
+  // alive (and cached) while the user is on another tab. Invalidating makes
+  // the next read refetch instead of showing the old classes. Invalidating a
+  // provider nobody is watching is a no-op, so this is safe for any role.
+  void _refreshSchedules(ProviderContainer container) {
+    container.invalidate(weekScheduleProvider);
+    container.invalidate(todayScheduleProvider);
+    container.invalidate(lecturerWeekScheduleProvider);
   }
 }
