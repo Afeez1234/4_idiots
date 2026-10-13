@@ -128,6 +128,38 @@
             </form>
         </div>
 
+        {# ============ COPY A PREVIOUS SEMESTER ============
+           Into the semester being viewed (and only the department/level
+           being viewed, if one is). Defaults to the same semester last
+           year. Opens the same preview as a PDF import; saves drafts. #}
+        {% if view.semester and semesters|length > 1 %}
+        <div class="card card-body">
+            {{ card_heading('Copy a previous timetable') }}
+            <form action="{{ url_for('admin.timetable_copy') }}" method="POST" class="mt-5 space-y-4">
+                {% include '_csrf_field.html' %}
+                <input type="hidden" name="semester_id" value="{{ view.semester_id }}">
+                <input type="hidden" name="dept" value="{{ view.dept }}">
+                <input type="hidden" name="level" value="{{ view.level }}">
+                <div>
+                    <label class="form-label" for="copy-source-id">Copy from</label>
+                    <select name="source_id" id="copy-source-id" required class="form-select">
+                        {% for semester in semesters if semester.id != view.semester_id %}
+                            <option value="{{ semester.id }}" {{ 'selected' if copy_source and semester.id == copy_source.id else '' }}>
+                                {{ semester.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <p class="form-help">
+                        Its published classes become drafts in <strong>{{ view.semester.name }}</strong>{% if view.dept or view.level %},
+                        for {{ view.dept_name or 'all departments' }}{% if view.level %} &middot; {{ view.level ~ ' level' if view.level != 'other' else 'other courses' }}{% endif %} only{% endif %}.
+                        Matched by course code; you'll see a preview first.
+                    </p>
+                </div>
+                <button type="submit" class="btn-secondary w-full">Preview copy</button>
+            </form>
+        </div>
+        {% endif %}
+
         {# ============ ADD TIMETABLE SLOT ============
            Only for one department+level: single corrections now, bulk entry
            is the PDF import. The course list is that class's courses. #}

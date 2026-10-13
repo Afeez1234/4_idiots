@@ -1302,9 +1302,11 @@ def timetable_page():
     # Drafts and Publish are deliberately NOT filtered: narrowing to one
     # department must never hide a semester's drafts waiting to go out.
     drafts = Timetable.query.filter_by(is_published=False).all()
+    semesters = Semester.query.order_by(Semester.start_date.desc()).all()
     common = dict(
         view=view,
-        semesters=Semester.query.order_by(Semester.start_date.desc()).all(),
+        semesters=semesters,
+        copy_source=tt_import.default_copy_source(view['semester'], semesters) if view['semester'] else None,
         departments=Department.query.order_by(Department.name).all(),
         levels=VALID_LEVELS,
         weekday_names=WEEKDAY_NAMES,
@@ -1526,10 +1528,16 @@ def timetable_import_confirm():
 
         counts = tt_import.apply_plan(plan, semester, session['user_id'])
         sheets = ', '.join(sheet.title for sheet in plan.sheets)
-        log_action('timetable.import',
-                   f"Imported {counts['saved']} classes as draft for {semester.name} ({sheets})",
-                   'semester', semester.id,
-                   {'sheets': [sheet.filename for sheet in plan.sheets], **counts})
+        if plan.copied_from:
+            log_action('timetable.copy',
+                       f"Copied {counts['saved']} classes from {plan.copied_from} as draft "
+                       f"for {semester.name} ({sheets})",
+                       'semester', semester.id, {'copied_from': plan.copied_from, **counts})
+        else:
+            log_action('timetable.import',
+                       f"Imported {counts['saved']} classes as draft for {semester.name} ({sheets})",
+                       'semester', semester.id,
+                       {'sheets': [sheet.filename for sheet in plan.sheets], **counts})
         db.session.commit()
         flash(f"Saved {counts['saved']} classes for {counts['courses']} courses as a draft. "
               "Students and lecturers won't see them until the timetable is published.", 'success')
@@ -1538,6 +1546,38 @@ def timetable_import_confirm():
         log_exception("Timetable Import Save Error")
         flash('Failed to save the timetable. Nothing was saved.', 'error')
     return redirect(url_for('admin.timetable_page'))
+
+
+@admin_bp.route('/timetable/copy', methods=['POST'])
+@limiter.limit("10 per minute")
+def timetable_copy():
+    """Preview copying another semester's published classes into this one
+    as drafts (by default the same semester last year). Same preview,
+    checks and "Save as draft" as a PDF import -- see plan_copy()."""
+    source = db.session.get(Semester, request.form.get('source_id', type=int) or 0)
+    target = db.session.get(Semester, request.form.get('semester_id', type=int) or 0)
+    dept, level = request.form.get('dept', ''), request.form.get('level', '')
+    back = url_for('admin.timetable_page', **{k: v for k, v in (
+        ('semester', target.id if target else None), ('dept', dept), ('level', level)) if v})
+    if not source or not target or source.id == target.id:
+        flash('Choose a different semester to copy from.', 'error')
+        return redirect(back)
+
+    # The page's department/level filter, applied to last year's courses.
+    def keep(course):
+        return (not dept or _dept_key(course) == dept) and (not level or _level_key(course) == level)
+
+    try:
+        plan = tt_import.plan_copy(source, target, keep)
+    except Exception:
+        log_exception("Timetable Copy Error")
+        flash('Something went wrong preparing the copy. Nothing was saved.', 'error')
+        return redirect(back)
+    if plan is None:
+        flash(f"{source.name} has no published classes to copy"
+              + (' for this department and level.' if dept or level else '.'), 'info')
+        return redirect(back)
+    return _render_import_preview(plan, target)
 
 
 def _render_import_preview(plan, semester):

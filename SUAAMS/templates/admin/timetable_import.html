@@ -18,7 +18,8 @@
     <div class="card card-body space-y-4">
         {{ card_heading('Summary') }}
         <p class="text-sm text-secondary">
-            Semester: <span class="font-medium text-ink">{{ semester.name }}</span> &middot;
+            {% if plan.copied_from %}Copying from <span class="font-medium text-ink">{{ plan.copied_from }}</span> into{% else %}Semester:{% endif %}
+            <span class="font-medium text-ink">{{ semester.name }}</span> &middot;
             {{ plan.sheets|length }} sheet{{ '' if plan.sheets|length == 1 else 's' }} &middot;
             {{ slots|length }} class{{ '' if slots|length == 1 else 'es' }}
             for {{ slots|map(attribute='course')|select|map(attribute='id')|unique|list|length }} course(s).
@@ -46,8 +47,9 @@
             <div class="alert" data-tone="warning">
                 <span>
                     {{ plan.problem_count }} problem{{ '' if plan.problem_count == 1 else 's' }} below must be fixed before
-                    anything can be saved &mdash; in the sheet, or by creating missing courses on the
-                    Courses page. Then upload the sheets again. Nothing has been saved.
+                    anything can be saved{% if plan.copied_from %} &mdash; fix them on this semester's timetable or
+                    courses, then copy again{% else %} &mdash; in the sheet, or by creating missing courses on the
+                    Courses page. Then upload the sheets again{% endif %}. Nothing has been saved.
                 </span>
             </div>
             <a href="{{ url_for('admin.timetable_page') }}" class="btn-secondary">Back to the timetable</a>
@@ -90,7 +92,7 @@
                                     <span class="font-medium mono">{{ s.code }}</span>
                                     {% if s.course %}<span class="text-2xs text-muted"> {{ s.course.course_title }}</span>{% endif %}
                                 </td>
-                                <td class="td td-muted">{{ kind_names[s.kind] if s.kind in kind_names else s.kind }}</td>
+                                <td class="td td-muted">{{ kind_names[s.kind] if s.kind in kind_names else (s.kind or '—') }}</td>
                                 <td class="td td-muted">{{ s.room or '—' }}</td>
                                 <td class="td">
                                     {% if s.errors %}

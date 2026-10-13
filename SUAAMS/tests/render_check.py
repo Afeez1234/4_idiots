@@ -417,7 +417,10 @@ CONTEXTS = {
         timetable_entries=_timetable_grid_with_a_draft()[0],
         grid=_timetable_grid_with_a_draft()[1],
         courses=[{"id": 1, "course_code": "MCT401", "course_title": "Control Systems"}],
-        semesters=[{"id": 1, "name": "2025/2026 Second Semester"}],
+        # Two semesters, so the "Copy a previous timetable" card renders.
+        semesters=[{"id": 1, "name": "2025/2026 Second Semester"},
+                   {"id": 2, "name": "2024/2025 Second Semester"}],
+        copy_source={"id": 2, "name": "2024/2025 Second Semester"},
         weekday_names=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
         # The grid view (one department + level). The coverage view is
         # rendered for real by tests/test_timetable_view.py.

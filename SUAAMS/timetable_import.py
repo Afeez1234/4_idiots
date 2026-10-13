@@ -25,12 +25,22 @@ Rules
   students until the drafts are published, so an import never leaves a
   course missing from anyone's timetable halfway through.
 * All or nothing: any error blocks the whole upload.
+
+Copying a previous semester (plan_copy) goes through the same pipeline:
+its published classes become the "sheets" (one per department and level),
+then the same checks, preview, draft saving and Publish apply. Two
+differences: a class whose course doesn't exist in the target semester
+is left out with a note instead of blocking the copy (a course dropped
+since last year shouldn't hold up the other hundred), and a class added
+by hand, which has no kind (lecture/tutorial/practical), is copied as is.
 """
+import re
 from dataclasses import dataclass, field
 from datetime import time
 
 from models import db, Course, Department, Session as SessionModel, Timetable
 from timetable_pdf import KINDS, TimetablePdfError, normalize_code, parse_timetable_pdf
+from utils import course_level
 
 DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
@@ -41,7 +51,7 @@ MAX_FILE_BYTES = 5 * 1024 * 1024
 @dataclass
 class PlannedSlot:
     code: str
-    kind: str
+    kind: str | None        # None: a hand-added class being copied
     day: int
     start: time
     end: time
@@ -91,6 +101,7 @@ class ImportPlan:
     semester_id: int
     sheets: list[SheetPlan]
     replaces_drafts: int = 0        # existing draft slots this import replaces
+    copied_from: str | None = None  # source semester's name, for a copy
 
     @property
     def ok(self):
@@ -114,7 +125,8 @@ class ImportPlan:
         return out
 
     def to_json(self):
-        return {'semester_id': self.semester_id, 'sheets': [s.to_json() for s in self.sheets]}
+        return {'semester_id': self.semester_id, 'copied_from': self.copied_from,
+                'sheets': [s.to_json() for s in self.sheets]}
 
 
 # ---- planning -------------------------------------------------------------------
@@ -150,7 +162,53 @@ def plan_slots(payload, semester):
                 start=time.fromisoformat(s['start']), end=time.fromisoformat(s['end']),
                 room=str(s.get('room') or '')))
         sheets.append(plan)
-    return _check(ImportPlan(semester.id, sheets), semester)
+    return _check(ImportPlan(semester.id, sheets, copied_from=payload.get('copied_from')), semester)
+
+
+def plan_copy(source, target, keep=None):
+    """Plan copying source semester's PUBLISHED classes into target as
+    drafts. keep(course) -> bool narrows it (the page's department/level
+    filter). Returns None when there is nothing to copy."""
+    rows = Timetable.query.filter(Timetable.semester_id == source.id,
+                                  Timetable.is_published.is_(True)).all()
+    rows = [t for t in rows if t.course and (keep is None or keep(t.course))]
+    if not rows:
+        return None
+    targets = _courses_by_code(target)
+    dept_names = {d.id: d.name for d in Department.query.all()}
+
+    sheets, missing = {}, {}
+    for t in sorted(rows, key=lambda t: (t.course.course_code, t.day_of_week, t.start_time)):
+        dept = dept_names.get(t.course.department_id, 'General (no department)')
+        level = course_level(t.course.course_code)
+        key = (dept, level)
+        if key not in sheets:
+            sheets[key] = SheetPlan(filename=f"Copied from {source.name}", department=dept,
+                                    level=int(level) if level else None)
+        code = normalize_code(t.course.course_code)
+        if code not in targets:
+            missing.setdefault(key, set()).add(t.course.course_code)
+            continue
+        sheets[key].slots.append(PlannedSlot(code, t.kind, t.day_of_week, t.start_time,
+                                             t.end_time, t.room or ''))
+    for key, codes in missing.items():
+        sheets[key].notes.append(f"Not copied -- no such course in {target.name}: "
+                                 f"{', '.join(sorted(codes))}. Create it and copy again to include it.")
+
+    ordered = [sheets[k] for k in sorted(sheets, key=lambda k: (k[0].startswith('General'), k[0].lower(), k[1] or '9'))]
+    return _check(ImportPlan(target.id, ordered, copied_from=source.name), target)
+
+
+def default_copy_source(target, semesters):
+    """The same semester a year earlier: '2025/2026 Second Semester' ->
+    '2024/2025 Second Semester'. None if there isn't one."""
+    years = re.search(r'(\d{4})\s*/\s*(\d{4})', target.name)
+    if not years:
+        return None
+    wanted = re.sub(r'(\d{4})\s*/\s*(\d{4})',
+                    f"{int(years.group(1)) - 1}/{int(years.group(2)) - 1}", target.name, count=1)
+    return next((s for s in semesters if s.id != target.id and _same_semester(s.name, wanted)
+                 and _same_semester(wanted, s.name)), None)
 
 
 def _check(plan, semester):
@@ -165,12 +223,12 @@ def _check(plan, semester):
             sheet.notes.append(f"No department called \"{sheet.department}\" in SUAAMS. That's "
                                f"fine if its courses exist; the department name isn't used to save anything.")
         for s in sheet.slots:
-            if s.kind not in KINDS or not (0 <= s.day <= 6) or s.start >= s.end:
+            if (s.kind is not None and s.kind not in KINDS) or not (0 <= s.day <= 6) or s.start >= s.end:
                 s.errors.append('Not a valid class (kind, day or times).')
                 continue
             matches = courses.get(normalize_code(s.code), [])
             if not matches:
-                s.errors.append(f"No course {s.code} in {semester.name}. Create it on the Courses page, then upload again.")
+                s.errors.append(f"No course {s.code} in {semester.name}. Create it on the Courses page, then try again.")
             elif len(matches) > 1:
                 s.errors.append(f"More than one course is coded {s.code}; give them distinct codes first.")
             else:
