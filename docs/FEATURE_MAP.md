@@ -104,5 +104,14 @@ the feature.
 | NFC token format, size, expiry, forgery | `SUAAMS/tests/test_beacon.py` |
 | BLE payload + reference vector (same vector as firmware self-test) | `SUAAMS/tests/test_ble_beacon.py` |
 | Campus time | `SUAAMS/tests/test_campus_time.py` |
-| Templates render | `SUAAMS/tests/test_templates.py` |
+| Templates: static checks / every page renders | `SUAAMS/tests/test_templates.py`, `SUAAMS/tests/render_check.py` |
+| Check-in routes (NFC, BLE, offline) and login device binding | `SUAAMS/tests/test_checkin.py` |
+| Manual marking / offline-tap review | `SUAAMS/tests/test_manual_marking.py`, `test_offline_tap_review.py` |
+| Admin logins, activity log, bulk upload | `SUAAMS/tests/test_audit.py` |
+| Rate-limit keys (per person, per terminal) | `SUAAMS/tests/test_rate_limits.py` |
+| Start/end session | `SUAAMS/tests/test_class_sessions.py` |
+| Bulk notifications and announcement audience | `SUAAMS/tests/test_notifications.py` |
+| Disabled accounts, dropping courses, level rule | `SUAAMS/tests/test_account_rules.py` |
+| Query counts: HOD, student dashboard, analytics | `SUAAMS/tests/test_hod_attendance.py`, `test_page_queries.py` |
 | Flutter tests | `SUAAMS_Mobile/suaams/test/` |
+| **All of the above, on every push** | `.github/workflows/tests.yml` (GitHub Actions) |

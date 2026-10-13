@@ -1,0 +1,55 @@
+# Runs every test on each push and pull request, so a breakage shows up as a
+# red mark on GitHub instead of being found by students. Before this, tests
+# only ran when someone remembered -- the web render check failed for weeks
+# after the student roster gained pagination and nobody noticed.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: SUAAMS
+    # app.py refuses to start without these (see _require_env). They are
+    # throwaway values: no test connects to MySQL -- the tests use SQLite --
+    # so nothing real is needed or exposed.
+    env:
+      SECRET_KEY: ci-only
+      JWT_SECRET_KEY: ci-only-jwt-secret-long-enough-for-hs256
+      DB_HOST: ci
+      DB_USER: ci
+      DB_PASSWORD: ci
+      DB_NAME: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'   # what the project venv uses
+          cache: pip
+          cache-dependency-path: SUAAMS/requirements.txt
+      - run: pip install -r requirements.txt pytest
+      # pytest runs both the unittest-style files and test_templates.py's
+      # plain test functions.
+      - run: python -m pytest tests -q
+      # Not named test_*.py, so pytest doesn't pick it up: run it directly.
+      - run: python tests/render_check.py
+
+  app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: SUAAMS_Mobile/suaams
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.5'   # same as the development machine
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
