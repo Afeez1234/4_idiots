@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Announcement, Timetable
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from utils import (build_course_register_csv, start_class_session, end_class_session,
+                   taught_course, courses_taught_by, teaches,
                    students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps,
                    notify_announcement)
@@ -43,16 +44,16 @@ def get_lecturer_dashboard():
         return error_response, status
 
     try:
-        courses = Course.query.filter_by(lecturer_id=lecturer.id).all()
+        courses = courses_taught_by(lecturer).all()
 
         active_session_count = SessionModel.query.join(Course).filter(
-            Course.lecturer_id == lecturer.id,
+            teaches(lecturer),
             SessionModel.is_active == True
         ).count()
 
         today = datetime.now(timezone.utc).date()
         today_checkins = Attendance.query.join(SessionModel).join(Course).filter(
-            Course.lecturer_id == lecturer.id,
+            teaches(lecturer),
             db.func.date(Attendance.time_in) == today
         ).count()
 
@@ -146,7 +147,7 @@ def get_lecturer_week_schedule():
 
     try:
         courses_by_id = {
-            c.id: c for c in Course.query.filter_by(lecturer_id=lecturer.id).all()
+            c.id: c for c in courses_taught_by(lecturer).all()
         }
         if not courses_by_id:
             return jsonify({"success": True, "week": []}), 200
@@ -184,7 +185,7 @@ def get_course_workspace(course_id):
         return error_response, status
 
     try:
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             return jsonify({"error": "Course not found or access denied."}), 404
 
@@ -309,6 +310,7 @@ def start_session(course_id):
     try:
         # Ownership check, "already running?" and the timetable fallback
         # all live in utils.start_class_session, shared with the web portal.
+        # Any of the course's lecturers can start it; it records which one.
         outcome, new_session = start_class_session(lecturer, course_id, planned_start, planned_end)
         if outcome == 'not_found':
             return jsonify({"error": "Course not found or access denied."}), 404
@@ -377,10 +379,7 @@ def get_session_history(course_id):
         return error_response, status
 
     try:
-        course = Course.query.filter_by(
-            id=course_id,
-            lecturer_id=lecturer.id
-        ).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             return jsonify({"error": "Course not found or access denied."}), 404
 
@@ -440,10 +439,7 @@ def get_session_detail(course_id, session_id):
         return error_response, status
 
     try:
-        course = Course.query.filter_by(
-            id=course_id,
-            lecturer_id=lecturer.id
-        ).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             return jsonify({"error": "Course not found or access denied."}), 404
 
@@ -577,7 +573,7 @@ def mark_present(course_id, session_id):
 
     try:
         # Ownership: only the course's own lecturer may vouch for presence.
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             return jsonify({"error": "Course not found or access denied."}), 404
 
@@ -602,7 +598,7 @@ def mark_present(course_id, session_id):
 def _owned_session_or_404(lecturer, course_id, session_id):
     """(session, None) if the lecturer owns the course and the session is in
     it, else (None, (response, status)). Same ownership rule as mark_present."""
-    course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+    course = taught_course(lecturer, course_id)
     if not course:
         return None, (jsonify({"error": "Course not found or access denied."}), 404)
     session = SessionModel.query.filter_by(id=session_id, course_id=course_id).first()
@@ -700,7 +696,7 @@ def get_course_analytics(course_id):
         return error_response, status
 
     try:
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             return jsonify({"error": "Course not found or access denied."}), 404
 
@@ -805,7 +801,7 @@ def export_course_register(course_id):
 
     try:
         # Ownership check: a lecturer may only export their own courses.
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             return jsonify({"error": "Course not found or access denied."}), 404
 
@@ -837,7 +833,7 @@ def get_lecturer_announcements():
         return error_response, status
 
     try:
-        course_ids = [c.id for c in Course.query.filter_by(lecturer_id=lecturer.id).all()]
+        course_ids = [c.id for c in courses_taught_by(lecturer).all()]
         if not course_ids:
             return jsonify({"success": True, "data": []}), 200
 
@@ -883,7 +879,7 @@ def create_lecturer_announcement(course_id):
         return error_response, status
 
     try:
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             return jsonify({"error": "Course not found or access denied."}), 404
 

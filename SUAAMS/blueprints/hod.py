@@ -200,7 +200,8 @@ def levels():
             level_courses = by_level.get(level, [])
             level_sections.append({
                 'level': level,
-                'lecturer_count': len({c.lecturer_id for c in level_courses if c.lecturer_id}),
+                # Every distinct lecturer teaching this level, co-lecturers included.
+                'lecturer_count': len({l.id for c in level_courses for l in c.all_lecturers}),
                 'course_count': len(level_courses),
                 'student_count': student_counts.get(level, 0),
                 'courses': [
@@ -208,7 +209,7 @@ def levels():
                         'code': c.course_code,
                         'title': c.course_title,
                         'units': c.credit_units,
-                        'lecturer': c.lecturer.full_name if c.lecturer else 'Unassigned',
+                        'lecturer': c.lecturer_names or 'Unassigned',
                     }
                     for c in level_courses
                 ],

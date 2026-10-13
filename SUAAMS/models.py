@@ -210,6 +210,10 @@ class Course(db.Model):
     # course.course_title) so no Flutter-side changes were needed.
     course_title = db.Column(db.String(150), nullable=False)
     course_code = db.Column(db.String(20), nullable=False)
+    # The course COORDINATOR. A course can have more lecturers than this
+    # (see co_lecturers below); every lecturer on it has the same powers.
+    # Kept as the existing column so courses with one lecturer need nothing
+    # new, and so the coordinator lives in exactly one place.
     lecturer_id = db.Column(db.Integer, db.ForeignKey('lecturers.id'), nullable=False)
     # MADE NULLABLE per explicit instruction, to avoid `flask db migrate`
     # generating an ALTER that requires a value for every existing row.
@@ -242,6 +246,41 @@ class Course(db.Model):
     # NEW
     results = db.relationship('Result', backref='course', lazy=True, cascade="all, delete-orphan")
     announcements = db.relationship('Announcement', backref='course', lazy=True, cascade="all, delete-orphan")
+
+    # Lecturers who teach the course alongside the coordinator. Courses here
+    # routinely have several (a GST course can list six), and before this
+    # only the coordinator could start sessions, mark students present or be
+    # notified -- the others couldn't run their own classes at all.
+    co_lecturers = db.relationship('Lecturer', secondary='course_lecturers', lazy='selectin')
+
+    @property
+    def all_lecturers(self):
+        """Coordinator first, then co-lecturers."""
+        people = [self.lecturer] if self.lecturer else []
+        return people + [l for l in self.co_lecturers if l is not self.lecturer]
+
+    @property
+    def lecturer_names(self):
+        """Every lecturer's name, comma-separated (or None)."""
+        return ', '.join(l.full_name for l in self.all_lecturers) or None
+
+    @property
+    def lecturer_summary(self):
+        """Short form for tables: 'Dr A' or 'Dr A + 2 more' (or None)."""
+        people = self.all_lecturers
+        if not people:
+            return None
+        extra = len(people) - 1
+        return people[0].full_name + (f' + {extra} more' if extra else '')
+
+
+# Co-lecturers of a course (the coordinator stays on courses.lecturer_id).
+# Rows go when either the course or the lecturer is deleted.
+course_lecturers = db.Table(
+    'course_lecturers',
+    db.Column('course_id', db.Integer, db.ForeignKey('courses.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('lecturer_id', db.Integer, db.ForeignKey('lecturers.id', ondelete='CASCADE'), primary_key=True),
+)
 
 
 class Enrollment(db.Model):
@@ -312,6 +351,11 @@ class Session(db.Model):
     planned_end = db.Column(db.Time, nullable=True)
     # NEW
     room = db.Column(db.String(50), nullable=True)
+    # Which user started this session. With several lecturers per course,
+    # this is how you can tell which of them ran a given class. NULL for
+    # sessions from before it was recorded. SET NULL: deleting an account
+    # must not delete class history.
+    started_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
 
     attendance_records = db.relationship('Attendance', backref='session', lazy=True, cascade="all, delete-orphan")
 

@@ -77,6 +77,7 @@ the feature.
 | Feature | What it does | Server | App | Firmware | Tables |
 |---|---|---|---|---|---|
 | Dashboard + schedule | Today and week | `api/lecturer.py` `/dashboard`, `/schedule/week`; `blueprints/lecturer.py` | `lecturer_provider.dart`, `lecturer_week_schedule_provider.dart`, `lecturer_home_screen.dart` | — | `courses`, `timetable` |
+| Several lecturers per course | One coordinator (`courses.lecturer_id`) plus co-lecturers (`course_lecturers`), all with the same powers. Admin manages them on the Courses page by staff ID; each session records who started it | `utils.py` `teaches`, `courses_taught_by`, `taught_course`; `blueprints/admin.py` `_manage_course_lecturer`; `models.py` `Course.co_lecturers` | — | — | `course_lecturers`, `sessions.started_by` |
 | Start / end session | Opens or closes check-in for a course | `api/lecturer.py` `start_session`, `end_session`; `blueprints/lecturer.py` | `course_workspace_provider.dart`, `course_workspace_screen.dart` | — | `sessions` |
 | Live attendance | Who has checked in so far | `api/lecturer.py` `/course/<id>/session/<id>`; `blueprints/lecturer.py` `/lecturer/sessions/active` | `session_detail_provider.dart`, `active_sessions_screen.dart`, `lecturer_session_detail_screen.dart` | — | `attendance` |
 | Session history | Past sessions per course | `api/lecturer.py` `/course/<id>/history` | `session_history_provider.dart`, `lecturer_session_history_screen.dart` | — | `sessions` |

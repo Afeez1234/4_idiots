@@ -1175,7 +1175,10 @@ def get_available_courses():
                         "course_code": c.course_code,
                         "course_title": c.course_title,
                         "credit_units": c.credit_units,
-                        "lecturer": c.lecturer.full_name if c.lecturer else None,
+                        # Every lecturer on the course, comma-separated, in the same
+                        # string field as before -- so the app shows them all
+                        # without an update.
+                        "lecturer": c.lecturer_names,
                         "enrolled": c.id in enrolled_course_ids,
                     }
                     for c in courses

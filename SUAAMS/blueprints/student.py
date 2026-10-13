@@ -40,7 +40,7 @@ def _course_breakdown(student):
             'id': course.id,
             'name': course.course_title,
             'code': course.course_code,
-            'lecturer_name': course.lecturer.full_name if course.lecturer else None,
+            'lecturer_name': course.lecturer_names,  # all of them, not just the coordinator
             'credit_units': course.credit_units,
             'pct': row['pct'],
             'attended': row['attended'],

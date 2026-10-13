@@ -141,7 +141,7 @@ def resolve_current_course(semester=None, at=None):
         'course_id': entry.course_id,
         'course_code': entry.course.course_code,
         'course_title': entry.course.course_title,
-        'lecturer': entry.course.lecturer.full_name if entry.course.lecturer else None,
+        'lecturer': entry.course.lecturer_summary,  # 'Dr A + 2 more'
         'room': entry.room,
         'start_time': entry.start_time.strftime('%H:%M'),
         'end_time': entry.end_time.strftime('%H:%M'),
@@ -245,6 +245,37 @@ def student_course_attendance(student):
     return rows
 
 
+def teaches(lecturer):
+    """SQL condition: the course is taught by this lecturer -- as its
+    coordinator (courses.lecturer_id) or as a co-lecturer (course_lecturers).
+
+    The ONE definition of "this lecturer's course". There used to be about
+    thirty copies of `lecturer_id=lecturer.id` across the app and web routes;
+    they all go through this now, so co-lecturers get the same access as the
+    coordinator everywhere at once and the copies can't drift apart.
+    """
+    from sqlalchemy import or_, select
+    from models import Course, course_lecturers
+    return or_(
+        Course.lecturer_id == lecturer.id,
+        Course.id.in_(select(course_lecturers.c.course_id)
+                      .where(course_lecturers.c.lecturer_id == lecturer.id)),
+    )
+
+
+def courses_taught_by(lecturer):
+    """Query of every course this lecturer teaches (coordinator or co-)."""
+    from models import Course
+    return Course.query.filter(teaches(lecturer))
+
+
+def taught_course(lecturer, course_id):
+    """The course if this lecturer teaches it, else None. The ownership
+    check every lecturer route runs before showing or changing anything."""
+    from models import Course
+    return courses_taught_by(lecturer).filter(Course.id == course_id).first()
+
+
 def _lock_owned_course(lecturer, course_id):
     """The lecturer's own course, row-locked until the caller commits, or None.
 
@@ -257,8 +288,8 @@ def _lock_owned_course(lecturer, course_id):
     (SQLite, used by the tests, ignores FOR UPDATE.)
     """
     from models import Course
-    return (Course.query
-            .filter_by(id=course_id, lecturer_id=lecturer.id)
+    return (courses_taught_by(lecturer)
+            .filter(Course.id == course_id)
             .with_for_update()
             .first())
 
@@ -269,7 +300,8 @@ def start_class_session(lecturer, course_id, planned_start=None, planned_end=Non
     Shared by the lecturer app (api/lecturer.py) and the web portal
     (blueprints/lecturer.py), which each had their own copy. Returns
     (outcome, session): 'started', 'already_active' (session = the running
-    one) or 'not_found' (no such course, or not theirs).
+    one) or 'not_found' (no such course, or not one they teach). Any of
+    the course's lecturers can start it; the session records which one.
 
     With no planned times given, uses today's timetable slot, so the late
     cut-off still has a scheduled start to work from.
@@ -298,6 +330,8 @@ def start_class_session(lecturer, course_id, planned_start=None, planned_end=Non
         start_time=datetime.now(timezone.utc).time(),
         planned_start=planned_start,
         planned_end=planned_end,
+        # Which of the course's lecturers ran this class.
+        started_by=lecturer.user_id,
     )
     db.session.add(new_session)
     db.session.commit()

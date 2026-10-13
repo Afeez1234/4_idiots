@@ -6,6 +6,7 @@ import os
 import logging
 from flask_jwt_extended import JWTManager
 from models import db, HOD, Lecturer, Course, Semester
+from utils import courses_taught_by
 from extensions import limiter, csrf
 from blueprints.auth import auth_bp
 from blueprints.admin import admin_bp
@@ -195,7 +196,7 @@ def inject_portal_context():
     if hod:
         context['hod_department'] = hod.department
     if lecturer:
-        context['sidebar_courses'] = Course.query.filter_by(lecturer_id=lecturer.id).order_by(Course.course_code).all()
+        context['sidebar_courses'] = courses_taught_by(lecturer).order_by(Course.course_code).all()
         context['active_semester'] = Semester.query.filter_by(is_active=True).first()
     return context
 

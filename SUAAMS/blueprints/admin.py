@@ -764,6 +764,82 @@ def reset_student_binding(student_id):
 # ==========================================
 # COURSES
 # ==========================================
+def _manage_course_lecturer(course_id, staff_id, change):
+    """Add or remove one of a course's lecturers, or make them coordinator.
+    Flashes the outcome; logs every real change to the Activity page.
+
+    Rules: a course always has exactly one coordinator (courses.lecturer_id).
+    The coordinator can't be removed -- make someone else coordinator first.
+    Making a new coordinator keeps the old one on the course as a co-lecturer,
+    so no one silently loses access to classes they teach.
+    """
+    if not course_id or not staff_id or change not in ('add', 'remove', 'coordinator'):
+        flash('Choose a course, enter a staff ID and pick a change.', 'error')
+        return
+    try:
+        course = db.session.get(Course, int(course_id))
+        lecturer = Lecturer.query.filter(
+            db.func.lower(Lecturer.staff_id) == staff_id.lower()
+        ).first()
+        if not course:
+            flash('That course no longer exists.', 'error')
+            return
+        if not lecturer:
+            flash(f"No lecturer with staff ID '{staff_id}'.", 'error')
+            return
+
+        name, code = lecturer.full_name, course.course_code
+        is_coordinator = course.lecturer_id == lecturer.id
+        is_co = lecturer in course.co_lecturers
+
+        if change == 'add':
+            if is_coordinator or is_co:
+                flash(f"{name} already teaches {code}.", 'info')
+                return
+            course.co_lecturers.append(lecturer)
+            log_action('course.lecturer_add', f"Added {name} as a lecturer on {code}",
+                       'course', course.id, {'lecturer_id': lecturer.id})
+            message = f"{name} now teaches {code}."
+
+        elif change == 'remove':
+            if is_coordinator:
+                flash(f"{name} is the coordinator of {code}. Make someone else "
+                      f"coordinator first, then remove them.", 'error')
+                return
+            if not is_co:
+                flash(f"{name} doesn't teach {code}.", 'info')
+                return
+            course.co_lecturers.remove(lecturer)
+            log_action('course.lecturer_remove', f"Removed {name} from {code}",
+                       'course', course.id, {'lecturer_id': lecturer.id})
+            message = f"{name} no longer teaches {code}."
+
+        else:  # coordinator
+            if is_coordinator:
+                flash(f"{name} is already the coordinator of {code}.", 'info')
+                return
+            previous = course.lecturer
+            if is_co:
+                course.co_lecturers.remove(lecturer)
+            course.lecturer_id = lecturer.id
+            if previous and previous not in course.co_lecturers:
+                course.co_lecturers.append(previous)
+            log_action('course.coordinator_change',
+                       f"Made {name} coordinator of {code}"
+                       + (f" (was {previous.full_name}, who stays on as a lecturer)" if previous else ''),
+                       'course', course.id,
+                       {'lecturer_id': lecturer.id,
+                        'previous_lecturer_id': previous.id if previous else None})
+            message = f"{name} is now the coordinator of {code}."
+
+        db.session.commit()
+        flash(message, 'success')
+    except Exception:
+        db.session.rollback()
+        flash('Failed to update the course lecturers.', 'error')
+        log_exception("Course Lecturer Update Error")
+
+
 @admin_bp.route('/courses', methods=['GET', 'POST'])
 # 20/min not 10 -- this route double-duties as both course creation AND
 # the enroll_student action (see action == 'enroll_student' below), which
@@ -838,6 +914,14 @@ def courses_page():
                 flash('Failed to enroll student.', 'error')
                 log_exception("Enrollment Create Error")
 
+            return redirect(url_for('admin.courses_page'))
+
+        if action == 'manage_lecturer':
+            _manage_course_lecturer(
+                request.form.get('course_id'),
+                (request.form.get('staff_id') or '').strip(),
+                request.form.get('change'),
+            )
             return redirect(url_for('admin.courses_page'))
 
         title = request.form.get('title')
@@ -1031,13 +1115,18 @@ def _validate_timetable_slot(course, semester_id, day_of_week, start_time, end_t
     if exclude_id is not None:
         query = query.filter(Timetable.id != exclude_id)
 
+    # Every lecturer on this course, co-lecturers included: any of them being
+    # booked elsewhere at the same time is a clash, not just the coordinator.
+    this_lecturers = {l.id: l for l in course.all_lecturers} if course else {}
     for other in query.all():
         if room and other.room and other.room.strip().lower() == room.strip().lower():
             other_code = other.course.course_code if other.course else 'another course'
             return f'Room {room} is already booked by {other_code} at that time.'
-        if course and other.course and other.course.lecturer_id == course.lecturer_id:
-            lecturer_name = course.lecturer.full_name if course.lecturer else 'This lecturer'
-            return f'{lecturer_name} already has {other.course.course_code} scheduled at an overlapping time.'
+        if other.course:
+            shared = this_lecturers.keys() & {l.id for l in other.course.all_lecturers}
+            if shared:
+                lecturer_name = this_lecturers[next(iter(shared))].full_name
+                return f'{lecturer_name} already has {other.course.course_code} scheduled at an overlapping time.'
     return None
 
 
@@ -1517,7 +1606,7 @@ def _all_course_attendance_reports():
         )
         rows.append({
             'course': course,
-            'lecturer_name': course.lecturer.full_name if course.lecturer else 'Unassigned',
+            'lecturer_name': course.lecturer_summary or 'Unassigned',
             'department_name': course.department.name if course.department else 'Unassigned',
             'enrolled_count': enrolled_count,
             'session_count': session_count,

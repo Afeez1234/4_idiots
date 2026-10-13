@@ -47,7 +47,7 @@
                         </div>
 
                         <div>
-                            <label class="form-label" for="course-lecturer">Lecturer</label>
+                            <label class="form-label" for="course-lecturer">Coordinator (lead lecturer)</label>
                             <select name="lecturer_id" id="course-lecturer" required class="form-select">
                                 <option value="" disabled selected>Select lecturer</option>
                                 {% for lecturer in lecturers %}
@@ -117,6 +117,54 @@
                     </form>
                 </div>
             </div>
+
+            {# Courses here often have several lecturers (a GST course can list
+               six). Every lecturer added here can run the course's classes,
+               mark students present, review offline taps and see its
+               analytics -- the same powers as the coordinator. Staff ID, not
+               a dropdown, for the same reason as the matric box above. #}
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Course Lecturers', info=true) }}
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('admin.courses_page') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="action" value="manage_lecturer">
+
+                        <div>
+                            <label class="form-label" for="lecturers-course">Course</label>
+                            <select name="course_id" id="lecturers-course" required class="form-select">
+                                <option value="" disabled selected>Select course</option>
+                                {% for course in courses %}
+                                    <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="lecturers-staff-id">Lecturer's staff ID</label>
+                            <input type="text" name="staff_id" id="lecturers-staff-id" required
+                                   placeholder="e.g. AFIT/STF/0123" autocomplete="off" class="form-input mono">
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="lecturers-change">Change</label>
+                            <select name="change" id="lecturers-change" required class="form-select">
+                                <option value="add">Add as a lecturer on this course</option>
+                                <option value="remove">Remove from this course</option>
+                                <option value="coordinator">Make coordinator</option>
+                            </select>
+                            <p class="form-help">
+                                A course always has one coordinator. Making someone else
+                                coordinator keeps the old one on the course as a lecturer.
+                            </p>
+                        </div>
+
+                        <button type="submit" class="btn-secondary mt-2 w-full">Save</button>
+                    </form>
+                </div>
+            </div>
         </div>
 
         <!-- Catalog -->
@@ -139,7 +187,7 @@
                                 </div>
                                 <div>
                                     <dt class="text-muted">Lecturer</dt>
-                                    <dd class="mt-0.5 truncate text-secondary">{{ course.lecturer.full_name if course.lecturer else '—' }}</dd>
+                                    <dd class="mt-0.5 truncate text-secondary" title="{{ course.lecturer_names or '' }}">{{ course.lecturer_summary or '—' }}</dd>
                                 </div>
                                 <div>
                                     <dt class="text-muted">Units</dt>
@@ -177,7 +225,7 @@
                                         </div>
                                     </td>
                                     <td class="td td-muted">{{ course.department.name if course.department else '—' }}</td>
-                                    <td class="td td-muted">{{ course.lecturer.full_name if course.lecturer else '—' }}</td>
+                                    <td class="td td-muted" title="{{ course.lecturer_names or '' }}">{{ course.lecturer_summary or '—' }}</td>
                                     <td class="td td-muted">{{ course.credit_units if course.credit_units else '—' }}</td>
                                     <td class="td td-muted">{{ course.enrollments|length }}</td>
                                 </tr>

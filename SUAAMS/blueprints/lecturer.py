@@ -4,6 +4,7 @@ from flask import Blueprint, flash, render_template, redirect, request, session,
 from datetime import date, datetime, timezone
 from utils import (login_required, resolve_timetable_slot_for_course, notify_announcement,
                    start_class_session, end_class_session,
+                   taught_course, courses_taught_by, teaches,
                    build_course_register_csv, students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps)
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
@@ -23,19 +24,19 @@ def dashboard():
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
 
-        courses = Course.query.filter_by(lecturer_id=lecturer.id).order_by(Course.course_code).all()
+        courses = courses_taught_by(lecturer).order_by(Course.course_code).all()
 
         # Full active-session rows (not just a count) so the dashboard banner
         # can name the course(s) currently live and link straight into them.
         active_sessions = SessionModel.query.join(Course).filter(
-            Course.lecturer_id == lecturer.id,
+            teaches(lecturer),
             SessionModel.is_active == True
         ).all()
         active_course_ids = {s.course_id for s in active_sessions}
 
         today = datetime.now(timezone.utc).date()
         today_checkins = Attendance.query.join(SessionModel).join(Course).filter(
-            Course.lecturer_id == lecturer.id,
+            teaches(lecturer),
             db.func.date(Attendance.time_in) == today
         ).count()
 
@@ -76,7 +77,7 @@ def course_workspace(course_id):
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
 
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             flash('Course not found or access denied.', 'error')
             return redirect(url_for('lecturer.dashboard'))
@@ -154,7 +155,7 @@ def session_history():
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
 
-        courses = Course.query.filter_by(lecturer_id=lecturer.id).all()
+        courses = courses_taught_by(lecturer).all()
         course_ids = [c.id for c in courses]
         courses_by_id = {c.id: c for c in courses}
 
@@ -217,7 +218,7 @@ def active_sessions():
             return redirect(url_for('auth.login'))
 
         live_sessions = SessionModel.query.join(Course).filter(
-            Course.lecturer_id == lecturer.id,
+            teaches(lecturer),
             SessionModel.is_active == True
         ).order_by(SessionModel.session_date.desc()).all()
 
@@ -281,7 +282,7 @@ def announcements():
         # Ownership check -- a lecturer must not be able to post an
         # announcement against a course they don't actually teach, even if
         # course_id is forged in the request.
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             flash('You can only post announcements to courses you teach.', 'error')
             return redirect(url_for('lecturer.announcements'))
@@ -369,7 +370,7 @@ def _course_attendance_reports(lecturer):
     drift apart. Same 'actual / (sessions * enrolled)' formula already used
     by course_workspace()'s stats.average_attendance and admin's
     department_attendance."""
-    courses = Course.query.filter_by(lecturer_id=lecturer.id).order_by(Course.course_code).all()
+    courses = courses_taught_by(lecturer).order_by(Course.course_code).all()
     rows = []
     for course in courses:
         enrolled_count = Enrollment.query.filter_by(course_id=course.id).count()
@@ -548,7 +549,7 @@ def export_course_register(course_id):
             return redirect(url_for('auth.login'))
 
         # Ownership check: a lecturer may only export their own courses.
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             flash('Course not found or access denied.', 'error')
             return redirect(url_for('lecturer.reports'))
@@ -661,7 +662,7 @@ def session_detail(course_id, session_id):
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
 
-        course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+        course = taught_course(lecturer, course_id)
         if not course:
             flash('Course not found or access denied.', 'error')
             return redirect(url_for('lecturer.dashboard'))
@@ -730,7 +731,7 @@ def mark_present_r(course_id, session_id):
         flash('Lecturer profile not found.', 'error')
         return redirect(url_for('auth.login'))
 
-    course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+    course = taught_course(lecturer, course_id)
     if not course:
         flash('Course not found or access denied.', 'error')
         return redirect(url_for('lecturer.dashboard'))
@@ -772,7 +773,7 @@ def _owned_session_for_form(course_id, session_id):
         flash('Lecturer profile not found.', 'error')
         return None, None, redirect(url_for('auth.login'))
 
-    course = Course.query.filter_by(id=course_id, lecturer_id=lecturer.id).first()
+    course = taught_course(lecturer, course_id)
     if not course:
         flash('Course not found or access denied.', 'error')
         return None, None, redirect(url_for('lecturer.dashboard'))
