@@ -26,6 +26,8 @@ import timetable_import as tt_import
 from timetable_pdf import KINDS
 from timetable_publish import publish_drafts, published_schedules, notify_schedule_changes
 import bulk_upload
+import people_status
+from people_status import STUDENT_STATUSES, LECTURER_STATUSES
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
 # same as Python's date.weekday()) -- shared by the create-form <select> and
@@ -356,6 +358,7 @@ def lecturers_page():
         'admin/lecturers.html',
         lecturers=lecturers,
         departments=departments,
+        lecturer_statuses=LECTURER_STATUSES,
         active_page='lecturers',
     )
 
@@ -475,6 +478,130 @@ def _render_bulk_preview(plan, semester):
 
 
 # ==========================================
+# STATUS: ACTIVE, GRADUATED, LEFT, ...
+# ==========================================
+# Who is still part of the school. people_status.py holds the rules (login
+# off, phone released, a departing lecturer's courses); these routes are the
+# one-person form and the CSV form. Neither ever deletes anyone.
+
+STATUS_KINDS = {
+    'students': (Student, STUDENT_STATUSES, 'admin.students_page', 'matric_number'),
+    'lecturers': (Lecturer, LECTURER_STATUSES, 'admin.lecturers_page', 'staff_id'),
+}
+
+
+def _person_label(kind, person):
+    return f"{person.full_name} ({person.matric_number if kind == 'students' else person.staff_id})"
+
+
+def _set_status(kind, person, status, reason):
+    """Apply one change and its audit entry (not committed). Returns True
+    if anything changed. Raises people_status.StatusError."""
+    old = person.status
+    setter = people_status.set_student_status if kind == 'students' else people_status.set_lecturer_status
+    cleaned = setter(person, status, reason)
+    if cleaned is None:
+        return False
+    names = STATUS_KINDS[kind][1]
+    log_action(f"{kind[:-1]}.status",
+               f"{_person_label(kind, person)}: {names.get(old, old)} -> {names[status]}. Reason: {cleaned}",
+               kind[:-1], person.id, {'from': old, 'to': status, 'reason': cleaned})
+    return True
+
+
+@admin_bp.route('/<kind>/<int:person_id>/status', methods=['POST'])
+@limiter.limit("30 per minute")
+def change_status(kind, person_id):
+    if kind not in STATUS_KINDS:
+        return redirect(url_for('admin.dashboard'))
+    model, _names, page, _id_col = STATUS_KINDS[kind]
+    # Back to the same filtered roster page the form was on.
+    back = url_for(page, **{k: v for k, v in request.args.items() if k in STUDENT_FILTER_ARGS})
+    person = db.session.get(model, person_id)
+    if not person:
+        flash('That person no longer exists.', 'error')
+        return redirect(back)
+    try:
+        if _set_status(kind, person, request.form.get('status', ''), request.form.get('reason', '')):
+            db.session.commit()
+            flash(f"{person.full_name} is now {STATUS_KINDS[kind][1][person.status]}."
+                  + ('' if person.status == 'active' else ' Their sign-in is switched off.'), 'success')
+        else:
+            flash(f"{person.full_name} already has that status.", 'info')
+    except people_status.StatusError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    except Exception:
+        db.session.rollback()
+        log_exception("Status Change Error")
+        flash('Failed to change the status. Nothing changed.', 'error')
+    return redirect(back)
+
+
+@admin_bp.route('/<kind>/status/bulk', methods=['POST'])
+@limiter.limit("10 per minute")
+def bulk_status(kind):
+    """A CSV of matric numbers / staff IDs, one status and reason for all.
+    First post shows who will change; posting again with confirm=1 applies.
+    All or nothing: any problem changes nobody."""
+    if kind not in STATUS_KINDS:
+        return redirect(url_for('admin.dashboard'))
+    _model, names, page, id_col = STATUS_KINDS[kind]
+    back = url_for(page)
+    status, reason = request.form.get('status', ''), request.form.get('reason', '')
+    try:
+        if request.form.get('confirm'):
+            ids = json.loads(request.form.get('ids') or '[]')
+        else:
+            upload = request.files.get('file')
+            if not upload or not upload.filename:
+                raise people_status.StatusError('Choose a CSV file.')
+            ids = people_status.read_ids(upload.read(1024 * 1024), id_col)
+        # Validated here too, so the preview can't show a change that the
+        # confirm would refuse.
+        if status not in names:
+            raise people_status.StatusError('Choose a valid status.')
+        if not ' '.join(reason.split()):
+            raise people_status.StatusError('Give a short reason -- it goes in the activity log.')
+        found, missing = people_status.find_people(kind, ids)
+    except (people_status.StatusError, ValueError) as e:
+        flash(f"{e} Nothing changed.", 'error')
+        return redirect(back)
+
+    changing = [p for p in found if p.status != status]
+    # Lecturers who can't be marked Left yet (they coordinate a running
+    # course): shown on the preview, and they block the confirm.
+    blocked = {}
+    if kind == 'lecturers' and status == 'left':
+        for p in changing:
+            codes = [c.course_code for c in people_status.running_courses(p)]
+            if codes:
+                blocked[p.id] = ', '.join(codes)
+    if not request.form.get('confirm') or missing or blocked:
+        return render_template(
+            'admin/status_preview.html', kind=kind, names=names, status=status, reason=reason,
+            changing=changing, unchanged=len(found) - len(changing), missing=missing, blocked=blocked,
+            ids_json=json.dumps(ids), back_url=back, active_page=kind,
+        )
+    try:
+        changed = sum(1 for p in changing if _set_status(kind, p, status, reason))
+        # The per-person entries above say who; this one says it was a file.
+        log_action(f"{kind[:-1]}.bulk_status",
+                   f"Set {changed} {kind} to {names[status]} from a CSV. Reason: {' '.join(reason.split())}",
+                   kind[:-1], None, {'status': status, 'count': changed})
+        db.session.commit()
+        flash(f"{changed} {kind} set to {names[status]}.", 'success')
+    except people_status.StatusError as e:
+        db.session.rollback()
+        flash(f"{e} Nobody was changed.", 'error')
+    except Exception:
+        db.session.rollback()
+        log_exception("Bulk Status Error")
+        flash('Failed to change the statuses. Nobody was changed.', 'error')
+    return redirect(back)
+
+
+# ==========================================
 # STUDENTS
 # ==========================================
 STUDENTS_PER_PAGE = 50
@@ -482,7 +609,7 @@ STUDENTS_PER_PAGE = 50
 # The roster's filter parameters. Carried through the unbind form and back
 # on its redirect so the admin lands on the same filtered view instead of
 # the unfiltered first page -- otherwise every unbind means searching again.
-STUDENT_FILTER_ARGS = ('q', 'dept', 'level', 'device', 'page')
+STUDENT_FILTER_ARGS = ('q', 'dept', 'level', 'device', 'status', 'page')
 
 
 def _student_filter_args():
@@ -565,6 +692,7 @@ def students_page():
     dept_id = request.args.get('dept', type=int)
     level = request.args.get('level', '').strip()
     device = request.args.get('device', '')
+    status = request.args.get('status', '')
     page = request.args.get('page', 1, type=int)
 
     query = Student.query
@@ -584,6 +712,8 @@ def students_page():
         query = query.filter(Student.device_id.isnot(None))
     elif device == 'unbound':
         query = query.filter(Student.device_id.is_(None))
+    if status in STUDENT_STATUSES:
+        query = query.filter(Student.status == status)
 
     # joinedload: the template reads student.department and student.user on
     # every row, which would otherwise be two extra queries per student.
@@ -616,7 +746,8 @@ def students_page():
         departments=Department.query.order_by(Department.name).all(),
         levels=levels,
         valid_levels=VALID_LEVELS,
-        filters={'q': q, 'dept': dept_id, 'level': level, 'device': device},
+        filters={'q': q, 'dept': dept_id, 'level': level, 'device': device, 'status': status},
+        student_statuses=STUDENT_STATUSES,
         filter_args=filter_args,
         is_filtered=bool(filter_args),
         active_page='students',
@@ -1083,7 +1214,8 @@ def courses_page():
 
     courses = Course.query.all()
     departments = Department.query.all()
-    lecturers = Lecturer.query.all()
+    # Only active lecturers can be given a course; on leave or left can't.
+    lecturers = Lecturer.query.filter_by(status='active').order_by(Lecturer.full_name).all()
     semesters = Semester.query.all()
     return render_template(
         'admin/courses.html',
@@ -2075,7 +2207,8 @@ def _activity_tone(action):
     """Pill colour for an action: deletions and failed sign-ins stand out."""
     if action.endswith('.delete') or action == 'admin.disable':
         return 'error'
-    if action in ('auth.login_failed', 'student.unbind', 'semester.activate'):
+    if action in ('auth.login_failed', 'student.unbind', 'semester.activate') \
+            or action.endswith('.status') or action.endswith('.bulk_status'):
         return 'warning'
     if action.endswith('.create') or action.endswith('.bulk_import') or action == 'hod.promote':
         return 'success'

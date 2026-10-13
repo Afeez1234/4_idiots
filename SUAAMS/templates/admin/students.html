@@ -1,5 +1,6 @@
 {% extends "base_admin.html" %}
 {% from '_macros.html' import pill, avatar, empty_state, table_empty, card_heading, directory_heading %}
+{% from 'admin/_status.html' import status_cell, status_dialog, bulk_status_card with context %}
 
 {% block title %}Students | SUAAMS Admin{% endblock %}
 {% block page_title %}Students{% endblock %}
@@ -101,6 +102,9 @@
                     </form>
                 </div>
             </div>
+
+            {# Graduating a whole set, or applying a Senate list. #}
+            {{ bulk_status_card('students', student_statuses, 'matric number') }}
         </div>
 
         <!-- Roster -->
@@ -150,6 +154,15 @@
                             <option value="unbound" {% if filters.device == 'unbound' %}selected{% endif %}>Not bound</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="form-label" for="filter-status">Status</label>
+                        <select name="status" id="filter-status" class="form-select">
+                            <option value="">Any</option>
+                            {% for key, label in student_statuses.items() %}
+                                <option value="{{ key }}" {% if filters.status == key %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                     <div class="flex items-end gap-2">
                         <button type="submit" class="btn-primary flex-1">Search</button>
                         {% if is_filtered %}
@@ -192,11 +205,7 @@
                                 {% else %}
                                     {{ pill('Not Bound', 'neutral') }}
                                 {% endif %}
-                                {% if student.user and student.user.requires_password_change %}
-                                    {{ pill('Pending Setup', 'warning') }}
-                                {% else %}
-                                    {{ pill('Active', 'success') }}
-                                {% endif %}
+                                {{ status_cell(student, student_statuses, url_for('admin.change_status', kind='students', person_id=student.id, page=pagination.page, **filter_args)) }}
                             </div>
                         </div>
                     {% else %}
@@ -247,11 +256,7 @@
                                         {% endif %}
                                     </td>
                                     <td class="td">
-                                        {% if student.user and student.user.requires_password_change %}
-                                            {{ pill('Pending Setup', 'warning') }}
-                                        {% else %}
-                                            {{ pill('Active', 'success') }}
-                                        {% endif %}
+                                        {{ status_cell(student, student_statuses, url_for('admin.change_status', kind='students', person_id=student.id, page=pagination.page, **filter_args)) }}
                                     </td>
                                 </tr>
                             {% else %}
@@ -282,6 +287,8 @@
             </div>
         </div>
     </div>
+
+    {{ status_dialog(student_statuses, 'Graduated, Withdrawn, Expelled and Deceased also release the phone binding.') }}
 
 {% endblock %}
 

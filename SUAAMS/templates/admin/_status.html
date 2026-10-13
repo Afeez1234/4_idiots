@@ -1,0 +1,118 @@
+{% from '_macros.html' import pill, card_heading %}
+{# Status controls shared by the Students and Lecturers pages (rules in
+   people_status.py). Import with context, so the CSRF field renders:
+     {% from 'admin/_status.html' import status_cell, status_dialog, bulk_status_card with context %}
+
+   One dialog per page, filled in by its script from the clicked button's
+   data-* attributes -- the same pattern as the timetable slot modal --
+   rather than a hidden form on every row of a 50-row roster. #}
+
+{# The roster's Status cell: school status when it isn't Active, otherwise
+   the account-setup state the column showed before; plus "Change". #}
+{% macro status_cell(person, names, action_url) -%}
+    <div class="flex flex-wrap items-center gap-2">
+        {% if person.status != 'active' %}
+            {{ pill(names.get(person.status, person.status), 'error' if person.status in ('expelled', 'left', 'deceased') else 'warning') }}
+        {% elif person.user and person.user.requires_password_change %}
+            {{ pill('Pending Setup', 'warning') }}
+        {% else %}
+            {{ pill('Active', 'success') }}
+        {% endif %}
+        <button type="button" class="btn-link status-open"
+                data-action="{{ action_url }}" data-name="{{ person.full_name }}" data-status="{{ person.status }}">
+            Change
+        </button>
+    </div>
+{%- endmacro %}
+
+{% macro status_dialog(names, exits_note) -%}
+    <div id="status-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-md rounded-card border border-border bg-card p-6 shadow-pop">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="card-title">Change status</h3>
+                <button type="button" id="status-close" class="btn-ghost btn-icon" aria-label="Close">
+                    <span class="material-symbols-rounded text-xl">close</span>
+                </button>
+            </div>
+            <form id="status-form" method="POST" class="space-y-4">
+                {% include '_csrf_field.html' %}
+                <p class="text-sm text-secondary" id="status-name"></p>
+                <div>
+                    <label class="form-label" for="status-select">Status</label>
+                    <select name="status" id="status-select" required class="form-select">
+                        {% for key, label in names.items() %}
+                            <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="status-reason">Reason</label>
+                    <input type="text" name="reason" id="status-reason" required maxlength="255"
+                           placeholder="e.g. Senate approval 12 Oct 2026" class="form-input">
+                    <p class="form-help">
+                        Anything but Active switches their sign-in off; nothing is deleted. {{ exits_note }}
+                        Recorded in the activity log.
+                    </p>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" id="status-cancel" class="btn-secondary flex-1">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <script>
+        (function () {
+            var modal = document.getElementById('status-modal');
+            var form = document.getElementById('status-form');
+            function close() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+            document.querySelectorAll('.status-open').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    form.action = btn.dataset.action;
+                    // textContent, not innerHTML: a name is data, never markup.
+                    document.getElementById('status-name').textContent = btn.dataset.name;
+                    document.getElementById('status-select').value = btn.dataset.status;
+                    document.getElementById('status-reason').value = '';
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                });
+            });
+            document.getElementById('status-close').addEventListener('click', close);
+            document.getElementById('status-cancel').addEventListener('click', close);
+            modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+        })();
+    </script>
+{%- endmacro %}
+
+{% macro bulk_status_card(kind, names, id_label) -%}
+    <div class="card">
+        <div class="card-header">
+            {{ card_heading('Change Status (CSV)', info=true) }}
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('admin.bulk_status', kind=kind) }}" method="POST"
+                  enctype="multipart/form-data" class="space-y-4">
+                {% include '_csrf_field.html' %}
+                <div>
+                    <label class="form-label" for="bulk-status-file">CSV of {{ id_label }}s</label>
+                    <input type="file" name="file" id="bulk-status-file" accept=".csv,.txt,text/csv" required class="form-file">
+                    <p class="form-help">One {{ id_label }} per line, or a column headed <span class="mono">{{ 'matric_number' if kind == 'students' else 'staff_id' }}</span>. You'll see who changes before anything is saved.</p>
+                </div>
+                <div>
+                    <label class="form-label" for="bulk-status-select">New status</label>
+                    <select name="status" id="bulk-status-select" required class="form-select">
+                        {% for key, label in names.items() %}
+                            <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label" for="bulk-status-reason">Reason</label>
+                    <input type="text" name="reason" id="bulk-status-reason" required maxlength="255"
+                           placeholder="e.g. 2025/2026 graduating set" class="form-input">
+                </div>
+                <button type="submit" class="btn-secondary mt-2 w-full">Preview</button>
+            </form>
+        </div>
+    </div>
+{%- endmacro %}

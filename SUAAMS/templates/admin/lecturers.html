@@ -1,5 +1,6 @@
 {% extends "base_admin.html" %}
 {% from '_macros.html' import pill, avatar, table_empty, card_heading, directory_heading %}
+{% from 'admin/_status.html' import status_cell, status_dialog, bulk_status_card with context %}
 
 {% block title %}Lecturers | SUAAMS Admin{% endblock %}
 {% block page_title %}Lecturers{% endblock %}
@@ -77,6 +78,9 @@
                     </form>
                 </div>
             </div>
+
+            {# Applying a staff list: who left, who is on leave. #}
+            {{ bulk_status_card('lecturers', lecturer_statuses, 'staff ID') }}
         </div>
 
         <!-- Directory -->
@@ -108,14 +112,10 @@
                                     <td class="td td-muted">{{ lecturer.department.name if lecturer.department else '—' }}</td>
                                     <td class="td td-muted">{{ lecturer.courses|length }}</td>
                                     <td class="td">
-                                        {# A freshly created lecturer still has to set a
-                                           password on first login, so "Active" would
-                                           overstate the account's readiness. #}
-                                        {% if lecturer.user and lecturer.user.requires_password_change %}
-                                            {{ pill('Pending Setup', 'warning') }}
-                                        {% else %}
-                                            {{ pill('Active', 'success') }}
-                                        {% endif %}
+                                        {# School status when not Active; otherwise the
+                                           account-setup state ("Pending Setup" until the
+                                           first password change). #}
+                                        {{ status_cell(lecturer, lecturer_statuses, url_for('admin.change_status', kind='lecturers', person_id=lecturer.id)) }}
                                     </td>
                                 </tr>
                             {% else %}
@@ -127,5 +127,7 @@
             </div>
         </div>
     </div>
+
+    {{ status_dialog(lecturer_statuses, 'Left also takes them off courses still running; a coordinator must be replaced first.') }}
 
 {% endblock %}

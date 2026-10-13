@@ -249,7 +249,10 @@ def plan_courses(rows, filename, semester):
         found = []
         for sid in (s.strip() for s in ids):
             lecturer = staff.get(sid.lower())
-            if lecturer:
+            if lecturer and lecturer.status != 'active':
+                r.errors.append(f"{lecturer.full_name} ({sid}) is marked {lecturer.status.replace('_', ' ')} "
+                                f"and can't be given a course.")
+            elif lecturer:
                 found.append(lecturer)
             else:
                 r.errors.append(f"No lecturer with staff ID {sid}. Upload the lecturers file first.")

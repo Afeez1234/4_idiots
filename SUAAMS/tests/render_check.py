@@ -260,12 +260,14 @@ CONTEXTS = {
     "admin/lecturers.html": dict(
         role="admin",
         active_page="lecturers",
+        lecturer_statuses={"active": "Active", "on_leave": "On leave", "left": "Left"},
         active_semester=None,
         lecturers=[
             {
                 "id": 1,
                 "full_name": "Dr. Jane Doe",
                 "staff_id": "LECT-1002",
+                "status": "on_leave",
                 "department": {"name": "Computer Engineering"},
                 "courses": [{}, {}, {}],
                 "user": {"requires_password_change": False},
@@ -383,6 +385,7 @@ CONTEXTS = {
                 "level": "400L",
                 "department": {"name": "Computer Engineering"},
                 "device_id": "android-abc123",
+                "status": "active",
                 "user": {"requires_password_change": False},
             },
             {
@@ -393,6 +396,7 @@ CONTEXTS = {
                 "full_name": "Chinedu O'Brien",
                 "matric_number": "SEE/21/0044",
                 "level": "300L",
+                "status": "graduated",
                 "department": {"name": "Systems Engineering"},
                 "device_id": None,
                 "user": {"requires_password_change": True},
@@ -408,9 +412,27 @@ CONTEXTS = {
         pagination=_pagination(total=60, page=1, pages=2),
         levels=["100", "200", "300", "400", "500"],
         valid_levels=["100", "200", "300", "400", "500"],
-        filters={"q": "", "dept": None, "level": "", "device": ""},
+        filters={"q": "", "dept": None, "level": "", "device": "", "status": ""},
+        student_statuses={"active": "Active", "suspended": "Suspended", "graduated": "Graduated"},
         filter_args={},
         is_filtered=False,
+    ),
+
+    # CSV status change preview (bulk_status in blueprints/admin.py), with an
+    # unknown ID and a blocked lecturer so the warning branch renders.
+    "admin/status_preview.html": dict(
+        role="admin",
+        active_page="lecturers",
+        kind="lecturers",
+        names={"active": "Active", "on_leave": "On leave", "left": "Left"},
+        status="left",
+        reason="Resigned",
+        changing=[{"id": 1, "full_name": "Dr Ade", "staff_id": "STF/1", "status": "active"}],
+        unchanged=0,
+        missing=["STF/404"],
+        blocked={1: "MCT401"},
+        ids_json="[]",
+        back_url="/admin/lecturers",
     ),
 
     # Lecturer/course CSV upload preview (bulk_upload.py).

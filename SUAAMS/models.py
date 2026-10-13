@@ -107,6 +107,12 @@ class Student(db.Model):
     # values to int and fails if any aren't cleanly numeric (e.g. "400L"
     # style values).
     level = db.Column(db.String(20), nullable=False)
+    # Where the student stands with the school: active, suspended,
+    # rusticated, graduated, withdrawn, expelled, deceased -- see
+    # people_status.py, which is the only place that should change it (it
+    # also switches the login off and releases the phone). A status, never a
+    # delete: deleting a student cascades away their attendance and results.
+    status = db.Column(db.String(20), nullable=False, default='active', server_default='active')
     rfid_uid = db.Column(db.String(50), unique=True, nullable=True)
     # unique: one phone binds at most one student (see mobile_login in
     # api/auth.py). NULL means unbound, and MySQL allows any number of NULLs
@@ -172,6 +178,10 @@ class Lecturer(db.Model):
     staff_id = db.Column(db.String(50), unique=True, nullable=False)
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    # active, on_leave or left -- see people_status.py. Like Student.status,
+    # changed only there, never by deleting the row (their past sessions
+    # and the attendance under them must survive them leaving).
+    status = db.Column(db.String(20), nullable=False, default='active', server_default='active')
 
     # DELIBERATELY not cascading: a course shouldn't vanish just because
     # the lecturer account teaching it gets deleted (it has its own

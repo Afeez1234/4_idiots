@@ -1,0 +1,85 @@
+{% extends "base_admin.html" %}
+{% from '_macros.html' import pill, card_heading %}
+
+{# Preview of a CSV status change (bulk_status in blueprints/admin.py).
+   Nothing has changed when this page shows. Unknown IDs, or a lecturer who
+   still coordinates a running course, block the confirm: all or nothing. #}
+
+{% set noun = 'student' if kind == 'students' else 'lecturer' %}
+
+{% block title %}Status change | SUAAMS Admin{% endblock %}
+{% block page_title %}Change status{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">Preview &mdash; nobody has been changed yet</p>
+{% endblock %}
+
+{% block content %}
+    <div class="card card-body space-y-4">
+        {{ card_heading('Summary') }}
+        <p class="text-sm text-secondary">
+            Set <span class="font-medium text-ink">{{ changing|length }} {{ noun }}{{ '' if changing|length == 1 else 's' }}</span>
+            to <span class="font-medium text-ink">{{ names[status] }}</span>.
+            {% if unchanged %}{{ unchanged }} already {{ 'has' if unchanged == 1 else 'have' }} that status.{% endif %}
+            Reason: &ldquo;{{ reason }}&rdquo;
+        </p>
+
+        {% if missing or blocked %}
+            <div class="alert" data-tone="warning">
+                <span>
+                    {% if missing %}{{ missing|length }} ID{{ '' if missing|length == 1 else 's' }} in the file
+                        {{ 'matches' if missing|length == 1 else 'match' }} nobody: {{ missing[:20]|join(', ') }}{% if missing|length > 20 %} and {{ missing|length - 20 }} more{% endif %}.{% endif %}
+                    {% if blocked %}{{ blocked|length }} lecturer{{ '' if blocked|length == 1 else 's' }} still coordinate{{ 's' if blocked|length == 1 else '' }}
+                        a running course (below): choose new coordinators on the Courses page first.{% endif %}
+                    Fix the file and try again. Nobody has been changed.
+                </span>
+            </div>
+            <a href="{{ back_url }}" class="btn-secondary">Back</a>
+        {% elif changing %}
+            <form action="{{ url_for('admin.bulk_status', kind=kind) }}" method="POST" class="flex flex-wrap gap-2">
+                {% include '_csrf_field.html' %}
+                <input type="hidden" name="confirm" value="1">
+                <input type="hidden" name="ids" value="{{ ids_json }}">
+                <input type="hidden" name="status" value="{{ status }}">
+                <input type="hidden" name="reason" value="{{ reason }}">
+                <button type="submit" class="btn-primary">Set {{ changing|length }} to {{ names[status] }}</button>
+                <a href="{{ back_url }}" class="btn-ghost">Cancel</a>
+            </form>
+        {% else %}
+            <p class="text-sm text-secondary">Everyone in the file already has that status.</p>
+            <a href="{{ back_url }}" class="btn-secondary">Back</a>
+        {% endif %}
+    </div>
+
+    {% if changing %}
+    <div class="card-clip mt-6">
+        <div class="table-wrap">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th class="th">Name</th>
+                        <th class="th">{{ 'Matric No.' if kind == 'students' else 'Staff ID' }}</th>
+                        <th class="th">Now</th>
+                        <th class="th">Becomes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in changing %}
+                        <tr>
+                            <td class="td">{{ p.full_name }}</td>
+                            <td class="td td-muted mono text-xs">{{ p.matric_number if kind == 'students' else p.staff_id }}</td>
+                            <td class="td td-muted">{{ names.get(p.status, p.status) }}</td>
+                            <td class="td">
+                                {% if blocked.get(p.id) %}
+                                    <p class="text-xs text-error">Still coordinates {{ blocked[p.id] }}.</p>
+                                {% else %}
+                                    {{ pill(names[status], 'success' if status == 'active' else 'warning') }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}

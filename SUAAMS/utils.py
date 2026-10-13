@@ -212,6 +212,8 @@ def students_not_checked_in(session):
         Student.query
         .join(Enrollment, Enrollment.student_id == Student.id)
         .filter(Enrollment.course_id == session.course_id,
+                # A suspended, expelled, ... student isn't expected in class.
+                Student.status == 'active',
                 ~Student.id.in_(recorded))
         .order_by(Student.full_name)
         .all()
