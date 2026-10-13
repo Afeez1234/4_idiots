@@ -26,9 +26,6 @@ logger = logging.getLogger("suaams")
 # past a single worker, set storage_uri to a redis:// URL (Render Redis
 # add-on or Upstash) here -- none of the @limiter.limit(...) call sites
 # elsewhere in the codebase need to change.
-_logged_proxy_headers = False
-
-
 def client_ip():
     """The visitor's real IP address.
 
@@ -42,22 +39,12 @@ def client_ip():
          and overwrites any value the visitor sent, so it can't be faked
          through Cloudflare. (Every *.onrender.com request goes through
          Cloudflare; the response headers show `Server: cloudflare`.)
+         Confirmed on the live server on 2026-10-13: Render's logs showed
+         the visitor's real public address in this header.
       2. The LAST X-Forwarded-For entry -- added by the nearest proxy.
          Earlier entries are whatever the client claimed.
       3. remote_addr, for local development with no proxy in front.
     """
-    global _logged_proxy_headers
-    if not _logged_proxy_headers:
-        # Once per process, so the assumption above can be checked in the
-        # Render logs after a deploy. Remove once confirmed.
-        _logged_proxy_headers = True
-        logger.info(
-            "Proxy headers check: remote_addr=%s CF-Connecting-IP=%s X-Forwarded-For=%s",
-            request.remote_addr,
-            request.headers.get('CF-Connecting-IP'),
-            request.headers.get('X-Forwarded-For'),
-        )
-
     cf = request.headers.get('CF-Connecting-IP', '').strip()
     if cf:
         return cf[:45]
