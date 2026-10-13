@@ -1,0 +1,5 @@
+# Real Student Affairs timetable sheets name real lecturers and this
+# repository is public: keep them on your machine only. The tests use any
+# found here in addition to the generated look-alike (make_sample.py).
+*
+!.gitignore
