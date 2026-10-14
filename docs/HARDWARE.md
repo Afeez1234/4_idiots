@@ -153,6 +153,17 @@ Measured so far, as recorded in code comments:
 - Warm end-to-end budget: about 0.5 s (APDU ~0.12 s, TLS + POST ~0.3 s,
   DB write ~0.1 s)
 - Cold Render start: 8.5 s. Barely warm: 5.0–5.3 s
+Bench run after the 2026-10-13 reflash (TLS verification + fast reads):
+
+- Connects to the server with certificate verification on: **pass**
+- Taps register without the old 2 s pause: **pass**. The first tap after a
+  quiet spell is slower than the rest, most likely the pre-flight `/healthz`
+  ping (the server is only trusted as warm for 60 s while idle pings are
+  every 4 min). Check for `[WARM] Pre-flight ping` before that tap
+- A phone held on the reader is not recorded twice: **pass**
+- Bluetooth check-in: **pass**
+- Wi-Fi off, tap queued, reviewed after reconnect: **not yet tested**
+
 Still to measure. **FILL IN**, with the date and the phone model:
 
 - Tap to app confirmation, server warm: **?** (read `[POST] Completed in`

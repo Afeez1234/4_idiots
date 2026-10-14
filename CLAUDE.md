@@ -90,7 +90,7 @@ parents (e.g. sessions) are cleared.
 
 **Architecture:** Blueprint-based — auth, admin, lecturer, student, api.
 bcrypt auth, role-based `login_required` decorator. JWT-based endpoints for
-mobile (auth + lecturer flows). 17-table schema (see `models.py`), grown
+mobile (auth + lecturer flows). 20-table schema (see `models.py`), grown
 from an original seven-table design built around ESP32 + RFID capture.
 
 ### Known active issue
@@ -192,8 +192,10 @@ without hardware/template-sync limits.
   connectivity returns. (This is why `Session.planned_start`/`planned_end`
   exist as fields distinct from actual check-in timestamps.)
 - **Enrollment at scale**: self-service course registration in the Flutter
-  app, plus an admin-side bulk CSV uploader (parses registration numbers,
-  links to courses, generates default authorization codes).
+  app (built), plus admin bulk CSV uploads for students, lecturers and
+  courses (built). Timetables are imported from Student Affairs PDFs and
+  published (built 2026-10-13; see `timetable_import.py`), which is the
+  input the autonomous session scheduler above would use.
 
 ## File structure reference
 - `lib/core/constants/api_constants.dart` — endpoint constants

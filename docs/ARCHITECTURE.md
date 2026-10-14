@@ -185,8 +185,10 @@ sequenceDiagram
     F-->>T: 200, queue cleared
 ```
 
-These rows are **not attendance**. A lecturer has to decide on them, and the
-review screen isn't built yet.
+These rows are **not attendance**. The course lecturer reviews them on the
+session page (app and web): each accepted tap becomes attendance with
+`method = offline`, its tap time and the lecturer's name; a rejected one
+stays out.
 
 The terminal only treats a request as "offline" when it gets **no HTTP
 response at all**. A real 4xx/5xx is the server's answer, so that tap is not
@@ -248,17 +250,18 @@ shows a "Happening Now" banner for the class that *should* be running.
 
 ---
 
-## 7. Data model (17 tables)
+## 7. Data model (20 tables)
 
 Defined in [models.py](../SUAAMS/models.py).
 
 | Group | Tables |
 |---|---|
-| Organisation | `faculties`, `departments`, `semesters` |
-| People | `users` (login, role, refresh jti), `students` (matric, `device_id` unique), `lecturers`, `hods` |
-| Teaching | `courses` (unique per code + semester), `enrollments`, `timetable`, `sessions` |
-| Attendance | `attendance` (unique per student + session, `status`, `method`), `offline_checkin_logs` (unique per student + session) |
+| Organisation | `faculties`, `departments` (`programme_years`), `semesters` |
+| People | `users` (login, role, `is_active`, refresh jti), `students` (matric, `level`, `status`, `device_id` unique), `lecturers` (`status`), `hods` |
+| Teaching | `courses` (unique per code + semester; `lecturer_id` = coordinator), `course_lecturers` (co-lecturers), `enrollments`, `timetable` (`kind` L/T/P, `is_published`), `sessions` (`started_by`) |
+| Attendance | `attendance` (unique per student + session, `status`, `method`, `marked_by`), `offline_checkin_logs` (unique per student + session) |
 | Comms | `announcements`, `notifications`, `device_tokens` (FCM) |
+| Admin | `audit_logs` (who changed what), `promotion_runs` (one per academic year, undoable) |
 | Other | `results` |
 
 Deletes cascade downwards (for example, deleting a session deletes its
@@ -267,7 +270,54 @@ attendance rows). Semesters deliberately do not cascade. See the comment in
 
 ---
 
-## 8. Time
+## 8. Timetable: from Student Affairs PDFs to the app
+
+Student Affairs issues one PDF sheet per department and level. With about
+20 departments x 5 levels, typing them in by hand isn't feasible, so the
+admin uploads the sheets.
+
+```mermaid
+flowchart LR
+    PDF[Sheets, up to 10 per upload<br/>or last year's semester] --> R[timetable_pdf.py<br/>read text + check ink]
+    R --> P[timetable_import.py<br/>match courses, check clashes]
+    P --> V{Preview}
+    V -- Save as draft --> D[(timetable<br/>is_published = false)]
+    D -- Publish --> S[timetable_publish.py<br/>swap in one transaction]
+    S --> N[Notify only people<br/>whose classes changed]
+    S --> APP[App: /schedule/week,<br/>/schedule/today]
+```
+
+- **Drafts are invisible.** Every query students and lecturers see filters
+  `is_published`. Until Publish, they keep seeing the old classes, so an
+  import never leaves a course missing halfway through.
+- **The preview is re-checked on confirm.** It travels back as JSON and is
+  planned again from scratch, so a stale or edited preview can't save
+  anything the checks would reject.
+- **Hidden text is ignored.** The reader renders the page and keeps only
+  letters with ink under them. The real sheets contain text drawn in white or
+  invisible, which would otherwise import as classes.
+- **Notifications go only to the affected.** For each course whose classes
+  changed: its registered students and all its lecturers, one notification
+  per person, grouped into bulk sends by identical text.
+- **The admin page** shows a coverage table (one row per department + level:
+  published, drafts, nothing yet). The weekly grid appears only for one
+  department and level, which is the week those students see.
+
+## 9. People over time: status and promotion
+
+- **Status** ([people_status.py](../SUAAMS/people_status.py)): anything but
+  `active` sets `users.is_active = false` and clears the refresh token. Web
+  pages check it on every request; the app can't refresh, so it is out
+  within 30 minutes. Nobody is ever deleted, because deleting a student
+  cascades away their attendance.
+- **Promotion** ([promotion.py](../SUAAMS/promotion.py)): once per academic
+  year (from the active semester's name), every active student moves up one
+  level in a few bulk UPDATEs. Final-year students (level = programme years x
+  100) stay and are listed as due to graduate; graduating them is a separate
+  status change. `promotion_runs` stops a second run for the same year and
+  makes the run undoable.
+
+## 10. Time
 
 - Class times (`planned_start`, timetable slots) are **campus wall-clock
   time**, Africa/Lagos ([campus_time.py](../SUAAMS/campus_time.py)).

@@ -107,8 +107,9 @@ if you know the date.
   loss) and uploads them later. The server checks the signature only and
   stores each one as a `pending_verification` row with the tap time, which it
   works out from the code's own expiry. The terminal has no clock to trust.
-- **Trade-off:** Someone has to review them, and the review screen isn't
-  built yet. When the queue is full, the oldest tap is dropped.
+- **Trade-off:** Someone has to review them: the course lecturer does, on
+  the session page (built 2026-10-12). When the queue is full, the oldest
+  tap is dropped.
 
 ### D8. BLE as a fallback, broadcasting from the terminal
 
@@ -232,3 +233,95 @@ if you know the date.
   protection, and the new password is hashed at full cost (12). Accounts
   created one at a time on the form keep cost 12. The upload is now
   all-or-nothing: a failure saves none of the file, rather than part of it.
+
+### D18. Timetables imported from Student Affairs PDFs, with an ink check (2026-10-13)
+
+- **Problem:** About 20 departments x 5 levels, each with its own weekly
+  sheet. Entering every class by hand on the admin page wasn't feasible.
+- **Tried:** Reading the PDF's text layer alone. The real sheets contain text
+  that isn't visible: drawn in white, or invisible. A text-only reader
+  imported classes nobody can see on the printed sheet.
+- **Chose:** `pdfplumber` for the words and their positions, plus a render of
+  the page (`pypdfium2`) to keep only letters with ink under them. One
+  landscape page per sheet; other layouts are refused rather than guessed.
+  The test fixture is a generated look-alike, so no real lecturer names are
+  in the public repo.
+- **Trade-off:** It's tied to Student Affairs' current layout. A new layout
+  means updating the reader. Rendering costs about 0.7 s per sheet, so an
+  upload is capped at 10 sheets.
+
+### D19. Drafts, then Publish, then notify only who changed (2026-10-13)
+
+- **Problem:** An import that went live row by row would leave students
+  looking at half a timetable. And notifying everyone on every correction
+  trains people to ignore notifications.
+- **Chose:** Imports save drafts that only admins see. Publish swaps a
+  course's drafts in for its published classes in one transaction. Then each
+  person whose classes actually changed gets one notification listing their
+  new times; a course re-published identically notifies nobody. Hand edits
+  of published classes use the same rule.
+- **Trade-off:** One more step (Publish) for the admins. The notification
+  lists the new schedule, not a diff, which is longer but is what students
+  need.
+
+### D20. A course's level read from its code, not a new column (2026-10-13)
+
+- **Problem:** The timetable page needs to filter by level, but courses have
+  no level field; only students do.
+- **Tried:** A `Course.level` column was considered. It needs a migration and
+  every existing course filled in by hand.
+- **Chose:** The first digit of the code is the level (MCT401 -> 400), which
+  every code the school issues follows. Codes without one go under "Other".
+- **Trade-off:** A course code that breaks the convention lands in the wrong
+  level. If that happens, a real column is a cheap change later.
+
+### D21. Copy "same semester last year", not "last semester" (2026-10-13)
+
+- **Problem:** Re-entering a timetable every semester is wasteful when most
+  classes repeat.
+- **Tried:** Copying the previous semester. First and second semesters run
+  different courses, so it would match almost nothing.
+- **Chose:** The default source is the same-named semester a year earlier.
+  It goes through the import's preview and checks, and a course that no
+  longer exists is noted instead of blocking the copy.
+- **Trade-off:** Courses are rows per semester, so they must exist in the new
+  semester (by code) before their classes can be copied.
+
+### D22. Status, never delete (2026-10-13)
+
+- **Problem:** Nobody could be switched off: a lecturer who had left, or an
+  expelled student, could still sign in. Deleting them would cascade away
+  attendance and results.
+- **Chose:** A status on students and lecturers. Anything but active turns
+  the login off and revokes the refresh token. Student exits release the
+  phone binding. A lecturer can't be marked Left while coordinating a running
+  course, because a course must always have a coordinator.
+- **Trade-off:** An app already signed in keeps a valid access token for up
+  to 30 minutes after being switched off. Closing that would mean a database
+  lookup on every app request.
+
+### D23. Promotion: one button, once a year, undoable, never auto-graduates (2026-10-14)
+
+- **Problem:** A student's level was typed at enrolment and never changed, so
+  rosters and HOD reports drifted every year.
+- **Tried:** Promoting automatically when a semester is activated. Semesters
+  are activated twice a year and sometimes re-activated by mistake, which
+  would promote twice.
+- **Chose:** An explicit action with a preview, guarded to once per academic
+  year (`promotion_runs.academic_year` is unique), runnable in a few bulk
+  UPDATEs, and undoable. Final-year students are only listed as due to
+  graduate, because carry-overs are common.
+- **Trade-off:** Someone has to remember to run it each session. Graduating
+  is a second step.
+
+### D24. Lecturer and course uploads block on any error; the student upload skips (2026-10-13)
+
+- **Problem:** Two upload styles now exist and look inconsistent.
+- **Chose:** Lecturer and course uploads show a preview and refuse the whole
+  file if any row has an error. Rows that already exist are skipped, not
+  errors, so re-uploading is harmless. A half-saved course file (some
+  courses created, their co-lecturers not) is harder to repair than a
+  rejected one.
+- **Trade-off:** The older student upload still saves good rows and skips
+  bad ones. Bringing it in line is a small change if it ever confuses
+  anyone.

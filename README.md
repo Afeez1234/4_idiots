@@ -51,7 +51,7 @@ there is no limit on how many students can enrol.
 | Part | What it is | Where in the repo |
 |---|---|---|
 | **Mobile app** | Flutter app for students and lecturers, Android and iOS | [SUAAMS_Mobile/suaams/](SUAAMS_Mobile/suaams/) |
-| **Server** | Python/Flask API, plus web dashboards for admin, HOD, lecturer, student. MySQL database (17 tables) hosted on Clever Cloud, server hosted on Render | [SUAAMS/](SUAAMS/) |
+| **Server** | Python/Flask API, plus web dashboards for admin, HOD, lecturer, student. MySQL database (20 tables) hosted on Clever Cloud, server hosted on Render | [SUAAMS/](SUAAMS/) |
 | **Terminal** | ESP32 microcontroller + PN532 NFC reader. Also broadcasts a Bluetooth signal for phones without NFC | [ESP32_ARDUINO CODE/SUAAMS_HCE/](ESP32_ARDUINO%20CODE/SUAAMS_HCE/) |
 
 The other sketches in `ESP32_ARDUINO CODE/` (`SUAAMS_ESP`, `SUAAMS_`) are the
@@ -164,13 +164,24 @@ history, announcements), but the app is the main way students use SUAAMS.
 - *Sign-offs* tab is a placeholder for now
 
 ### Admin — web dashboard
-- Set up faculties and departments
-- Create lecturer, HOD and student accounts. Students can also be added in
-  bulk from a CSV file. The roster has search, filters and pages.
+- Set up faculties and departments, with each programme's length (4 or 5
+  years)
+- Create lecturer, HOD and student accounts. Students, lecturers and courses
+  can also be added in bulk from a CSV file (lecturers and courses with a
+  preview first). The roster has search, filters and pages.
 - **Unbind a student's phone** (see §5)
-- Create courses, semesters (one active at a time), and the weekly timetable
-- The timetable page shows a live "Happening Now" banner for the class that
-  should be running
+- **Status**: mark students suspended, rusticated, graduated, withdrawn,
+  expelled or deceased, and lecturers on leave or left. Anything but active
+  switches the login off; nothing is deleted. One at a time or by CSV
+- **Promotion**: once a session, move every active student up one level, with
+  repeaters excluded and final-year students listed as due to graduate.
+  Undoable
+- Create courses and semesters (one active at a time)
+- **Timetable**: import Student Affairs' PDF sheets (or copy last year's),
+  check the preview, save as a draft, then publish. Only students and
+  lecturers whose classes changed are notified. The page shows a coverage
+  table per department and level, and the weekly grid with a live "Happening
+  Now" banner for one department and level
 - University-, department- or course-wide announcements
 - Attendance reports with CSV export
 - **Activity log**: who changed what on the dashboard. Each person who runs
@@ -225,13 +236,15 @@ when a student checked in, are stored in UTC and converted when displayed.
 
 ## 7. Current status and known gaps
 
-*As of 9 October 2026. Update this date whenever a line below changes.*
+*As of 14 October 2026. Update this date whenever a line below changes.*
 
 **Working and tested**
 - NFC tap check-in, end to end, on real hardware
 - Bluetooth fallback, end to end, on a real Android phone
 - Full login flow with device binding, all four dashboards, notifications,
   course registration, timetable, reports
+- Timetable import from PDF, publish and notifications; bulk lecturer/course
+  upload; status; promotion (automated tests; not yet used with real data)
 
 **Not built yet / limitations**
 - **Biometric invalidation**: not built. The plan is to bind check-in to the

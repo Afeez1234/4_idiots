@@ -46,6 +46,8 @@ that isn't true, usually for an absent friend. Secondary assets are accounts
 | T17 | **Web CSRF** | Flask-WTF on dashboard forms | `extensions.py` |
 | T18 | **Untraceable admin changes** (several people sharing one admin login) | Personal admin logins; every dashboard change, admin sign-in and failed admin sign-in is recorded with the person's name; the log is read-only in the app | `create_admin.py`, `audit.py`, `/admin/activity` |
 | T19 | **Temporary passwords left in place** | Web requests are refused until the password is changed; disabled accounts are signed out at once | `blueprints/auth.py` `enforce_account_state` |
+| T20 | **Departed staff or removed students still signing in** | Status: anything but active turns the login off and revokes the refresh token; student exits release the phone binding; changes are audited with a reason | `people_status.py`, `api/auth.py` `/refresh` |
+| T21 | **Hidden text in an imported timetable PDF** | Only letters with ink under them are read; every import is previewed and saved as a draft until published | `timetable_pdf.py`, `timetable_import.py` |
 
 ## 4. Known gaps (honest list)
 
@@ -65,6 +67,8 @@ one an examiner finds.
 | **Old credentials in git history** | DB password and signing keys from before the env-var fix are public | Treat as burned; rotate if not already done |
 | **Manual marking trusts the lecturer** | A lecturer can mark any enrolled student present without them being there | By design: limited to the lecturer's own courses, recorded as `method = manual` with `marked_by`, and never overwrites a real check-in |
 | **iOS BLE untested** | Unknown | Needs an iPhone test |
+| **30 minutes after switching someone off** | An app already signed in keeps its access token until it expires (up to 30 min), so a just-expelled student could still check in during that window | Refresh is refused at once; closing the window fully needs an `is_active` check on every API request |
+| **Default first passwords are guessable** | Accounts still on "Pending Setup" can be signed into with the matric number or staff ID | Forced change at first sign-in; random first passwords under consideration |
 
 ## 5. Secrets inventory
 

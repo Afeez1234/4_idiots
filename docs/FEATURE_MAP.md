@@ -68,6 +68,7 @@ the feature.
 | Digital ID card | On-screen student ID | — | `student_id_card_screen.dart`, `core/providers/card_privacy_provider.dart` | — | — |
 | Announcements | Course/dept/university notices | `api/student.py` `/announcements`, `/announcements/seen` | `student_announcements_provider.dart`, `announcements_screen.dart` | — | `announcements` |
 | Notifications + push | In-app list, FCM push | `api/student.py` `/notifications`, `/device-token`; `push_notifications.py` | `core/services/notification_service.dart`, `notifications_provider.dart` | — | `notifications`, `device_tokens` |
+| Notification taps | A timetable notification opens the user's own timetable tab (student or lecturer), reloading it first; attendance opens that session. A tap that opens a closed app is held until the splash screen restores the session | — | `core/services/notification_service.dart` `_routeForData`, `openPendingTap`; `features/auth/presentation/splash_screen.dart` | — | — |
 | Loading skeletons | Placeholder layout on first load: home, today's list, timetable, day detail, attendance courses, history. Refreshes keep old data on screen; a failed first load shows a retry | — | `shared/widgets/app_skeleton.dart`; `student_home_screen.dart` `_HomeSkeleton`; `courses_view.dart` `_CoursesSkeleton`; `records_view.dart`; `student_timetable_screen.dart`; `day_detail_screen.dart`. Loaders: `student_provider.dart`, `today_schedule_provider.dart`, `week_schedule_provider.dart` | — | — |
 | Theme | Automatic / Dark / Light | — | `core/providers/theme_provider.dart`, `shared/widgets/theme_mode_sheet.dart` | — | — |
 | Student web portal | Dashboard, courses, attendance, announcements | `blueprints/student.py` | — | — | — |
@@ -91,10 +92,17 @@ the feature.
 
 | Feature | What it does | Server | Templates | Tables |
 |---|---|---|---|---|
-| Faculties / departments | Organisation setup | `blueprints/admin.py` `/organization` | `templates/admin/` | `faculties`, `departments` |
-| Accounts | Lecturers, HODs, students; CSV bulk enrol | `blueprints/admin.py` `/lecturers`, `/hods`, `/students`, `/students/bulk-enroll` | `templates/admin/` | `users` + profiles |
+| Faculties / departments | Organisation setup; each department's programme length (4 or 5 years), set in place. Counts come from GROUP BY queries | `blueprints/admin.py` `/organization`, `_organization_counts` | `admin/organization.html` | `faculties`, `departments` |
+| Accounts | Lecturers, HODs, students; student CSV bulk enrol (skips bad rows) | `blueprints/admin.py` `/lecturers`, `/hods`, `/students`, `/students/bulk-enroll` | `templates/admin/` | `users` + profiles |
+| Bulk lecturers / courses | CSV upload → preview → confirm. Any row error blocks the file; existing rows are skipped unchanged. Courses list lecturers by staff ID, coordinator first. Template download per kind | `bulk_upload.py`; `blueprints/admin.py` `/bulk/<kind>`, `/bulk/confirm`, `/bulk/<kind>/template.csv` | `admin/bulk_preview.html`, cards on `lecturers.html`, `courses.html` | `users`, `lecturers`, `courses`, `course_lecturers` |
+| Status (who is still part of the school) | Students: active, suspended, rusticated, graduated, withdrawn, expelled, deceased. Lecturers: active, on leave, left. Not active = login off + refresh token revoked; student exits release the phone; a coordinator can't be marked Left. One at a time or by CSV with a preview. Never deletes | `people_status.py`; `blueprints/admin.py` `/<kind>/<id>/status`, `/<kind>/status/bulk` | `admin/_status.html`, `admin/status_preview.html` | `students.status`, `lecturers.status`, `users.is_active` |
+| Promotion | Every active student up one level, once per academic year, after a preview. Repeaters by CSV; final-year students listed as due to graduate (CSV download feeds the status upload). Undoable | `promotion.py`; `blueprints/admin.py` `/students/promotion*` | `admin/promotion.html` | `students.level`, `departments.programme_years`, `promotion_runs` |
 | Courses, semesters | One active semester at a time | `blueprints/admin.py` `/courses`, `/semesters` | `templates/admin/` | `courses`, `semesters` |
-| Timetable + "Happening Now" | Weekly slots, live banner | `blueprints/admin.py` `/timetable`, `/timetable/current`; `utils.py` `resolve_timetable_slot_for_course` | `templates/admin/` | `timetable` |
+| Timetable: PDF reader | Reads a Student Affairs one-page sheet: department, level, semester, classes (code, L/T/P, day, time, room). Renders the page to ignore text with no ink (hidden text) | `timetable_pdf.py` `parse_timetable_pdf` | — | — |
+| Timetable: import | Up to 10 sheets → preview with checks (course exists, room/lecturer/co-lecturer clashes, same class on several sheets saved once) → saved as drafts. Confirm re-checks | `timetable_import.py`; `blueprints/admin.py` `/timetable/import`, `/timetable/import/confirm` | `admin/timetable_import.html` | `timetable` (`kind`, `is_published`) |
+| Timetable: copy last year | Same semester a year earlier's published classes → drafts in this semester, matched by course code, through the import's preview and checks. Dropped courses are noted, not blocking | `timetable_import.py` `plan_copy`, `default_copy_source`; `blueprints/admin.py` `/timetable/copy` | `admin/timetable.html` (card), `admin/timetable_import.html` | `timetable` |
+| Timetable: publish | Swaps a semester's drafts in for those courses' published classes in one transaction; notifies only students and lecturers whose classes changed, once each. Hand edits of published classes notify the same way | `timetable_publish.py`; `blueprints/admin.py` `/timetable/publish`, `_notify_timetable_edit` | `admin/timetable.html` | `timetable`, `notifications` |
+| Timetable: page | Coverage table (one row per department + level) by default; the weekly grid, Add Slot and "Happening Now" once a department and level are chosen. Level read from the course code | `blueprints/admin.py` `/timetable`, `_timetable_view`, `_timetable_coverage`, `/timetable/current`; `utils.py` `course_level`, `resolve_current_course` | `admin/timetable.html` | `timetable` |
 | Reports | Attendance reports + CSV | `blueprints/admin.py` `/reports`, `/reports/export` | `templates/admin/` | `attendance` |
 | HOD views | Overview, by level, students, sign-offs (placeholder) | `blueprints/hod.py` | `templates/hod/` | `students`, `attendance` |
 
@@ -114,5 +122,10 @@ the feature.
 | Bulk notifications and announcement audience | `SUAAMS/tests/test_notifications.py` |
 | Disabled accounts, dropping courses, level rule | `SUAAMS/tests/test_account_rules.py` |
 | Query counts: HOD, student dashboard, analytics | `SUAAMS/tests/test_hod_attendance.py`, `test_page_queries.py` |
+| Several lecturers per course | `SUAAMS/tests/test_course_lecturers.py` |
+| Timetable PDF reader (look-alike sheet; real sheets only if present locally) | `SUAAMS/tests/test_timetable_pdf.py`, fixture generator `tests/fixtures/timetables/make_sample.py` |
+| Timetable import, publish + notifications, page view, copy | `SUAAMS/tests/test_timetable_import.py`, `test_timetable_publish.py`, `test_timetable_view.py`, `test_timetable_copy.py` |
+| Bulk lecturers / courses | `SUAAMS/tests/test_bulk_upload.py` |
+| Status, promotion, Organization counts | `SUAAMS/tests/test_people_status.py`, `test_promotion.py` |
 | Flutter tests | `SUAAMS_Mobile/suaams/test/` |
 | **All of the above, on every push** | `.github/workflows/tests.yml` (GitHub Actions) |

@@ -110,8 +110,8 @@ It keeps reading taps and stores up to 16 in flash, which survives power loss.
 It uploads them when it reconnects. The server records them as "pending
 verification" with the tap time. It doesn't count them automatically, because
 by then the codes have expired, and accepting expired codes would defeat the
-10-second rule.
-*Limitation:* The lecturer screen to review them isn't built yet.
+10-second rule. The lecturer accepts or rejects them on the session page, and
+an accepted one is recorded as `offline` under the lecturer's name.
 
 **Q: Why 10 seconds? Isn't that long?**
 It was 3 s. On real hardware the machine part takes about 0.5 s, and almost
@@ -146,6 +146,35 @@ It refuses to log in rather than sending a placeholder. A shared placeholder
 would make every such phone look like the same device, and the server
 rejects the old placeholder strings.
 
+## Running a whole university
+
+**Q: How does the timetable get in for 20 departments and 5 levels?**
+Student Affairs' PDF sheets are uploaded, up to 10 at a time. The server reads
+each sheet, matches every class to a course, checks room and lecturer clashes,
+and shows a preview. Saved classes are drafts until an admin publishes, and
+then only students and lecturers whose classes changed are notified. Next year,
+last year's timetable can be copied as a starting point.
+*Limitation:* The reader is built for Student Affairs' current layout; a new
+layout means updating it.
+
+**Q: Couldn't someone slip a fake class into a PDF?**
+The reader ignores text with no ink under it, which the real sheets do
+contain. Every import is previewed, saved as a draft, and published by a named
+admin, with an audit entry.
+
+**Q: What happens when a student graduates or a lecturer leaves?**
+An admin sets their status, one at a time or from a CSV. Anything but active
+turns the login off at once on the web and within 30 minutes in the app.
+Nothing is deleted, so their attendance history stays. A lecturer still
+coordinating a running course can't be marked as left until someone replaces
+them.
+
+**Q: How do levels change each year?**
+Once per academic year an admin runs Promotion: every active student moves up
+one level, repeaters can be excluded by CSV, and final-year students are only
+listed as due to graduate. It can't run twice for the same year, and it can be
+undone.
+
 ## Engineering
 
 **Q: Why the PN532 instead of the cheaper MFRC522?**
@@ -168,4 +197,6 @@ git history. They're treated as burned.
 
 **Q: What would you do with more time?**
 Biometric invalidation,
-automatic session start/stop from the timetable, per-terminal secrets, and a real iPhone test.
+automatic session start/stop from the timetable (the timetable is now
+imported and published, so this is the natural next step), per-terminal
+secrets, and a real iPhone test.
