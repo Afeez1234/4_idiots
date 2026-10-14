@@ -42,6 +42,7 @@
 
                 <div class="divide-y divide-divider border-t border-divider">
                     {% for faculty in faculties %}
+                        {% set fc = faculty_counts.get(faculty.id, {'departments': 0, 'students': 0, 'lecturers': 0, 'courses': 0}) %}
                         <div class="flex items-center justify-between gap-4 px-5 py-3.5">
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-semibold text-ink">{{ faculty.name }}</p>
@@ -52,10 +53,10 @@
                                    course under them -- with it, so the admin has
                                    to see the blast radius before confirming. #}
                                 <p class="mt-0.5 text-2xs text-muted">
-                                    {{ faculty.departments|length }} department{{ '' if faculty.departments|length == 1 else 's' }} &middot;
-                                    {{ faculty.departments|map(attribute='students')|map('length')|sum }} students &middot;
-                                    {{ faculty.departments|map(attribute='lecturers')|map('length')|sum }} lecturers &middot;
-                                    {{ faculty.departments|map(attribute='courses')|map('length')|sum }} courses
+                                    {{ fc.departments }} department{{ '' if fc.departments == 1 else 's' }} &middot;
+                                    {{ fc.students }} students &middot;
+                                    {{ fc.lecturers }} lecturers &middot;
+                                    {{ fc.courses }} courses
                                 </p>
                             </div>
                             {# data-* below is the modal's entire input contract;
@@ -69,7 +70,7 @@
                                     data-entity-type="Faculty"
                                     data-name="{{ faculty.name }}"
                                     data-action-url="{{ url_for('admin.delete_faculty', faculty_id=faculty.id) }}"
-                                    data-message="Deleting &quot;{{ faculty.name }}&quot; will also delete {{ faculty.departments|length }} department(s), {{ faculty.departments|map(attribute='students')|map('length')|sum }} student(s), {{ faculty.departments|map(attribute='lecturers')|map('length')|sum }} lecturer(s), and {{ faculty.departments|map(attribute='courses')|map('length')|sum }} course(s). This cannot be undone.">
+                                    data-message="Deleting &quot;{{ faculty.name }}&quot; will also delete {{ fc.departments }} department(s), {{ fc.students }} student(s), {{ fc.lecturers }} lecturer(s), and {{ fc.courses }} course(s). This cannot be undone.">
                                 <span class="material-symbols-rounded text-xl">delete</span>
                             </button>
                         </div>
@@ -129,14 +130,15 @@
 
                 <div class="divide-y divide-divider border-t border-divider">
                     {% for dept in departments %}
+                        {% set dc = dept_counts.get(dept.id, {'students': 0, 'lecturers': 0, 'courses': 0}) %}
                         <div class="flex items-center justify-between gap-4 px-5 py-3.5">
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-semibold text-ink">{{ dept.name }}</p>
                                 <p class="mt-0.5 text-2xs text-muted">
                                     {{ dept.faculty.name if dept.faculty else '—' }} &middot;
-                                    {{ dept.students|length }} students &middot;
-                                    {{ dept.lecturers|length }} lecturers &middot;
-                                    {{ dept.courses|length }} courses
+                                    {{ dc.students }} students &middot;
+                                    {{ dc.lecturers }} lecturers &middot;
+                                    {{ dc.courses }} courses
                                 </p>
                             </div>
                             {# Programme length, settable in place: departments made
@@ -160,7 +162,7 @@
                                     data-entity-type="Department"
                                     data-name="{{ dept.name }}"
                                     data-action-url="{{ url_for('admin.delete_department', department_id=dept.id) }}"
-                                    data-message="Deleting &quot;{{ dept.name }}&quot; will also delete {{ dept.students|length }} student(s), {{ dept.lecturers|length }} lecturer(s), and {{ dept.courses|length }} course(s). This cannot be undone.">
+                                    data-message="Deleting &quot;{{ dept.name }}&quot; will also delete {{ dc.students }} student(s), {{ dc.lecturers }} lecturer(s), and {{ dc.courses }} course(s). This cannot be undone.">
                                 <span class="material-symbols-rounded text-xl">delete</span>
                             </button>
                         </div>

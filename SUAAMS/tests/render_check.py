@@ -301,23 +301,11 @@ CONTEXTS = {
         role="admin",
         active_page="organization",
         active_semester=None,
-        # The faculty row builds its cascade totals in-template with
-        # `departments|map(attribute='students')|map('length')|sum`, so each
-        # nested department dict must actually carry those three lists or the
-        # sum silently collapses to 0.
-        faculties=[
-            {
-                "id": 1,
-                "name": "Faculty of Engineering",
-                "departments": [
-                    {
-                        "students": [{}] * 3,
-                        "lecturers": [{}, {}],
-                        "courses": [{}] * 5,
-                    }
-                ],
-            }
-        ],
+        # Counts come precomputed from _organization_counts() (GROUP BY
+        # queries), not from the relationship lists, so the rows only need
+        # ids and names.
+        faculties=[{"id": 1, "name": "Faculty of Engineering"}],
+        faculty_counts={1: {"departments": 1, "students": 3, "lecturers": 2, "courses": 5}},
         programme_years=(4, 5),
         departments=[
             {
@@ -325,11 +313,9 @@ CONTEXTS = {
                 "name": "Computer Engineering",
                 "programme_years": None,
                 "faculty": {"name": "Faculty of Engineering"},
-                "students": [{}] * 3,
-                "lecturers": [{}, {}],
-                "courses": [{}] * 5,
             }
         ],
+        dept_counts={1: {"students": 3, "lecturers": 2, "courses": 5}},
     ),
 
     "admin/reports.html": dict(

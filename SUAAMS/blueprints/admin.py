@@ -239,13 +239,41 @@ def organization_page():
 
     faculties = Faculty.query.all()
     departments = Department.query.all()
+    dept_counts, faculty_counts = _organization_counts(departments)
     return render_template(
         'admin/organization.html',
         faculties=faculties,
         departments=departments,
+        dept_counts=dept_counts,
+        faculty_counts=faculty_counts,
         programme_years=PROGRAMME_YEARS,
         active_page='organization',
     )
+
+
+def _organization_counts(departments):
+    """Students / lecturers / courses per department and per faculty, in
+    three GROUP BY queries.
+
+    PERF: the page used to count with dept.students|length in the
+    template, which loads every student, lecturer and course row into
+    memory just to count them -- several times over, since the faculty
+    totals and both delete warnings repeated it. At 6,000+ students that
+    is tens of thousands of objects per page view."""
+    dept_counts = {d.id: {'students': 0, 'lecturers': 0, 'courses': 0} for d in departments}
+    for model, key in ((Student, 'students'), (Lecturer, 'lecturers'), (Course, 'courses')):
+        for dept_id, n in (db.session.query(model.department_id, db.func.count(model.id))
+                           .group_by(model.department_id)):
+            if dept_id in dept_counts:
+                dept_counts[dept_id][key] = n
+    faculty_counts = {}
+    for d in departments:
+        totals = faculty_counts.setdefault(d.faculty_id, {'departments': 0, 'students': 0,
+                                                          'lecturers': 0, 'courses': 0})
+        totals['departments'] += 1
+        for key, n in dept_counts[d.id].items():
+            totals[key] += n
+    return dept_counts, faculty_counts
 
 
 # Programme lengths the school runs: levels stop at 500 (VALID_LEVELS).

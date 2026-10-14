@@ -188,5 +188,20 @@ class PromotionTestCase(unittest.TestCase):
         self.assertEqual(self.client.get('/admin/students/promotion').status_code, 200)
 
 
+    def test_organization_counts(self):
+        # Lives here because this fixture already has two departments with
+        # students. The Organization page counts with GROUP BY queries
+        # (_organization_counts) rather than loading every student.
+        from blueprints.admin import _organization_counts
+        dept_counts, faculty_counts = _organization_counts(Department.query.all())
+        self.assertEqual(dept_counts[self.mct.id]['students'], 4)
+        self.assertEqual(dept_counts[self.acc.id]['students'], 3)
+        self.assertEqual(faculty_counts[self.mct.faculty_id], {'departments': 2, 'students': 7,
+                                                               'lecturers': 0, 'courses': 0})
+        self.sign_in()
+        page = self.client.get('/admin/organization').get_data(as_text=True)
+        self.assertIn('7 students', page)
+
+
 if __name__ == '__main__':
     unittest.main()
