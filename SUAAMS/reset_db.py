@@ -1,9 +1,15 @@
 """
 One-time destructive reset: drops every table and recreates them from the
-current models.py (14-table schema). Run this ONCE against the production
-DB to move past the old schema without going through the migration chain,
-then run `python create_admin.py <your-username>` to recreate an admin
-account (wiped along with everything else). seed_admin.py used to do this
+current models.py. Two uses:
+
+  * Setting up a NEW, EMPTY database (README section 9). The migration
+    chain can't do that: its first step alters tables that existed before
+    migrations were used, so `flask db upgrade` on an empty database fails
+    with "no such table: users".
+  * Wiping an existing database back to empty. Everything is lost.
+
+Either way, run `python create_admin.py <your-username>` afterwards to
+create an admin account. seed_admin.py used to do this
 with a fixed admin/admin1234 login; it was removed so every admin has a
 personal login and the Activity page can say who did what.
 

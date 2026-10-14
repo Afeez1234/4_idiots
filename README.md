@@ -322,7 +322,7 @@ cd SUAAMS
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env        # then fill in the values (ask the project lead)
-flask --app app.py db upgrade
+python reset_db.py          # NEW, EMPTY database only -- see below
 python create_admin.py <your-username>   # prints a one-time password
 flask --app app.py run
 ```
@@ -330,6 +330,19 @@ flask --app app.py run
 Give each person who manages the dashboard their own login the same way
 (`python create_admin.py <their-username>`), and never share one. To switch
 someone off: `python create_admin.py <username> --disable`. Their past
+**Which database step to run:**
+
+- **A new, empty database:** `python reset_db.py`. It creates every table
+  from `models.py` and marks the database as up to date with the
+  migrations. It asks you to type the database name before it does anything.
+- **A database that already has data** (for example the shared Clever Cloud
+  one): **never** run `reset_db.py`, because it drops every table first. Run
+  `flask --app app.py db upgrade` instead, to apply any new migrations.
+
+`db upgrade` can't build a database from nothing: the first migration adds a
+column to tables that existed before migrations were used, so on an empty
+database it stops with "no such table: users".
+
 changes stay on the Activity page under their name.
 
 The server refuses to start until `.env` has the database details,
