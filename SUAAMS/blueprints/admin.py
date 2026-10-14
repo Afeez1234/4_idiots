@@ -28,6 +28,7 @@ from timetable_publish import publish_drafts, published_schedules, notify_schedu
 import bulk_upload
 import people_status
 import promotion
+import record_edits
 from people_status import STUDENT_STATUSES, LECTURER_STATUSES
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
@@ -414,6 +415,8 @@ def lecturers_page():
         lecturers=lecturers,
         departments=departments,
         lecturer_statuses=LECTURER_STATUSES,
+        # Which rows can't be deleted, and why (greys out the button).
+        delete_blockers=record_edits.delete_blockers('lecturers', lecturers),
         active_page='lecturers',
     )
 
@@ -653,6 +656,95 @@ def bulk_status(kind):
         db.session.rollback()
         log_exception("Bulk Status Error")
         flash('Failed to change the statuses. Nobody was changed.', 'error')
+    return redirect(back)
+
+
+# ==========================================
+# EDIT / DELETE: COURSES, LECTURERS, STUDENTS
+# ==========================================
+# Fixing a typo without deleting a whole department. Edit is always allowed;
+# delete only for a record with no history. Rules in record_edits.py.
+
+EDIT_KINDS = {
+    'courses': (Course, 'admin.courses_page'),
+    'lecturers': (Lecturer, 'admin.lecturers_page'),
+    'students': (Student, 'admin.students_page'),
+}
+
+
+def _record_label(kind, record):
+    if kind == 'courses':
+        return f"{record.course_code} ({record.course_title})"
+    return _person_label(kind, record)
+
+
+def _edit_target(kind, record_id):
+    """(record or None, URL back to the page the dialog was opened on)."""
+    model, page = EDIT_KINDS[kind]
+    back = url_for(page, **{k: v for k, v in request.args.items() if k in STUDENT_FILTER_ARGS})
+    return db.session.get(model, record_id), back
+
+
+@admin_bp.route('/<kind>/<int:record_id>/edit', methods=['POST'])
+@limiter.limit("30 per minute")
+def edit_record(kind, record_id):
+    if kind not in EDIT_KINDS:
+        return redirect(url_for('admin.dashboard'))
+    record, back = _edit_target(kind, record_id)
+    if not record:
+        flash('That record no longer exists.', 'error')
+        return redirect(back)
+    before = _record_label(kind, record)
+    try:
+        diff = record_edits.EDITORS[kind](record, request.form)
+        if not diff:
+            flash('Nothing changed.', 'info')
+            return redirect(back)
+        log_action(f"{kind[:-1]}.edit", f"Edited {before}: {', '.join(diff)}",
+                   kind[:-1], record.id, {'changes': diff})
+        db.session.commit()
+        message = f"Saved {_record_label(kind, record)}."
+        # The ID is the login username: whoever signs in needs to know.
+        if 'staff_id' in diff or 'matric_number' in diff:
+            message += (f" They now sign in as {record.user.username if record.user else 'the new ID'}"
+                        + (", and their first password is the new ID too."
+                           if record.user and record.user.requires_password_change else "."))
+        flash(message, 'success')
+    except record_edits.EditError as e:
+        db.session.rollback()
+        flash(f"{e} Nothing changed.", 'error')
+    except Exception:
+        db.session.rollback()
+        log_exception("Record Edit Error")
+        flash('Failed to save the changes. Nothing changed.', 'error')
+    return redirect(back)
+
+
+@admin_bp.route('/<kind>/<int:record_id>/delete', methods=['POST'])
+@limiter.limit("10 per minute")
+def delete_record(kind, record_id):
+    if kind not in EDIT_KINDS:
+        return redirect(url_for('admin.dashboard'))
+    record, back = _edit_target(kind, record_id)
+    if not record:
+        flash('That record no longer exists.', 'error')
+        return redirect(back)
+    label = _record_label(kind, record)
+    try:
+        removed = record_edits.delete_record(kind, record)
+        # Counted before the delete, as with faculties: afterwards there's
+        # nothing left to count.
+        log_action(f"{kind[:-1]}.delete", f"Deleted {label}", kind[:-1], record_id,
+                   {'removed': removed})
+        db.session.commit()
+        flash(f"Deleted {label}.", 'success')
+    except record_edits.EditError as e:
+        db.session.rollback()
+        flash(f"Can't delete {label}: {e}", 'error')
+    except Exception:
+        db.session.rollback()
+        log_exception("Record Delete Error")
+        flash('Failed to delete. Nothing changed.', 'error')
     return redirect(back)
 
 
@@ -921,6 +1013,7 @@ def students_page():
         valid_levels=VALID_LEVELS,
         filters={'q': q, 'dept': dept_id, 'level': level, 'device': device, 'status': status},
         student_statuses=STUDENT_STATUSES,
+        delete_blockers=record_edits.delete_blockers('students', pagination.items),
         filter_args=filter_args,
         is_filtered=bool(filter_args),
         active_page='students',
@@ -1396,6 +1489,7 @@ def courses_page():
         departments=departments,
         lecturers=lecturers,
         semesters=semesters,
+        delete_blockers=record_edits.delete_blockers('courses', courses),
         active_page='courses',
     )
 

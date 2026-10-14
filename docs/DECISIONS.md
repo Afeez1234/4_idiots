@@ -325,3 +325,19 @@ if you know the date.
 - **Trade-off:** The older student upload still saves good rows and skips
   bad ones. Bringing it in line is a small change if it ever confuses
   anyone.
+
+### D25. Edit anything; delete only what has no history (2026-10-14)
+
+- **Problem:** A course code or name typed wrong could not be fixed. The only
+  delete was a whole department, which would take every student and course
+  in it.
+- **Chose:** Courses, lecturers and students can always be edited. A staff
+  ID or matric number is the login username, so the login moves with it,
+  and a password still at its default becomes the new ID. Delete is allowed
+  only when nothing has happened yet: no sessions or results for a course;
+  no coordinated course, class run, mark, announcement or result for a
+  lecturer; no attendance, offline tap or result for a student. Anything
+  with history is refused with the reason, and Status (D22) is the way out.
+- **Trade-off:** A course that ran one test session can't be deleted, only
+  edited. A type-the-name confirmation like faculty deletes would allow it,
+  but would also let one click wipe a semester's attendance.

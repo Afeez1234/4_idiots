@@ -1,6 +1,7 @@
 {% extends "base_admin.html" %}
 {% from '_macros.html' import pill, avatar, table_empty, card_heading, directory_heading %}
 {% from 'admin/_status.html' import status_cell, status_dialog, bulk_status_card with context %}
+{% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
 
 {% block title %}Lecturers | SUAAMS Admin{% endblock %}
 {% block page_title %}Lecturers{% endblock %}
@@ -97,6 +98,7 @@
                                 <th class="th">Department</th>
                                 <th class="th">Courses</th>
                                 <th class="th">Status</th>
+                                <th class="th"><span class="sr-only">Edit</span></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -117,9 +119,17 @@
                                            first password change). #}
                                         {{ status_cell(lecturer, lecturer_statuses, url_for('admin.change_status', kind='lecturers', person_id=lecturer.id)) }}
                                     </td>
+                                    <td class="td">
+                                        {{ edit_button(url_for('admin.edit_record', kind='lecturers', record_id=lecturer.id),
+                                                       url_for('admin.delete_record', kind='lecturers', record_id=lecturer.id),
+                                                       lecturer.full_name ~ ' (' ~ lecturer.staff_id ~ ')',
+                                                       {'full_name': lecturer.full_name, 'staff_id': lecturer.staff_id,
+                                                        'department_id': lecturer.department_id},
+                                                       delete_blockers.get(lecturer.id)) }}
+                                    </td>
                                 </tr>
                             {% else %}
-                                {{ table_empty(5, 'No lecturers registered yet.') }}
+                                {{ table_empty(6, 'No lecturers registered yet.') }}
                             {% endfor %}
                         </tbody>
                     </table>
@@ -129,5 +139,25 @@
     </div>
 
     {{ status_dialog(lecturer_statuses, 'Left also takes them off courses still running; a coordinator must be replaced first.') }}
+
+    {% call edit_dialog('Edit lecturer', 'Removes the lecturer and their login. Only possible before they have coordinated a course or run a class.') %}
+        <div>
+            <label class="form-label" for="edit-full-name">Full Name</label>
+            <input type="text" name="full_name" id="edit-full-name" required maxlength="150" class="form-input">
+        </div>
+        <div>
+            <label class="form-label" for="edit-staff-id">Staff ID</label>
+            <input type="text" name="staff_id" id="edit-staff-id" required maxlength="50" class="form-input mono">
+            <p class="form-help">Also their login username. If they haven't set their own password yet, it becomes the new staff ID too.</p>
+        </div>
+        <div>
+            <label class="form-label" for="edit-department">Department</label>
+            <select name="department_id" id="edit-department" required class="form-select">
+                {% for dept in departments %}
+                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    {% endcall %}
 
 {% endblock %}

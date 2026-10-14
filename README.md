@@ -170,6 +170,9 @@ history, announcements), but the app is the main way students use SUAAMS.
   can also be added in bulk from a CSV file (lecturers and courses with a
   preview first). The roster has search, filters and pages.
 - **Unbind a student's phone** (see §5)
+- **Edit** any course, lecturer or student to fix a typo (a corrected staff
+  ID or matric number becomes their login). **Delete** only works on records
+  with no history yet, such as one created by mistake; otherwise use Status
 - **Status**: mark students suspended, rusticated, graduated, withdrawn,
   expelled or deceased, and lecturers on leave or left. Anything but active
   switches the login off; nothing is deleted. One at a time or by CSV
@@ -244,7 +247,8 @@ when a student checked in, are stored in UTC and converted when displayed.
 - Full login flow with device binding, all four dashboards, notifications,
   course registration, timetable, reports
 - Timetable import from PDF, publish and notifications; bulk lecturer/course
-  upload; status; promotion (automated tests; not yet used with real data)
+  upload; status; promotion; edit/delete (automated tests; not yet used
+  with real data)
 
 **Not built yet / limitations**
 - **Biometric invalidation**: not built. The plan is to bind check-in to the

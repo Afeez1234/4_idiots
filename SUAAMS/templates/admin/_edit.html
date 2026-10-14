@@ -1,0 +1,91 @@
+{# Edit / delete for the Courses, Lecturers and Students pages (rules in
+   record_edits.py). Import with context, so the CSRF field renders:
+     {% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
+
+   Same shape as the status dialog (_status.html): one dialog per page,
+   filled from the clicked row's data-* attributes, not a hidden form on
+   every row. The page supplies the form fields as the macro's body; each
+   field's `name` is a key in the row's data-values, which is how the
+   script pre-fills it. #}
+
+{# values: {form field name: current value}. tojson escapes quotes, so it
+   is safe inside a single-quoted attribute. #}
+{% macro edit_button(edit_url, delete_url, name, values, blocker=None) -%}
+    <button type="button" class="btn-link edit-open"
+            data-edit="{{ edit_url }}" data-delete="{{ delete_url }}" data-name="{{ name }}"
+            data-blocker="{{ blocker or '' }}" data-values='{{ values|tojson }}'>
+        Edit
+    </button>
+{%- endmacro %}
+
+{% macro edit_dialog(title, delete_note) -%}
+    <div id="edit-modal" class="fixed inset-0 z-50 hidden justify-center overflow-y-auto bg-black/50 p-4">
+        {# my-auto, not items-center: centres the dialog but lets a tall one
+           scroll on a phone instead of clipping its top off. #}
+        <div class="my-auto h-fit w-full max-w-md rounded-card border border-border bg-card p-6 shadow-pop">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="card-title">{{ title }}</h3>
+                <button type="button" id="edit-close" class="btn-ghost btn-icon" aria-label="Close">
+                    <span class="material-symbols-rounded text-xl">close</span>
+                </button>
+            </div>
+            <form id="edit-form" method="POST" class="space-y-4">
+                {% include '_csrf_field.html' %}
+                <p class="text-sm text-secondary" id="edit-name"></p>
+                {{ caller() }}
+                <p class="form-help">Recorded in the activity log.</p>
+                <div class="flex gap-3">
+                    <button type="button" id="edit-cancel" class="btn-secondary flex-1">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1">Save</button>
+                </div>
+            </form>
+
+            {# Delete only when nothing has happened to the record yet; otherwise
+               the reason shows instead of the button. The server checks again. #}
+            <div class="mt-6 border-t border-divider pt-4">
+                <p id="edit-blocker" class="hidden text-xs text-secondary"></p>
+                <form id="delete-form" method="POST" class="space-y-3">
+                    {% include '_csrf_field.html' %}
+                    <p class="text-xs text-secondary">{{ delete_note }}</p>
+                    <button type="submit" class="btn-danger w-full">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+        (function () {
+            var modal = document.getElementById('edit-modal');
+            var form = document.getElementById('edit-form');
+            var del = document.getElementById('delete-form');
+            var blocker = document.getElementById('edit-blocker');
+            var current = '';
+            function close() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+            document.querySelectorAll('.edit-open').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var values = JSON.parse(btn.dataset.values);
+                    current = btn.dataset.name;
+                    form.action = btn.dataset.edit;
+                    del.action = btn.dataset.delete;
+                    // textContent, not innerHTML: names are data, never markup.
+                    document.getElementById('edit-name').textContent = current;
+                    Object.keys(values).forEach(function (key) {
+                        var field = form.elements[key];
+                        if (field) field.value = values[key] == null ? '' : values[key];
+                    });
+                    blocker.textContent = btn.dataset.blocker
+                        ? "Can't be deleted: " + btn.dataset.blocker : '';
+                    blocker.classList.toggle('hidden', !btn.dataset.blocker);
+                    del.classList.toggle('hidden', !!btn.dataset.blocker);
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                });
+            });
+            del.addEventListener('submit', function (e) {
+                if (!confirm('Delete ' + current + '? This cannot be undone.')) e.preventDefault();
+            });
+            document.getElementById('edit-close').addEventListener('click', close);
+            document.getElementById('edit-cancel').addEventListener('click', close);
+            modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+        })();
+    </script>
+{%- endmacro %}
