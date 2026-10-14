@@ -14,7 +14,12 @@ Pins:
     enrollments and co-lecturer links with it;
   * delete is refused (nothing removed) for a course with sessions, a
     coordinator, a lecturer who ran a class, a student with attendance;
-  * delete_blockers answers for a whole page in a fixed number of queries.
+  * delete_blockers answers for a whole page in a fixed number of queries;
+  * HODs: an edit is copied to a promoted lecturer's Lecturer row (and the
+    reverse); one HOD per department; "remove as HOD" sends a promoted
+    lecturer back to teaching, deletes a direct HOD with nothing on record,
+    and switches off one with a record; a lecturer who is HOD can't be
+    deleted from the Lecturers page.
 
 Run with:  python tests/test_record_edits.py
 (also collected by pytest if it is installed)
@@ -35,7 +40,7 @@ from sqlalchemy import event  # noqa: E402
 import record_edits  # noqa: E402
 from extensions import limiter, csrf  # noqa: E402
 from models import (  # noqa: E402
-    db, Attendance, AuditLog, Course, Department, Enrollment, Faculty, Lecturer,
+    db, Announcement, Attendance, AuditLog, Course, Department, Enrollment, Faculty, HOD, Lecturer,
     Semester, Session as SessionModel, Student, User,
 )
 from blueprints.auth import auth_bp  # noqa: E402
@@ -114,6 +119,17 @@ class RecordEditsTestCase(unittest.TestCase):
         db.session.add(c)
         db.session.flush()
         return c
+
+    def hod(self, name, staff_id, dept, user=None):
+        h = HOD(full_name=name, staff_id=staff_id, department_id=dept.id,
+                user_id=(user or self.user(staff_id, 'hod')).id)
+        db.session.add(h)
+        db.session.flush()
+        return h
+
+    def promote(self, lecturer, dept):
+        lecturer.user.role = 'hod'
+        return self.hod(lecturer.full_name, lecturer.staff_id, dept, user=lecturer.user)
 
     def sign_in(self):
         with self.client.session_transaction() as s:
@@ -245,6 +261,72 @@ class RecordEditsTestCase(unittest.TestCase):
         # just-committed rows would measure the test, not the function.
         everyone = Lecturer.query.all()
         self.assertEqual(queries_for(everyone[:1]), queries_for(everyone))
+
+    # ---- HODs -------------------------------------------------------------------
+
+    def test_editing_a_promoted_hod_fixes_their_lecturer_record_too(self):
+        h = self.promote(self.helper, self.other_dept)
+        db.session.commit()
+        self.sign_in()
+        self.client.post(f'/admin/hods/{h.id}/edit', data={
+            'full_name': 'Dr Helper', 'staff_id': 'STF/22', 'department_id': self.other_dept.id})
+        lect = db.session.get(Lecturer, self.helper.id)
+        self.assertEqual((lect.full_name, lect.staff_id, lect.user.username),
+                         ('Dr Helper', 'STF/22', 'STF/22'))
+        self.assertEqual(lect.department_id, self.dept.id)      # teaching dept untouched
+
+    def test_editing_the_lecturer_fixes_their_hod_record_too(self):
+        h = self.promote(self.helper, self.other_dept)
+        db.session.commit()
+        record_edits.edit_lecturer(self.helper, {'full_name': 'Dr Helper', 'staff_id': 'STF/2',
+                                                 'department_id': self.dept.id})
+        self.assertEqual(h.full_name, 'Dr Helper')
+
+    def test_one_hod_per_department(self):
+        first = self.hod('Prof A', 'HOD/1', self.dept)
+        second = self.hod('Prof B', 'HOD/2', self.other_dept)
+        db.session.commit()
+        with self.assertRaises(record_edits.EditError):
+            record_edits.edit_hod(second, {'full_name': 'Prof B', 'staff_id': 'HOD/2',
+                                           'department_id': self.dept.id})
+        self.assertEqual(first.department_id, self.dept.id)
+
+    def test_removing_a_promoted_hod_leaves_the_lecturer(self):
+        h = self.promote(self.helper, self.other_dept)
+        db.session.commit()
+        self.sign_in()
+        self.client.post(f'/admin/hods/{h.id}/delete')
+        self.assertEqual(HOD.query.count(), 0)
+        lect = db.session.get(Lecturer, self.helper.id)
+        self.assertEqual((lect.user.role, lect.user.is_active), ('lecturer', True))
+        self.assertEqual(AuditLog.query.filter_by(action='hod.remove').one().details['outcome'], 'lecturer')
+
+    def test_removing_a_direct_hod_deletes_the_account(self):
+        h = self.hod('Prof A', 'HOD/1', self.dept)
+        db.session.commit()
+        user_id = h.user_id
+        self.sign_in()
+        self.client.post(f'/admin/hods/{h.id}/delete')
+        self.assertEqual(HOD.query.count(), 0)
+        self.assertIsNone(db.session.get(User, user_id))
+
+    def test_a_direct_hod_with_a_record_is_switched_off_not_deleted(self):
+        h = self.hod('Prof A', 'HOD/1', self.dept)
+        db.session.add(Announcement(title='Hi', body='x', scope='university', sender_id=h.user_id))
+        db.session.commit()
+        user_id = h.user_id
+        self.sign_in()
+        self.client.post(f'/admin/hods/{h.id}/delete')
+        self.assertEqual(HOD.query.count(), 0)
+        user = db.session.get(User, user_id)
+        self.assertFalse(user.is_active)
+        self.assertEqual(Announcement.query.one().sender_id, user_id)
+
+    def test_a_lecturer_who_is_hod_cannot_be_deleted_from_lecturers(self):
+        self.promote(self.helper, self.other_dept)
+        db.session.commit()
+        reason = record_edits.delete_blockers('lecturers', [self.helper])[self.helper.id]
+        self.assertIn('HOD of Computer', reason)
 
 
 if __name__ == '__main__':

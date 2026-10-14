@@ -669,6 +669,16 @@ EDIT_KINDS = {
     'courses': (Course, 'admin.courses_page'),
     'lecturers': (Lecturer, 'admin.lecturers_page'),
     'students': (Student, 'admin.students_page'),
+    # For HODs, "delete" means removing them as HOD (record_edits.remove_hod).
+    'hods': (HOD, 'admin.hods_page'),
+}
+
+# What the flash says after remove_hod, by outcome.
+HOD_REMOVED = {
+    'lecturer': "{name} is no longer HOD and is back to being a lecturer.",
+    'deleted': "{name} is no longer HOD. Their account was removed.",
+    'switched_off': "{name} is no longer HOD. Their sign-in is switched off; "
+                    "the account is kept because it has {history} on record.",
 }
 
 
@@ -730,6 +740,8 @@ def delete_record(kind, record_id):
         flash('That record no longer exists.', 'error')
         return redirect(back)
     label = _record_label(kind, record)
+    if kind == 'hods':
+        return _remove_hod(record, label, back)
     try:
         removed = record_edits.delete_record(kind, record)
         # Counted before the delete, as with faculties: afterwards there's
@@ -745,6 +757,23 @@ def delete_record(kind, record_id):
         db.session.rollback()
         log_exception("Record Delete Error")
         flash('Failed to delete. Nothing changed.', 'error')
+    return redirect(back)
+
+
+def _remove_hod(hod, label, back):
+    department = hod.department.name if hod.department else 'their department'
+    user_id, hod_id = hod.user_id, hod.id
+    try:
+        outcome = record_edits.remove_hod(hod)
+        history = record_edits.staff_history(user_id) if outcome == 'switched_off' else None
+        log_action('hod.remove', f"Removed {label} as HOD of {department} ({outcome.replace('_', ' ')})",
+                   'hod', hod_id, {'outcome': outcome, 'user_id': user_id})
+        db.session.commit()
+        flash(HOD_REMOVED[outcome].format(name=label, history=history), 'success')
+    except Exception:
+        db.session.rollback()
+        log_exception("HOD Remove Error")
+        flash('Failed to remove the HOD. Nothing changed.', 'error')
     return redirect(back)
 
 
@@ -2319,6 +2348,10 @@ def hods_page():
     return render_template(
         'admin/hods.html',
         hods=hods,
+        # Which HODs are promoted lecturers: removing one sends them back to
+        # teaching, so the dialog says so.
+        hod_lecturer_ids={l.user_id for l in Lecturer.query.filter(
+            Lecturer.user_id.in_([h.user_id for h in hods]))},
         departments=departments,
         promotable_lecturers=promotable_lecturers,
         active_page='hods',

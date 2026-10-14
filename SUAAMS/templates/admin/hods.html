@@ -1,5 +1,6 @@
 {% extends "base_admin.html" %}
 {% from '_macros.html' import pill, avatar, table_empty, card_heading, directory_heading %}
+{% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
 
 {% block title %}HODs | SUAAMS Admin{% endblock %}
 {% block page_title %}HODs{% endblock %}
@@ -154,6 +155,7 @@
                                 <th class="th">Staff ID</th>
                                 <th class="th">Department</th>
                                 <th class="th">Status</th>
+                                <th class="th"><span class="sr-only">Edit</span></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -174,9 +176,18 @@
                                             {{ pill('Active', 'success') }}
                                         {% endif %}
                                     </td>
+                                    <td class="td">
+                                        {{ edit_button(url_for('admin.edit_record', kind='hods', record_id=hod.id),
+                                                       url_for('admin.delete_record', kind='hods', record_id=hod.id),
+                                                       hod.full_name ~ ' (' ~ hod.staff_id ~ ')',
+                                                       {'full_name': hod.full_name, 'staff_id': hod.staff_id,
+                                                        'department_id': hod.department_id},
+                                                       note=('A promoted lecturer: they go back to being a lecturer, keeping their courses and class history.'
+                                                             if hod.user_id in hod_lecturer_ids else none)) }}
+                                    </td>
                                 </tr>
                             {% else %}
-                                {{ table_empty(4, 'No HODs assigned yet.') }}
+                                {{ table_empty(5, 'No HODs assigned yet.') }}
                             {% endfor %}
                         </tbody>
                     </table>
@@ -184,6 +195,29 @@
             </div>
         </div>
     </div>
+
+    {# Changing a department's HOD = remove this one, then assign or promote
+       the next with the form on the left. #}
+    {% call edit_dialog('Edit HOD', 'Removes their account too. If it has anything on record, the account is kept with sign-in switched off.', 'Remove as HOD') %}
+        <div>
+            <label class="form-label" for="edit-full-name">Full Name</label>
+            <input type="text" name="full_name" id="edit-full-name" required maxlength="150" class="form-input">
+        </div>
+        <div>
+            <label class="form-label" for="edit-staff-id">Staff ID</label>
+            <input type="text" name="staff_id" id="edit-staff-id" required maxlength="50" class="form-input mono">
+            <p class="form-help">Also their login username. A promoted lecturer's lecturer record is updated too.</p>
+        </div>
+        <div>
+            <label class="form-label" for="edit-department">Department (as HOD)</label>
+            <select name="department_id" id="edit-department" required class="form-select">
+                {% for dept in departments %}
+                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+            <p class="form-help">To make someone else HOD, remove this one below, then assign the new one.</p>
+        </div>
+    {% endcall %}
 
 {% endblock %}
 

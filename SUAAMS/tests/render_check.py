@@ -250,6 +250,8 @@ CONTEXTS = {
                 "full_name": "Prof. Adaeze Nwosu",
                 "staff_id": "HOD-2001",
                 "department": {"name": "Systems Engineering"},
+                "department_id": 1,
+                "user_id": 11,
                 "user": {"requires_password_change": False},
             },
             {
@@ -257,6 +259,8 @@ CONTEXTS = {
                 "full_name": "Dr. Emeka Obi",
                 "staff_id": "HOD-2002",
                 "department": {"name": "Computer Engineering"},
+                "department_id": 2,
+                "user_id": 12,
                 "user": {"requires_password_change": True},
             },
         ],
@@ -264,6 +268,8 @@ CONTEXTS = {
             {"id": 1, "name": "Systems Engineering"},
             {"id": 2, "name": "Computer Engineering"},
         ],
+        # HOD 1 is a promoted lecturer: its dialog gets the per-row note.
+        hod_lecturer_ids={11},
         # Deliberately non-empty: the promote branch renders a `<select>` whose
         # options dereference .department.name, which an empty list would skip.
         promotable_lecturers=[

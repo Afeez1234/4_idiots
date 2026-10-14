@@ -24,17 +24,26 @@ type-the-name confirmation like faculty deletes, because what a delete here
 can take with it is small: enrollments and draft timetable slots for a
 course, co-lecturer links for a lecturer, course registrations for a
 student. Those are counted into the audit entry before they go.
+
+HODs come in two kinds. One created directly has a login of its own; a
+lecturer promoted to HOD shares ONE login with their Lecturer row, and the
+promotion copied their name and staff ID onto the HOD row. So an edit on
+either page is copied to the other (_sync_twin), or the same person would
+show two names. An HOD isn't deleted but "removed as HOD" (remove_hod): a
+promoted lecturer goes back to being a lecturer; a directly created HOD
+loses the account, or -- if it has anything on record -- keeps it with the
+login switched off, so that record still says who did it.
 """
 import bcrypt
 from sqlalchemy import func
 
 from models import (
-    db, Announcement, Attendance, Course, Department, Enrollment, Lecturer,
+    db, Announcement, Attendance, Course, Department, Enrollment, HOD, Lecturer,
     OfflineCheckinLog, Result, Semester, Session, Student, Timetable, User,
 )
 from utils import normalize_level
 
-KINDS = ('courses', 'lecturers', 'students')
+KINDS = ('courses', 'lecturers', 'students', 'hods')
 
 
 class EditError(ValueError):
@@ -126,18 +135,54 @@ def edit_course(course, form):
     })
 
 
-def edit_lecturer(lecturer, form):
+def _sync_twin(model, user_id, full_name, staff_id):
+    """Copy name and staff ID to the other profile on the same login (the
+    Lecturer row of a promoted HOD, or the reverse), if there is one. Its
+    department is left alone: an HOD can head a department other than the
+    one they teach in."""
+    twin = model.query.filter_by(user_id=user_id).first()
+    if twin is None:
+        return
+    if model.query.filter(model.staff_id == staff_id, model.id != twin.id).first():
+        raise EditError(f"Staff ID '{staff_id}' already belongs to another "
+                        f"{'lecturer' if model is Lecturer else 'HOD'}.")
+    twin.full_name, twin.staff_id = full_name, staff_id
+
+
+def _edit_staff(record, form, model, twin_model):
+    """Shared by lecturers and HODs: name, staff ID, department."""
     staff_id = _text(form, 'staff_id', 'Staff ID', 50)
-    if staff_id != lecturer.staff_id and _username_taken(staff_id, lecturer.user_id):
+    if staff_id != record.staff_id and _username_taken(staff_id, record.user_id):
         raise EditError(f"Staff ID '{staff_id}' is already someone's login.")
-    diff = _apply(lecturer, {
+    # Both staff_id columns are unique. Usually the login check above
+    # catches a clash first; this covers a profile whose login differs.
+    if model.query.filter(model.staff_id == staff_id, model.id != record.id).first():
+        raise EditError(f"Staff ID '{staff_id}' is already taken.")
+    diff = _apply(record, {
         'full_name': _text(form, 'full_name', 'Full name', 150),
         'staff_id': staff_id,
         'department_id': _ref(form, 'department_id', Department, 'department'),
     })
+    if 'full_name' in diff or 'staff_id' in diff:
+        _sync_twin(twin_model, record.user_id, record.full_name, staff_id)
     if 'staff_id' in diff:
-        _rename_login(lecturer.user, staff_id)
+        _rename_login(record.user, staff_id)
     return diff
+
+
+def edit_lecturer(lecturer, form):
+    return _edit_staff(lecturer, form, Lecturer, HOD)
+
+
+def edit_hod(hod, form):
+    department_id = _ref(form, 'department_id', Department, 'department')
+    # One HOD per department. Only the app enforces it (no unique
+    # constraint on hods.department_id), same check as hods_page's create.
+    other = HOD.query.filter(HOD.department_id == department_id, HOD.id != hod.id).first()
+    if other:
+        raise EditError(f"{other.department.name} already has an HOD ({other.full_name}). "
+                        f"Remove them as HOD first.")
+    return _edit_staff(hod, form, HOD, Lecturer)
 
 
 def edit_student(student, form):
@@ -162,7 +207,8 @@ def edit_student(student, form):
     return diff
 
 
-EDITORS = {'courses': edit_course, 'lecturers': edit_lecturer, 'students': edit_student}
+EDITORS = {'courses': edit_course, 'lecturers': edit_lecturer, 'students': edit_student,
+           'hods': edit_hod}
 
 
 # ---- what blocks a delete ---------------------------------------------------
@@ -177,6 +223,28 @@ def _counts(column, ids):
 
 def _plural(n, word):
     return f'{n} {word}' + ('' if n == 1 else 's')
+
+
+# Things a staff login did that carry its name. Some of these columns are
+# NOT NULL (deleting the login would fail outright); the rest are SET NULL,
+# which would quietly erase who ran the class or marked the student.
+STAFF_HISTORY = (
+    (Session.started_by, 'class session'),
+    (Attendance.marked_by, 'attendance mark'),
+    (OfflineCheckinLog.reviewed_by, 'offline tap review'),
+    (Result.entered_by, 'result'),
+    (Announcement.sender_id, 'announcement'),
+    (Timetable.created_by, 'timetable slot'),
+)
+
+
+def staff_history(user_id):
+    """The first thing on record for this login, as 'N things', or None."""
+    for column, word in STAFF_HISTORY:
+        n = _counts(column, [user_id]).get(user_id, 0)
+        if n:
+            return _plural(n, word)
+    return None
 
 
 def delete_blockers(kind, records):
@@ -207,15 +275,15 @@ def delete_blockers(kind, records):
             if r.id in coordinated:
                 out[r.id] = (f'Coordinates {", ".join(sorted(coordinated[r.id]))}. '
                              f'Make someone else coordinator first.')
-        # Things they did that carry their name. Some of these columns are
-        # NOT NULL (the delete would fail outright); the rest are SET NULL,
-        # which would quietly erase who ran the class or marked the student.
-        for column, word in ((Session.started_by, 'class session'),
-                             (Attendance.marked_by, 'attendance mark'),
-                             (OfflineCheckinLog.reviewed_by, 'offline tap review'),
-                             (Result.entered_by, 'result'),
-                             (Announcement.sender_id, 'announcement'),
-                             (Timetable.created_by, 'timetable slot')):
+        # A promoted HOD shares this login: deleting it would take the HOD
+        # role with it, without the HODs page ever being involved.
+        heads = dict(db.session.query(HOD.user_id, Department.name)
+                     .join(Department, HOD.department_id == Department.id)
+                     .filter(HOD.user_id.in_(user_ids)))
+        for r in records:
+            if r.user_id in heads and r.id not in out:
+                out[r.id] = f'Is HOD of {heads[r.user_id]}. Remove them as HOD first.'
+        for column, word in STAFF_HISTORY:
             block(_counts(column, user_ids), by_user,
                   lambda n, r, word=word: f'Has {_plural(n, word)}. Set status to Left instead.')
 
@@ -269,3 +337,23 @@ def delete_record(kind, record):
     else:
         db.session.delete(record)
     return removed
+
+
+def remove_hod(hod):
+    """Take someone off the HOD list. Returns what happened, for the flash
+    and the audit entry: 'lecturer' (a promoted lecturer, back to teaching),
+    'deleted' (a directly created HOD with nothing on record) or
+    'switched_off' (one with a record: login kept but disabled). Not committed."""
+    user = hod.user
+    if user is not None and Lecturer.query.filter_by(user_id=user.id).first():
+        user.role = 'lecturer'
+        db.session.delete(hod)
+        return 'lecturer'
+    if user is None or staff_history(user.id) is None:
+        # User's cascade takes the HOD row, device tokens and notifications.
+        db.session.delete(user or hod)
+        return 'deleted'
+    db.session.delete(hod)
+    user.is_active = False
+    user.current_refresh_jti = None     # the phone can't refresh any more
+    return 'switched_off'

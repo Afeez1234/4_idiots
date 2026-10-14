@@ -170,9 +170,11 @@ history, announcements), but the app is the main way students use SUAAMS.
   can also be added in bulk from a CSV file (lecturers and courses with a
   preview first). The roster has search, filters and pages.
 - **Unbind a student's phone** (see §5)
-- **Edit** any course, lecturer or student to fix a typo (a corrected staff
-  ID or matric number becomes their login). **Delete** only works on records
-  with no history yet, such as one created by mistake; otherwise use Status
+- **Edit** any course, lecturer, student or HOD to fix a typo (a corrected
+  staff ID or matric number becomes their login). **Delete** only works on
+  records with no history yet, such as one created by mistake; otherwise use
+  Status. To change a department's HOD, remove the current one (a promoted
+  lecturer goes back to teaching) and assign the next
 - **Status**: mark students suspended, rusticated, graduated, withdrawn,
   expelled or deceased, and lecturers on leave or left. Anything but active
   switches the login off; nothing is deleted. One at a time or by CSV

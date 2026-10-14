@@ -341,3 +341,9 @@ if you know the date.
 - **Trade-off:** A course that ran one test session can't be deleted, only
   edited. A type-the-name confirmation like faculty deletes would allow it,
   but would also let one click wipe a semester's attendance.
+- **HODs:** "Remove as HOD" instead of delete. A promoted lecturer shares
+  one login with their lecturer record, so removal sets the role back to
+  lecturer, and an edit on either page is copied to the other. An HOD
+  created directly loses the account, unless it has something on record, in
+  which case sign-in is switched off and the account kept. Changing a
+  department's HOD is remove, then assign, not a one-step swap.

@@ -9,16 +9,17 @@
    script pre-fills it. #}
 
 {# values: {form field name: current value}. tojson escapes quotes, so it
-   is safe inside a single-quoted attribute. #}
-{% macro edit_button(edit_url, delete_url, name, values, blocker=None) -%}
+   is safe inside a single-quoted attribute. note: replaces the dialog's
+   delete note for this row only (HODs: promoted lecturer or not). #}
+{% macro edit_button(edit_url, delete_url, name, values, blocker=None, note=None) -%}
     <button type="button" class="btn-link edit-open"
             data-edit="{{ edit_url }}" data-delete="{{ delete_url }}" data-name="{{ name }}"
-            data-blocker="{{ blocker or '' }}" data-values='{{ values|tojson }}'>
+            data-blocker="{{ blocker or '' }}" data-note="{{ note or '' }}" data-values='{{ values|tojson }}'>
         Edit
     </button>
 {%- endmacro %}
 
-{% macro edit_dialog(title, delete_note) -%}
+{% macro edit_dialog(title, delete_note, delete_label='Delete') -%}
     <div id="edit-modal" class="fixed inset-0 z-50 hidden justify-center overflow-y-auto bg-black/50 p-4">
         {# my-auto, not items-center: centres the dialog but lets a tall one
            scroll on a phone instead of clipping its top off. #}
@@ -46,8 +47,8 @@
                 <p id="edit-blocker" class="hidden text-xs text-secondary"></p>
                 <form id="delete-form" method="POST" class="space-y-3">
                     {% include '_csrf_field.html' %}
-                    <p class="text-xs text-secondary">{{ delete_note }}</p>
-                    <button type="submit" class="btn-danger w-full">Delete</button>
+                    <p class="text-xs text-secondary" id="delete-note">{{ delete_note }}</p>
+                    <button type="submit" class="btn-danger w-full">{{ delete_label }}</button>
                 </form>
             </div>
         </div>
@@ -58,6 +59,9 @@
             var form = document.getElementById('edit-form');
             var del = document.getElementById('delete-form');
             var blocker = document.getElementById('edit-blocker');
+            var note = document.getElementById('delete-note');
+            var defaultNote = note.textContent;
+            var label = {{ delete_label|tojson }};
             var current = '';
             function close() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
             document.querySelectorAll('.edit-open').forEach(function (btn) {
@@ -72,6 +76,7 @@
                         var field = form.elements[key];
                         if (field) field.value = values[key] == null ? '' : values[key];
                     });
+                    note.textContent = btn.dataset.note || defaultNote;
                     blocker.textContent = btn.dataset.blocker
                         ? "Can't be deleted: " + btn.dataset.blocker : '';
                     blocker.classList.toggle('hidden', !btn.dataset.blocker);
@@ -81,7 +86,7 @@
                 });
             });
             del.addEventListener('submit', function (e) {
-                if (!confirm('Delete ' + current + '? This cannot be undone.')) e.preventDefault();
+                if (!confirm(label + ': ' + current + '? This cannot be undone.')) e.preventDefault();
             });
             document.getElementById('edit-close').addEventListener('click', close);
             document.getElementById('edit-cancel').addEventListener('click', close);
