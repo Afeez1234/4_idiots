@@ -1,0 +1,154 @@
+{% extends "base_admin.html" %}
+{% from '_macros.html' import pill, card_heading, table_empty %}
+
+{# Yearly promotion (promotion.py): every active student up one level.
+   Three states: blocked (no year / departments missing a programme
+   length), already run for this year (with Undo), or ready -- in which case
+   "Preview" fills `plan` and shows the Promote button. #}
+
+{% block title %}Promotion | SUAAMS Admin{% endblock %}
+{% block page_title %}Promote students{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">Move every active student up one level for the new session</p>
+{% endblock %}
+
+{% block content %}
+    <div class="card card-body space-y-4">
+        {{ card_heading('Session') }}
+        {% if not year %}
+            <div class="alert" data-tone="warning"><span>
+                {% if semester %}The active semester, &ldquo;{{ semester.name }}&rdquo;, has no academic year in its name
+                (like &ldquo;2026/2027&rdquo;). Rename it on the Semesters page first.
+                {% else %}No semester is active. Activate the new session's first semester on the Semesters page first.{% endif %}
+            </span></div>
+        {% else %}
+            <p class="text-sm text-secondary">
+                Active semester: <span class="font-medium text-ink">{{ semester.name }}</span>.
+                Promotion runs once for the <span class="font-medium text-ink">{{ year }}</span> session.
+                {% if 'first' not in semester.name|lower %}
+                    <br><strong>Check:</strong> this doesn't look like a first semester. Promote after activating the
+                    new session's first semester, or next session's run will come only months after this one.
+                {% endif %}
+            </p>
+        {% endif %}
+
+        {% if missing_years %}
+            <div class="alert" data-tone="warning"><span>
+                These departments have students but no programme length, so their final year is unknown:
+                <strong>{{ missing_years|join(', ') }}</strong>. Set it on the
+                <a href="{{ url_for('admin.organization_page') }}" class="text-accent">Organization page</a> first.
+            </span></div>
+        {% endif %}
+
+        {% if run %}
+            <div class="alert" data-tone="info"><span>
+                Already done for {{ year }}: {{ run.promoted }} students promoted on {{ run.created_at|campus('%d %b %Y, %H:%M') }}.
+            </span></div>
+            {# Undo moves back only students still at the level this run gave
+               them, so a level fixed by hand since is left alone. #}
+            <form action="{{ url_for('admin.promotion_undo') }}" method="POST" class="undo-form flex flex-wrap gap-2">
+                {% include '_csrf_field.html' %}
+                <input type="hidden" name="year" value="{{ year }}">
+                <button type="submit" class="btn-secondary">Undo the {{ year }} promotion</button>
+                <a href="{{ url_for('admin.promotion_due_csv') }}" class="btn-ghost">Download students due to graduate</a>
+            </form>
+        {% elif year and not missing_years %}
+            <form action="{{ url_for('admin.promotion_preview') }}" method="POST" enctype="multipart/form-data" class="space-y-4">
+                {% include '_csrf_field.html' %}
+                <div>
+                    <label class="form-label" for="repeaters-file">Repeaters <span class="text-muted">(optional)</span></label>
+                    <input type="file" name="file" id="repeaters-file" accept=".csv,.txt,text/csv" class="form-file">
+                    <p class="form-help">
+                        A CSV of matric numbers who stay at their level this session, one per line or in a
+                        <span class="mono">matric_number</span> column. Everyone else who is active moves up one level;
+                        final-year students stay and are listed as due to graduate.
+                    </p>
+                </div>
+                <button type="submit" class="btn-secondary">Preview</button>
+            </form>
+        {% endif %}
+    </div>
+
+    {% if plan %}
+        <div class="card card-body mt-6 space-y-4">
+            {{ card_heading('Preview') }}
+            <p class="text-sm text-secondary">
+                <span class="font-medium text-ink">{{ plan.moving }}</span> students move up one level.
+                {{ plan.excluded|length }} stay as repeaters. {{ plan.due|length }} are in their final year or beyond
+                and are due to graduate (they don't move).
+                {% if plan.bad_levels %}{{ plan.bad_levels|length }} have a level that isn't 100&ndash;500 and are left as they are.{% endif %}
+            </p>
+            {% if plan.unknown_exclusions %}
+                <div class="alert" data-tone="warning"><span>
+                    {{ plan.unknown_exclusions|length }} matric number(s) in the repeaters file match no active student:
+                    {{ plan.unknown_exclusions[:20]|join(', ') }}. Fix the file and preview again. Nobody has been moved.
+                </span></div>
+            {% elif plan.ok and plan.moving %}
+                <form action="{{ url_for('admin.promotion_confirm') }}" method="POST" class="promote-form flex flex-wrap gap-2"
+                      data-message="Move {{ plan.moving }} students up one level for {{ plan.year }}? This can be undone from this page.">
+                    {% include '_csrf_field.html' %}
+                    <input type="hidden" name="year" value="{{ plan.year }}">
+                    <input type="hidden" name="excluded" value="{{ excluded_json }}">
+                    <button type="submit" class="btn-primary">Promote {{ plan.moving }} students</button>
+                    <a href="{{ url_for('admin.promotion_page') }}" class="btn-ghost">Cancel</a>
+                </form>
+            {% endif %}
+        </div>
+
+        <div class="card-clip mt-6">
+            <div class="px-5 pt-5 pb-3"><h2 class="card-title">Who moves</h2></div>
+            <div class="table-wrap border-t border-divider">
+                <table class="table">
+                    <thead><tr><th class="th">Department</th><th class="th">From</th><th class="th">To</th><th class="th">Students</th></tr></thead>
+                    <tbody>
+                        {% for (dept, old, new), count in plan.groups|dictsort %}
+                            <tr>
+                                <td class="td">{{ dept }}</td>
+                                <td class="td td-muted">{{ old }}</td>
+                                <td class="td td-muted">{{ new }}</td>
+                                <td class="td">{{ count }}</td>
+                            </tr>
+                        {% else %}
+                            {{ table_empty(4, 'Nobody moves.') }}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if plan.excluded or plan.bad_levels %}
+        <div class="card-clip mt-6">
+            <div class="px-5 pt-5 pb-3"><h2 class="card-title">Staying where they are</h2></div>
+            <div class="table-wrap border-t border-divider">
+                <table class="table">
+                    <thead><tr><th class="th">Matric No.</th><th class="th">Name</th><th class="th">Level</th><th class="th">Why</th></tr></thead>
+                    <tbody>
+                        {% for matric, name, dept, level in plan.excluded %}
+                            <tr><td class="td mono text-xs">{{ matric }}</td><td class="td">{{ name }}</td><td class="td td-muted">{{ level }}</td><td class="td">{{ pill('Repeater', 'neutral') }}</td></tr>
+                        {% endfor %}
+                        {% for matric, name, level in plan.bad_levels %}
+                            <tr><td class="td mono text-xs">{{ matric }}</td><td class="td">{{ name }}</td><td class="td td-muted">{{ level }}</td><td class="td">{{ pill('Level not 100–500', 'warning') }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Both act on thousands of students at once, so both ask first.
+    document.querySelectorAll('.promote-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (!window.confirm(form.dataset.message)) e.preventDefault();
+        });
+    });
+    document.querySelectorAll('.undo-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (!window.confirm('Move everyone this promotion moved back down a level?')) e.preventDefault();
+        });
+    });
+</script>
+{% endblock %}

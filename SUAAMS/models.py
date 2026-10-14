@@ -1,6 +1,7 @@
 from campus_time import campus_today
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, date, timezone
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 
 db = SQLAlchemy()
 
@@ -20,6 +21,12 @@ class Department(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     faculty_id = db.Column(db.Integer, db.ForeignKey('faculties.id'), nullable=False)
+    # Years in the programme (4 or 5). Its final level is years x 100: the
+    # yearly promotion (promotion.py) stops there and lists those students
+    # as due to graduate instead. Nullable: departments made before this
+    # existed have none until an admin sets it, and promotion refuses to
+    # run while any department with students is missing it.
+    programme_years = db.Column(db.Integer, nullable=True)
 
     students = db.relationship('Student', backref='department', lazy=True, cascade="all, delete-orphan")
     lecturers = db.relationship('Lecturer', backref='department', lazy=True, cascade="all, delete-orphan")
@@ -28,6 +35,23 @@ class Department(db.Model):
     # underlying User account, which cascades separately from User itself).
     hods = db.relationship('HOD', backref='department', lazy=True, cascade="all, delete-orphan")
     courses = db.relationship('Course', backref='department', lazy=True, cascade="all, delete-orphan")
+
+
+class PromotionRun(db.Model):
+    # One row per academic year in which students were moved up a level
+    # (promotion.py). academic_year is unique, which is what stops the same
+    # year being promoted twice -- e.g. by someone re-running it after
+    # activating the second semester. moves holds {new_level: [student_id,
+    # ...]} as JSON so the run can be undone exactly: only students still at
+    # the level this run gave them are moved back. MEDIUMTEXT on MySQL: plain
+    # TEXT stops at 64 KB, about 10,000 students' ids.
+    __tablename__ = 'promotion_runs'
+    id = db.Column(db.Integer, primary_key=True)
+    academic_year = db.Column(db.String(20), nullable=False, unique=True)
+    promoted = db.Column(db.Integer, nullable=False)
+    moves = db.Column(db.Text().with_variant(MEDIUMTEXT, 'mysql'), nullable=False)
+    run_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
 class Semester(db.Model):

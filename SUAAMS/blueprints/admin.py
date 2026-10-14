@@ -16,7 +16,7 @@ from extensions import log_exception, logger, limiter
 from campus_time import campus_now
 from utils import (
     resolve_current_course, session_status_for_course, notify_announcement,
-    VALID_LEVELS, normalize_level, course_level,
+    VALID_LEVELS, normalize_level, course_level, _csv_safe,
 )
 from push_notifications import send_push_notification
 from audit import log_action, changes
@@ -27,6 +27,7 @@ from timetable_pdf import KINDS
 from timetable_publish import publish_drafts, published_schedules, notify_schedule_changes
 import bulk_upload
 import people_status
+import promotion
 from people_status import STUDENT_STATUSES, LECTURER_STATUSES
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
@@ -194,11 +195,15 @@ def organization_page():
         elif action == 'add_department':
             name = request.form.get('name')
             faculty_id = request.form.get('faculty_id')
+            years = request.form.get('programme_years', type=int)
             if not name or not faculty_id:
                 flash('All fields are required to create a department.', 'error')
+            elif years not in PROGRAMME_YEARS:
+                flash('Choose how many years the programme runs.', 'error')
             else:
                 try:
-                    department = Department(name=name.strip(), faculty_id=int(faculty_id))
+                    department = Department(name=name.strip(), faculty_id=int(faculty_id),
+                                            programme_years=years)
                     db.session.add(department)
                     db.session.flush()
                     faculty = db.session.get(Faculty, department.faculty_id)
@@ -213,6 +218,23 @@ def organization_page():
                     flash('Failed to create department. Verify connections.', 'error')
                     log_exception("Department Create Error")
 
+        elif action == 'set_programme_years':
+            # The one department field promotion depends on; departments
+            # created before it existed need it set once.
+            department = db.session.get(Department, request.form.get('department_id', type=int) or 0)
+            years = request.form.get('programme_years', type=int)
+            if not department or years not in PROGRAMME_YEARS:
+                flash('Choose a department and a programme length.', 'error')
+            elif department.programme_years != years:
+                log_action('department.update',
+                           f"Set {department.name}'s programme length to {years} years"
+                           + (f" (was {department.programme_years})" if department.programme_years else ''),
+                           'department', department.id,
+                           {'programme_years': {'from': department.programme_years, 'to': years}})
+                department.programme_years = years
+                db.session.commit()
+                flash(f"{department.name} is now a {years}-year programme.", 'success')
+
         return redirect(url_for('admin.organization_page'))
 
     faculties = Faculty.query.all()
@@ -221,8 +243,13 @@ def organization_page():
         'admin/organization.html',
         faculties=faculties,
         departments=departments,
+        programme_years=PROGRAMME_YEARS,
         active_page='organization',
     )
+
+
+# Programme lengths the school runs: levels stop at 500 (VALID_LEVELS).
+PROGRAMME_YEARS = (4, 5)
 
 
 def _cascade_counts(department_ids):
@@ -599,6 +626,116 @@ def bulk_status(kind):
         log_exception("Bulk Status Error")
         flash('Failed to change the statuses. Nobody was changed.', 'error')
     return redirect(back)
+
+
+# ==========================================
+# PROMOTION: EVERY ACTIVE STUDENT UP ONE LEVEL
+# ==========================================
+# Once per academic year (promotion.py). The page shows the year and any
+# blocker; "Preview" works out who moves (with optional repeaters CSV);
+# "Promote" re-plans from the database and applies; "Undo" reverses the run.
+
+def _promotion_page(plan=None, excluded=()):
+    semester = Semester.query.filter_by(is_active=True).first()
+    year = promotion.academic_year(semester)
+    return render_template(
+        'admin/promotion.html',
+        semester=semester,
+        year=year,
+        run=promotion.current_run(year),
+        missing_years=sorted(d.name for d in Department.query.filter(Department.programme_years.is_(None))
+                             .filter(Department.students.any(Student.status == 'active'))),
+        plan=plan,
+        excluded_json=json.dumps(list(excluded)),
+        active_page='students',
+    )
+
+
+@admin_bp.route('/students/promotion', methods=['GET'])
+def promotion_page():
+    return _promotion_page()
+
+
+@admin_bp.route('/students/promotion/preview', methods=['POST'])
+@limiter.limit("10 per minute")
+def promotion_preview():
+    semester = Semester.query.filter_by(is_active=True).first()
+    excluded = []
+    upload = request.files.get('file')
+    try:
+        if upload and upload.filename:
+            excluded = people_status.read_ids(upload.read(1024 * 1024), 'matric_number')
+        plan = promotion.plan_promotion(semester, excluded)
+    except (people_status.StatusError, promotion.PromotionError) as e:
+        flash(str(e), 'error')
+        return redirect(url_for('admin.promotion_page'))
+    return _promotion_page(plan, excluded)
+
+
+@admin_bp.route('/students/promotion/confirm', methods=['POST'])
+@limiter.limit("5 per minute")
+def promotion_confirm():
+    semester = Semester.query.filter_by(is_active=True).first()
+    try:
+        excluded = json.loads(request.form.get('excluded') or '[]')
+        # Re-planned from the database now, not taken from the preview: a
+        # student suspended in between must not be promoted.
+        plan = promotion.plan_promotion(semester, excluded)
+        if plan.year != request.form.get('year'):
+            raise promotion.PromotionError('The active semester changed since the preview. Preview again.')
+        moved = promotion.apply_promotion(plan, session['user_id'])
+        log_action('student.promote',
+                   f"Promoted {moved} students one level for {plan.year} "
+                   f"({len(plan.excluded)} excluded as repeaters, {len(plan.due)} due to graduate)",
+                   'student', None,
+                   {'year': plan.year, 'promoted': moved, 'excluded': len(plan.excluded),
+                    'due_to_graduate': len(plan.due)})
+        db.session.commit()
+        flash(f"Promoted {moved} students for {plan.year}. {len(plan.due)} are due to graduate: download "
+              f"the list below and set them to Graduated with Change Status (CSV).", 'success')
+    except promotion.PromotionError as e:
+        db.session.rollback()
+        flash(f"{e} Nobody was moved.", 'error')
+    except Exception:
+        db.session.rollback()
+        log_exception("Promotion Error")
+        flash('Failed to promote. Nobody was moved.', 'error')
+    return redirect(url_for('admin.promotion_page'))
+
+
+@admin_bp.route('/students/promotion/undo', methods=['POST'])
+@limiter.limit("5 per minute")
+def promotion_undo():
+    run = promotion.current_run(request.form.get('year'))
+    if not run:
+        flash('There is no promotion to undo for that year.', 'error')
+        return redirect(url_for('admin.promotion_page'))
+    try:
+        year = run.academic_year
+        moved_back = promotion.undo_promotion(run)
+        log_action('student.promote_undo', f"Undid the {year} promotion: {moved_back} students moved back",
+                   'student', None, {'year': year, 'moved_back': moved_back})
+        db.session.commit()
+        flash(f"Undone: {moved_back} students moved back a level.", 'success')
+    except Exception:
+        db.session.rollback()
+        log_exception("Promotion Undo Error")
+        flash('Failed to undo. Nothing changed.', 'error')
+    return redirect(url_for('admin.promotion_page'))
+
+
+@admin_bp.route('/students/promotion/due-to-graduate.csv', methods=['GET'])
+def promotion_due_csv():
+    """Final-year (and spill-over) active students, in the shape the
+    Change Status (CSV) form reads -- matric_number first."""
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(['matric_number', 'full_name', 'department', 'level'])
+    for matric, name, dept, level in promotion.due_to_graduate():
+        # Same formula-injection guard as the other CSV exports.
+        writer.writerow([_csv_safe(matric), _csv_safe(name), _csv_safe(dept), level])
+    return Response(out.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': 'attachment; filename=due_to_graduate.csv'})
 
 
 # ==========================================

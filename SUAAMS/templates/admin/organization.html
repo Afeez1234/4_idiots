@@ -107,6 +107,18 @@
                                    placeholder="e.g. Computer Engineering" class="form-input">
                         </div>
 
+                        {# Its final level (years x 100) is where yearly
+                           promotion stops -- see promotion.py. #}
+                        <div>
+                            <label class="form-label" for="department-years">Programme length</label>
+                            <select name="programme_years" id="department-years" required class="form-select">
+                                <option value="" disabled selected>Select length</option>
+                                {% for years in programme_years %}
+                                    <option value="{{ years }}">{{ years }} years ({{ years * 100 }} level is final year)</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
                         <button type="submit" class="btn-primary w-full">Add Department</button>
                     </form>
                 </div>
@@ -127,6 +139,20 @@
                                     {{ dept.courses|length }} courses
                                 </p>
                             </div>
+                            {# Programme length, settable in place: departments made
+                               before it existed have none, and promotion won't run
+                               until every department with students has one. #}
+                            <form action="{{ url_for('admin.organization_page') }}" method="POST" class="ml-auto flex shrink-0 items-center gap-2">
+                                {% include '_csrf_field.html' %}
+                                <input type="hidden" name="action" value="set_programme_years">
+                                <input type="hidden" name="department_id" value="{{ dept.id }}">
+                                <select name="programme_years" class="form-select programme-years" aria-label="Programme length for {{ dept.name }}">
+                                    {% if not dept.programme_years %}<option value="" selected disabled>Length not set</option>{% endif %}
+                                    {% for years in programme_years %}
+                                        <option value="{{ years }}" {{ 'selected' if dept.programme_years == years else '' }}>{{ years }} years</option>
+                                    {% endfor %}
+                                </select>
+                            </form>
                             <button type="button"
                                     class="btn-ghost btn-icon shrink-0 text-muted hover:text-error"
                                     title="Delete department"
@@ -189,6 +215,11 @@
 
 {% block extra_scripts %}
 <script>
+    // Programme length saves as soon as it's picked (one field, no Save button).
+    document.querySelectorAll('.programme-years').forEach(function (select) {
+        select.addEventListener('change', function () { select.form.submit(); });
+    });
+
     (function () {
         const modal = document.getElementById('delete-modal');
         const title = document.getElementById('delete-modal-title');

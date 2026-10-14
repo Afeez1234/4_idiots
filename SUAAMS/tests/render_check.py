@@ -92,6 +92,19 @@ def _bulk_course_plan():
     return BulkPlan("courses", "courses.csv", [new, exists, bad], semester_id=1)
 
 
+def _promotion_plan():
+    """A promotion preview with movers, a repeater and an odd level."""
+    from collections import Counter
+    from promotion import PromotionPlan
+    return PromotionPlan(
+        year="2026/2027", moves={"400": [1, 2]},
+        groups=Counter({("Mechatronics", "300", "400"): 2}),
+        due=[("MCT/21/0009", "Bola", "Mechatronics", "500")],
+        excluded=[("MCT/22/0003", "Chidi", "Mechatronics", "300")],
+        bad_levels=[("MCT/22/0004", "Dayo", "400L")],
+    )
+
+
 def _timetable_grid_with_a_draft():
     from types import SimpleNamespace
     entry = SimpleNamespace(
@@ -305,10 +318,12 @@ CONTEXTS = {
                 ],
             }
         ],
+        programme_years=(4, 5),
         departments=[
             {
                 "id": 1,
                 "name": "Computer Engineering",
+                "programme_years": None,
                 "faculty": {"name": "Faculty of Engineering"},
                 "students": [{}] * 3,
                 "lecturers": [{}, {}],
@@ -416,6 +431,18 @@ CONTEXTS = {
         student_statuses={"active": "Active", "suspended": "Suspended", "graduated": "Graduated"},
         filter_args={},
         is_filtered=False,
+    ),
+
+    # Yearly promotion page, at the preview step (promotion.py).
+    "admin/promotion.html": dict(
+        role="admin",
+        active_page="students",
+        semester={"id": 1, "name": "2026/2027 First Semester"},
+        year="2026/2027",
+        run=None,
+        missing_years=[],
+        plan=_promotion_plan(),
+        excluded_json='["MCT/22/0003"]',
     ),
 
     # CSV status change preview (bulk_status in blueprints/admin.py), with an

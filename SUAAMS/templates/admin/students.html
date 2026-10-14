@@ -105,6 +105,16 @@
 
             {# Graduating a whole set, or applying a Senate list. #}
             {{ bulk_status_card('students', student_statuses, 'matric number') }}
+
+            {# Yearly promotion lives on its own page: it acts on everyone. #}
+            <div class="card card-body">
+                {{ card_heading('New Session', info=true) }}
+                <p class="mt-3 text-xs text-secondary">
+                    Move every active student up one level, once per session, after making the new session's
+                    first semester active. You'll see a preview first, and it can be undone.
+                </p>
+                <a href="{{ url_for('admin.promotion_page') }}" class="btn-secondary mt-4 w-full">Promote students</a>
+            </div>
         </div>
 
         <!-- Roster -->
