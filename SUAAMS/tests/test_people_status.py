@@ -223,5 +223,20 @@ class PeopleStatusTestCase(unittest.TestCase):
             self.assertNotIn('user_id', s)
 
 
+    def test_filtered_roster_is_in_matric_order(self):
+        # Lives here because this fixture already has students and an admin.
+        # Added out of order; a department/level list reads like a register.
+        self.student('Zainab', 'MCT/20/0000')
+        db.session.commit()
+        self.sign_in()
+        with mock.patch('blueprints.admin.render_template', return_value='') as render:
+            self.client.get('/admin/students', query_string={'dept': self.dept.id, 'level': '400'})
+            filtered = [st.matric_number for st in render.call_args.kwargs['students']]
+            self.client.get('/admin/students')
+            unfiltered = [st.matric_number for st in render.call_args.kwargs['students']]
+        self.assertEqual(filtered, ['MCT/20/0000', 'MCT/20/0001', 'MCT/20/0002'])
+        self.assertEqual(unfiltered[0], 'MCT/20/0000')            # newest first when unfiltered
+
+
 if __name__ == '__main__':
     unittest.main()

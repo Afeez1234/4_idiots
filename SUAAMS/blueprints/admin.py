@@ -882,9 +882,17 @@ def students_page():
 
     # joinedload: the template reads student.department and student.user on
     # every row, which would otherwise be two extra queries per student.
+    # Order: a department or level list reads like a class register, so it
+    # goes by matric number (MCT/20/0001, MCT/20/0002, ...). Unfiltered, the
+    # newest students come first, so whoever just added or uploaded some
+    # sees them at the top. Student.id breaks ties so pages never overlap.
+    if dept_id or level:
+        order = (Student.matric_number.asc(), Student.id.asc())
+    else:
+        order = (Student.id.desc(),)
     query = query.options(
         joinedload(Student.department), joinedload(Student.user),
-    ).order_by(Student.id.desc())
+    ).order_by(*order)
 
     pagination = query.paginate(page=page, per_page=STUDENTS_PER_PAGE, error_out=False)
     # Unbinding the last student on the last page of a "Bound" view leaves
