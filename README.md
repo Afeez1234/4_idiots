@@ -164,6 +164,11 @@ history, announcements), but the app is the main way students use SUAAMS.
 - *Sign-offs* tab is a placeholder for now
 
 ### Admin — web dashboard
+- **Today at a glance**: every class on today's timetable with its status
+  (upcoming, due, late, missed, live, ended) and how many are present. A
+  class with no session 30 minutes after its start gets a banner with a
+  **Notify lecturer** button. Also check-ins today by method (NFC, BLE,
+  manual) and each department's attendance this semester
 - Set up faculties and departments, with each programme's length (4 or 5
   years)
 - Create lecturer, HOD and student accounts. Students, lecturers and courses
@@ -257,9 +262,9 @@ when a student checked in, are stored in UTC and converted when displayed.
   phone's *current* set of enrolled fingerprints, so adding a friend's
   fingerprint to your phone would stop working. Right now the app accepts
   any successful fingerprint or PIN unlock from the phone.
-- **Automatic sessions**: sessions are started by hand. The timetable shows
-  what *should* be running, but nothing starts or ends sessions
-  automatically yet.
+- **Automatic sessions**: sessions are started by hand. The dashboard flags a
+  class that hasn't started and the admin can remind the lecturer, but
+  nothing starts or ends sessions automatically yet.
 - **iPhone Bluetooth check-in**: should work, but nobody has tested it on an
   iPhone yet.
 - **HOD sign-offs**: placeholder page only.

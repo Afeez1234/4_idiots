@@ -183,9 +183,12 @@ ever handles a 32-character signed beacon (not a JWT; see `beacon.py`), so the s
 without hardware/template-sync limits.
 
 ## Roadmap (planned, not yet built)
-- **Timetable automation**: soft version first — web dashboard compares
-  current time to the `Timetable` table and shows an "Open Terminal" banner
-  when a class is due. Later, a fully autonomous version (Flask-APScheduler
+- **Timetable automation**: soft version **built 2026-10-14**
+  (`dashboard_today.py`): the admin dashboard marks each of today's slots
+  upcoming / due / late / missed / live / ended, bannering a class with no
+  session 30 minutes after its start (`LATE_AFTER`) with a "Notify lecturer"
+  button. Sessions now record `timetable_id`, so a course's lecture and
+  tutorial on one day stay apart. Later, a fully autonomous version (Flask-APScheduler
   background worker) auto-starts/stops sessions at scheduled times and
   computes absentees hands-free. ESP32 caches each day's timetable each
   morning so it can log scans offline and push the backlog once

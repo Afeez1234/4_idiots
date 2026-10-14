@@ -45,6 +45,29 @@ class Dept:
         self.name = name
 
 
+def _dash_slot(slot_id, code, start, end, room, status, present, enrolled, reminded_at=None):
+    """One row of the dashboard's today["slots"] (see dashboard_today.today)."""
+    h1, m1 = map(int, start.split(":"))
+    h2, m2 = map(int, end.split(":"))
+    return {
+        "slot": {"id": slot_id, "start_time": time(h1, m1), "end_time": time(h2, m2), "room": room},
+        "course": {"course_code": code, "course_title": "Course " + code, "lecturer_names": "Dr. Amina Yusuf"},
+        "status": status, "present": present, "enrolled": enrolled, "reminded_at": reminded_at,
+    }
+
+
+_DASH_SLOTS = [
+    _dash_slot(1, "CSC 201", "08:00", "10:00", "LT 2", "ended", 142, 156),
+    _dash_slot(2, "MCT 401", "09:00", "11:00", "LT 1", "live", 74, 88),
+    _dash_slot(3, "MCT 405", "10:00", "12:00", "LT 3", "late", None, 66),
+    _dash_slot(4, "EEE 305", "10:00", "11:00", None, "late", None, 40,
+               reminded_at=datetime(2026, 10, 8, 9, 35)),
+    _dash_slot(5, "PHY 101", "10:30", "12:00", "LT 4", "due", None, 200),
+    _dash_slot(6, "MEE 307", "07:00", "09:00", "Lab B", "missed", None, 43),
+    _dash_slot(7, "GST 211", "14:00", "16:00", "Main Hall", "upcoming", None, 312),
+]
+
+
 def _pagination(total, page, pages, per_page=50):
     """Stand-in for Flask-SQLAlchemy's Pagination: just the attributes the
     paginated admin pages (students, activity) read."""
@@ -138,21 +161,34 @@ def render(template, spec):
 # context (and therefore the right rail) is exercised.
 # --------------------------------------------------------------------------
 CONTEXTS = {
+    # One slot in every status, so each pill, the late banner (with and
+    # without a reminder already sent) and the progress cell all render.
     "admin/dashboard.html": dict(
         role="admin",
         active_page="dashboard",
-        active_semester=None,
-        total_faculties=3,
-        total_lecturers=2,
-        total_students=1,
-        live_sessions=0,
+        active_semester={"name": "2026/2027 First Semester"},
+        total_students=474,
+        today={
+            "now": datetime(2026, 10, 8, 10, 40),
+            "alerts": [r for r in _DASH_SLOTS if r["status"] == "late"],
+            "slots": _DASH_SLOTS,
+            "live": [{"room": "LT 1"}, {"room": None}],
+            "checkins": {"count": 216, "expected": 244, "pct": 89,
+                         "by_method": [("nfc", 170), ("ble", 30), ("manual", 10), ("unknown", 6)]},
+        },
         department_attendance=[
             {"name": "Systems Eng", "percentage": 82.0},
             {"name": "Comp Sci", "percentage": 47.0},
         ],
-        recent_activity=[
-            {"icon": "check", "color": "success", "message": "ok", "time": "now"}
+        recent_checkins=[
+            {"method": "nfc", "time_in": datetime(2026, 10, 8, 9, 39),
+             "student": {"full_name": "Chinedu O'Brien"},
+             "session": {"room": "LT 1", "course": {"course_code": "MCT 401"}}},
+            {"method": None, "time_in": datetime(2026, 10, 8, 8, 10),
+             "student": {"full_name": "Grace Akpan"},
+             "session": {"room": None, "course": {"course_code": "CSC 201"}}},
         ],
+        relative_time=lambda dt: "just now",
     ),
 
     # --- The light-theme redesign pages ---------------------------------

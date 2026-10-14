@@ -25,11 +25,8 @@
         <span class="material-symbols-rounded text-xl">dashboard</span>
         <span class="rail-label">Dashboard</span>
       </a>
-      {# TODO: no admin.analytics route/template yet. #}
-      <a href="#" class="nav-link {{ 'nav-link-active' if active_page == 'analytics' }}">
-        <span class="material-symbols-rounded text-xl">analytics</span>
-        <span class="rail-label">Analytics</span>
-      </a>
+      {# Analytics is hidden until it has a page: it was an href="#" link
+         that did nothing when clicked. #}
     </div>
   </div>
 
@@ -61,6 +58,11 @@
       <a href="{{ url_for('admin.timetable_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'timetable' }}">
         <span class="material-symbols-rounded text-xl">calendar_month</span>
         <span class="rail-label">Timetable</span>
+        {# Imported slots nobody has published: invisible to students and
+           lecturers until someone does (inject_active_semester counts them). #}
+        {% if draft_slots %}
+          <span class="nav-badge" title="{{ draft_slots }} draft slot{{ 's' if draft_slots != 1 }} waiting to be published">{{ draft_slots }}</span>
+        {% endif %}
       </a>
       <a href="{{ url_for('admin.organization_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'organization' }}">
         <span class="material-symbols-rounded text-xl">account_tree</span>

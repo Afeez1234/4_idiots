@@ -92,6 +92,7 @@ the feature.
 
 | Feature | What it does | Server | Templates | Tables |
 |---|---|---|---|---|
+| Admin dashboard (today) | Today's published timetable, each class Upcoming / Due / Late (no session 30 min after the start) / Missed / Live / Ended, with present ÷ enrolled. A banner per late class with "Notify lecturer" (in-app + push to every lecturer on the course, logged, shows "Reminded at"). Check-ins today by method; department rates for the active semester (sessions × enrolled per course); latest check-ins. Fixed number of queries. Timetable nav badge = unpublished drafts | `dashboard_today.py`; `blueprints/admin.py` `/dashboard`, `/timetable/<id>/remind`; `utils.py` `resolve_timetable_slot_for_course` (sets `sessions.timetable_id`) | `admin/dashboard.html`, `base_admin.html`; app: `notification_service.dart` (`class_reminder` tap opens the course) | `timetable`, `sessions`, `attendance`, `enrollments`, `audit_logs`, `notifications` |
 | Faculties / departments | Organisation setup; each department's programme length (4 or 5 years), set in place. Counts come from GROUP BY queries | `blueprints/admin.py` `/organization`, `_organization_counts` | `admin/organization.html` | `faculties`, `departments` |
 | Accounts | Lecturers, HODs, students; student CSV bulk enrol (skips bad rows). The student roster lists by matric number when filtered by department or level, newest first otherwise | `blueprints/admin.py` `/lecturers`, `/hods`, `/students`, `/students/bulk-enroll` | `templates/admin/` | `users` + profiles |
 | Bulk lecturers / courses | CSV upload → preview → confirm. Any row error blocks the file; existing rows are skipped unchanged. Courses list lecturers by staff ID, coordinator first. Template download per kind | `bulk_upload.py`; `blueprints/admin.py` `/bulk/<kind>`, `/bulk/confirm`, `/bulk/<kind>/template.csv` | `admin/bulk_preview.html`, cards on `lecturers.html`, `courses.html` | `users`, `lecturers`, `courses`, `course_lecturers` |
@@ -128,5 +129,7 @@ the feature.
 | Timetable import, publish + notifications, page view, copy | `SUAAMS/tests/test_timetable_import.py`, `test_timetable_publish.py`, `test_timetable_view.py`, `test_timetable_copy.py` |
 | Bulk lecturers / courses | `SUAAMS/tests/test_bulk_upload.py` |
 | Status, promotion, Organization counts | `SUAAMS/tests/test_people_status.py`, `test_promotion.py` |
+| Edit / delete, HOD removal | `SUAAMS/tests/test_record_edits.py` |
+| Admin dashboard: slot status, session matching, reminders, query count | `SUAAMS/tests/test_dashboard_today.py` |
 | Flutter tests | `SUAAMS_Mobile/suaams/test/` |
 | **All of the above, on every push** | `.github/workflows/tests.yml` (GitHub Actions) |

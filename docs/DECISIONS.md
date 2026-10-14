@@ -347,3 +347,22 @@ if you know the date.
   created directly loses the account, unless it has something on record, in
   which case sign-in is switched off and the account kept. Changing a
   department's HOD is remove, then assign, not a one-step swap.
+
+### D26. The dashboard answers "is today's teaching happening?" (2026-10-14)
+
+- **Problem:** The dashboard showed totals and an all-time department rate.
+  It couldn't say whether the 10:00 class had started. The department rate
+  also multiplied a department's total sessions by its total enrollments,
+  so it ran far too low.
+- **Chose:** Today's published slots matched to sessions, by
+  `sessions.timetable_id` (now set when a class starts) or, for older
+  sessions, by course and `planned_start`. A class is late 30 minutes after
+  its start with no session, and missed once its end passes. Reminders are
+  a manual button that notifies every lecturer on the course; the audit
+  entry doubles as the "Reminded at" record, so no new table. Department
+  rates are summed per course over the active semester only.
+- **Trade-off:** No automatic reminders: that belongs with the scheduler on
+  the roadmap, and a wrong automatic nag to a lecturer on a cancelled day is
+  worse than none. Sessions started before this change, outside the
+  timetable or with typed times, match no slot, so their class can show as
+  missed while the session itself counts as live.

@@ -431,6 +431,21 @@
   .now-banner-icon[data-tone="warning"] { @apply bg-warning/15 text-warning; }
   .now-banner-icon[data-tone="neutral"] { @apply bg-surface text-muted; }
 
+  /* Count on a nav link (Timetable: unpublished drafts). Pushed to the
+     right edge by .rail-label's flex-1. */
+  .nav-badge {
+    @apply grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-warning px-1.5
+           text-2xs font-bold text-white;
+  }
+
+  /* Dashboard: how today's check-ins arrived, as one stacked bar. Tones
+     are the same names the method pills use (admin/dashboard.html). */
+  .split-bar { @apply flex h-2.5 w-full overflow-hidden rounded-full bg-surface; }
+  .split-seg { @apply h-full; }
+  .split-seg[data-tone="accent"]  { @apply bg-accent; }
+  .split-seg[data-tone="warning"] { @apply bg-warning; }
+  .split-seg[data-tone="neutral"] { @apply bg-border; }
+
   .mono { @apply font-mono; }
 
   /* "Form column left, directory right" -- seven admin pages re-declared this

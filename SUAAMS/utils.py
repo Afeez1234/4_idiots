@@ -342,6 +342,7 @@ def start_class_session(lecturer, course_id, planned_start=None, planned_end=Non
         db.session.rollback()
         return 'already_active', running
 
+    slot = None
     if planned_start is None and planned_end is None:
         slot = resolve_timetable_slot_for_course(course_id)
         if slot:
@@ -354,6 +355,10 @@ def start_class_session(lecturer, course_id, planned_start=None, planned_end=Non
         start_time=datetime.now(timezone.utc).time(),
         planned_start=planned_start,
         planned_end=planned_end,
+        # Which timetable slot this class is, so the admin dashboard can
+        # tell a course's lecture from its tutorial on the same day. None
+        # for a class started outside the timetable, or with typed times.
+        timetable_id=slot.id if slot else None,
         # Which of the course's lecturers ran this class.
         started_by=lecturer.user_id,
     )
@@ -654,6 +659,13 @@ def resolve_timetable_slot_for_course(course_id, semester=None, on_date=None):
     exact scheduled window (resolve_current_course's on-the-dot time filter
     would report no_class_now in that case).
 
+    A course can meet more than once a day (a lecture at 09:00, a tutorial
+    at 14:00). It used to return the day's FIRST slot regardless of the
+    time, so starting the 14:00 tutorial gave the session 09:00 planned
+    times -- and the late cut-off is worked out from planned_start. Now it
+    returns the slot running at `on_date`'s time, else the next one today,
+    else the last one (a class started after its slot ended).
+
     Returns the matching Timetable row, or None if there's no active
     semester or no slot for this course today.
     """
@@ -666,7 +678,7 @@ def resolve_timetable_slot_for_course(course_id, semester=None, on_date=None):
     if semester is None:
         return None
 
-    return (
+    slots = (
         Timetable.query
         .filter(
             Timetable.course_id == course_id,
@@ -675,8 +687,15 @@ def resolve_timetable_slot_for_course(course_id, semester=None, on_date=None):
             Timetable.is_published.is_(True),  # drafts don't set planned times
         )
         .order_by(Timetable.start_time.asc(), Timetable.id.asc())
-        .first()
+        .all()
     )
+    if not slots:
+        return None
+    # A plain date (no time of day) can't choose between them: first slot.
+    if not isinstance(on_date, datetime):
+        return slots[0]
+    now = on_date.time()
+    return next((s for s in slots if s.end_time > now), slots[-1])
 
 
 

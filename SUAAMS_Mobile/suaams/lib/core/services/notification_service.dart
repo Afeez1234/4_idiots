@@ -230,6 +230,14 @@ class NotificationService {
       return;
     }
 
+    // The admin dashboard's "Notify lecturer" on a class that hasn't
+    // started: open that course, where the lecturer starts the session.
+    final courseId = data['course_id'];
+    if (isLecturer && data['type'] == 'class_reminder' && courseId != null) {
+      context.push('/lecturer/home/course/$courseId');
+      return;
+    }
+
     final sessionId = data['session_id'];
     if (isStudent && data['type'] == 'attendance_marked' && sessionId != null) {
       context.push('/student/attendance/history/session/$sessionId');

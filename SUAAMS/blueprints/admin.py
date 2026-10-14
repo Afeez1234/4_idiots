@@ -18,7 +18,7 @@ from utils import (
     resolve_current_course, session_status_for_course, notify_announcement,
     VALID_LEVELS, normalize_level, course_level, _csv_safe,
 )
-from push_notifications import send_push_notification
+from push_notifications import send_push_notification, notify_users
 from audit import log_action, changes
 # Aliased: the route below is also called timetable_import (its URL
 # endpoint name), which would otherwise replace the module.
@@ -29,6 +29,7 @@ import bulk_upload
 import people_status
 import promotion
 import record_edits
+import dashboard_today
 from people_status import STUDENT_STATUSES, LECTURER_STATUSES
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
@@ -59,8 +60,12 @@ def require_admin():
 def inject_active_semester():
     """Makes active_semester available to every admin template (used by
     the sidebar pill in base_admin.html) without each route passing it
-    individually."""
-    return {'active_semester': Semester.query.filter_by(is_active=True).first()}
+    individually. draft_slots is the Timetable nav badge: imported slots
+    nobody has published yet, so students and lecturers can't see them."""
+    return {
+        'active_semester': Semester.query.filter_by(is_active=True).first(),
+        'draft_slots': Timetable.query.filter_by(is_published=False).count(),
+    }
 
 
 def _relative_time(dt):
@@ -87,77 +92,19 @@ def _relative_time(dt):
 # ==========================================
 @admin_bp.route('/dashboard', methods=['GET'])
 def dashboard():
-    """
-    Renders the administrative dashboard: system-wide counts, live session
-    count, per-department attendance rates, and a recent-activity feed.
-    """
+    """Is today's teaching happening? Today's timetable with each class's
+    status, late classes (with a reminder button), check-ins today by
+    method, this semester's department rates and the latest check-ins.
+    The work is in dashboard_today.py, in a fixed number of queries."""
     try:
-        total_students = Student.query.count()
-        total_lecturers = Lecturer.query.count()
-        total_courses = Course.query.count()
-        total_departments = Department.query.count()
-        total_faculties = Faculty.query.count()
-        live_sessions = SessionModel.query.filter_by(is_active=True).count()
-
-        # Per-department attendance rate, using the same "% of theoretically
-        # possible attendance" formula already used in api/lecturer.py's
-        # avg_attendance (total_attendance / (total_sessions * enrolled_count)),
-        # just scoped to every course in a department instead of one course.
-        # Departments with no courses yet are skipped rather than shown as
-        # 0% -- there's nothing to measure yet, that's not the same as poor
-        # attendance.
-        department_attendance = []
-        for dept in Department.query.all():
-            course_ids = [c.id for c in Course.query.filter_by(department_id=dept.id).all()]
-            if not course_ids:
-                continue
-            total_sessions = SessionModel.query.filter(SessionModel.course_id.in_(course_ids)).count()
-            enrolled_count = Enrollment.query.filter(Enrollment.course_id.in_(course_ids)).count()
-            total_attendance = (
-                Attendance.query
-                .join(SessionModel, Attendance.session_id == SessionModel.id)
-                .filter(SessionModel.course_id.in_(course_ids))
-                .count()
-            )
-            pct = round(
-                (total_attendance / (total_sessions * enrolled_count) * 100)
-                if total_sessions and enrolled_count else 0,
-                1,
-            )
-            department_attendance.append({'name': dept.name, 'percentage': pct})
-
-        # Recent activity: most recent check-ins. Session start/end events
-        # aren't merged in here -- Session only stores session_date/
-        # start_time as separate Date/Time columns (no single datetime),
-        # so sorting them against Attendance.time_in would need combining
-        # those first. Deferred rather than guessed at.
-        recent_activity = []
-        recent_attendance = (
-            Attendance.query
-            .join(SessionModel, Attendance.session_id == SessionModel.id)
-            .join(Course, SessionModel.course_id == Course.id)
-            .order_by(Attendance.time_in.desc())
-            .limit(8)
-            .all()
-        )
-        for att in recent_attendance:
-            recent_activity.append({
-                'icon': 'check_circle',
-                'color': 'success',
-                'message': f"{att.student.full_name} checked into {att.session.course.course_code}",
-                'time': _relative_time(att.time_in),
-            })
-
+        semester = Semester.query.filter_by(is_active=True).first()
         return render_template(
             'admin/dashboard.html',
-            total_students=total_students,
-            total_lecturers=total_lecturers,
-            total_courses=total_courses,
-            total_departments=total_departments,
-            total_faculties=total_faculties,
-            live_sessions=live_sessions,
-            department_attendance=department_attendance,
-            recent_activity=recent_activity,
+            today=dashboard_today.today(semester),
+            total_students=Student.query.filter_by(status='active').count(),
+            department_attendance=dashboard_today.department_rates(semester),
+            recent_checkins=dashboard_today.recent_checkins(),
+            relative_time=_relative_time,
             active_page='dashboard',
         )
     except Exception:
@@ -166,9 +113,44 @@ def dashboard():
         return redirect(url_for('auth.login'))
 
 
-# ==========================================
-# ORGANIZATION (Faculties + Departments)
-# ==========================================
+@admin_bp.route('/timetable/<int:slot_id>/remind', methods=['POST'])
+@limiter.limit("10 per minute")
+def remind_lecturer(slot_id):
+    """The dashboard's "Notify lecturer" on a late class: a notification
+    (in-app + push) to every lecturer on the course. Logged, and the
+    dashboard reads that entry back to show when it was sent."""
+    slot = db.session.get(Timetable, slot_id)
+    if slot is None or slot.course is None:
+        flash('That class is no longer on the timetable.', 'error')
+        return redirect(url_for('admin.dashboard'))
+    course = slot.course
+    lecturers = course.all_lecturers
+    if not lecturers:
+        flash(f"{course.course_code} has no lecturer to notify.", 'error')
+        return redirect(url_for('admin.dashboard'))
+    when = slot.start_time.strftime('%H:%M')
+    where = f" in {slot.room}" if slot.room else ''
+    try:
+        log_action(dashboard_today.REMIND_ACTION,
+                   f"Reminded {', '.join(l.full_name for l in lecturers)} that "
+                   f"{course.course_code} ({when}{where}) hasn't started",
+                   'timetable', slot.id, {'course_id': course.id})
+        # Commits the notifications and, with them, the audit entry above.
+        notify_users(
+            [l.user_id for l in lecturers], 'class_reminder',
+            f"{course.course_code} hasn't started",
+            f"{course.course_code} was timetabled for {when}{where}, and no session "
+            f"has been started yet. Open the class to let students check in.",
+            {'course_id': course.id},
+        )
+        flash(f"Reminder sent to {', '.join(l.full_name for l in lecturers)}.", 'success')
+    except Exception:
+        db.session.rollback()
+        log_exception("Lecturer Reminder Error")
+        flash('Failed to send the reminder.', 'error')
+    return redirect(url_for('admin.dashboard'))
+
+
 @admin_bp.route('/organization', methods=['GET', 'POST'])
 @limiter.limit("10 per minute", methods=['POST'])
 def organization_page():
