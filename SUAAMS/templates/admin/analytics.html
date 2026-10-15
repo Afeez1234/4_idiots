@@ -169,10 +169,19 @@
                         <div>
                             <div class="mb-1 flex items-center justify-between gap-3 text-sm">
                                 <span class="truncate text-ink">{{ r.name }}</span>
-                                <span class="mono shrink-0 text-xs text-secondary">{{ r.held }} / {{ r.timetabled }} held &middot; {{ r.rate }}%</span>
+                                {# rate is None when nothing is due yet: every slot
+                                   in the department starts later this week, or
+                                   was added or moved today. #}
+                                {% if r.rate is none %}
+                                    <span class="shrink-0 text-xs text-muted">Nothing due yet</span>
+                                {% else %}
+                                    <span class="mono shrink-0 text-xs text-secondary">{{ r.held }} / {{ r.timetabled }} held &middot; {{ r.rate }}%</span>
+                                {% endif %}
                             </div>
                             <div class="bar-track">
-                                <div class="bar-fill" data-tone="{{ grade_tone(r.rate) }}" style="width: {{ r.rate }}%"></div>
+                                {% if r.rate is not none %}
+                                    <div class="bar-fill" data-tone="{{ grade_tone(r.rate) }}" style="width: {{ r.rate }}%"></div>
+                                {% endif %}
                             </div>
                         </div>
                     {% endfor %}

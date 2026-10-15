@@ -285,6 +285,16 @@ class AnalyticsTestCase(unittest.TestCase):
         db.session.commit()
         self.assertEqual(self.delivery()['MCT 401'], (2, 2, 0, 3))
 
+    def test_a_department_with_nothing_due_yet_has_no_rate(self):
+        # Every slot in it was added today (or starts later this week): the
+        # page must show "nothing due yet", not divide by zero or crash.
+        s = self.slot(self.c401)
+        s.effective_from = NOW.date()
+        self.held(self.c401, FIRST_CLASS)                 # teaching has started
+        db.session.commit()
+        got = analytics.delivery(self.sem, now=datetime(2026, 10, 5, 8, 0))   # before 09:00
+        self.assertEqual([(r['timetabled'], r['rate']) for r in got['by_department']], [(0, None)])
+
     def test_page_renders(self):
         self.sign_in()
         with mock.patch('blueprints.admin.render_template', return_value='ok') as render:

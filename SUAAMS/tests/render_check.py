@@ -234,9 +234,14 @@ CONTEXTS = {
                  "timetabled": 5, "held": 4, "missed": 1, "extra": 0, "rate": 80},
                 {"course": {"course_code": "CSC 301", "course_title": "Algorithms", "department": {"name": "Computer Science"}},
                  "timetabled": 8, "held": 8, "missed": 0, "extra": 0, "rate": 100},
+                # Added today: nothing due yet, so no rate (crashed the page
+                # in production on 2026-10-15).
+                {"course": {"course_code": "PHY 101", "course_title": "Physics", "department": {"name": "Physics"}},
+                 "timetabled": 0, "held": 0, "missed": 0, "extra": 0, "rate": None},
             ],
             "by_department": [{"name": "Mechatronics", "timetabled": 10, "held": 6, "missed": 4, "rate": 60},
-                              {"name": "Computer Science", "timetabled": 8, "held": 8, "missed": 0, "rate": 100}],
+                              {"name": "Computer Science", "timetabled": 8, "held": 8, "missed": 0, "rate": 100},
+                              {"name": "Physics", "timetabled": 0, "held": 0, "missed": 0, "rate": None}],
         },
     ),
 
