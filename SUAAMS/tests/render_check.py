@@ -205,7 +205,11 @@ CONTEXTS = {
         role="admin",
         active_page="analytics",
         active_semester={"name": "2026/2027 First Semester"},
-        semester={"name": "2026/2027 First Semester"},
+        # A PAST semester is picked, so the picker, the "(past semester)"
+        # subtitle and the note under the filters all render.
+        semester={"id": 1, "name": "2025/2026 Second Semester", "is_active": False},
+        semesters=[{"id": 2, "name": "2026/2027 First Semester", "is_active": True},
+                   {"id": 1, "name": "2025/2026 Second Semester", "is_active": False}],
         departments=[{"id": 1, "name": "Mechatronics"}, {"id": 2, "name": "Computer Science"}],
         valid_levels=["100", "200", "300", "400", "500"],
         filters={"dept": None, "level": ""},

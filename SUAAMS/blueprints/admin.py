@@ -2559,18 +2559,26 @@ def activity_page():
 # timetabled classes never ran. Rules in analytics.py.
 
 def _analytics_filters():
-    """(department id or None, level or '') from the query string."""
+    """(semester, department id or None, level or '') from the query string.
+
+    The semester is chosen on the page (?semester=<id>), defaulting to the
+    active one. Looking at last semester used to mean making it the ACTIVE
+    semester, which also changes what every student and lecturer sees
+    (timetable, course registration, today's classes)."""
     level = (request.args.get('level') or '').strip()
-    return request.args.get('dept', type=int), level if level in VALID_LEVELS else ''
+    semester = db.session.get(Semester, request.args.get('semester', type=int) or 0)
+    if semester is None:
+        semester = Semester.query.filter_by(is_active=True).first()
+    return semester, request.args.get('dept', type=int), level if level in VALID_LEVELS else ''
 
 
 @admin_bp.route('/analytics', methods=['GET'])
 def analytics_page():
-    semester = Semester.query.filter_by(is_active=True).first()
-    dept_id, level = _analytics_filters()
+    semester, dept_id, level = _analytics_filters()
     return render_template(
         'admin/analytics.html',
         semester=semester,
+        semesters=Semester.query.order_by(Semester.start_date.desc(), Semester.id.desc()).all(),
         eligibility=analytics.eligibility(semester, dept_id, level),
         # Delivery is by course department; a student's level doesn't apply.
         delivery=analytics.delivery(semester, dept_id),
@@ -2589,14 +2597,13 @@ ANALYTICS_LIST_LIMIT = 100
 @admin_bp.route('/analytics/eligibility.csv', methods=['GET'])
 def analytics_eligibility_csv():
     """Every student below the threshold, one row per course they're below
-    in, for the same filters as the page."""
-    semester = Semester.query.filter_by(is_active=True).first()
-    dept_id, level = _analytics_filters()
+    in, for the same filters (semester included) as the page."""
+    semester, dept_id, level = _analytics_filters()
     data = analytics.eligibility(semester, dept_id, level)
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([f"Below {data['threshold']}% attendance -- "
-                     f"{semester.name if semester else 'no active semester'}"])
+                     f"{semester.name if semester else 'no semester'}"])
     writer.writerow(['Matric Number', 'Full Name', 'Level', 'Department', 'Course',
                      'Attended', 'Classes Held', 'Attendance (%)'])
     for row in data['students']:
@@ -2607,7 +2614,8 @@ def analytics_eligibility_csv():
                              _csv_safe(c['course'].course_code), c['attended'], c['held'], c['pct']])
     log_action('analytics.export', f"Exported the below-{data['threshold']}% list "
                f"({len(data['students'])} students)", 'report', None,
-               {'department_id': dept_id, 'level': level or None})
+               {'semester_id': semester.id if semester else None,
+                'department_id': dept_id, 'level': level or None})
     db.session.commit()
     return Response(
         output.getvalue(), mimetype='text/csv',

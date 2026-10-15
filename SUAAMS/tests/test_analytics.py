@@ -295,6 +295,45 @@ class AnalyticsTestCase(unittest.TestCase):
         got = analytics.delivery(self.sem, now=datetime(2026, 10, 5, 8, 0))   # before 09:00
         self.assertEqual([(r['timetabled'], r['rate']) for r in got['by_department']], [(0, None)])
 
+    def past_semester(self):
+        old = Semester(name='2025/2026 Second Semester', start_date=date(2026, 2, 1),
+                       end_date=date(2026, 7, 1))
+        db.session.add(old)
+        db.session.flush()
+        course = Course(course_code='MCT 302', course_title='Old', lecturer_id=self.lect.id,
+                        department_id=self.mct.id, semester_id=old.id)
+        db.session.add(course)
+        db.session.flush()
+        for i in range(3):
+            db.session.add(SessionModel(course_id=course.id, session_date=date(2026, 3, 2 + 7 * i),
+                                        is_active=False))
+        # Below the threshold then, graduated since.
+        self.student('GRAD', courses=[course], status='graduated')
+        db.session.commit()
+        return old
+
+    def test_a_past_semester_is_picked_without_changing_the_active_one(self):
+        old = self.past_semester()
+        self.sign_in()
+        with mock.patch('blueprints.admin.render_template', return_value='ok') as render:
+            self.client.get('/admin/analytics', query_string={'semester': old.id})
+        kwargs = render.call_args.kwargs
+        self.assertEqual(kwargs['semester'].id, old.id)
+        self.assertTrue(db.session.get(Semester, self.sem.id).is_active)    # untouched
+        # A past semester keeps students who have since left.
+        self.assertEqual([r['student'].matric_number for r in kwargs['eligibility']['students']],
+                         ['GRAD'])
+        # The same student isn't listed under the active semester.
+        self.assertEqual(analytics.eligibility(self.sem)['students'], [])
+
+    def test_csv_follows_the_picked_semester(self):
+        old = self.past_semester()
+        self.sign_in()
+        response = self.client.get('/admin/analytics/eligibility.csv', query_string={'semester': old.id})
+        rows = list(csv.reader(io.StringIO(response.get_data(as_text=True))))
+        self.assertIn('2025/2026 Second Semester', rows[0][0])
+        self.assertEqual([r[0] for r in rows[2:]], ['GRAD'])
+
     def test_page_renders(self):
         self.sign_in()
         with mock.patch('blueprints.admin.render_template', return_value='ok') as render:

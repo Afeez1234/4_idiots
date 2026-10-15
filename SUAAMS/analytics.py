@@ -1,6 +1,6 @@
 """Admin Analytics: patterns across the whole semester, not one day or course.
 
-Two questions, both scoped to the active semester:
+Two questions, for one semester (the active one unless the page picks another):
 
 1. EXAM ELIGIBILITY -- which students are below EXAM_ELIGIBILITY_THRESHOLD
    in a course? Same rule as the course register CSV lecturers download
@@ -46,7 +46,9 @@ PRESENT = ('present', 'late')
 # ---- 1. exam eligibility ----------------------------------------------------
 
 def eligibility(semester, department_id=None, level=None):
-    """Who is below the threshold in at least one course.
+    """Who is below the threshold in at least one course, in `semester`
+    (any semester, not only the active one). The level filter is the
+    student's level now, which for a past semester may be a year on.
 
     Returns {
       'threshold', 'min_sessions',
@@ -75,7 +77,12 @@ def eligibility(semester, department_id=None, level=None):
 
     q = (db.session.query(Enrollment.student_id, Enrollment.course_id)
          .join(Student, Student.id == Enrollment.student_id)
-         .filter(Enrollment.course_id.in_(counted), Student.status == 'active'))
+         .filter(Enrollment.course_id.in_(counted)))
+    # The active semester: only students still at the school. A past one:
+    # everyone who was enrolled, including those who have since graduated
+    # or left -- dropping them would rewrite that semester's record.
+    if semester.is_active:
+        q = q.filter(Student.status == 'active')
     if department_id:
         q = q.filter(Student.department_id == department_id)
     if level:

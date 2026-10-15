@@ -4,21 +4,40 @@
 {% block title %}Analytics | SUAAMS Admin{% endblock %}
 {% block page_title %}Analytics{% endblock %}
 {% block page_subtitle %}
-  <p class="page-subtitle">{{ semester.name if semester else 'No active semester' }} &middot; across every course</p>
+  <p class="page-subtitle">
+    {%- if semester -%}
+      {{ semester.name }}{{ '' if semester.is_active else ' (past semester)' }} &middot; across every course
+    {%- else -%}
+      No semester yet
+    {%- endif -%}
+  </p>
 {% endblock %}
 
 {% block content %}
 
     {% if not semester %}
         <div class="card">
-            {{ empty_state('Make a semester active to see its analytics.', 'date_range') }}
+            {{ empty_state('Add a semester to see its analytics.', 'date_range') }}
         </div>
     {% else %}
 
     {# GET filters, so a filtered view can be bookmarked or shared. Dropdowns
        apply on change (script below); the button covers no-JS. #}
     <form method="GET" action="{{ url_for('admin.analytics_page') }}" id="analytics-filters"
-          class="card card-body grid gap-3 sm:grid-cols-3">
+          class="card card-body grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {# Its own choice, NOT the active semester: making an old semester
+           active to look at it also changed what every student and
+           lecturer saw. #}
+        <div>
+            <label class="form-label" for="filter-semester">Semester</label>
+            <select name="semester" id="filter-semester" class="form-select">
+                {% for sem in semesters %}
+                    <option value="{{ sem.id }}" {% if sem.id == semester.id %}selected{% endif %}>
+                        {{ sem.name }}{{ ' (active)' if sem.is_active else '' }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
         <div>
             <label class="form-label" for="filter-dept">Department</label>
             <select name="dept" id="filter-dept" class="form-select">
@@ -39,10 +58,16 @@
         </div>
         <div class="flex items-end gap-2">
             <button type="submit" class="btn-primary flex-1">Apply</button>
-            {% if filters.dept or filters.level %}
+            {% if filters.dept or filters.level or not semester.is_active %}
                 <a href="{{ url_for('admin.analytics_page') }}" class="btn-ghost">Clear</a>
             {% endif %}
         </div>
+        {% if not semester.is_active %}
+            <p class="text-xs text-secondary sm:col-span-2 lg:col-span-4">
+                A past semester: the eligibility list includes students who have since graduated or left,
+                and the level filter uses each student's level now.
+            </p>
+        {% endif %}
     </form>
 
     {# ============ 1. EXAM ELIGIBILITY ============ #}
