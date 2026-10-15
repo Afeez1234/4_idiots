@@ -439,3 +439,20 @@ if you know the date.
   now counts only once it ends, and an excused mark no longer counts as
   attended (none are written today). The app's JSON field names are
   unchanged.
+
+### D31. A dedicated Android release key, set once (2026-10-15)
+
+- **Problem:** Release builds were signed with the build machine's debug
+  key, and freeRASP's expected certificate was a placeholder. Every release
+  build therefore failed the integrity check and refused check-in; debug
+  builds only logged it, so nobody noticed. The debug keystore's password
+  is public, so it couldn't protect anything anyway.
+- **Chose:** A release keystore (`android/suaams-release.jks`, RSA 2048,
+  10,000 days) with its password in `android/key.properties`, both kept
+  out of git and backed up by the project lead. Its SHA-256 is freeRASP's
+  `signingCertHashes`. A release build without the key now fails, rather
+  than falling back to the debug key. Done before any real student bound a
+  phone, because Android scopes `ANDROID_ID` to the signing key.
+- **Trade-off:** Lose the key and the app can never be updated in place,
+  and a new key re-binds every student. Phones with an older debug-signed
+  build must uninstall it before installing a release build.

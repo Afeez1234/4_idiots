@@ -112,6 +112,12 @@ Verify new code and flows against these anti-spoofing vectors:
   never send a placeholder ID when the hardware ID can't be read — a shared
   constant makes every failing phone look like the same device — and the
   backend rejects the old placeholder strings (`DEVICE UNVERIFIED`).
+  **Never change the Android release signing key** (`android/key.properties`
+  + `suaams-release.jks`, not in git, created 2026-10-15). `ANDROID_ID` is
+  scoped to the signing key, so a new key gives every phone a new ID and
+  every bound student is locked out until an admin unbinds them. The same
+  certificate's hash is freeRASP's `signingCertHashes`; a mismatch blocks
+  check-in on every release build.
 - **Biometric invalidation**: biometric keys bind to the OS's current
   biometric set (`invalidateByBiometricEnrollment: true` on Android,
   `kSecAccessControlBiometryCurrentSet` on iOS). Adding/deleting a fingerprint

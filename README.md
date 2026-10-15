@@ -364,6 +364,14 @@ flutter run
 
 NFC check-in needs a real Android phone with NFC. Emulators can't do it.
 
+**Release builds** (`flutter build apk --release`) are signed with the
+project's release key: `android/key.properties` and
+`android/suaams-release.jks`. Neither is in git, so copy both from the
+project lead's backup; the build refuses to run without them. Never replace
+the key: the app's integrity check expects this certificate, and Android
+gives every phone a new device ID under a new key, which locks every
+student out of their bound account.
+
 ### Terminal
 
 Open `ESP32_ARDUINO CODE/SUAAMS_HCE/SUAAMS_HCE.ino` in the Arduino IDE.

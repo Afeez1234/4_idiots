@@ -100,12 +100,11 @@ class SecurityService {
 
   Future<void> initialize() async {
     final config = TalsecConfig(
-      // TODO(release): set a real watcherMail before shipping a release
-      // build. Talsec's backend emails a security report here when a
-      // threat fires. Deliberately not defaulted to a real address:
-      // this is the one field that leaves the device (Talsec's service
-      // receives it), so it shouldn't be filled in silently.
-      watcherMail: 'REPLACE_WITH_AN_EMAIL_YOU_MONITOR@example.com',
+      // Talsec emails its threat reports (rooted devices, hooks, tampered
+      // copies seen across all installs) and SDK notices here. The
+      // project's own inbox, not a personal one: this string ships inside
+      // the APK, where anyone can read it. Changing it needs a new build.
+      watcherMail: 'suaams.project@gmail.com',
 
       // isProd gates enforcement below (see _handleThreat) -- debug/local
       // runs always log detected threats but never lock you out, since a
@@ -115,23 +114,21 @@ class SecurityService {
       androidConfig: AndroidConfig(
         // Matches android/app/build.gradle.kts's applicationId.
         packageName: 'com.suaams.mobile',
-        // TODO(release): set the real release signing cert hash before
-        // shipping -- this needs your REAL release keystore's certificate
-        // hash, not this placeholder. Get it with:
-        //   keytool -list -v -keystore <your-release>.jks -alias <your-alias>
-        // then base64-encode the SHA-256 hex digest it prints (Talsec's
-        // docs show the exact conversion). Left as a placeholder because
-        // only you hold that keystore -- with it in place, onAppIntegrity
-        // fires on every real release build until corrected, but that only
-        // matters once isProd is actually true (kReleaseMode).
+        // The release key's certificate (android/suaams-release.jks, alias
+        // suaams; see android/app/build.gradle.kts): its SHA-256 fingerprint
+        //   5F:96:D9:76:92:8B:73:B2:22:F0:36:02:9E:6B:22:B2:
+        //   4D:9A:30:0A:E7:39:45:D6:12:0A:B8:81:F9:68:28:5D
+        // as base64 of the 32 raw bytes. A release build signed with any
+        // other key -- a repackaged, tampered APK -- fires onAppIntegrity
+        // below, which blocks check-in. This was a placeholder (32 zero
+        // bytes) until 2026-10-15, so EVERY release build was blocked.
         //
-        // IMPORTANT: this MUST decode as valid base64 to exactly 32 bytes --
-        // AndroidConfig's constructor calls ConfigVerifier.verifyAndroid()
-        // unconditionally (not gated by isProd), which throws
-        // ConfigurationException on anything else, crashing the app on
-        // every launch. 32 zero-bytes, base64-encoded, satisfies the format
-        // check while still being obviously non-functional as a real hash.
-        signingCertHashes: ['AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA='],
+        // If the key is ever replaced, recompute this:
+        //   keytool -list -v -keystore suaams-release.jks -alias suaams
+        // and base64-encode the SHA-256 bytes. It MUST decode to exactly 32
+        // bytes: AndroidConfig's constructor checks that unconditionally and
+        // throws ConfigurationException otherwise, crashing every launch.
+        signingCertHashes: ['X5bZdpKLc7Ii8DYCnmsisk2aMArnOUXWEgq4gfloKF0='],
       ),
       iosConfig: IOSConfig(
         bundleIds: ['com.suaams.mobile'],
