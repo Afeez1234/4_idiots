@@ -28,11 +28,49 @@ import ble_beacon
 # Create the API blueprint for student mobile endpoints
 api_student_bp = Blueprint('api_student', __name__, url_prefix='/api/v1/student')
 
-# Cap on a single offline backlog batch. The terminal's own flash queue is
-# the real bound (see MAX_OFFLINE_QUEUE in SUAAMS_HCE.ino); this is a second
-# line of defence so a malfunctioning or compromised terminal can't turn
-# the endpoint into a bulk-insert DoS against the attendance DB.
+# Cap on a single offline backlog batch. The terminal queues up to 100 taps
+# (MAX_OFFLINE_QUEUE in SUAAMS_HCE.ino) and sends them 25 per request
+# (BACKLOG_CHUNK); this is a second line of defence so a malfunctioning or
+# compromised terminal can't turn the endpoint into a bulk-insert DoS
+# against the attendance DB.
 MAX_OFFLINE_BACKLOG_BATCH = 50
+
+# The most a genuine offline tap's read time can trail its token's mint time.
+# The app serves a token for exactly BEACON_TOKEN_TTL_SECONDS from when it
+# receives it (the native deadline in SuaamsHceService), so a real read is
+# never much later than that; the extra seconds cover the terminal's and
+# the server's clocks disagreeing slightly. A read later than this can only
+# be a token kept and replayed -- the relay the 10-second window blocks on
+# the live path, which the offline path used to let through to review.
+OFFLINE_READ_MAX_LAG_SECONDS = BEACON_TOKEN_TTL_SECONDS + 5
+
+# A terminal clock this far BEHIND the mint time can't be right (a token
+# isn't read before it's made); its read time is ignored rather than
+# trusted. Anything earlier than 2023 means the clock never synced.
+_OFFLINE_CLOCK_BEHIND_SECONDS = 30
+_EARLIEST_VALID_READ = 1700000000
+
+
+def _offline_read_time(record, minted_at):
+    """The terminal's read time for one queued tap, as a unix time, or None
+    if it didn't send a usable one (firmware from before read times were
+    recorded, or a terminal whose clock never synced after booting
+    offline). Those are reviewed as before; see sync_offline_checkin_backlog."""
+    read_at = record.get('read_at')
+    if not isinstance(read_at, int) or isinstance(read_at, bool) or read_at < _EARLIEST_VALID_READ:
+        return None
+    if read_at < minted_at - _OFFLINE_CLOCK_BEHIND_SECONDS:
+        return None
+    return read_at
+
+
+def _describe_lag(seconds):
+    minutes = seconds // 60
+    if minutes < 1:
+        return f"{seconds} s"
+    if minutes < 120:
+        return f"{minutes} min"
+    return f"{minutes // 60} h {minutes % 60} min"
 
 
 def _check_terminal_auth():
@@ -1281,12 +1319,22 @@ def drop_course(course_id):
 def sync_offline_checkin_backlog():
     """Accept a batch of beacons a terminal captured while it was offline.
 
-    Body: {"records": [{"beacon_token": "<32 chars>"}, ...]}
+    Body: {"records": [{"beacon_token": "<32 chars>", "read_at": <unix>}, ...]}
 
-    The terminal sends no timestamps. It has no RTC and cannot know
-    wall-clock time while disconnected, so the capture time is derived here
-    from the beacon's own `exp` field (minus the TTL) -- the only clock
-    involved is the server's, which is the one that matters.
+    read_at is when the terminal read the tap, from its NTP-synced clock
+    (the same clock its Bluetooth codes use). It decides two things:
+
+      * A tap read more than OFFLINE_READ_MAX_LAG_SECONDS after its token
+        was made is REJECTED here, never shown for review. An unmodified
+        app can't serve a token that old, so this is a kept-and-replayed
+        token -- and "Accept all" would otherwise have credited it.
+      * captured_at is the read time, i.e. when the student really tapped,
+        so an accepted tap is marked present or late against that.
+
+    read_at missing or unusable (older firmware; a terminal that booted
+    offline and never synced its clock): captured_at falls back to the
+    token's mint time and the tap is reviewed as before. That is the one
+    case the replay check can't cover.
     """
     if not _check_terminal_auth():
         return jsonify({"error": "Unauthorized terminal"}), 401
@@ -1328,11 +1376,10 @@ def sync_offline_checkin_backlog():
             results.append(entry)
             continue
 
-        # Capture time = the moment the beacon was minted, which is when the
-        # student was tapping. Everything after that (RF transfer, the
-        # terminal's failed POST) is within a few hundred ms.
+        minted_at = expires_at - BEACON_TOKEN_TTL_SECONDS
+        read_at = _offline_read_time(record, minted_at)
         captured_at = datetime.fromtimestamp(
-            expires_at - BEACON_TOKEN_TTL_SECONDS, tz=timezone.utc
+            read_at if read_at is not None else minted_at, tz=timezone.utc
         )
 
         student = Student.query.get(student_id)
@@ -1359,7 +1406,11 @@ def sync_offline_checkin_backlog():
         already_present = Attendance.query.filter_by(
             student_id=student_id, session_id=session_id
         ).first()
-        status = 'superseded' if already_present else 'pending_verification'
+        status, reason = ('superseded', None) if already_present else ('pending_verification', None)
+        if read_at is not None and read_at - minted_at > OFFLINE_READ_MAX_LAG_SECONDS:
+            status = 'rejected'
+            reason = (f"Read {_describe_lag(read_at - minted_at)} after it was made; "
+                      f"a real tap is read within {OFFLINE_READ_MAX_LAG_SECONDS} s")
 
         log = OfflineCheckinLog(
             student_id=student_id,
@@ -1367,6 +1418,7 @@ def sync_offline_checkin_backlog():
             terminal_id=request.headers.get('X-Terminal-Id', 'unknown'),
             captured_at=captured_at,
             status=status,
+            reason=reason,
         )
         db.session.add(log)
         accepted += 1
@@ -1379,6 +1431,8 @@ def sync_offline_checkin_backlog():
             course_code=session.course.course_code if session.course else None,
             captured_at=captured_at.isoformat(),
         )
+        if reason:
+            entry['reason'] = reason
         results.append(entry)
 
     db.session.commit()

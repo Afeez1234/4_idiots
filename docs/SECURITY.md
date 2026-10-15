@@ -38,7 +38,7 @@ that isn't true, usually for an absent friend. Secondary assets are accounts
 | T9 | **Double marking** | Unique `(student_id, session_id)` on `attendance` | `models.py` |
 | T10 | **Rooted / hooked phone faking the fingerprint result** | freeRASP check at startup; check-in refused if compromised. Runs *before* the biometric prompt | `security_service.dart` |
 | T11 | **Code left readable after the window** | Native monotonic deadline in the HCE service | `SuaamsHceService.kt` |
-| T12 | **Uploading old codes as "offline" taps** | Backlog rows are `pending_verification`, never attendance until the course lecturer accepts them (`method = offline`, under their name) | `api/student.py` `sync_offline_checkin_backlog` |
+| T12 | **Uploading old codes as "offline" taps** | Backlog rows are `pending_verification`, never attendance until the course lecturer accepts them (`method = offline`, under their name). The terminal sends each tap's read time; a token read more than 15 s after it was made is rejected outright, so "Accept all" never sees a replay. Gap: a terminal that booted with no network has no clock, and its taps are reviewed as before | `api/student.py` `sync_offline_checkin_backlog` |
 | T13 | **Forged / relabelled BLE code** | HMAC over terminal number + slot with domain prefix | `ble_beacon.py` |
 | T14 | **Password guessing** | bcrypt; 5/min login limit per IP; forced first-login change | `api/auth.py`, `blueprints/auth.py` |
 | T15 | **Stolen refresh token** | Rotation on every refresh; single current `jti` per user; logout revokes | `api/auth.py`, `users.current_refresh_jti` |

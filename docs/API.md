@@ -52,7 +52,8 @@ end for completeness.
 
 ### `POST /api/v1/student/checkin/backlog`: offline taps
 - **Caller:** terminal. **Auth:** Terminal. **Limit:** 30/min per IP. **Max** 50 records.
-- **Request:** `{"records": [{"beacon_token": "..."}, ...]}`
+- **Request:** `{"records": [{"beacon_token": "...", "read_at": <unix>}, ...]}`. `read_at` is when the terminal read the tap, from its NTP-synced clock; omitted when the clock hasn't synced (and by older firmware).
+- A tap read more than 15 s after its token was made (`OFFLINE_READ_MAX_LAG_SECONDS`) is stored as `rejected` with the reason, never offered for review: no unmodified app serves a token that old. Otherwise `captured_at` is the read time, or the token's mint time when there's no usable `read_at`.
 - **200:** `{"success": true, "accepted": n, "received": n, "results": [{"beacon_token", "status": "pending_verification"|"superseded"|"rejected", "reason"?, "captured_at"?, ...}]}`
 - Creates rows in `offline_checkin_logs` and **never** in `attendance`. A lecturer turns them into attendance by reviewing them (see the lecturer `offline-taps` routes).
 

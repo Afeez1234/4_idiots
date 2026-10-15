@@ -76,6 +76,10 @@ const uint8_t SELECT_APDU[] = {
 // overflow the buffer.
 const uint8_t RESPONSE_BUF_SIZE = 64;
 
+// A beacon is 24 bytes (beacon.py's _TOKEN_LEN) in base64url without
+// padding: always exactly 32 characters. readBeacon() refuses anything else.
+const uint8_t BEACON_TOKEN_LEN = 32;
+
 // Status words
 const uint8_t SW1_SUCCESS  = 0x90;
 const uint8_t SW2_SUCCESS  = 0x00;
@@ -157,24 +161,38 @@ unsigned long lastWarmPingOk = 0;
 // it is record PROVENANCE for a lecturer to review: a genuine tap by a
 // genuine student, read at a real terminal, at a known time.
 //
-// The capture time isn't sent from here because the terminal has no RTC
-// and cannot know wall-clock time while disconnected. The server derives it
-// from the beacon's own expiry field instead, so the only clock in the
-// path is the server's.
+// Each capture carries the time this terminal READ it, from the same
+// NTP-synced clock the Bluetooth codes use (the ESP32 keeps counting while
+// offline). The server compares it with the token's mint time and rejects a
+// read too long after it: that can only be a token kept and replayed, not a
+// phone tapping. 0 = clock not synced since boot; the server then reviews
+// the tap as before.
 //
-// Bounded on purpose: this is a short buffer for a transient outage, not an
-// archive. Once full, the OLDEST entry is dropped, because the most recent
-// captures are the ones a lecturer is most likely to be reconciling.
-const uint8_t MAX_OFFLINE_QUEUE = 16;
+// Bounded: once full, the OLDEST entry is dropped, because the most recent
+// captures are the ones a lecturer is most likely to be reconciling. 100
+// covers an outage at the start of a large class; it was 16, which lost
+// most of a 200-student hall.
+const uint8_t MAX_OFFLINE_QUEUE = 100;
+
+// Captures sent per backlog POST. The whole queue in one request would
+// build ~20 KB of strings on a heap already shared by Wi-Fi, TLS and BLE,
+// and it would exceed the server's 50-per-request cap
+// (MAX_OFFLINE_BACKLOG_BATCH in api/student.py).
+const uint8_t BACKLOG_CHUNK = 25;
 
 // How often to retry a failed flush. Short enough that a brief outage is
 // recovered from promptly, long enough not to retry-hammer a backend that
-// is genuinely down.
+// is genuinely down. After a chunk is accepted and more remain, the next
+// one goes after BACKLOG_NEXT_CHUNK_MS instead.
 const unsigned long BACKLOG_FLUSH_INTERVAL_MS = 30UL * 1000UL;
+const unsigned long BACKLOG_NEXT_CHUNK_MS = 2000;
 unsigned long lastBacklogFlushAttempt = 0;
+unsigned long backlogFlushWaitMs = BACKLOG_FLUSH_INTERVAL_MS;
 
 Preferences prefs;
-String g_backlog = "";  // newline-separated 32-char beacons
+// One capture per line: "<32-char token> <unix read time>". Lines saved by
+// older firmware are a bare token, read as time 0 (unknown).
+String g_backlog = "";
 
 // WiFi must not be able to brick the terminal at boot. The old code
 // looped `while (WiFi.status() != WL_CONNECTED)` forever inside setup(),
@@ -438,9 +456,31 @@ uint8_t backlogCount() {
   return n;
 }
 
+// Saved as a byte blob, not a string: NVS strings stop at about 4,000
+// bytes, and 100 captures with read times is ~4,400. "backlog" is the key
+// older firmware saved a string under; its captures are carried over once,
+// then that key is removed.
+const char BACKLOG_KEY[] = "backlog_v2";
+const char OLD_BACKLOG_KEY[] = "backlog";
+
 void loadBacklog() {
-  prefs.begin("suaams", true);
-  g_backlog = prefs.getString("backlog", "");
+  prefs.begin("suaams", false);
+  size_t len = prefs.getBytesLength(BACKLOG_KEY);
+  if (len > 0) {
+    char* buf = (char*)malloc(len + 1);
+    if (buf) {
+      prefs.getBytes(BACKLOG_KEY, buf, len);
+      buf[len] = '\0';
+      g_backlog = String(buf);
+      free(buf);
+    }
+  } else if (prefs.isKey(OLD_BACKLOG_KEY)) {
+    g_backlog = prefs.getString(OLD_BACKLOG_KEY, "");
+    prefs.remove(OLD_BACKLOG_KEY);
+    if (g_backlog.length() > 0) {
+      prefs.putBytes(BACKLOG_KEY, g_backlog.c_str(), g_backlog.length());
+    }
+  }
   prefs.end();
   Serial.print("[QUEUE] Loaded ");
   Serial.print(backlogCount());
@@ -450,11 +490,23 @@ void loadBacklog() {
 
 void saveBacklog() {
   prefs.begin("suaams", false);
-  prefs.putString("backlog", g_backlog);
+  if (g_backlog.length() == 0) {
+    prefs.remove(BACKLOG_KEY);
+  } else {
+    prefs.putBytes(BACKLOG_KEY, g_backlog.c_str(), g_backlog.length());
+  }
   prefs.end();
 }
 
-void appendToBacklog(const String &token) {
+// Current unix time, or 0 if the clock hasn't synced since boot (the
+// ESP32's power-on clock starts at 1970). BLE_MIN_VALID_TIME is the same
+// "has NTP answered yet" line the Bluetooth codes use.
+unsigned long readTimeNow() {
+  time_t now = time(nullptr);
+  return now >= BLE_MIN_VALID_TIME ? (unsigned long)now : 0;
+}
+
+void appendToBacklog(const String &token, unsigned long readAt) {
   if (token.length() == 0) return;
 
   // Drop the oldest entry when full. Trim the first line and its newline.
@@ -472,6 +524,8 @@ void appendToBacklog(const String &token) {
 
   if (g_backlog.length() > 0) g_backlog += '\n';
   g_backlog += token;
+  g_backlog += ' ';
+  g_backlog += String(readAt);
   saveBacklog();
 
   Serial.print("[QUEUE] Queued capture offline (");
@@ -522,34 +576,50 @@ void logTlsError(WiFiClientSecure& client, const char* tag) {
   }
 }
 
-// POSTs the queue and clears it on success.
+// POSTs the oldest BACKLOG_CHUNK captures and removes them once the
+// server has answered for them.
 //
-// Clears only when the server actually accepted the batch. A transport
-// failure leaves the queue intact so nothing is lost, and a 4xx/5xx clears
-// it too: the server gave a real answer, and re-sending an answer it has
-// already given us would just wedge the same entries in the queue forever.
+// A transport failure (any negative code: no connection, TLS failure, read
+// timeout) keeps them -- the server may never have seen them, and a resend
+// is safe because the endpoint is idempotent. A real HTTP answer, even a
+// 4xx/5xx, removes that chunk only: re-sending something the server has
+// already answered would wedge the queue forever, but the rest of the
+// queue must not pay for one bad chunk. (It used to clear the WHOLE queue.)
+//
+// Returns true when the chunk was accepted (200).
 bool flushBacklog() {
   if (g_backlog.length() == 0) return true;
   if (WiFi.status() != WL_CONNECTED) return false;
 
   String records;
-  records.reserve(g_backlog.length() + 64);
+  records.reserve(BACKLOG_CHUNK * 70);
   uint8_t count = 0;
   int start = 0;
-  while (true) {
+  int chunkEnd = g_backlog.length();  // where the unsent remainder begins
+  while (count < BACKLOG_CHUNK) {
     int nl = g_backlog.indexOf('\n', start);
     String line = (nl >= 0) ? g_backlog.substring(start, nl) : g_backlog.substring(start);
     if (line.length() > 0) {
+      // "<token> <read time>", or a bare token saved by older firmware.
+      int space = line.indexOf(' ');
+      String token = (space >= 0) ? line.substring(0, space) : line;
+      unsigned long readAt = (space >= 0) ? strtoul(line.c_str() + space + 1, nullptr, 10) : 0;
       if (count > 0) records += ',';
-      records += "{\"beacon_token\":\"" + line + "\"}";
+      records += "{\"beacon_token\":\"" + token + "\"";
+      if (readAt > 0) {
+        records += ",\"read_at\":" + String(readAt);
+      }
+      records += '}';
       count++;
     }
-    if (nl < 0) break;
+    if (nl < 0) { chunkEnd = g_backlog.length(); break; }
     start = nl + 1;
+    chunkEnd = start;
   }
   if (count == 0) { g_backlog = ""; saveBacklog(); return true; }
 
   String payload = "{\"records\":[" + records + "]}";
+  records = "";  // free it before the TLS handshake needs the heap
 
   WiFiClientSecure client;
   useVerifiedTls(client);  // was setInsecure(); see the TLS section above
@@ -563,31 +633,34 @@ bool flushBacklog() {
 
   Serial.print("[QUEUE] Flushing ");
   Serial.print(count);
+  Serial.print(" of ");
+  Serial.print(backlogCount());
   Serial.print(" capture(s) to backlog endpoint...");
   int code = http.POST(payload);
   String body = http.getString();
   http.end();
 
-  if (code == 200) {
-    g_backlog = "";
-    saveBacklog();
-    Serial.println(" accepted, queue cleared");
-    return true;
+  if (code < 0) {
+    Serial.print(" no response (");
+    Serial.print(code);
+    Serial.println(") -- queue RETAINED, will retry later");
+    logTlsError(client, "QUEUE");
+    return false;
   }
 
-  if (code == -1) {
-    Serial.println(" no response -- queue RETAINED, will retry later");
-    logTlsError(client, "QUEUE");
-  } else {
-    // Real answer from a reachable server. Keeping these would wedge the
-    // queue permanently, so drop them -- the server has the record either way.
-    g_backlog = "";
-    saveBacklog();
-    Serial.print(" server returned ");
-    Serial.print(code);
-    Serial.print(" -- queue cleared, server has the record: ");
-    Serial.println(body);
+  // The server answered for this chunk: remove it, keep the rest.
+  g_backlog = (chunkEnd < (int)g_backlog.length()) ? g_backlog.substring(chunkEnd) : "";
+  saveBacklog();
+  if (code == 200) {
+    Serial.print(" accepted, ");
+    Serial.print(backlogCount());
+    Serial.println(" left");
+    return true;
   }
+  Serial.print(" server returned ");
+  Serial.print(code);
+  Serial.print(" -- dropped this chunk only, the server has answered for it: ");
+  Serial.println(body);
   return false;
 }
 
@@ -712,6 +785,29 @@ bool readBeacon(String &outToken) {
     return false;
   }
 
+  // Only a well-formed beacon gets any further: exactly BEACON_TOKEN_LEN
+  // characters of base64url. The bytes come from whatever phone is on the
+  // reader, and they are pasted into JSON and into the newline-separated
+  // offline queue. A '"' or a newline from a modified phone (or a garbled
+  // read) used to break the backlog's JSON -- the server rejected the
+  // batch and the whole queue, everyone's taps, was thrown away.
+  if (dataLen != BEACON_TOKEN_LEN) {
+    Serial.print("[APDU] Rejected: beacon is ");
+    Serial.print(dataLen);
+    Serial.print(" bytes, expected ");
+    Serial.println(BEACON_TOKEN_LEN);
+    return false;
+  }
+  for (uint8_t i = 0; i < dataLen; i++) {
+    char c = (char)response[i];
+    bool base64url = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                     (c >= '0' && c <= '9') || c == '-' || c == '_';
+    if (!base64url) {
+      Serial.println("[APDU] Rejected: beacon has a character outside base64url");
+      return false;
+    }
+  }
+
   outToken = "";
   for (uint8_t i = 0; i < dataLen; i++) {
     outToken += (char)response[i];
@@ -723,13 +819,13 @@ bool readBeacon(String &outToken) {
   return true;
 }
 
-void submitBeaconToken(const String &token) {
+void submitBeaconToken(const String &token, unsigned long readAt) {
   if (!wifiReady || WiFi.status() != WL_CONNECTED) {
     // No network at all. This is exactly the case the offline queue exists
     // for -- queue it rather than dropping it, so a lecturer can at least
     // see a genuine tap happened even though it can't become attendance.
     Serial.println("[POST] No WiFi -- queuing capture for later sync");
-    appendToBacklog(token);
+    appendToBacklog(token, readAt);
     return;
   }
 
@@ -821,6 +917,21 @@ void submitBeaconToken(const String &token) {
       continue;
     }
 
+    // Any OTHER negative code (e.g. -11, read timeout) means the request
+    // was sent but no answer came back: the server may or may not have
+    // recorded it. Retrying would most likely be told "expired" -- a real
+    // answer, so the tap would be dropped. Queue it instead; if it did land,
+    // the server marks the backlog copy superseded. These used to fall
+    // through to the "REJECTED by server" branch below and were lost.
+    if (httpResponseCode < 0) {
+      Serial.print("[POST] Sent but no answer (");
+      Serial.print(httpResponseCode);
+      Serial.println(") -- queuing capture rather than retrying");
+      logTlsError(client, "POST");
+      appendToBacklog(token, readAt);
+      return;
+    }
+
     if (httpResponseCode < 200 || httpResponseCode >= 300) {
       Serial.println("[POST] REJECTED by server -- not retrying. If this was 401,");
       Serial.println("[POST] the beacon likely expired before the server saw it.");
@@ -835,7 +946,7 @@ void submitBeaconToken(const String &token) {
   // Every attempt was a transport failure: the backend was unreachable, so
   // treat this as offline rather than as a lost tap.
   Serial.println("[POST] All attempts failed at the transport layer -- queuing capture");
-  appendToBacklog(token);
+  appendToBacklog(token, readAt);
 }
 
 // ---------------- Setup / loop ----------------
@@ -928,9 +1039,13 @@ void loop() {
     // flush is a synchronous TLS request and must never delay a real tap.
     if (backlogCount() > 0) {
       unsigned long age = millis() - lastBacklogFlushAttempt;
-      if (age > BACKLOG_FLUSH_INTERVAL_MS) {
+      if (age > backlogFlushWaitMs) {
         lastBacklogFlushAttempt = millis();
-        flushBacklog();
+        // An accepted chunk with more waiting: send the next one soon
+        // rather than in 30s, so a 100-tap backlog clears in seconds.
+        bool sent = flushBacklog();
+        backlogFlushWaitMs = (sent && backlogCount() > 0) ? BACKLOG_NEXT_CHUNK_MS
+                                                          : BACKLOG_FLUSH_INTERVAL_MS;
       }
     }
   }
@@ -966,7 +1081,9 @@ void loop() {
       // queue isn't queued a second time while the phone is still held.
       lastSubmittedToken = token;
       lastSubmittedAt = millis();
-      submitBeaconToken(token);
+      // Read time taken now, right after the read, not when the POST or
+      // a later flush happens.
+      submitBeaconToken(token, readTimeNow());
     }
   }
 

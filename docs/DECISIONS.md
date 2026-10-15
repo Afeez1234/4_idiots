@@ -387,3 +387,22 @@ if you know the date.
   they count as missed. The student dashboard's own percentage
   (`utils.student_course_attendance`) still counts every session and every
   attendance row, so it can differ slightly from the register's.
+
+### D28. Offline taps carry the terminal's read time; late reads are rejected (2026-10-14)
+
+- **Problem:** The live path rejects a token older than 10 s. The offline
+  path accepted any correctly signed token for review, dated by when it was
+  made, because the terminal was thought to have no clock. So a token kept
+  and replayed while the terminal was offline reached "Accept all". The
+  queue also held only 16 taps, and one malformed token or a read timeout
+  could clear all of it.
+- **Chose:** The terminal already syncs its clock for the Bluetooth codes,
+  so it now sends each tap's read time. A read more than 15 s after the
+  mint (the app's 10 s serving window plus clock drift) is rejected at
+  upload, never shown for review. The read time becomes the tap time. The
+  queue holds 100, uploads 25 per request, and only ever removes the chunk
+  the server answered for. The reader refuses anything but a 32-character
+  base64url token.
+- **Trade-off:** A terminal that booted with no network has no synced
+  clock, so its taps are reviewed as before. Firmware not yet reflashed
+  sends no read time and behaves as before.

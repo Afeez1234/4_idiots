@@ -176,13 +176,14 @@ sequenceDiagram
 
     H-->>T: Token read normally
     T--xF: POST fails (no Wi-Fi, or 2 transport failures)
-    T->>Q: Append token (drop oldest if 16 already)
-    Note over T: Later, field empty, Wi-Fi back,<br/>at most every 30 s
-    T->>F: POST /student/checkin/backlog {records:[...]}
-    F->>F: Check signature only. Expiry is ignored on purpose
-    F->>F: captured_at = exp - 10 s
-    F->>D: INSERT offline_checkin_logs<br/>status pending_verification<br/>(or superseded if attendance already exists)
-    F-->>T: 200, queue cleared
+    T->>Q: Append token + read time (drop oldest if 100 already)
+    Note over T: Later, field empty, Wi-Fi back,<br/>every 30 s (2 s between chunks)
+    T->>F: POST /student/checkin/backlog {records:[25 at most]}
+    F->>F: Check signature. Expiry is ignored on purpose
+    F->>F: Read more than 15 s after mint? rejected (a replay)
+    F->>F: captured_at = read time (or mint time if unknown)
+    F->>D: INSERT offline_checkin_logs<br/>status pending_verification<br/>(or superseded / rejected)
+    F-->>T: 200, those 25 removed from the queue
 ```
 
 These rows are **not attendance**. The course lecturer reviews them on the

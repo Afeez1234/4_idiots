@@ -111,7 +111,7 @@ only works with the right positions.
 | BLE broadcast | New code every 5 s; server accepts current ±1 slot | Limits how long a relayed code is useful |
 | BLE before NTP | Broadcasts nothing | A code from a 1970 clock would only be rejected |
 | BLE self-test | Known-answer check at boot; refuses to broadcast on mismatch | Proves firmware and server compute the same HMAC |
-| Offline queue | Up to 16 taps in NVS flash (survives power loss), oldest dropped when full, flushed every 30 s when the field is empty | Stored as "pending verification". Expired codes must not become automatic attendance |
+| Offline queue | Up to 100 taps with their read time in NVS flash (survives power loss), oldest dropped when full, sent 25 at a time when the field is empty (every 30 s; 2 s between chunks). A server answer removes only that chunk | Stored as "pending verification". Expired codes must not become automatic attendance |
 | Keep-alive ping | At boot, every 4 minutes when idle, and before a POST if not confirmed warm in 60 s. Any real upload response also counts as "warm" | Render free tier sleeps and took 8.5 s to wake, longer than a code lasts |
 | TLS | Server certificate verified against the core's CA bundle (chain + hostname, not expiry) | Stops a fake server on the venue Wi-Fi collecting the terminal secret. Was `setInsecure()` |
 | Wi-Fi at boot | Waits 20 s at most, then carries on offline and retries every 5 s | Used to loop forever and wedge the board until a power cycle |

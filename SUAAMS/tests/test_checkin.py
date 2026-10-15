@@ -15,7 +15,10 @@ Bluetooth check-in
   * a current code records attendance with method 'ble'; an old one doesn't,
   * with no BLE secret configured the route says it's off.
 Offline taps
-  * an expired code uploaded later is stored for review, NOT as attendance.
+  * an expired code uploaded later is stored for review, NOT as attendance,
+  * one read promptly is reviewed at the terminal's read time; one read
+    long after it was made (kept and replayed) is rejected outright; an
+    unusable read time falls back to review as before.
 Login / device binding
   * first login binds the phone; a second phone is locked out,
   * a second account on the same phone is refused,
@@ -25,6 +28,7 @@ Run with:  python tests/test_checkin.py
 (also collected by pytest if it is installed)
 """
 
+import calendar
 import os
 import sys
 import time
@@ -226,6 +230,44 @@ class CheckinTestCase(unittest.TestCase):
         [log] = OfflineCheckinLog.query.all()
         self.assertEqual(log.status, 'pending_verification')
         self.assertEqual(self.attendance(), [])
+
+    def sync(self, read_at):
+        """Upload one offline tap whose token was minted now, read at `read_at`."""
+        token = mint_beacon(self.student.id, self.session_a.id)
+        self.minted_at = int(time.time())
+        record = {'beacon_token': token}
+        if read_at is not None:
+            record['read_at'] = read_at
+        resp = self.client.post('/api/v1/student/checkin/backlog', headers=TERMINAL,
+                                json={'records': [record]})
+        self.assertEqual(resp.status_code, 200)
+        return OfflineCheckinLog.query.one()
+
+    def test_offline_tap_read_promptly_is_reviewed_at_its_read_time(self):
+        read_at = int(time.time()) + 3
+        log = self.sync(read_at)
+        self.assertEqual(log.status, 'pending_verification')
+        # Stored as naive UTC; it should be the read time, not the mint time.
+        stored = calendar.timegm(log.captured_at.timetuple())
+        self.assertEqual(stored, read_at)
+
+    def test_offline_token_replayed_later_is_rejected_not_reviewed(self):
+        # Minted now, read 85 minutes later: no unmodified app serves a token
+        # that long, so "Accept all" must never see it.
+        log = self.sync(int(time.time()) + 85 * 60)
+        self.assertEqual(log.status, 'rejected')
+        self.assertIn('85 min', log.reason)
+        from utils import pending_offline_taps
+        self.assertEqual(pending_offline_taps(self.session_a), [])
+
+    def test_offline_read_time_unusable_falls_back_to_review(self):
+        # Older firmware (no read_at), a clock that never synced (1970), a
+        # clock running far behind the mint, and a non-number.
+        for read_at in (None, 5, int(time.time()) - 3600, True, '1700000000'):
+            OfflineCheckinLog.query.delete()
+            db.session.commit()
+            log = self.sync(read_at)
+            self.assertEqual(log.status, 'pending_verification', read_at)
 
     # ---- Login and device binding --------------------------------------------------
 

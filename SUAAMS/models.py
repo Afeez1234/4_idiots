@@ -585,10 +585,15 @@ class OfflineCheckinLog(db.Model):
     accepted tap becomes attendance with method='offline' and the lecturer
     as marked_by: a person vouches for it, backed by a genuine signed read.
 
-    captured_at is derived server-side from the beacon's own `exp` field
-    (minus the TTL), not sent by the terminal. The ESP32 has no RTC and
-    cannot know wall-clock time while offline, so asking it to timestamp
-    a capture would mean recording a time it doesn't actually know.
+    The terminal sends its READ time with each capture. It has no battery
+    clock, but it syncs over NTP for the Bluetooth codes and keeps counting
+    while offline, so the time is real once it has synced since boot. That
+    read time is what closes the replay gap: a token read more than a few
+    seconds after it was minted can't come from an unmodified app, so the
+    sync rejects it instead of offering it for review (where "Accept all"
+    would have credited it). Without a usable read time -- older firmware,
+    or a terminal that booted offline and never synced -- captured_at
+    falls back to the token's mint time and review works as before.
     """
     __tablename__ = 'offline_checkin_logs'
     id = db.Column(db.Integer, primary_key=True)
@@ -603,9 +608,11 @@ class OfflineCheckinLog(db.Model):
     # the terminal proves itself with X-Terminal-Secret on every request.
     terminal_id = db.Column(db.String(64), nullable=False)
 
-    # When the terminal read the token off the phone, derived from the
-    # token's exp minus the TTL. The tap itself happened a few hundred ms
-    # before the terminal's POST, so this is accurate to roughly that.
+    # When the student tapped: the terminal's read time (its clock is
+    # NTP-synced for the Bluetooth codes). For firmware that doesn't send
+    # one, or a terminal whose clock never synced, it falls back to the
+    # token's mint time (exp minus the TTL). A read too long after the mint
+    # is rejected at sync time -- see sync_offline_checkin_backlog.
     captured_at = db.Column(db.DateTime, nullable=False)
 
     # When the record reached the server. The gap between this and
