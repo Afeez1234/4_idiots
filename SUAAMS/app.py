@@ -83,17 +83,6 @@ DB_NAME = _require_env('DB_NAME')
 # Port is not a credential, so a default is fine here.
 DB_PORT = os.environ.get('DB_PORT', '3306')
 
-# Kept because other modules read these keys. Every value is now sourced from
-# a required environment variable above -- the dict itself is no longer a
-# place secrets can hide.
-DB_CONFIG = {
-    'host': DB_HOST,
-    'user': DB_USER,
-    'password': DB_PASSWORD,
-    'database': DB_NAME,
-    'port': int(DB_PORT),
-}
-
 # Beacon/terminal credentials are validated lazily where they're used (see
 # beacon._signing_secret and api/student._check_terminal_auth) rather than
 # here, so that a deployment without them still serves the rest of the app
@@ -123,9 +112,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
     f'mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_POOL_SIZE'] = 10
-app.config['SQLALCHEMY_POOL_RECYCLE'] = 280  # Recycle connections before MySQL times them out
-app.config['SQLALCHEMY_POOL_TIMEOUT'] = 20
+# Pool size is SQLAlchemy's default (5, plus up to 10 overflow) per worker.
+# A worker uses at most ~6 at once (gunicorn's request threads plus the two
+# push threads), well inside that. The old SQLALCHEMY_POOL_SIZE/_RECYCLE/
+# _TIMEOUT keys were removed: Flask-SQLAlchemy 3 ignores them, so they
+# never took effect. Engine options go in this dict.
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_recycle': 280,   # Recycle connections before the 300-second cloud timeout
     'pool_pre_ping': True  # Test the connection to ensure it's alive before querying

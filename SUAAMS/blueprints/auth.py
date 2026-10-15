@@ -3,6 +3,7 @@ import bcrypt
 from models import db, User  # Imported 'db' to allow committing password changes
 from extensions import limiter, login_username_key, client_ip
 from audit import log_action
+from api.auth import _DUMMY_HASH
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -84,15 +85,14 @@ def login():
         # SQLAlchemy query — no cursor, no connection management needed
         user = User.query.filter_by(username=username).first()
 
+        password_bytes = password.encode('utf-8')
         if not user:
+            # Same bcrypt cost as a wrong password, so timing doesn't reveal
+            # which usernames exist (see _DUMMY_HASH in api/auth.py).
+            bcrypt.checkpw(password_bytes, _DUMMY_HASH.encode('utf-8'))
             flash('Invalid username or password', 'error')
             return render_template('auth/login.html')
 
-        if not user.is_active:
-            flash('User profile is deactivated', 'error')
-            return render_template('auth/login.html')
-
-        password_bytes = password.encode('utf-8')
         if not bcrypt.checkpw(
             password_bytes,
             user.password_hash.encode('utf-8')
@@ -107,6 +107,12 @@ def login():
                 )
                 db.session.commit()
             flash('Invalid username or password', 'error')
+            return render_template('auth/login.html')
+
+        # Only after the right password, so a stranger can't learn that an
+        # account exists and is switched off.
+        if not user.is_active:
+            flash('User profile is deactivated', 'error')
             return render_template('auth/login.html')
 
         # Set session variables

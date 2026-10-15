@@ -27,6 +27,17 @@ _PLACEHOLDER_DEVICE_IDS = frozenset({
     'unknown_platform',
 })
 
+# Checked against when the username doesn't exist, so a wrong username
+# costs the same bcrypt time as a wrong password. Without it, an unknown
+# username answered in ~1 ms and a known one in ~300 ms, which told anyone
+# timing the requests which matric numbers have accounts.
+_DUMMY_HASH = bcrypt.hashpw(b'not-a-real-password', bcrypt.gensalt()).decode('utf-8')
+
+# One answer for "no such user" and "wrong password" (the web login does the
+# same). They used to differ -- 404 "User not found" / 401 "Invalid
+# password" -- so the endpoint confirmed which usernames exist.
+_BAD_LOGIN = ({"error": "Invalid username or password"}, 401)
+
 _DEVICE_IN_USE_ERROR = (
     "DEVICE IN USE: This phone is already registered to another student "
     "account. Please visit IT Administration if this is your phone."
@@ -80,14 +91,16 @@ def mobile_login():
     user = User.query.filter_by(username=username).first()
 
     if not user:
-        return jsonify({"error": "User not found"}), 404
+        bcrypt.checkpw(password.encode('utf-8'), _DUMMY_HASH.encode('utf-8'))
+        return jsonify(_BAD_LOGIN[0]), _BAD_LOGIN[1]
 
-    # 2. Check if account is active
-    if not user.is_active:
-        return jsonify({"error": "Account is disabled"}), 403
+    # 2. Verify bcrypt password
+    if bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
+        # 3. Disabled accounts, checked only AFTER the password: before it,
+        # anyone could learn that an account exists and is switched off.
+        if not user.is_active:
+            return jsonify({"error": "Account is disabled"}), 403
 
-    # 3. Verify bcrypt password
-    if bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')): 
         if user.role == 'student':
             student_profile = user.student
             if not student_profile:
@@ -162,7 +175,7 @@ def mobile_login():
         }), 200
         
     else:
-        return jsonify({"error": "Invalid password"}), 401
+        return jsonify(_BAD_LOGIN[0]), _BAD_LOGIN[1]
 
 
 # Keyed by user id (via jwt_identity_or_ip), not IP -- this is an
@@ -178,6 +191,10 @@ def mobile_change_password():
     
     if not new_password:
         return jsonify({"error": "New password is required"}), 400
+    # Same minimum as the web form (blueprints/auth.py) and the app's own
+    # screen; the app's check alone could be skipped by any other client.
+    if not isinstance(new_password, str) or len(new_password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters long."}), 400
         
     current_user_id = get_jwt_identity()
 

@@ -23,7 +23,13 @@ Offline taps
 Login / device binding
   * first login binds the phone; a second phone is locked out,
   * a second account on the same phone is refused,
-  * placeholder device IDs are refused.
+  * placeholder device IDs are refused,
+  * login gives one answer for an unknown username and a wrong password,
+    reveals a disabled account only to the right password, and the app's
+    password change enforces 6 characters.
+Races
+  * two requests for one tap (NFC or Bluetooth) answer "already marked",
+    not a 500.
 
 Run with:  python tests/test_checkin.py
 (also collected by pytest if it is installed)
@@ -184,6 +190,26 @@ class CheckinTestCase(unittest.TestCase):
         self.assertEqual(self.tap(token).status_code, 409)
         self.assertEqual(self.attendance(), [])
 
+    def race(self):
+        """Make the "already marked?" check miss an existing row, as when two
+        requests for one tap run side by side; the insert then hits the
+        unique constraint."""
+        db.session.add(Attendance(student_id=self.student.id, session_id=self.session_a.id))
+        db.session.commit()
+        miss = mock.Mock(filter_by=lambda **kw: mock.Mock(first=lambda: None))
+        return mock.patch.object(Attendance, 'query', miss)
+
+    def test_simultaneous_nfc_taps_answer_already_marked_not_500(self):
+        token = self.mint()
+        with self.race():
+            resp = self.tap(token)
+        self.assertEqual((resp.status_code, resp.get_json()['message']), (200, 'Attendance already marked'))
+
+    def test_simultaneous_ble_check_ins_answer_already_marked_not_500(self):
+        with self.race():
+            resp = self.ble(ble_beacon.current_slot())
+        self.assertEqual((resp.status_code, resp.get_json()['message']), (200, 'Attendance already marked'))
+
     def test_session_left_open_from_an_earlier_day_takes_no_check_ins(self):
         # The lecturer never pressed End on Monday's class. On Wednesday no
         # code is minted for it, Bluetooth can't use it, and a token bound
@@ -309,6 +335,26 @@ class CheckinTestCase(unittest.TestCase):
                                 headers={'Authorization': f'Bearer {refresh}'})
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(DeviceToken.query.count(), 0)
+
+    def test_login_does_not_say_which_usernames_exist(self):
+        unknown = self.login('NOBODY/1', 'phone-1')
+        wrong = self.login('MCT/20/0001', 'phone-1', password='wrong')
+        self.assertEqual((unknown.status_code, unknown.get_json()),
+                         (wrong.status_code, wrong.get_json()))
+        self.assertEqual(unknown.status_code, 401)
+
+    def test_disabled_account_is_only_revealed_to_the_right_password(self):
+        self.user.is_active = False
+        db.session.commit()
+        self.assertEqual(self.login('MCT/20/0001', 'phone-1', password='wrong').status_code, 401)
+        resp = self.login('MCT/20/0001', 'phone-1')
+        self.assertEqual((resp.status_code, resp.get_json()['error']), (403, 'Account is disabled'))
+
+    def test_app_password_change_needs_six_characters(self):
+        token = self.login('MCT/20/0001', 'phone-1').get_json()['token']
+        resp = self.client.post('/api/v1/auth/change-password', json={'new_password': 'abc'},
+                                headers={'Authorization': f'Bearer {token}'})
+        self.assertEqual(resp.status_code, 400)
 
     def test_one_phone_cannot_hold_two_student_accounts(self):
         self.make_student('MCT/20/0002', 'pw2')

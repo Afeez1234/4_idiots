@@ -1429,31 +1429,6 @@ def courses_page():
 
             return redirect(url_for('admin.courses_page'))
 
-            try:
-                existing = Enrollment.query.filter_by(
-                    student_id=int(student_id), course_id=int(course_id)
-                ).first()
-                if existing:
-                    flash('That student is already enrolled in this course.', 'error')
-                else:
-                    enrollment = Enrollment(student_id=int(student_id), course_id=int(course_id))
-                    db.session.add(enrollment)
-                    student = db.session.get(Student, int(student_id))
-                    course = db.session.get(Course, int(course_id))
-                    log_action('enrollment.create',
-                               f"Enrolled {student.full_name if student else f'student #{student_id}'}"
-                               f" in {course.course_code if course else f'course #{course_id}'}",
-                               'enrollment', None,
-                               {'student_id': int(student_id), 'course_id': int(course_id)})
-                    db.session.commit()
-                    flash('Student enrolled successfully.', 'success')
-            except Exception:
-                db.session.rollback()
-                flash('Failed to enroll student.', 'error')
-                log_exception("Enrollment Create Error")
-
-            return redirect(url_for('admin.courses_page'))
-
         if action == 'manage_lecturer':
             _manage_course_lecturer(
                 request.form.get('course_id'),

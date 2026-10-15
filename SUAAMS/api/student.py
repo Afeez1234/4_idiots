@@ -5,6 +5,7 @@ from flask_jwt_extended import (
     jwt_required, get_jwt_identity, get_jwt,
 )
 from datetime import date, datetime, timezone
+from sqlalchemy.exc import IntegrityError
 
 # Import db and our elegant SQLAlchemy models
 # (added Enrollment here for the check-in endpoints, Timetable for the
@@ -469,7 +470,15 @@ def submit_checkin_beacon():
                          status=compute_attendance_status(active_session),
                          method='nfc')
     db.session.add(record)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # Two requests for the same tap passed the check above together;
+        # uq_attendance_student_session let exactly one in. Same answer as
+        # the check above, instead of a 500 the terminal would show as a
+        # failed tap. (mark_student_present handles the same race.)
+        db.session.rollback()
+        return jsonify({"success": True, "message": "Attendance already marked"}), 200
 
     # Best-effort push -- see send_push_notification's docstring for why a
     # failure here never affects the response below (attendance is already
@@ -665,7 +674,17 @@ def submit_ble_checkin():
                          status=compute_attendance_status(active_session),
                          method='ble')
     db.session.add(record)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # The app resent while the first request was still running; one row
+        # got in. See the same race in submit_checkin_beacon.
+        db.session.rollback()
+        return jsonify({
+            "success": True,
+            "message": "Attendance already marked",
+            "course_code": course_code,
+        }), 200
 
     send_push_notification(
         student.user,
