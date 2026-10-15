@@ -327,9 +327,6 @@ python create_admin.py <your-username>   # prints a one-time password
 flask --app app.py run
 ```
 
-Give each person who manages the dashboard their own login the same way
-(`python create_admin.py <their-username>`), and never share one. To switch
-someone off: `python create_admin.py <username> --disable`. Their past
 **Which database step to run:**
 
 - **A new, empty database:** `python reset_db.py`. It creates every table
@@ -343,6 +340,9 @@ someone off: `python create_admin.py <username> --disable`. Their past
 column to tables that existed before migrations were used, so on an empty
 database it stops with "no such table: users".
 
+Give each person who manages the dashboard their own login the same way
+(`python create_admin.py <their-username>`), and never share one. To switch
+someone off: `python create_admin.py <username> --disable`. Their past
 changes stay on the Activity page under their name.
 
 The server refuses to start until `.env` has the database details,
