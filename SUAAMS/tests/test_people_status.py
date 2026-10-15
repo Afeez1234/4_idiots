@@ -36,7 +36,7 @@ import people_status as ps  # noqa: E402
 from extensions import limiter, csrf  # noqa: E402
 from models import (  # noqa: E402
     db, AuditLog, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
-    Semester, Session as SessionModel,
+    Semester, Session as SessionModel, DeviceToken,
 )
 from utils import students_not_checked_in  # noqa: E402
 from blueprints.auth import auth_bp  # noqa: E402
@@ -123,6 +123,26 @@ class PeopleStatusTestCase(unittest.TestCase):
         self.assertEqual(self.ada.device_id, 'phone-MCT/20/0001')
         ps.set_student_status(self.ada, 'active', 'Suspension served')
         self.assertTrue(self.ada.user.is_active)
+
+    def push_token(self, person):
+        db.session.add(DeviceToken(user_id=person.user_id, fcm_token=f'fcm-{person.id}',
+                                   platform='android'))
+        db.session.commit()
+
+    def test_switching_a_login_off_stops_pushes(self):
+        self.push_token(self.ada)
+        ps.set_student_status(self.ada, 'expelled', 'Disciplinary panel')
+        self.assertEqual(DeviceToken.query.count(), 0)
+
+    def test_admin_unbind_stops_pushes_to_the_old_phone(self):
+        # A student reports their phone stolen; the thief's phone must stop
+        # getting their notifications.
+        self.push_token(self.ada)
+        self.sign_in()
+        with mock.patch('blueprints.admin.send_push_notification'):
+            self.client.post(f'/admin/students/unbind/{self.ada.id}')
+        self.assertIsNone(db.session.get(Student, self.ada.id).device_id)
+        self.assertEqual(DeviceToken.query.count(), 0)
 
     def test_graduation_releases_the_phone(self):
         ps.set_student_status(self.ada, 'graduated', 'Class of 2026')

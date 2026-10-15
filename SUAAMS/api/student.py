@@ -141,6 +141,11 @@ def _active_session_for_student(student):
     take the most recently started -- same tie-break as before, minus the
     "across all courses" behaviour that could target a course they weren't
     enrolled in.
+
+    Only TODAY's sessions (campus date). Nothing ends a session except the
+    lecturer pressing End, so one left open used to accept check-ins for
+    days: a student who skipped Monday's class could tap any terminal on
+    Wednesday and be marked present for Monday.
     """
     return (
         SessionModel.query
@@ -148,6 +153,7 @@ def _active_session_for_student(student):
         .filter(
             Enrollment.student_id == student.id,
             SessionModel.is_active.is_(True),
+            SessionModel.session_date == campus_today(),
         )
         .order_by(SessionModel.id.desc())
         .first()
@@ -441,6 +447,10 @@ def submit_checkin_beacon():
     # lecturer ending class as the last student taps), so re-check that
     # it's still running rather than trusting the mint-time snapshot.
     if not active_session.is_active:
+        return jsonify({"error": "That session has ended"}), 409
+    # A session left open from an earlier day (see
+    # _active_session_for_student) is over, whatever its flag says.
+    if active_session.session_date != campus_today():
         return jsonify({"error": "That session has ended"}), 409
 
     enrolled = Enrollment.query.filter_by(

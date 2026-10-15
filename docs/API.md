@@ -26,14 +26,14 @@ end for completeness.
 - **Caller:** app, after the fingerprint check. **Auth:** JWT (student). **Limit:** 10/min.
 - **Request:** no body.
 - **200:** `{"success": true, "beacon_token": "<32 chars>", "expires_in": 10}`
-- **403** not a student · **404** no active session for you · **503** `BEACON_SIGNING_SECRET` not set
+- **403** not a student · **404** no active session for you (only today's sessions count: one left open from an earlier day never does) · **503** `BEACON_SIGNING_SECRET` not set
 
 ### `POST /api/v1/student/checkin`: submit NFC code
 - **Caller:** terminal. **Auth:** Terminal. **Limit:** 30/min per IP.
 - **Request:** `{"beacon_token": "<32 chars>"}`
 - **200:** `{"success": true, "message": "Attendance recorded successfully.", "student": {"id", "full_name"}}`
   This is also returned with `"Attendance already marked"` for a repeat, so a retry is safe.
-- **401** bad terminal, or invalid/expired code · **400** missing token or not enrolled · **404** student/session gone · **409** session has ended
+- **401** bad terminal, or invalid/expired code · **400** missing token or not enrolled · **404** student/session gone · **409** session has ended (or is from an earlier day)
 
 ### `GET /api/v1/student/checkin/status`: did my tap land?
 - **Caller:** app, polled about once a second for up to 25 s. **Auth:** JWT (student). **Limit:** 30/min.
@@ -69,7 +69,7 @@ end for completeness.
 | POST | `/login` | none | 5/min/IP | `{username, password, device_id}` → `{success, token, refresh_token, user: {id, username, role, requires_password_change}}`. 403 with `SECURITY LOCK` / `DEVICE IN USE` / `DEVICE UNVERIFIED` for students (see [ARCHITECTURE §5](ARCHITECTURE.md#5-login-and-device-binding)) |
 | POST | `/change-password` | JWT | 5/min | `{new_password}` |
 | POST | `/refresh` | JWT-refresh | 10/min | → `{success, token, refresh_token}`. The old refresh token is now dead |
-| POST | `/logout` | JWT-refresh | 10/min | Revokes the refresh token |
+| POST | `/logout` | JWT-refresh | 10/min | Revokes the refresh token and removes the user's push tokens (the app registers again at its next login) |
 
 ## Student (`/api/v1/student`), all JWT with role student
 

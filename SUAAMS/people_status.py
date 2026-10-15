@@ -21,7 +21,7 @@ import csv
 import io
 
 from campus_time import campus_today
-from models import db, Course, Lecturer, Semester, Student, course_lecturers
+from models import db, Course, DeviceToken, Lecturer, Semester, Student, course_lecturers
 
 STUDENT_STATUSES = {
     'active': 'Active',
@@ -66,6 +66,10 @@ def _switch_login(user, active):
     user.is_active = active
     if not active:
         user.current_refresh_jti = None     # the phone can't refresh any more
+        # Nor receive pushes: an expelled student's or departed lecturer's
+        # phone shouldn't keep getting the school's notifications. Back to
+        # active, the app registers again at its next login.
+        DeviceToken.query.filter_by(user_id=user.id).delete()
 
 
 def set_student_status(student, status, reason):

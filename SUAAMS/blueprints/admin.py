@@ -10,7 +10,7 @@ from sqlalchemy.orm import joinedload
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
     Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
-    AuditLog,
+    AuditLog, DeviceToken,
 )
 from extensions import log_exception, logger, limiter
 from campus_time import campus_now, campus_today
@@ -1123,12 +1123,16 @@ def bulk_enroll_students():
         flash('No file selected.', 'error')
         return redirect(url_for('admin.students_page'))
 
-    if not file.filename.endswith('.csv'):
+    if not file.filename.lower().endswith('.csv'):
         flash('Invalid file format. Please upload a structured .csv file.', 'error')
         return redirect(url_for('admin.students_page'))
 
     try:
-        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        # utf-8-sig, like bulk_upload.py: Excel's "CSV UTF-8" starts the file
+        # with a byte-order mark, which plain UTF-8 keeps -- the first header
+        # became "\ufeffmatric_number" and a correct file was refused for
+        # missing headers.
+        stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
         csv_reader = csv.DictReader(stream)
 
         required_cols = {'matric_number', 'full_name', 'level', 'department_name'}
@@ -1270,6 +1274,10 @@ def reset_student_binding(student_id):
         # JWT_REFRESH_TOKEN_EXPIRES (14 days) after being "unbound".
         if student.user:
             student.user.current_refresh_jti = None
+            # And stop pushing to the old phone: after a student reports it
+            # stolen, it used to keep receiving all their notifications. The
+            # new phone registers its own token when it logs in.
+            DeviceToken.query.filter_by(user_id=student.user.id).delete()
         db.session.commit()
 
         if student.user:

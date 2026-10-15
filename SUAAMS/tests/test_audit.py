@@ -229,6 +229,16 @@ class AuditTestCase(unittest.TestCase):
         self.assertEqual(entry.details['created'], 2)
         self.assertEqual(entry.details['skipped'], 1)
 
+    def test_csv_saved_by_excel_is_read(self):
+        # Excel's "CSV UTF-8" puts a byte-order mark in front of the header,
+        # and Windows often names the file in capitals.
+        self.sign_in(self.admin)
+        csv_bytes = '\ufeffmatric_number,full_name,level,department_name\r\nMCT/19/0020,Excel,400,Mechatronics\r\n'
+        self.client.post('/admin/students/bulk-enroll', data={
+            'file': (io.BytesIO(csv_bytes.encode('utf-8')), 'STUDENTS.CSV'),
+        }, content_type='multipart/form-data')
+        self.assertEqual([s.matric_number for s in Student.query.all()], ['MCT/19/0020'])
+
     # ---- bulk upload speed and rules -------------------------------------------
 
     def upload(self, csv_text):

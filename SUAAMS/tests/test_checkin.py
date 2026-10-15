@@ -9,7 +9,8 @@ NFC check-in
     student's own class even when another course's session started later
     (the old room-A/room-B bug),
   * a replayed code doesn't record twice,
-  * forged, expired, wrong-terminal and ended-session taps are refused,
+  * forged, expired, wrong-terminal and ended-session taps are refused, and
+    a session left open from an earlier day takes no check-ins at all,
   * the app's status poll sees the attendance once it lands.
 Bluetooth check-in
   * a current code records attendance with method 'ble'; an old one doesn't,
@@ -46,7 +47,7 @@ from beacon import mint_beacon  # noqa: E402
 from extensions import limiter, csrf  # noqa: E402
 from models import (  # noqa: E402
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
-    Session as SessionModel, Attendance, OfflineCheckinLog,
+    Session as SessionModel, Attendance, OfflineCheckinLog, DeviceToken,
 )
 from api.auth import api_auth_bp  # noqa: E402
 from api.student import api_student_bp  # noqa: E402
@@ -183,6 +184,24 @@ class CheckinTestCase(unittest.TestCase):
         self.assertEqual(self.tap(token).status_code, 409)
         self.assertEqual(self.attendance(), [])
 
+    def test_session_left_open_from_an_earlier_day_takes_no_check_ins(self):
+        # The lecturer never pressed End on Monday's class. On Wednesday no
+        # code is minted for it, Bluetooth can't use it, and a token bound
+        # to it (minted directly here) is refused at the terminal.
+        from datetime import timedelta
+        from campus_time import campus_today
+        self.session_a.session_date = campus_today() - timedelta(days=2)
+        db.session.commit()
+        resp = self.client.post('/api/v1/student/checkin/beacon', headers=self.app_headers())
+        self.assertEqual(resp.status_code, 404)
+        payload = ble_beacon.build_payload(7, ble_beacon.current_slot())
+        resp = self.client.post('/api/v1/student/checkin/ble', headers=self.app_headers(),
+                                json={'payload': payload.hex()})
+        self.assertEqual(resp.status_code, 404)
+        stale = mint_beacon(self.student.id, self.session_a.id)
+        self.assertEqual(self.tap(stale).status_code, 409)
+        self.assertEqual(self.attendance(), [])
+
     def test_no_code_without_a_running_session(self):
         self.session_a.is_active = False
         db.session.commit()
@@ -281,6 +300,15 @@ class CheckinTestCase(unittest.TestCase):
         resp = self.login('MCT/20/0001', 'phone-2')
         self.assertEqual(resp.status_code, 403)
         self.assertIn('SECURITY LOCK', resp.get_json()['error'])
+
+    def test_logout_stops_pushes_to_the_phone(self):
+        refresh = self.login('MCT/20/0001', 'phone-1').get_json()['refresh_token']
+        db.session.add(DeviceToken(user_id=self.user.id, fcm_token='fcm-1', platform='android'))
+        db.session.commit()
+        resp = self.client.post('/api/v1/auth/logout',
+                                headers={'Authorization': f'Bearer {refresh}'})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(DeviceToken.query.count(), 0)
 
     def test_one_phone_cannot_hold_two_student_accounts(self):
         self.make_student('MCT/20/0002', 'pw2')

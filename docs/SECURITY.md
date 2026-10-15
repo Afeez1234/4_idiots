@@ -48,6 +48,8 @@ that isn't true, usually for an absent friend. Secondary assets are accounts
 | T19 | **Temporary passwords left in place** | Web requests are refused until the password is changed; disabled accounts are signed out at once | `blueprints/auth.py` `enforce_account_state` |
 | T20 | **Departed staff or removed students still signing in** | Status: anything but active turns the login off and revokes the refresh token; student exits release the phone binding; changes are audited with a reason | `people_status.py`, `api/auth.py` `/refresh` |
 | T21 | **Hidden text in an imported timetable PDF** | Only letters with ink under them are read; every import is previewed and saved as a draft until published | `timetable_pdf.py`, `timetable_import.py` |
+| T22 | **Checking in to a session left open from an earlier day** (the lecturer forgot to press End) | Check-in only resolves and accepts sessions dated today on campus; the terminal submit refuses a token bound to an older one | `api/student.py` `_active_session_for_student`, `submit_checkin_beacon` |
+| T23 | **A stolen or handed-on phone still receiving someone's notifications** | Push tokens are removed on logout, on an admin unbind, and when Status switches a login off; the app registers again at its next login | `api/auth.py` `/logout`, `blueprints/admin.py` `reset_student_binding`, `people_status.py` |
 
 ## 4. Known gaps (honest list)
 

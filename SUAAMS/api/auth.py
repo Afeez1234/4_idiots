@@ -7,7 +7,7 @@ import bcrypt
 from sqlalchemy.exc import IntegrityError
 
 # We import db and User instead of connect_to_database
-from models import db, User, Student
+from models import db, User, Student, DeviceToken
 from extensions import limiter, jwt_identity_or_ip, api_error_response, login_username_key, client_ip
 from push_notifications import send_push_notification
 
@@ -326,6 +326,11 @@ def mobile_logout():
         user = User.query.get(current_user_id)
         if user:
             user.current_refresh_jti = None
+            # Stop pushing to this phone. Without this, the next person to
+            # pick up a shared or handed-on phone kept getting this user's
+            # notifications. The app registers its token again at its next
+            # login (or app start with a saved session).
+            DeviceToken.query.filter_by(user_id=user.id).delete()
             db.session.commit()
     except Exception:
         db.session.rollback()
