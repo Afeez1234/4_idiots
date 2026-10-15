@@ -1,8 +1,8 @@
 import re
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for
 from datetime import datetime, timezone
-from utils import login_required, normalize_level
-from models import db, HOD, Department, Lecturer, Course, Student, Session as SessionModel, Attendance, Enrollment
+from utils import login_required, normalize_level, held_sessions, attended_by_student
+from models import db, HOD, Department, Lecturer, Course, Student, Session as SessionModel, Enrollment
 from extensions import log_exception
 
 hod_bp = Blueprint('hod', __name__)
@@ -44,19 +44,18 @@ def _department_attendance(courses):
     student, running three queries per course for each one -- about 10,000
     queries for a 500-student department on one dashboard load, far past
     Render's 30s request limit. Now three grouped queries for the whole
-    department, whatever its size; the arithmetic is unchanged.
+    department, whatever its size.
+
+    Uses the shared attendance rule (utils.held_sessions/attended_by_student):
+    only finished classes count as held, so a class running right now no
+    longer pulls every student down until they tap in.
     """
     course_ids = [c.id for c in courses]
     if not course_ids:
         return {}
     courses_by_id = {c.id: c for c in courses}
 
-    # Sessions per course. All sessions, active or not -- same as before.
-    session_counts = dict(
-        db.session.query(SessionModel.course_id, db.func.count(SessionModel.id))
-        .filter(SessionModel.course_id.in_(course_ids))
-        .group_by(SessionModel.course_id)
-    )
+    session_counts = held_sessions(course_ids)
 
     # Who is registered for what (Student.courses is this same table).
     enrolled = {}
@@ -66,18 +65,7 @@ def _department_attendance(courses):
     ):
         enrolled.setdefault(student_id, []).append(course_id)
 
-    # Attended sessions per (student, course). Late counts as attended.
-    attended = {
-        (student_id, course_id): count
-        for student_id, course_id, count in (
-            db.session.query(Attendance.student_id, SessionModel.course_id,
-                             db.func.count(Attendance.id))
-            .join(SessionModel, Attendance.session_id == SessionModel.id)
-            .filter(SessionModel.course_id.in_(course_ids),
-                    Attendance.status.in_(['present', 'late']))
-            .group_by(Attendance.student_id, SessionModel.course_id)
-        )
-    }
+    attended = attended_by_student(course_ids)
 
     result = {}
     for student_id, student_course_ids in enrolled.items():

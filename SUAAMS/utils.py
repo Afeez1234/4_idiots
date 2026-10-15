@@ -220,6 +220,89 @@ def students_not_checked_in(session):
     )
 
 
+# ---- The attendance rule -------------------------------------------------
+# One definition, used by every page that shows an attendance percentage:
+# the same as the course register lecturers download for exam eligibility
+# (build_course_register_csv).
+#
+#   * a class counts as HELD once it has finished (Session.is_active False).
+#     A running class isn't held yet: counting it made a student who hadn't
+#     tapped in yet look lower in the app than on the register;
+#   * a student ATTENDED if marked present or late. Excused and absent
+#     don't count.
+#
+# Until 2026-10-15 eight places computed this, with three different rules
+# (all sessions or finished only; every attendance row or present/late),
+# so the student app, the HOD pages, the lecturer pages, Reports and the
+# register could each show a different number for the same student. Each
+# helper is one grouped query for any number of courses.
+
+ATTENDED_STATUSES = ('present', 'late')
+
+
+def held_sessions(course_ids):
+    """{course_id: classes held (finished)}."""
+    from models import db, Session as SessionModel
+    if not course_ids:
+        return {}
+    return dict(db.session.query(SessionModel.course_id, db.func.count(SessionModel.id))
+                .filter(SessionModel.course_id.in_(list(course_ids)),
+                        SessionModel.is_active.is_(False))
+                .group_by(SessionModel.course_id))
+
+
+def attended_by_course(course_ids):
+    """{course_id: attendances in held classes, all students together}."""
+    from models import db, Session as SessionModel, Attendance
+    if not course_ids:
+        return {}
+    return dict(db.session.query(SessionModel.course_id, db.func.count(Attendance.id))
+                .join(Attendance, Attendance.session_id == SessionModel.id)
+                .filter(SessionModel.course_id.in_(list(course_ids)),
+                        SessionModel.is_active.is_(False),
+                        Attendance.status.in_(ATTENDED_STATUSES))
+                .group_by(SessionModel.course_id))
+
+
+def attended_by_student(course_ids, student_ids=None):
+    """{(student_id, course_id): held classes attended}. student_ids limits
+    it to those students (one student's dashboard); None means everyone."""
+    from models import db, Session as SessionModel, Attendance
+    if not course_ids:
+        return {}
+    q = (db.session.query(Attendance.student_id, SessionModel.course_id, db.func.count(Attendance.id))
+         .join(SessionModel, Attendance.session_id == SessionModel.id)
+         .filter(SessionModel.course_id.in_(list(course_ids)),
+                 SessionModel.is_active.is_(False),
+                 Attendance.status.in_(ATTENDED_STATUSES)))
+    if student_ids is not None:
+        q = q.filter(Attendance.student_id.in_(list(student_ids)))
+    return {(sid, cid): n for sid, cid, n in q.group_by(Attendance.student_id, SessionModel.course_id)}
+
+
+def course_attendance(course_ids):
+    """{course_id: {'enrolled', 'held', 'attended', 'pct'}} -- a course's
+    average: attendances / (classes held x students enrolled). pct is 0
+    before anything has been held or anyone has enrolled. Four grouped
+    queries whatever the number of courses (Reports used to run three per
+    course: 1,500 for 500 courses)."""
+    from models import db, Enrollment
+    course_ids = list(course_ids)
+    if not course_ids:
+        return {}
+    enrolled = dict(db.session.query(Enrollment.course_id, db.func.count(Enrollment.id))
+                    .filter(Enrollment.course_id.in_(course_ids))
+                    .group_by(Enrollment.course_id))
+    held = held_sessions(course_ids)
+    attended = attended_by_course(course_ids)
+    out = {}
+    for cid in course_ids:
+        e, h, a = enrolled.get(cid, 0), held.get(cid, 0), attended.get(cid, 0)
+        out[cid] = {'enrolled': e, 'held': h, 'attended': a,
+                    'pct': round(a / (h * e) * 100, 1) if h and e else 0}
+    return out
+
+
 def student_course_attendance(student):
     """[{'course', 'attended', 'total', 'pct'}, ...] for every course the
     student is registered for. Shared by the app dashboard (api/student.py)
@@ -229,11 +312,14 @@ def student_course_attendance(student):
     PERF: both copies ran two counting queries per course (plus, on the web,
     one more to load each course's lecturer) -- about 13 trips to the
     database for six courses, on every dashboard open. Now three queries
-    whatever the course count. Same arithmetic: every attendance row counts,
-    against every session the course has run.
+    whatever the course count.
+
+    Uses the attendance rule above (held = finished, attended = present or
+    late), so a student sees the same percentage as their register. It used
+    to count every session, a running one too, and every attendance row.
     """
     from sqlalchemy.orm import joinedload
-    from models import db, Course, Enrollment, Session as SessionModel, Attendance
+    from models import Course, Enrollment
 
     courses = (Course.query
                .join(Enrollment, Enrollment.course_id == Course.id)
@@ -244,22 +330,13 @@ def student_course_attendance(student):
     if not course_ids:
         return []
 
-    totals = dict(
-        db.session.query(SessionModel.course_id, db.func.count(SessionModel.id))
-        .filter(SessionModel.course_id.in_(course_ids))
-        .group_by(SessionModel.course_id)
-    )
-    attended = dict(
-        db.session.query(SessionModel.course_id, db.func.count(Attendance.id))
-        .join(Attendance, Attendance.session_id == SessionModel.id)
-        .filter(SessionModel.course_id.in_(course_ids), Attendance.student_id == student.id)
-        .group_by(SessionModel.course_id)
-    )
+    totals = held_sessions(course_ids)
+    attended = attended_by_student(course_ids, [student.id])
 
     rows = []
     for course in courses:
         total = totals.get(course.id, 0)
-        count = attended.get(course.id, 0)
+        count = attended.get((student.id, course.id), 0)
         rows.append({
             'course': course,
             'attended': count,
@@ -776,7 +853,7 @@ def build_course_register_csv(course):
         for s in sessions:
             status = status_by_key.get((student.id, s.id))
             marks.append(symbol.get(status, 'A'))
-            if status in ('present', 'late'):
+            if status in ATTENDED_STATUSES:
                 attended += 1
         pct = round(attended / total * 100, 1) if total else 0
         eligible = 'YES' if total and pct >= EXAM_ELIGIBILITY_THRESHOLD else 'NO'

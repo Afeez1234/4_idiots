@@ -20,6 +20,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from campus_time import campus_now, campus_tz
+from utils import ATTENDED_STATUSES, held_sessions, attended_by_course
 from models import (
     db, Attendance, AuditLog, Course, Department, Enrollment, Session, Timetable,
 )
@@ -29,8 +30,8 @@ from models import (
 # is only "due" -- lecturers routinely open the terminal a few minutes in.
 LATE_AFTER = timedelta(minutes=30)
 
-# Attendance statuses that mean the student was there. 'excused' isn't.
-PRESENT = ('present', 'late')
+# Attendance statuses that mean the student was there: the shared rule.
+PRESENT = ATTENDED_STATUSES
 
 # The reminder's audit action; the banner reads it back to show "Reminded
 # 10:12", so two admins don't both send one.
@@ -184,14 +185,12 @@ def department_rates(semester):
                .join(Department, Course.department_id == Department.id)
                .filter(Course.semester_id == semester.id).all())
     ids = [c.id for c in courses]
-    sessions = _count_by(Session.course_id, ids)
+    # The shared attendance rule (utils): finished classes, present or late.
+    # Counting today's running classes as held made every department dip
+    # while classes were on.
+    sessions = held_sessions(ids)
     enrolled = _count_by(Enrollment.course_id, ids)
-    attended = {}
-    if ids:
-        attended = dict(db.session.query(Session.course_id, func.count())
-                        .join(Attendance, Attendance.session_id == Session.id)
-                        .filter(Session.course_id.in_(ids), Attendance.status.in_(PRESENT))
-                        .group_by(Session.course_id))
+    attended = attended_by_course(ids)
     totals = {}
     for course_id, _dept_id, name in courses:
         got, want = totals.get(name, (0, 0))

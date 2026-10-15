@@ -33,14 +33,12 @@ from sqlalchemy.orm import joinedload
 
 from campus_time import campus_now
 from models import (
-    db, Attendance, Course, Department, Enrollment, Session, Student, Timetable,
+    db, Course, Department, Enrollment, Session, Student, Timetable,
 )
-from utils import EXAM_ELIGIBILITY_THRESHOLD
+from utils import EXAM_ELIGIBILITY_THRESHOLD, held_sessions, attended_by_student
 
 # Sessions a course must have finished before a student can be flagged in it.
 MIN_SESSIONS = 3
-
-PRESENT = ('present', 'late')
 
 
 # ---- 1. exam eligibility ----------------------------------------------------
@@ -68,9 +66,7 @@ def eligibility(semester, department_id=None, level=None):
     courses = {c.id: c for c in Course.query.filter(Course.semester_id == semester.id)}
     if not courses:
         return out
-    held = dict(db.session.query(Session.course_id, func.count())
-                .filter(Session.course_id.in_(list(courses)), Session.is_active.is_(False))
-                .group_by(Session.course_id))
+    held = held_sessions(courses)
     counted = [cid for cid, n in held.items() if n >= MIN_SESSIONS]
     if not counted:
         return out
@@ -89,14 +85,7 @@ def eligibility(semester, department_id=None, level=None):
         q = q.filter(Student.level == level)
     pairs = q.all()
 
-    attended = {}
-    if pairs:
-        rows = (db.session.query(Attendance.student_id, Session.course_id, func.count())
-                .join(Session, Session.id == Attendance.session_id)
-                .filter(Session.course_id.in_(counted), Session.is_active.is_(False),
-                        Attendance.status.in_(PRESENT))
-                .group_by(Attendance.student_id, Session.course_id))
-        attended = {(sid, cid): n for sid, cid, n in rows}
+    attended = attended_by_student(counted) if pairs else {}
 
     below = {}
     for sid, cid in pairs:

@@ -16,7 +16,7 @@ from extensions import log_exception, logger, limiter
 from campus_time import campus_now, campus_today
 from utils import (
     resolve_current_course, session_status_for_course, notify_announcement,
-    VALID_LEVELS, normalize_level, course_level, _csv_safe,
+    VALID_LEVELS, normalize_level, course_level, _csv_safe, course_attendance,
 )
 from push_notifications import send_push_notification, notify_users
 from audit import log_action, changes
@@ -2453,28 +2453,28 @@ def _all_course_attendance_reports():
     """
     System-wide per-course attendance percentage, shared by reports_page()
     and export_reports() so the on-screen table and the exported CSV can't
-    drift apart. Same 'actual / (sessions * enrolled)' formula already used
-    by the dashboard's department_attendance and lecturer.py's own
-    _course_attendance_reports, just scoped to every course instead of one
-    lecturer's or one department's.
+    drift apart. The shared attendance rule (utils.course_attendance):
+    finished classes, present or late.
+
+    PERF: this ran three counting queries per course -- 1,500 round trips
+    to the database for 500 courses, on every page load and every export.
+    Now a fixed handful, with each course's lecturers and department loaded
+    up front.
     """
-    courses = Course.query.order_by(Course.course_code).all()
+    courses = (Course.query
+               .options(joinedload(Course.department), joinedload(Course.lecturer))
+               .order_by(Course.course_code).all())
+    stats = course_attendance([c.id for c in courses])
     rows = []
     for course in courses:
-        enrolled_count = Enrollment.query.filter_by(course_id=course.id).count()
-        session_count = SessionModel.query.filter_by(course_id=course.id).count()
-        total_attendance = Attendance.query.join(SessionModel).filter(SessionModel.course_id == course.id).count()
-        average_attendance = round(
-            (total_attendance / (session_count * enrolled_count) * 100)
-            if session_count and enrolled_count else 0, 1
-        )
+        s = stats[course.id]
         rows.append({
             'course': course,
             'lecturer_name': course.lecturer_summary or 'Unassigned',
             'department_name': course.department.name if course.department else 'Unassigned',
-            'enrolled_count': enrolled_count,
-            'session_count': session_count,
-            'average_attendance': average_attendance,
+            'enrolled_count': s['enrolled'],
+            'session_count': s['held'],
+            'average_attendance': s['pct'],
         })
     return rows
 

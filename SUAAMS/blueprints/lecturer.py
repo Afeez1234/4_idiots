@@ -6,7 +6,8 @@ from utils import (login_required, resolve_timetable_slot_for_course, notify_ann
                    start_class_session, end_class_session,
                    taught_course, courses_taught_by, teaches,
                    build_course_register_csv, students_not_checked_in, mark_student_present,
-                   pending_offline_taps, review_offline_tap, accept_all_offline_taps)
+                   pending_offline_taps, review_offline_tap, accept_all_offline_taps,
+                   course_attendance, ATTENDED_STATUSES)
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
 from extensions import log_exception, limiter
 
@@ -104,20 +105,13 @@ def course_workspace(course_id):
              .join(Department, Student.department_id == Department.id)\
              .filter(Attendance.session_id == active_session.id).all()
             
-        enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
-
-        total_sessions_this_semester = SessionModel.query.filter_by(course_id=course_id).count()
-        
-        total_attendance = Attendance.query.join(SessionModel).filter(SessionModel.course_id == course_id).count()
-        average_attendance = round(
-            (total_attendance / (total_sessions_this_semester * enrolled_count) * 100) 
-            if total_sessions_this_semester and enrolled_count else 0, 1
-        )
+        # The shared attendance rule: finished classes, present or late.
+        course_stats = course_attendance([course_id])[course_id]
 
         stats = {
-            'total_enrolled_students': enrolled_count,
-            'total_sessions_this_semester': total_sessions_this_semester,
-            'average_attendance': average_attendance,
+            'total_enrolled_students': course_stats['enrolled'],
+            'total_sessions_this_semester': course_stats['held'],
+            'average_attendance': course_stats['pct'],
             'present_in_current_session': len(attendance_records),
         }
         
@@ -172,7 +166,7 @@ def session_history():
             SessionModel.session_date,
             SessionModel.planned_start,
             db.func.count(Attendance.id)
-        ).outerjoin(Attendance, Attendance.session_id == SessionModel.id)\
+        ).outerjoin(Attendance, (Attendance.session_id == SessionModel.id) & Attendance.status.in_(ATTENDED_STATUSES))\
          .filter(SessionModel.course_id.in_(course_ids), SessionModel.is_active == False)\
          .group_by(SessionModel.id)\
          .order_by(SessionModel.session_date.desc()).all()
@@ -365,28 +359,17 @@ ANALYTICS_PALETTE = ['#2F6BEE', '#A8420F', '#5F3FBF', '#9E2760', '#8A5D00']
 
 
 def _course_attendance_reports(lecturer):
-    """Per-course attendance percentage, shared by reports() and
-    export_reports() so the on-screen table and the exported CSV can't
-    drift apart. Same 'actual / (sessions * enrolled)' formula already used
-    by course_workspace()'s stats.average_attendance and admin's
-    department_attendance."""
+    """Per-course attendance percentage, shared by reports(), analytics()
+    and export_reports() so they can't drift apart. The shared attendance
+    rule (utils.course_attendance): finished classes, present or late."""
     courses = courses_taught_by(lecturer).order_by(Course.course_code).all()
-    rows = []
-    for course in courses:
-        enrolled_count = Enrollment.query.filter_by(course_id=course.id).count()
-        session_count = SessionModel.query.filter_by(course_id=course.id).count()
-        total_attendance = Attendance.query.join(SessionModel).filter(SessionModel.course_id == course.id).count()
-        average_attendance = round(
-            (total_attendance / (session_count * enrolled_count) * 100)
-            if session_count and enrolled_count else 0, 1
-        )
-        rows.append({
-            'course': course,
-            'enrolled_count': enrolled_count,
-            'session_count': session_count,
-            'average_attendance': average_attendance,
-        })
-    return rows
+    stats = course_attendance([c.id for c in courses])
+    return [{
+        'course': course,
+        'enrolled_count': stats[course.id]['enrolled'],
+        'session_count': stats[course.id]['held'],
+        'average_attendance': stats[course.id]['pct'],
+    } for course in courses]
 
 
 @lecturer_bp.route('/lecturer/analytics')
@@ -427,7 +410,7 @@ def analytics():
             sessions_data = db.session.query(
                 SessionModel.session_date,
                 db.func.count(Attendance.id)
-            ).outerjoin(Attendance, Attendance.session_id == SessionModel.id)\
+            ).outerjoin(Attendance, (Attendance.session_id == SessionModel.id) & Attendance.status.in_(ATTENDED_STATUSES))\
              .filter(SessionModel.course_id == course.id, SessionModel.is_active == False)\
              .group_by(SessionModel.id)\
              .order_by(SessionModel.session_date.asc()).all()

@@ -125,6 +125,7 @@ the feature.
 | Bulk notifications and announcement audience | `SUAAMS/tests/test_notifications.py` |
 | Disabled accounts, dropping courses, level rule | `SUAAMS/tests/test_account_rules.py` |
 | Query counts: HOD, student dashboard, analytics | `SUAAMS/tests/test_hod_attendance.py`, `test_page_queries.py` |
+| One attendance rule (finished classes, present or late) across student app, HOD, register, Reports | `SUAAMS/tests/test_attendance_rule.py` |
 | Several lecturers per course | `SUAAMS/tests/test_course_lecturers.py` |
 | Timetable PDF reader (look-alike sheet; real sheets only if present locally) | `SUAAMS/tests/test_timetable_pdf.py`, fixture generator `tests/fixtures/timetables/make_sample.py` |
 | Timetable import, publish + notifications, page view, copy | `SUAAMS/tests/test_timetable_import.py`, `test_timetable_publish.py`, `test_timetable_view.py`, `test_timetable_copy.py` |

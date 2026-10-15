@@ -8,7 +8,7 @@ from utils import (build_course_register_csv, start_class_session, end_class_ses
                    taught_course, courses_taught_by, teaches,
                    students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps,
-                   notify_announcement)
+                   notify_announcement, course_attendance, ATTENDED_STATUSES)
 
 api_lecturer_bp = Blueprint('api_lecturer', __name__, url_prefix='/api/v1/lecturer')
 
@@ -57,18 +57,15 @@ def get_lecturer_dashboard():
             db.func.date(Attendance.time_in) == today
         ).count()
 
+        # The shared attendance rule (finished classes, present or late), for
+        # every course in a few grouped queries rather than three per course.
+        stats = course_attendance([c.id for c in courses])
+
         course_list = []
         for course in courses:
-            enrolled_count = Enrollment.query.filter_by(course_id=course.id).count()
-            total_sessions = SessionModel.query.filter_by(course_id=course.id).count()
-            total_attendance = Attendance.query.join(SessionModel).filter(
-                SessionModel.course_id == course.id
-            ).count()
-
-            avg_attendance = round(
-                (total_attendance / (total_sessions * enrolled_count) * 100)
-                if total_sessions and enrolled_count else 0, 1
-            )
+            enrolled_count = stats[course.id]['enrolled']
+            total_sessions = stats[course.id]['held']
+            avg_attendance = stats[course.id]['pct']
 
             active_session = SessionModel.query.filter_by(
                 course_id=course.id,
@@ -195,16 +192,11 @@ def get_course_workspace(course_id):
             is_active=True
         ).first()
 
-        enrolled_count = Enrollment.query.filter_by(course_id=course_id).count()
-        total_sessions = SessionModel.query.filter_by(course_id=course_id).count()
-        total_attendance = Attendance.query.join(SessionModel).filter(
-            SessionModel.course_id == course_id
-        ).count()
-
-        avg_attendance = round(
-            (total_attendance / (total_sessions * enrolled_count) * 100)
-            if total_sessions and enrolled_count else 0, 1
-        )
+        # The shared attendance rule: finished classes, present or late.
+        course_stats = course_attendance([course_id])[course_id]
+        enrolled_count = course_stats['enrolled']
+        total_sessions = course_stats['held']
+        avg_attendance = course_stats['pct']
 
         live_attendance = []
         if active_session:
@@ -394,7 +386,8 @@ def get_session_history(course_id):
             SessionModel.planned_start,
             SessionModel.planned_end,
             db.func.count(Attendance.id)
-        ).outerjoin(Attendance, Attendance.session_id == SessionModel.id)\
+        ).outerjoin(Attendance, (Attendance.session_id == SessionModel.id)
+                    & Attendance.status.in_(ATTENDED_STATUSES))\
          .filter(
              SessionModel.course_id == course_id,
              SessionModel.is_active == False
@@ -725,7 +718,8 @@ def get_course_analytics(course_id):
         present_by_session = dict(
             db.session.query(Attendance.session_id, db.func.count(Attendance.id))
             .join(SessionModel, Attendance.session_id == SessionModel.id)
-            .filter(SessionModel.course_id == course_id, SessionModel.is_active == False)  # noqa: E712
+            .filter(SessionModel.course_id == course_id, SessionModel.is_active == False,  # noqa: E712
+                    Attendance.status.in_(ATTENDED_STATUSES))
             .group_by(Attendance.session_id)
         )
 
@@ -752,7 +746,8 @@ def get_course_analytics(course_id):
         attended_by_student = dict(
             db.session.query(Attendance.student_id, db.func.count(Attendance.id))
             .join(SessionModel, Attendance.session_id == SessionModel.id)
-            .filter(SessionModel.course_id == course_id, SessionModel.is_active == False)  # noqa: E712
+            .filter(SessionModel.course_id == course_id, SessionModel.is_active == False,  # noqa: E712
+                    Attendance.status.in_(ATTENDED_STATUSES))
             .group_by(Attendance.student_id)
         )
 

@@ -384,9 +384,8 @@ if you know the date.
   that keeps a class's course, day and times keeps its date and sessions,
   so fixing a room on a re-issued sheet doesn't reset a course's history.
 - **Trade-off:** Public holidays and cancelled classes aren't recorded, so
-  they count as missed. The student dashboard's own percentage
-  (`utils.student_course_attendance`) still counts every session and every
-  attendance row, so it can differ slightly from the register's.
+  they count as missed. (The student dashboard's different percentage,
+  noted here at first, was fixed by D30.)
 
 ### D28. Offline taps carry the terminal's read time; late reads are rejected (2026-10-14)
 
@@ -422,3 +421,21 @@ if you know the date.
 - **Trade-off:** A push still queued when a worker restarts (a deploy) is
   lost; the in-app notification isn't. Tests run pushes inline (Flask's
   TESTING flag) so they can check what was sent.
+
+### D30. One attendance rule, the register's, everywhere (2026-10-15)
+
+- **Problem:** Eight places computed an attendance percentage, with three
+  rules: all sessions or finished only; every attendance row or present
+  and late. For one student, the app showed 60%, the HOD page 40% and the
+  register 50%. The admin Reports page also ran three queries per course.
+- **Chose:** The course register's rule, since it decides exam
+  eligibility: a class counts as held once it has finished, and present or
+  late counts as attended. It lives once in `utils.py` (`held_sessions`,
+  `attended_by_course`, `attended_by_student`, `course_attendance`), each a
+  grouped query for any number of courses. The student app and web, HOD
+  pages, lecturer pages (web and app), admin Reports, the dashboard's
+  department rates and Analytics all call it.
+- **Trade-off:** Numbers people have already seen change slightly: a class
+  now counts only once it ends, and an excused mark no longer counts as
+  attended (none are written today). The app's JSON field names are
+  unchanged.
