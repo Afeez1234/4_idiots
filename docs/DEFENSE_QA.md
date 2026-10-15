@@ -164,7 +164,8 @@ admin, with an audit entry.
 
 **Q: What happens when a student graduates or a lecturer leaves?**
 An admin sets their status, one at a time or from a CSV. Anything but active
-turns the login off at once on the web and within 30 minutes in the app.
+turns the login off at once, on the web and in the app: every request
+re-checks the account, so their next one is refused and the app signs out.
 Nothing is deleted, so their attendance history stays. A lecturer still
 coordinating a running course can't be marked as left until someone replaces
 them.

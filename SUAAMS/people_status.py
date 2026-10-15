@@ -4,9 +4,9 @@ The ONLY place Student.status / Lecturer.status should change, because a
 status carries side effects that must happen together:
 
   * anything but "active" switches the login off (User.is_active = False)
-    and revokes the phone's refresh token. Web pages check is_active on
-    every request; the app can no longer refresh, so it is signed out when
-    its current access token expires (at most 30 minutes);
+    and revokes the phone's refresh token. Web pages and every app request
+    check is_active (api/auth.install_account_check), so the account is
+    refused at its next request and the app signs out;
   * a student's exit (graduated, withdrawn, expelled, deceased) releases the
     phone binding, so that phone can be used by another student later;
   * a lecturer who has LEFT is taken off the co-lecturer list of every course

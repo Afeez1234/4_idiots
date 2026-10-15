@@ -13,7 +13,7 @@ from blueprints.admin import admin_bp
 from blueprints.lecturer import lecturer_bp
 from blueprints.student import student_bp
 from blueprints.hod import hod_bp
-from api.auth import api_auth_bp
+from api.auth import api_auth_bp, install_account_check
 from api.student import api_student_bp
 from api.lecturer import api_lecturer_bp
 from api.hardware import api_hardware_bp
@@ -126,6 +126,9 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 db.init_app(app)
 migrate = Migrate(app,db)
 jwt = JWTManager(app)
+# Every app request re-checks that the account is still active (see
+# api/auth.install_account_check), not only at login and refresh.
+install_account_check(jwt)
 # See extensions.py for the in-memory-vs-Redis storage tradeoff note.
 limiter.init_app(app)
 csrf.init_app(app)

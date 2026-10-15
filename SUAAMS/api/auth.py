@@ -44,6 +44,39 @@ _DEVICE_IN_USE_ERROR = (
 )
 
 
+def install_account_check(jwt_manager):
+    """Refuse every app request from an account that no longer exists or
+    has been switched off. Registered in app.py (and by the tests that need
+    it); runs before every @jwt_required route, so none of them change.
+
+    Before this, switching an account off (people_status, create_admin.py
+    --disable) revoked the refresh token, but the phone's current access
+    token stayed valid for up to its full 30 minutes: an expelled student
+    could still check in, a lecturer who had left could still mark
+    attendance. The web dashboards already re-check on every request
+    (blueprints/auth.enforce_account_state); this does the same for the app.
+
+    Cost: one primary-key lookup per app request.
+    """
+    @jwt_manager.token_in_blocklist_loader
+    def account_switched_off(_jwt_header, jwt_payload):
+        try:
+            user = db.session.get(User, int(jwt_payload.get('sub')))
+        except (TypeError, ValueError):
+            return True
+        return user is None or not user.is_active
+
+    # The library's default answer is {"msg": "Token has been revoked"}.
+    # This says why, in the "error" key the app's services pass on as the
+    # exception text. "Unauthorized" is load-bearing: the app's withAuthRetry
+    # (core/network/auth_retry.dart) only refreshes on errors containing
+    # "unauthorized" or "expired"; the refresh is then refused for the
+    # disabled account, and the app signs out.
+    @jwt_manager.revoked_token_loader
+    def account_switched_off_response(_jwt_header, _jwt_payload):
+        return jsonify({"error": "Unauthorized: account is disabled"}), 401
+
+
 def _issue_token_pair(user):
     """
     Mints a fresh access+refresh token pair for `user` and records the new

@@ -55,7 +55,7 @@ from models import (  # noqa: E402
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
     Session as SessionModel, Attendance, OfflineCheckinLog, DeviceToken,
 )
-from api.auth import api_auth_bp  # noqa: E402
+from api.auth import api_auth_bp, install_account_check  # noqa: E402
 from api.student import api_student_bp  # noqa: E402
 
 SECRETS = {
@@ -83,7 +83,8 @@ class CheckinTestCase(unittest.TestCase):
             TESTING=True, WTF_CSRF_ENABLED=False, RATELIMIT_ENABLED=False,
         )
         db.init_app(self.app)
-        JWTManager(self.app)
+        # The production check that refuses tokens of switched-off accounts.
+        install_account_check(JWTManager(self.app))
         limiter.init_app(self.app)
         csrf.init_app(self.app)
         self.app.register_blueprint(api_auth_bp)
@@ -326,6 +327,24 @@ class CheckinTestCase(unittest.TestCase):
         resp = self.login('MCT/20/0001', 'phone-2')
         self.assertEqual(resp.status_code, 403)
         self.assertIn('SECURITY LOCK', resp.get_json()['error'])
+
+    def test_switching_an_account_off_stops_its_token_at_once(self):
+        # Not 30 minutes later when the access token would have expired.
+        headers = self.app_headers()
+        self.assertEqual(self.client.post('/api/v1/student/checkin/beacon', headers=headers).status_code, 200)
+        self.user.is_active = False
+        db.session.commit()
+        resp = self.client.post('/api/v1/student/checkin/beacon', headers=headers)
+        self.assertEqual(resp.status_code, 401)
+        # The app signs out on errors containing "unauthorized" (auth_retry.dart).
+        self.assertIn('unauthorized', resp.get_json()['error'].lower())
+
+    def test_token_of_a_deleted_account_is_refused(self):
+        headers = self.app_headers()
+        db.session.delete(self.student)
+        db.session.delete(self.user)
+        db.session.commit()
+        self.assertEqual(self.client.get('/api/v1/student/checkin/status', headers=headers).status_code, 401)
 
     def test_logout_stops_pushes_to_the_phone(self):
         refresh = self.login('MCT/20/0001', 'phone-1').get_json()['refresh_token']

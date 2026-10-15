@@ -296,9 +296,10 @@ if you know the date.
   the login off and revokes the refresh token. Student exits release the
   phone binding. A lecturer can't be marked Left while coordinating a running
   course, because a course must always have a coordinator.
-- **Trade-off:** An app already signed in keeps a valid access token for up
-  to 30 minutes after being switched off. Closing that would mean a database
-  lookup on every app request.
+- **Trade-off:** An app already signed in kept a valid access token for up
+  to 30 minutes after being switched off. Closed on 2026-10-15: every app
+  request now re-checks the account (one primary-key lookup), as the web
+  already did.
 
 ### D23. Promotion: one button, once a year, undoable, never auto-graduates (2026-10-14)
 

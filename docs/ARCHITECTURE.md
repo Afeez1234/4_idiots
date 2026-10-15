@@ -308,8 +308,8 @@ flowchart LR
 
 - **Status** ([people_status.py](../SUAAMS/people_status.py)): anything but
   `active` sets `users.is_active = false` and clears the refresh token. Web
-  pages check it on every request; the app can't refresh, so it is out
-  within 30 minutes. Nobody is ever deleted, because deleting a student
+  pages and every app request check it (`api/auth.install_account_check`),
+  so the account is out at its next request. Nobody is ever deleted, because deleting a student
   cascades away their attendance.
 - **Promotion** ([promotion.py](../SUAAMS/promotion.py)): once per academic
   year (from the active semester's name), every active student moves up one
