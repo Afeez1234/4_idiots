@@ -25,8 +25,10 @@
         <span class="material-symbols-rounded text-xl">dashboard</span>
         <span class="rail-label">Dashboard</span>
       </a>
-      {# Analytics is hidden until it has a page: it was an href="#" link
-         that did nothing when clicked. #}
+      <a href="{{ url_for('admin.analytics_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'analytics' }}">
+        <span class="material-symbols-rounded text-xl">analytics</span>
+        <span class="rail-label">Analytics</span>
+      </a>
     </div>
   </div>
 

@@ -368,6 +368,16 @@ class Timetable(db.Model):
     # one at a time on the form are published straight away, as before.
     is_published = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
 
+    # The campus date this slot's class started running, for Analytics'
+    # "classes held vs timetabled" (analytics.delivery). Without it a slot
+    # added in week 6 counted weeks 1-5 as missed, and a class moved from
+    # Monday to Tuesday counted Tuesdays as missed back to week 1. Set when
+    # the slot is published or its course, day or times change; NOT reset
+    # by a re-publish that leaves those the same (timetable_publish), so
+    # re-issuing a sheet to fix a room keeps the course's history. NULL =
+    # from the first day of teaching (slots from before this column).
+    effective_from = db.Column(db.Date, nullable=True)
+
     # Sessions can optionally trace back to the timetable slot they were
     # generated from (see Session.timetable_id below) -- no cascade here
     # either, deleting a timetable entry shouldn't retroactively delete

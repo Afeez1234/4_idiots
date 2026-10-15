@@ -198,6 +198,48 @@ CONTEXTS = {
     # objects, because the templates call .strftime() on them -- a string
     # there would render the page but never exercise the date path.
 
+    # Two students below the threshold (one in two courses, an apostrophe in
+    # a name), both roll-ups, and a delivery table with a missed, a clean
+    # and a general (no department) course.
+    "admin/analytics.html": dict(
+        role="admin",
+        active_page="analytics",
+        active_semester={"name": "2026/2027 First Semester"},
+        semester={"name": "2026/2027 First Semester"},
+        departments=[{"id": 1, "name": "Mechatronics"}, {"id": 2, "name": "Computer Science"}],
+        valid_levels=["100", "200", "300", "400", "500"],
+        filters={"dept": None, "level": ""},
+        list_limit=1,
+        eligibility={
+            "threshold": 75, "min_sessions": 3, "pairs_below": 3,
+            "students": [
+                {"student": {"full_name": "Chinedu O'Brien", "matric_number": "MCT/22/0789", "level": "400",
+                             "department": {"name": "Mechatronics"}},
+                 "courses": [{"course": {"course_code": "MCT 401"}, "attended": 4, "held": 10, "pct": 40.0},
+                             {"course": {"course_code": "MCT 405"}, "attended": 6, "held": 9, "pct": 66.7}]},
+                {"student": {"full_name": "Grace Akpan", "matric_number": "CSC/23/0111", "level": "300",
+                             "department": None},
+                 "courses": [{"course": {"course_code": "CSC 301"}, "attended": 7, "held": 10, "pct": 70.0}]},
+            ],
+            "by_department": [{"name": "Mechatronics", "below": 1, "total": 40},
+                              {"name": "Computer Science", "below": 12, "total": 30}],
+            "by_level": [{"level": "300", "below": 1, "total": 25}, {"level": "400", "below": 1, "total": 45}],
+        },
+        delivery={
+            "teaching_start": date(2026, 9, 14),
+            "courses": [
+                {"course": {"course_code": "MCT 401", "course_title": "Robotics", "department": {"name": "Mechatronics"}},
+                 "timetabled": 10, "held": 6, "missed": 4, "extra": 1, "rate": 60},
+                {"course": {"course_code": "GST 211", "course_title": "Entrepreneurship", "department": None},
+                 "timetabled": 5, "held": 4, "missed": 1, "extra": 0, "rate": 80},
+                {"course": {"course_code": "CSC 301", "course_title": "Algorithms", "department": {"name": "Computer Science"}},
+                 "timetabled": 8, "held": 8, "missed": 0, "extra": 0, "rate": 100},
+            ],
+            "by_department": [{"name": "Mechatronics", "timetabled": 10, "held": 6, "missed": 4, "rate": 60},
+                              {"name": "Computer Science", "timetabled": 8, "held": 8, "missed": 0, "rate": 100}],
+        },
+    ),
+
     "admin/announcements.html": dict(
         role="admin",
         active_page="announcements",

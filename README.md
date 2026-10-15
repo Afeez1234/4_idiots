@@ -169,6 +169,9 @@ history, announcements), but the app is the main way students use SUAAMS.
   class with no session 30 minutes after its start gets a banner with a
   **Notify lecturer** button. Also check-ins today by method (NFC, BLE,
   manual) and each department's attendance this semester
+- **Analytics** for the semester: students below the 75% exam threshold in a
+  course (by department and level, with a CSV), and how many timetabled
+  classes each course actually held
 - Set up faculties and departments, with each programme's length (4 or 5
   years)
 - Create lecturer, HOD and student accounts. Students, lecturers and courses

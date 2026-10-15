@@ -1,0 +1,233 @@
+{% extends "base_admin.html" %}
+{% from '_macros.html' import pill, empty_state, card_heading, course_chip, grade_tone %}
+
+{% block title %}Analytics | SUAAMS Admin{% endblock %}
+{% block page_title %}Analytics{% endblock %}
+{% block page_subtitle %}
+  <p class="page-subtitle">{{ semester.name if semester else 'No active semester' }} &middot; across every course</p>
+{% endblock %}
+
+{% block content %}
+
+    {% if not semester %}
+        <div class="card">
+            {{ empty_state('Make a semester active to see its analytics.', 'date_range') }}
+        </div>
+    {% else %}
+
+    {# GET filters, so a filtered view can be bookmarked or shared. Dropdowns
+       apply on change (script below); the button covers no-JS. #}
+    <form method="GET" action="{{ url_for('admin.analytics_page') }}" id="analytics-filters"
+          class="card card-body grid gap-3 sm:grid-cols-3">
+        <div>
+            <label class="form-label" for="filter-dept">Department</label>
+            <select name="dept" id="filter-dept" class="form-select">
+                <option value="">All departments</option>
+                {% for dept in departments %}
+                    <option value="{{ dept.id }}" {% if filters.dept == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label" for="filter-level">Level <span class="text-muted">(eligibility only)</span></label>
+            <select name="level" id="filter-level" class="form-select">
+                <option value="">All levels</option>
+                {% for lvl in valid_levels %}
+                    <option value="{{ lvl }}" {% if filters.level == lvl %}selected{% endif %}>{{ lvl }}L</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="flex items-end gap-2">
+            <button type="submit" class="btn-primary flex-1">Apply</button>
+            {% if filters.dept or filters.level %}
+                <a href="{{ url_for('admin.analytics_page') }}" class="btn-ghost">Clear</a>
+            {% endif %}
+        </div>
+    </form>
+
+    {# ============ 1. EXAM ELIGIBILITY ============ #}
+    {% set e = eligibility %}
+    <div class="card-clip">
+        <div class="card-header flex flex-wrap items-start justify-between gap-3">
+            <div>
+                {{ card_heading('Below ' ~ e.threshold ~ '% Attendance', info=true) }}
+                <p class="mt-1 text-xs text-secondary">
+                    {% if e.students %}
+                        <span class="font-semibold text-ink">{{ e.students|length }}</span>
+                        student{{ 's' if e.students|length != 1 }} below the exam threshold in
+                        {{ e.pairs_below }} course registration{{ 's' if e.pairs_below != 1 }}.
+                    {% endif %}
+                    Same rule as the course register: finished classes only, present or late counts.
+                    A course is checked once it has held {{ e.min_sessions }} classes.
+                </p>
+            </div>
+            {% if e.students %}
+                <a href="{{ url_for('admin.analytics_eligibility_csv', **request.args) }}" class="btn-secondary btn-sm">
+                    <span class="material-symbols-rounded text-base">download</span> CSV
+                </a>
+            {% endif %}
+        </div>
+
+        {% if e.by_department %}
+            {# Share of students below, by department and by level. #}
+            <div class="grid gap-6 border-t border-divider p-5 lg:grid-cols-2">
+                {% for title, rows, key in [('By department', e.by_department, 'name'), ('By level', e.by_level, 'level')] %}
+                    <div>
+                        <p class="mb-3 text-2xs font-bold uppercase tracking-widest text-muted">{{ title }}</p>
+                        <div class="space-y-3">
+                            {% for r in rows %}
+                                {% set pct = (r.below / r.total * 100)|round|int if r.total else 0 %}
+                                <div>
+                                    <div class="mb-1 flex items-center justify-between gap-3 text-sm">
+                                        <span class="truncate text-ink">{{ r[key] }}{{ 'L' if key == 'level' }}</span>
+                                        <span class="mono shrink-0 text-xs text-secondary">{{ r.below }} / {{ r.total }} &middot; {{ pct }}%</span>
+                                    </div>
+                                    <div class="bar-track">
+                                        {# Share BELOW, so a long bar is bad: tone by the share still eligible. #}
+                                        <div class="bar-fill" data-tone="{{ grade_tone(100 - pct) }}" style="width: {{ pct }}%"></div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if e.students %}
+            <div class="table-wrap border-t border-divider">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="th">Student</th>
+                            <th class="th">Level</th>
+                            <th class="th">Department</th>
+                            <th class="th">Below in</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in e.students[:list_limit] %}
+                            <tr>
+                                <td class="td">
+                                    <p class="font-medium">{{ row.student.full_name }}</p>
+                                    <p class="mono text-2xs text-muted">{{ row.student.matric_number }}</p>
+                                </td>
+                                <td class="td td-muted">{{ row.student.level }}L</td>
+                                <td class="td td-muted">{{ row.student.department.name if row.student.department else '—' }}</td>
+                                <td class="td">
+                                    <div class="flex flex-wrap gap-2">
+                                        {% for c in row.courses %}
+                                            <span class="inline-flex items-center gap-1.5 whitespace-nowrap"
+                                                  title="{{ c.attended }} of {{ c.held }} classes">
+                                                {{ course_chip(c.course.course_code) }}
+                                                <span class="mono text-xs" style="color: var(--color-{{ grade_tone(c.pct) }})">{{ c.pct|round|int }}%</span>
+                                            </span>
+                                        {% endfor %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if e.students|length > list_limit %}
+                <div class="card-foot text-xs text-muted">
+                    Showing the {{ list_limit }} lowest of {{ e.students|length }}. The CSV has everyone.
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="border-t border-divider">
+                {{ empty_state('No student is below ' ~ e.threshold ~ '% in any course that has held ' ~ e.min_sessions ~ ' classes.', 'verified') }}
+            </div>
+        {% endif %}
+    </div>
+
+    {# ============ 2. CLASSES HELD VS TIMETABLED ============ #}
+    {% set d = delivery %}
+    <div class="card-clip">
+        <div class="card-header">
+          <div>
+            {{ card_heading('Classes Held vs Timetabled', info=true) }}
+            <p class="mt-1 text-xs text-secondary">
+                {% if d.teaching_start %}
+                    Each published timetable slot is due once a week from {{ d.teaching_start.strftime('%d %b %Y') }},
+                    the first day any class ran this semester, or from the day it was added or moved if later.
+                    Classes held under an old schedule show as extra. Public holidays and cancelled classes aren't
+                    recorded, so they count as missed.
+                {% else %}
+                    No class has run this semester yet.
+                {% endif %}
+            </p>
+          </div>
+        </div>
+
+        {% if d.courses %}
+            <div class="border-t border-divider p-5">
+                <p class="mb-3 text-2xs font-bold uppercase tracking-widest text-muted">By department</p>
+                <div class="space-y-3">
+                    {% for r in d.by_department %}
+                        <div>
+                            <div class="mb-1 flex items-center justify-between gap-3 text-sm">
+                                <span class="truncate text-ink">{{ r.name }}</span>
+                                <span class="mono shrink-0 text-xs text-secondary">{{ r.held }} / {{ r.timetabled }} held &middot; {{ r.rate }}%</span>
+                            </div>
+                            <div class="bar-track">
+                                <div class="bar-fill" data-tone="{{ grade_tone(r.rate) }}" style="width: {{ r.rate }}%"></div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="table-wrap border-t border-divider">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="th">Course</th>
+                            <th class="th">Department</th>
+                            <th class="th">Timetabled</th>
+                            <th class="th">Held</th>
+                            <th class="th">Missed</th>
+                            <th class="th" title="Sessions that match no timetable slot: an extra class, or one started with typed times">Extra</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in d.courses %}
+                            <tr>
+                                <td class="td">
+                                    <div class="flex items-center gap-2">
+                                        <span class="shrink-0 whitespace-nowrap">{{ course_chip(r.course.course_code) }}</span>
+                                        <span class="truncate text-secondary">{{ r.course.course_title }}</span>
+                                    </div>
+                                </td>
+                                <td class="td td-muted">{{ r.course.department.name if r.course.department else 'General' }}</td>
+                                <td class="td mono text-xs">{{ r.timetabled }}</td>
+                                <td class="td mono text-xs">{{ r.held }}{% if r.rate is not none %} <span class="text-muted">({{ r.rate }}%)</span>{% endif %}</td>
+                                <td class="td">
+                                    {% if r.missed %}{{ pill(r.missed ~ ' missed', 'error' if r.rate is not none and r.rate < 75 else 'warning') }}{% else %}<span class="text-xs text-muted">None</span>{% endif %}
+                                </td>
+                                <td class="td mono text-xs text-muted">{{ r.extra or '' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="border-t border-divider">
+                {{ empty_state('No published timetable to compare against yet.' if d.teaching_start else 'Nothing to compare until the first class runs.', 'event_note') }}
+            </div>
+        {% endif %}
+    </div>
+
+    {% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Dropdowns apply as soon as they change, like the student roster.
+    document.querySelectorAll('#analytics-filters select').forEach(function (select) {
+        select.addEventListener('change', function () { select.form.submit(); });
+    });
+</script>
+{% endblock %}

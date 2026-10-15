@@ -366,3 +366,24 @@ if you know the date.
   worse than none. Sessions started before this change, outside the
   timetable or with typed times, match no slot, so their class can show as
   missed while the session itself counts as live.
+
+### D27. Analytics: the register's eligibility rule, and delivery from teaching start (2026-10-14)
+
+- **Problem:** Exam eligibility could only be seen one course at a time,
+  and nothing showed which timetabled classes never ran.
+- **Chose:** Eligibility uses exactly the course register CSV's rule
+  (finished sessions, present or late), so the page and the register a
+  lecturer downloads can't disagree. A course is only checked after 3
+  classes: after one, a single absence reads as 0%. Delivery counts each
+  published slot once a week from the first class anyone ran this semester,
+  not the semester's start date, because teaching starts a week or two
+  after registration opens.
+- **Then (2026-10-15):** a slot added or moved mid-semester was counted as
+  missed back to week 1. Slots now carry `effective_from`, set when they're
+  published or their course, day or time is edited. A re-published sheet
+  that keeps a class's course, day and times keeps its date and sessions,
+  so fixing a room on a re-issued sheet doesn't reset a course's history.
+- **Trade-off:** Public holidays and cancelled classes aren't recorded, so
+  they count as missed. The student dashboard's own percentage
+  (`utils.student_course_attendance`) still counts every session and every
+  attendance row, so it can differ slightly from the register's.

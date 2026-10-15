@@ -12,7 +12,11 @@ Pins:
   * each person gets ONE notification, however many of their courses changed;
   * hand edits on the timetable page notify for published classes only --
     adding a draft or editing one tells nobody;
-  * the route is audited and refuses a semester with no drafts.
+  * the route is audited and refuses a semester with no drafts;
+  * a slot's start date (effective_from, for Analytics) survives a
+    re-publish that keeps its course, day and times -- and so do its
+    sessions -- while a new or moved slot, or a hand edit of the day or
+    time, starts from today; a room change keeps the date.
 
 FCM is never reached: tests have no Firebase app, and notify_users swallows
 push failures by design. The Notification rows are what's checked.
@@ -25,6 +29,7 @@ import os
 import sys
 import unittest
 from datetime import date, time
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -35,7 +40,7 @@ import timetable_publish as tp  # noqa: E402
 from extensions import limiter, csrf  # noqa: E402
 from models import (  # noqa: E402
     db, AuditLog, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
-    Notification, Semester, Timetable,
+    Notification, Semester, Session as SessionModel, Timetable,
 )
 from blueprints.auth import auth_bp  # noqa: E402
 from blueprints.admin import admin_bp  # noqa: E402
@@ -229,6 +234,49 @@ class TimetablePublishTestCase(unittest.TestCase):
         t = self.slot(self.sam102, 1, 10, 12, 'LR 2', published=False)
         self.edit(action='delete', timetable_id=t.id)
         self.assertEqual(Notification.query.count(), 0)
+
+    # ---- start dates (Analytics) ----------------------------------------------
+
+    TODAY = date(2026, 3, 2)
+    EARLIER = date(2026, 1, 12)
+
+    def test_republish_keeps_an_unchanged_slots_start_date_and_sessions(self):
+        old = self.slot(self.sam101, 0, 8, 10, 'LR 1', published=True)
+        old.effective_from = self.EARLIER
+        moved = self.slot(self.sam102, 1, 10, 12, 'LR 2', published=True)
+        moved.effective_from = self.EARLIER
+        held = SessionModel(course_id=self.sam101.id, session_date=date(2026, 1, 19),
+                            timetable_id=old.id)
+        db.session.add(held)
+        db.session.commit()
+        # Re-issued sheet: SAM101 only changes room; SAM102 moves to Wednesday.
+        same = self.slot(self.sam101, 0, 8, 10, 'LR 9', published=False)
+        new = self.slot(self.sam102, 2, 10, 12, 'LR 2', published=False)
+        with mock.patch('timetable_publish.campus_today', return_value=self.TODAY):
+            self.publish()
+        self.assertEqual(db.session.get(Timetable, same.id).effective_from, self.EARLIER)
+        self.assertEqual(db.session.get(SessionModel, held.id).timetable_id, same.id)
+        self.assertEqual(db.session.get(Timetable, new.id).effective_from, self.TODAY)
+
+    def test_hand_edit_of_day_or_time_restarts_the_date_but_room_does_not(self):
+        t = self.slot(self.sam102, 1, 10, 12, 'LR 2', published=True)
+        t.effective_from = self.EARLIER
+        db.session.commit()
+        form = dict(action='update', timetable_id=t.id, course_id=self.sam102.id,
+                    semester_id=self.sem.id, day_of_week=1, start_time='10:00',
+                    end_time='12:00', room='LR 7', type='scheduled')
+        with mock.patch('blueprints.admin.campus_today', return_value=self.TODAY):
+            self.edit(**form)
+            self.assertEqual(db.session.get(Timetable, t.id).effective_from, self.EARLIER)
+            self.edit(**dict(form, day_of_week=3))
+        self.assertEqual(db.session.get(Timetable, t.id).effective_from, self.TODAY)
+
+    def test_a_class_added_by_hand_starts_today(self):
+        with mock.patch('blueprints.admin.campus_today', return_value=self.TODAY):
+            self.edit(action='create', course_id=self.sam102.id, semester_id=self.sem.id,
+                      day_of_week=4, start_time='08:00', end_time='10:00', room='LR 3',
+                      type='scheduled')
+        self.assertEqual(Timetable.query.one().effective_from, self.TODAY)
 
 
 if __name__ == '__main__':

@@ -13,7 +13,7 @@ from models import (
     AuditLog,
 )
 from extensions import log_exception, logger, limiter
-from campus_time import campus_now
+from campus_time import campus_now, campus_today
 from utils import (
     resolve_current_course, session_status_for_course, notify_announcement,
     VALID_LEVELS, normalize_level, course_level, _csv_safe,
@@ -30,6 +30,7 @@ import people_status
 import promotion
 import record_edits
 import dashboard_today
+import analytics
 from people_status import STUDENT_STATUSES, LECTURER_STATUSES
 
 # Matches Timetable.day_of_week's documented convention (0=Monday..6=Sunday,
@@ -1778,6 +1779,8 @@ def timetable_page():
             if action == 'update' and timetable_id:
                 entry = Timetable.query.get_or_404(int(timetable_id))
                 before = _slot_fields(entry)
+                entry_key = (entry.course_id, entry.semester_id, entry.day_of_week,
+                             entry.start_time, entry.end_time)
                 # Old and new course/semester: moving a class between courses
                 # changes both courses' schedules.
                 published_before = _timetable_snapshot({(entry.semester_id, entry.course_id),
@@ -1789,6 +1792,12 @@ def timetable_page():
                 entry.end_time = end_time
                 entry.room = room.strip() if room else None
                 entry.type = slot_type
+                # A different course, day or time is a new class from today
+                # for Analytics; a room or type correction isn't.
+                # (A draft gets its date when it's published.)
+                if entry.is_published and (entry.course_id, entry.semester_id, entry.day_of_week,
+                                           entry.start_time, entry.end_time) != entry_key:
+                    entry.effective_from = campus_today()
                 diff = changes(before, _slot_fields(entry))
                 # Saving the form unchanged isn't worth an entry.
                 if diff:
@@ -1808,6 +1817,8 @@ def timetable_page():
                     room=room.strip() if room else None,
                     type=slot_type,
                     created_by=session['user_id'],
+                    # Published straight away, so it runs from today.
+                    effective_from=campus_today(),
                 )
                 db.session.add(entry)
                 db.session.flush()
@@ -2530,6 +2541,69 @@ def activity_page():
         filter_args=filter_args,
         is_filtered=bool(filter_args),
         active_page='activity',
+    )
+
+
+# ==========================================
+# ANALYTICS
+# ==========================================
+# Semester-wide patterns: who is below exam eligibility, and which
+# timetabled classes never ran. Rules in analytics.py.
+
+def _analytics_filters():
+    """(department id or None, level or '') from the query string."""
+    level = (request.args.get('level') or '').strip()
+    return request.args.get('dept', type=int), level if level in VALID_LEVELS else ''
+
+
+@admin_bp.route('/analytics', methods=['GET'])
+def analytics_page():
+    semester = Semester.query.filter_by(is_active=True).first()
+    dept_id, level = _analytics_filters()
+    return render_template(
+        'admin/analytics.html',
+        semester=semester,
+        eligibility=analytics.eligibility(semester, dept_id, level),
+        # Delivery is by course department; a student's level doesn't apply.
+        delivery=analytics.delivery(semester, dept_id),
+        departments=Department.query.order_by(Department.name).all(),
+        valid_levels=VALID_LEVELS,
+        filters={'dept': dept_id, 'level': level},
+        # Only the first rows on screen; the CSV has everyone.
+        list_limit=ANALYTICS_LIST_LIMIT,
+        active_page='analytics',
+    )
+
+
+ANALYTICS_LIST_LIMIT = 100
+
+
+@admin_bp.route('/analytics/eligibility.csv', methods=['GET'])
+def analytics_eligibility_csv():
+    """Every student below the threshold, one row per course they're below
+    in, for the same filters as the page."""
+    semester = Semester.query.filter_by(is_active=True).first()
+    dept_id, level = _analytics_filters()
+    data = analytics.eligibility(semester, dept_id, level)
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([f"Below {data['threshold']}% attendance -- "
+                     f"{semester.name if semester else 'no active semester'}"])
+    writer.writerow(['Matric Number', 'Full Name', 'Level', 'Department', 'Course',
+                     'Attended', 'Classes Held', 'Attendance (%)'])
+    for row in data['students']:
+        st = row['student']
+        for c in row['courses']:
+            writer.writerow([_csv_safe(st.matric_number), _csv_safe(st.full_name), _csv_safe(st.level),
+                             _csv_safe(st.department.name if st.department else ''),
+                             _csv_safe(c['course'].course_code), c['attended'], c['held'], c['pct']])
+    log_action('analytics.export', f"Exported the below-{data['threshold']}% list "
+               f"({len(data['students'])} students)", 'report', None,
+               {'department_id': dept_id, 'level': level or None})
+    db.session.commit()
+    return Response(
+        output.getvalue(), mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=below_eligibility.csv'},
     )
 
 

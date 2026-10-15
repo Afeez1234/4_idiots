@@ -22,6 +22,7 @@ Also used when an admin adds, edits or deletes a published class by hand
 on the timetable page, so later corrections reach exactly the people they
 affect.
 """
+from campus_time import campus_today
 from models import db, Course, Enrollment, Session as SessionModel, Student, Timetable
 from push_notifications import notify_users
 
@@ -69,12 +70,30 @@ def publish_drafts(semester, published_by):
     old = Timetable.query.filter(Timetable.semester_id == semester.id,
                                  Timetable.course_id.in_(course_ids),
                                  Timetable.is_published.is_(True)).all()
+    # A draft that repeats an old slot (same course, day and times) is the
+    # same class re-issued -- often a sheet re-published to fix one room.
+    # It takes over the old slot's start date and its sessions, so
+    # Analytics keeps counting that class from when it really started. Any
+    # other draft is a new or moved class and runs from today.
+    def key(t):
+        return (t.course_id, t.day_of_week, t.start_time, t.end_time)
+    unchanged = {}
+    for t in old:
+        unchanged.setdefault(key(t), t)
+    for d in drafts:
+        same = unchanged.pop(key(d), None)
+        if same is not None:
+            d.effective_from = same.effective_from
+            (SessionModel.query.filter(SessionModel.timetable_id == same.id)
+             .update({SessionModel.timetable_id: d.id}, synchronize_session=False))
+        else:
+            d.effective_from = campus_today()
     old_ids = [t.id for t in old]
     if old_ids:
-        # Nothing sets Session.timetable_id today; if anything ever does,
-        # replacing a slot must not take class history with it.
-        SessionModel.query.filter(SessionModel.timetable_id.in_(old_ids)) \
-            .update({SessionModel.timetable_id: None}, synchronize_session=False)
+        # Sessions of slots that are going away keep their history, just
+        # without a slot (Analytics then counts them as extra classes).
+        (SessionModel.query.filter(SessionModel.timetable_id.in_(old_ids))
+         .update({SessionModel.timetable_id: None}, synchronize_session=False))
         for t in old:
             db.session.delete(t)
     for d in drafts:
