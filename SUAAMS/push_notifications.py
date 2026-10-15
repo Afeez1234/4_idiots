@@ -7,8 +7,10 @@ avoid a circular import with models.py -> app.py -> extensions.py.
 """
 import os
 import logging
+from concurrent.futures import ThreadPoolExecutor
 
 import firebase_admin
+from flask import current_app
 from firebase_admin import credentials, messaging
 from sqlalchemy import insert as sa_insert
 
@@ -57,6 +59,14 @@ _DB_CHUNK = 500
 _PUSH_BATCH = 100
 
 
+# Phone pushes run here, AFTER the request has answered (see notify_users).
+# Two threads: enough to keep up with a busy hall (a push is ~0.3-0.5s, a
+# tap arrives every second or two per terminal), and a burst of taps queues
+# instead of starting hundreds of threads on Render's small instance. Each
+# gunicorn worker process gets its own pool, started on first use.
+_push_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix='push')
+
+
 def _chunks(items, size):
     for i in range(0, len(items), size):
         yield items[i:i + size]
@@ -65,18 +75,31 @@ def _chunks(items, size):
 def notify_users(user_ids, notif_type, title, body, data=None):
     """Save an in-app notification for each user, then push it to their phones.
 
-    The Notification rows are saved (and committed) first -- they're what
-    the app's notification list reads, so a student who was offline or never
-    allowed notifications still sees it. The push on top is best-effort:
-    failures are logged and swallowed, never raised, so a Firebase outage
-    can't fail the caller's request (e.g. attendance is still recorded).
+    The Notification rows are saved (and committed) here, in the request --
+    they're what the app's notification list reads, so a student who was
+    offline or never allowed notifications still sees it. The phone push is
+    handed to a background thread (_push_pool) and the caller returns at
+    once; it's best-effort, and its failures are logged, never raised.
+
+    Why in the background: check-in calls this between saving attendance
+    and answering the terminal, and the terminal reads one student at a
+    time. A push is ~0.3-0.5s (token lookup + the Firebase round trip), so
+    every student in the queue waited for the previous one's push -- for a
+    200-student hall, 1-1.7 extra minutes at the door. The attendance is
+    already saved before the push, and the app confirms a tap by asking
+    the server (/checkin/status), not by waiting for the push.
+
+    Under TESTING the push runs inline, so tests can check what was sent
+    without waiting on a thread. tests/test_notifications.py also pins the
+    background path.
 
     PERF: announcements used to call send_push_notification once per
     student: a commit, a token lookup and a blocking FCM request each, ~0.3-
     0.5s per student. A university-wide announcement to 1,000 students ran
     for minutes, was killed at Render's 30s limit (502) half-way through,
     and the admin's retry posted it twice. Now: one bulk INSERT, one token
-    lookup and one FCM call per 100 phones.
+    lookup and one FCM call per 100 phones -- and none of it holds up the
+    admin's page.
 
     `data` is an optional dict (e.g. {"session_id": 5}) the app uses to open
     the right screen when the notification is tapped.
@@ -92,6 +115,27 @@ def notify_users(user_ids, notif_type, title, body, data=None):
         ])
     db.session.commit()
 
+    if current_app.testing:
+        _push_to_phones(user_ids, notif_type, title, body, data)
+    else:
+        _push_pool.submit(_push_in_background, current_app._get_current_object(),
+                          user_ids, notif_type, title, body, data)
+
+
+def _push_in_background(app, *args):
+    """Runs on a _push_pool thread: its own app context, so its own database
+    session (released when the context ends). Anything that escapes is
+    logged -- the pool would otherwise drop the error silently."""
+    try:
+        with app.app_context():
+            _push_to_phones(*args)
+    except Exception:
+        logger.exception("Background push failed")
+
+
+def _push_to_phones(user_ids, notif_type, title, body, data):
+    """Send one notification to every phone the users have registered, in
+    batches, pruning tokens Firebase says are dead."""
     tokens = []
     for chunk in _chunks(user_ids, _DB_CHUNK):
         tokens.extend(DeviceToken.query.filter(DeviceToken.user_id.in_(chunk)).all())

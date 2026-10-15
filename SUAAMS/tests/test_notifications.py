@@ -9,6 +9,8 @@ announcement was killed at Render's 30s limit half-way through. These pin:
   * phones are pushed in batches, not one request per student,
   * tokens Firebase says are dead get removed,
   * Firebase being down never stops the in-app notifications,
+  * outside tests the phone push runs AFTER the caller returns (a check-in
+    answers the terminal without waiting on Firebase), and still happens,
   * the announcement audience matches its scope.
 
 Firebase is faked; nothing is sent.
@@ -47,6 +49,9 @@ class NotificationsTestCase(unittest.TestCase):
     def setUp(self):
         self.app = Flask(__name__)
         self.app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+        # Pushes run inline under TESTING, so these tests see them at once.
+        # test_push_waits_for_nobody_outside_tests turns it off.
+        self.app.config['TESTING'] = True
         db.init_app(self.app)
         self.ctx = self.app.app_context()
         self.ctx.push()
@@ -128,6 +133,21 @@ class NotificationsTestCase(unittest.TestCase):
         with mock.patch.object(messaging, 'send_each', side_effect=RuntimeError('FCM down')):
             notify_users([u.id for u in self.users[:5]], 'announcement', 'T', 'B')
         self.assertEqual(Notification.query.count(), 5)
+
+    def test_push_waits_for_nobody_outside_tests(self):
+        # In production notify_users must return as soon as the in-app rows
+        # are saved; the Firebase call happens on the pool afterwards.
+        self.app.testing = False
+        queued = []
+        fake_pool = mock.Mock(submit=lambda fn, *args: queued.append((fn, args)))
+        calls, patch = self.fake_send_each()
+        with patch, mock.patch.object(push_notifications, '_push_pool', fake_pool):
+            notify_users([u.id for u in self.users[:3]], 'attendance_marked', 'T', 'B')
+            self.assertEqual(Notification.query.count(), 3)    # saved in the request
+            self.assertEqual(calls, [])                          # Firebase not touched yet
+            [(fn, args)] = queued
+            fn(*args)                                            # the pool's thread
+        self.assertEqual(calls, [3])
 
     def test_announcement_audience_matches_its_scope(self):
         def audience(**kw):

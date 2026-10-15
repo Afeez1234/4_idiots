@@ -406,3 +406,19 @@ if you know the date.
 - **Trade-off:** A terminal that booted with no network has no synced
   clock, so its taps are reviewed as before. Firmware not yet reflashed
   sends no read time and behaves as before.
+
+### D29. Phone pushes are sent after the request answers (2026-10-15)
+
+- **Problem:** Check-in saved the attendance, then sent the "Attendance
+  Recorded" push and waited for Firebase before answering the terminal.
+  The terminal reads one student at a time, so every student waited for
+  the previous one's push: ~0.3-0.5 s each, 1-1.7 extra minutes for a
+  200-student hall, most of the "under 2 minutes" the design promises.
+- **Chose:** The in-app notification row is still saved in the request.
+  The phone push goes to a 2-thread pool and runs after the request
+  answers. Nothing depends on the push arriving: the app confirms a tap by
+  asking the server (`/checkin/status`). Every caller benefits, including
+  announcements and timetable publishes.
+- **Trade-off:** A push still queued when a worker restarts (a deploy) is
+  lost; the in-app notification isn't. Tests run pushes inline (Flask's
+  TESTING flag) so they can check what was sent.

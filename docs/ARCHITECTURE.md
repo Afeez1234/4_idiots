@@ -99,7 +99,7 @@ sequenceDiagram
     F->>D: Session still active? Enrolled? Already marked?
     F->>D: INSERT attendance (status present/late, method nfc)
     F-->>T: 200 Attendance recorded
-    F-)A: Push notification (FCM)
+    F-)A: Push notification (FCM, background thread after the 200)
     loop every 1 s, up to 25 s
         A->>F: GET /student/checkin/status
         F-->>A: checked_in true/false (+ reason)
