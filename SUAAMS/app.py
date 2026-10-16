@@ -2,6 +2,7 @@ from flask import Flask, jsonify, session
 from datetime import timedelta
 from flask_migrate import Migrate
 from campus_time import campus_fmt
+from db_pool import engine_options
 import os
 import logging
 from flask_jwt_extended import JWTManager
@@ -112,15 +113,12 @@ app.config['SQLALCHEMY_DATABASE_URI'] = (
     f'mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# Pool size is SQLAlchemy's default (5, plus up to 10 overflow) per worker.
-# A worker uses at most ~6 at once (gunicorn's request threads plus the two
-# push threads), well inside that. The old SQLALCHEMY_POOL_SIZE/_RECYCLE/
-# _TIMEOUT keys were removed: Flask-SQLAlchemy 3 ignores them, so they
-# never took effect. Engine options go in this dict.
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_recycle': 280,   # Recycle connections before the 300-second cloud timeout
-    'pool_pre_ping': True  # Test the connection to ensure it's alive before querying
-}
+# A fixed pool with no overflow (DB_POOL_SIZE, default 4), because the
+# database plan allows only 5 connections at once. See db_pool.py for the
+# numbers and the rule for changing them. The old SQLALCHEMY_POOL_SIZE/
+# _RECYCLE/_TIMEOUT keys were removed: Flask-SQLAlchemy 3 ignores them, so
+# they never took effect. Engine options go in this dict.
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = engine_options()
 
 # Initialize extensions
 db.init_app(app)

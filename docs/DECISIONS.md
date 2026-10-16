@@ -477,3 +477,21 @@ if you know the date.
   Lecturers set the room when starting a class on the web or in the app
   (a Room field pre-filled from the timetable); app versions from before
   this can't, so a moved class started from an old app is flagged.
+
+### D33. A fixed database pool, one below the plan's limit (2026-10-16)
+
+- **Problem:** The MySQL plan allows each user 5 connections at once. The
+  app used SQLAlchemy's default pool (5 + 10 overflow) with 8 request
+  threads and 2 push threads, so a full class tapping in at once could ask
+  for a 6th connection. MySQL refuses it (error 1226, confirmed on the dev
+  database) and that request fails with a 500.
+- **Chose:** `db_pool.py`: `pool_size` from `DB_POOL_SIZE` (default 4),
+  `max_overflow=0`, `pool_timeout=10`. A request that finds all 4 busy
+  waits for one to free up instead of failing. The 5th connection stays
+  free for the nightly backup or a script. The timeout matches the 10 s
+  check-in window, because `/checkin` looks the reader up before checking
+  the token's expiry, so a longer wait can't save that check-in anyway.
+- **Trade-off:** Under a burst, requests queue instead of running at once,
+  so a busy minute is slower. The real fix is a bigger database plan. Then
+  raise `DB_POOL_SIZE` on Render, keeping workers x size + 1 within the
+  new limit.

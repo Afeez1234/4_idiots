@@ -280,6 +280,10 @@ when a student checked in, are stored in UTC and converted when displayed.
 - **Cold server**: Render's free tier sleeps when idle and takes ~8 seconds
   to wake, which is longer than a code lasts. The terminal pings the server
   every 4 minutes to keep it awake.
+- **Database connections**: the free MySQL plan allows 5 connections at
+  once. The app uses at most 4 (`DB_POOL_SIZE`), so in a busy minute
+  requests wait their turn rather than fail. A bigger plan is needed before
+  rolling out beyond one department.
 
 ---
 
