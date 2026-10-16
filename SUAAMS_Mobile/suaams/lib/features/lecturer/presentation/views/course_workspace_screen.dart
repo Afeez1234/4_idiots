@@ -24,6 +24,17 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
   TimeOfDay? _plannedStart;
   TimeOfDay? _plannedEnd;
   bool _submitting = false;
+  // Where the class is, sent with Start. Pre-filled once from the
+  // timetable (todayRoom); a lecturer moved to another hall changes it, so
+  // readers there don't flag or refuse every student (terminal_rooms.py).
+  final TextEditingController _roomController = TextEditingController();
+  bool _roomPrefilled = false;
+
+  @override
+  void dispose() {
+    _roomController.dispose();
+    super.dispose();
+  }
 
   // TimeOfDay -> "HH:MM", matching the format api/lecturer.py's
   // start_session parses via datetime.strptime(value, '%H:%M').
@@ -45,6 +56,17 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
     });
   }
 
+  // Fills the Room field from the timetable the first time the workspace
+  // loads, then leaves it alone so a lecturer's edit isn't overwritten by a
+  // refresh. No setState: the field reads the controller directly.
+  TextEditingController _prefillRoom(String? todayRoom) {
+    if (!_roomPrefilled && todayRoom != null) {
+      _roomController.text = todayRoom;
+      _roomPrefilled = true;
+    }
+    return _roomController;
+  }
+
   Future<void> _startSession() async {
     setState(() => _submitting = true);
     final success = await ref
@@ -54,6 +76,9 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
               ? _formatTime(_plannedStart!)
               : null,
           plannedEnd: _plannedEnd != null ? _formatTime(_plannedEnd!) : null,
+          room: _roomController.text.trim().isEmpty
+              ? null
+              : _roomController.text.trim(),
         );
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -177,6 +202,7 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
 
               _SessionControls(
                 activeSession: data.activeSession,
+                roomController: _prefillRoom(data.todayRoom),
                 colorScheme: colorScheme,
                 submitting: _submitting,
                 plannedStart: _plannedStart,
@@ -257,6 +283,7 @@ class _WorkspaceStatsGrid extends StatelessWidget {
 
 class _SessionControls extends StatelessWidget {
   final ActiveSessionInfo? activeSession;
+  final TextEditingController roomController;
   final ColorScheme colorScheme;
   final bool submitting;
   final TimeOfDay? plannedStart;
@@ -268,6 +295,7 @@ class _SessionControls extends StatelessWidget {
 
   const _SessionControls({
     required this.activeSession,
+    required this.roomController,
     required this.colorScheme,
     required this.submitting,
     required this.plannedStart,
@@ -321,7 +349,8 @@ class _SessionControls extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Planned ${activeSession!.plannedStart ?? '--:--'} – ${activeSession!.plannedEnd ?? '--:--'}',
+          'Planned ${activeSession!.plannedStart ?? '--:--'} – ${activeSession!.plannedEnd ?? '--:--'}'
+          '${activeSession!.room != null ? ' · ${activeSession!.room}' : ''}',
           style: TextStyle(
             fontSize: 12,
             color: colorScheme.onSurface.withValues(alpha: 0.6),
@@ -391,6 +420,22 @@ class _SessionControls extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        // RepaintBoundary: the field's blinking cursor must not repaint the
+        // whole panel 60 times a second (CLAUDE.md, UI performance).
+        RepaintBoundary(
+          child: TextField(
+            controller: roomController,
+            maxLength: 50,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              labelText: 'Room',
+              hintText: 'e.g. LT 1',
+              helperText: 'From the timetable. Change it if the class moved today.',
+              counterText: '',
+            ),
+          ),
         ),
         const SizedBox(height: 20),
         ElevatedButton(

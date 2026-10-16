@@ -1,8 +1,9 @@
 import csv
+import os
 import io
 import json
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, Response
 import bcrypt
 from sqlalchemy import or_, insert as sa_insert
@@ -10,7 +11,7 @@ from sqlalchemy.orm import joinedload
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
     Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
-    AuditLog, DeviceToken,
+    AuditLog, DeviceToken, Terminal,
 )
 from extensions import log_exception, logger, limiter
 from campus_time import campus_now, campus_today
@@ -29,6 +30,7 @@ import bulk_upload
 import people_status
 import promotion
 import record_edits
+import terminal_rooms
 import dashboard_today
 import analytics
 from people_status import STUDENT_STATUSES, LECTURER_STATUSES
@@ -2133,6 +2135,130 @@ def timetable_current():
 # ==========================================
 # SEMESTERS
 # ==========================================
+# ==========================================
+# TERMINALS (READERS)
+# ==========================================
+# Each reader's code, room and Bluetooth number, and its own secret. See
+# models.Terminal and terminal_rooms.py.
+
+# A reader that has sent nothing for this long shows as offline. Readers
+# ping /healthz about every 10 minutes and authenticate on every tap and
+# offline upload, but last_seen_at only counts authenticated requests, so
+# an idle reader between classes reads as offline -- "last seen" says when.
+TERMINAL_ONLINE_WITHIN = timedelta(minutes=15)
+
+
+def _terminal_form():
+    """(code, name, room, ble_number) from the form, or raises ValueError
+    with a message for the admin."""
+    code = (request.form.get('code') or '').strip()
+    name = (request.form.get('name') or '').strip()
+    room = (request.form.get('room') or '').strip() or None
+    ble = (request.form.get('ble_number') or '').strip()
+    if not code or not name:
+        raise ValueError('A reader needs a code and a name.')
+    if len(code) > 32 or len(name) > 100 or (room and len(room) > 50):
+        raise ValueError('Code up to 32 characters, name up to 100, room up to 50.')
+    ble_number = None
+    if ble:
+        if not ble.isdigit() or not 1 <= int(ble) <= 65535:
+            raise ValueError('The Bluetooth number must be 1 to 65535 (BLE_TERMINAL_NUMBER).')
+        ble_number = int(ble)
+    return code, name, room, ble_number
+
+
+def _terminals_page(new_secret=None, for_terminal=None):
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    terminals = Terminal.query.order_by(Terminal.code).all()
+    return render_template(
+        'admin/terminals.html',
+        terminals=terminals,
+        online={t.id for t in terminals if t.last_seen_at and now - t.last_seen_at <= TERMINAL_ONLINE_WITHIN},
+        rooms=sorted({r for (r,) in db.session.query(Timetable.room).distinct() if r}),
+        room_check_mode=terminal_rooms.room_check_mode(),
+        shared_secret_set=bool(os.environ.get('TERMINAL_SECRET', '').strip()),
+        # Shown on this one page only, never stored or flashed: flash
+        # messages ride in the session cookie, which is signed, not encrypted.
+        new_secret=new_secret,
+        new_secret_for=for_terminal,
+        relative_time=_relative_time,
+        active_page='terminals',
+    )
+
+
+@admin_bp.route('/terminals', methods=['GET', 'POST'])
+@limiter.limit("20 per minute", methods=['POST'])
+def terminals_page():
+    if request.method == 'GET':
+        return _terminals_page()
+    action = request.form.get('action')
+    try:
+        if action == 'create':
+            code, name, room, ble_number = _terminal_form()
+            if Terminal.query.filter_by(code=code).first():
+                raise ValueError(f"A reader with code {code} already exists.")
+            if ble_number and Terminal.query.filter_by(ble_number=ble_number).first():
+                raise ValueError(f"Bluetooth number {ble_number} is already used by another reader.")
+            secret = terminal_rooms.new_secret()
+            terminal = Terminal(code=code, name=name, room=room, ble_number=ble_number,
+                                secret_hash=terminal_rooms.hash_secret(secret))
+            db.session.add(terminal)
+            db.session.flush()
+            log_action('terminal.create', f"Registered reader {code} ({name}, room {room or 'none'})",
+                       'terminal', terminal.id, {'room': room, 'ble_number': ble_number})
+            db.session.commit()
+            return _terminals_page(new_secret=secret, for_terminal=terminal)
+
+        terminal = db.session.get(Terminal, request.form.get('terminal_id', type=int) or 0)
+        if terminal is None:
+            raise ValueError('That reader no longer exists.')
+
+        if action == 'update':
+            code, name, room, ble_number = _terminal_form()
+            if Terminal.query.filter(Terminal.code == code, Terminal.id != terminal.id).first():
+                raise ValueError(f"A reader with code {code} already exists.")
+            if ble_number and Terminal.query.filter(Terminal.ble_number == ble_number,
+                                                    Terminal.id != terminal.id).first():
+                raise ValueError(f"Bluetooth number {ble_number} is already used by another reader.")
+            before = {'code': terminal.code, 'name': terminal.name, 'room': terminal.room,
+                      'ble_number': terminal.ble_number}
+            terminal.code, terminal.name, terminal.room, terminal.ble_number = code, name, room, ble_number
+            diff = changes(before, {'code': code, 'name': name, 'room': room, 'ble_number': ble_number})
+            if diff:
+                log_action('terminal.update', f"Changed reader {terminal.code}", 'terminal', terminal.id,
+                           {'changes': diff})
+            db.session.commit()
+            flash(f"Saved reader {terminal.code}.", 'success')
+
+        elif action == 'regenerate':
+            # For a lost or dumped reader: the old secret stops working now.
+            secret = terminal_rooms.new_secret()
+            terminal.secret_hash = terminal_rooms.hash_secret(secret)
+            log_action('terminal.secret', f"Issued a new secret for reader {terminal.code}",
+                       'terminal', terminal.id)
+            db.session.commit()
+            return _terminals_page(new_secret=secret, for_terminal=terminal)
+
+        elif action == 'toggle':
+            terminal.is_active = not terminal.is_active
+            log_action('terminal.enable' if terminal.is_active else 'terminal.disable',
+                       f"{'Enabled' if terminal.is_active else 'Disabled'} reader {terminal.code}",
+                       'terminal', terminal.id)
+            db.session.commit()
+            flash(f"Reader {terminal.code} is now {'enabled' if terminal.is_active else 'disabled'}.",
+                  'success')
+        else:
+            raise ValueError('Unknown action.')
+    except ValueError as e:
+        db.session.rollback()
+        flash(str(e), 'error')
+    except Exception:
+        db.session.rollback()
+        log_exception("Terminal Save Error")
+        flash('Failed to save the reader. Nothing changed.', 'error')
+    return redirect(url_for('admin.terminals_page'))
+
+
 @admin_bp.route('/semesters', methods=['GET', 'POST'])
 @limiter.limit("10 per minute", methods=['POST'])
 def semesters_page():

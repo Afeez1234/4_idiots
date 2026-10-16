@@ -8,7 +8,9 @@ from utils import (build_course_register_csv, start_class_session, end_class_ses
                    taught_course, courses_taught_by, teaches,
                    students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps,
-                   notify_announcement, course_attendance, ATTENDED_STATUSES)
+                   notify_announcement, course_attendance, ATTENDED_STATUSES,
+                   resolve_timetable_slot_for_course)
+import terminal_rooms
 
 api_lecturer_bp = Blueprint('api_lecturer', __name__, url_prefix='/api/v1/lecturer')
 
@@ -251,8 +253,15 @@ def get_course_workspace(course_id):
                     "planned_start": str(active_session.planned_start) if active_session.planned_start else None,
                     "planned_end": str(active_session.planned_end) if active_session.planned_end else None,
                     "session_date": str(active_session.session_date),
+                    # Where the class is (given at start, else its slot's);
+                    # readers in another room are flagged against it.
+                    "room": terminal_rooms.class_room(active_session),
                 } if active_session else None,
                 "live_attendance": live_attendance,
+                # Today's timetable room, to pre-fill the start screen's Room
+                # field. None with a class running or no slot today.
+                "today_room": None if active_session else getattr(
+                    resolve_timetable_slot_for_course(course_id), 'room', None),
             }
         }), 200
 
@@ -304,7 +313,9 @@ def start_session(course_id):
         # Ownership check, "already running?" and the timetable fallback
         # all live in utils.start_class_session, shared with the web portal.
         # Any of the course's lecturers can start it; it records which one.
-        outcome, new_session = start_class_session(lecturer, course_id, planned_start, planned_end)
+        # Optional: where the class actually is, if not its timetable room.
+        room = data.get('room') if isinstance(data.get('room'), str) else None
+        outcome, new_session = start_class_session(lecturer, course_id, planned_start, planned_end, room)
         if outcome == 'not_found':
             return jsonify({"error": "Course not found or access denied."}), 404
         if outcome == 'already_active':
@@ -459,12 +470,13 @@ def get_session_detail(course_id, session_id):
             Attendance.time_in,
             Attendance.status,
             Attendance.method,
+            Attendance.wrong_room,
         ).join(Attendance, Attendance.student_id == Student.id)\
          .join(Department, Student.department_id == Department.id)\
          .filter(Attendance.session_id == session_id).all()
 
         attendance_list = []
-        for student_id, full_name, matric, level, dept_name, time_in, att_status, method in records:
+        for student_id, full_name, matric, level, dept_name, time_in, att_status, method, wrong_room in records:
             attendance_list.append({
                 'student_id': student_id,
                 'full_name': full_name,
@@ -474,6 +486,9 @@ def get_session_detail(course_id, session_id):
                 'time_in': campus_fmt(time_in) if time_in else None,
                 'status': att_status,
                 'method': method,
+                # True = checked in at a reader in another room (flag mode;
+                # see terminal_rooms.py). False otherwise.
+                'wrong_room': bool(wrong_room),
             })
 
         # Enrolled students with no record yet -- the ones a lecturer can
@@ -498,6 +513,8 @@ def get_session_detail(course_id, session_id):
                 'matric_number': log.student.matric_number,
                 'tapped_at': campus_fmt(log.captured_at, '%H:%M:%S'),
                 'terminal_id': log.terminal_id,
+                # Read by a reader in another room (terminal_rooms.py).
+                'wrong_room': bool(log.wrong_room),
             }
             for log in pending_offline_taps(session)
         ]

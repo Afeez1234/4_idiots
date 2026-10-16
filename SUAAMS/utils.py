@@ -395,7 +395,7 @@ def _lock_owned_course(lecturer, course_id):
             .first())
 
 
-def start_class_session(lecturer, course_id, planned_start=None, planned_end=None):
+def start_class_session(lecturer, course_id, planned_start=None, planned_end=None, room=None):
     """Start a session for one of the lecturer's courses.
 
     Shared by the lecturer app (api/lecturer.py) and the web portal
@@ -406,6 +406,10 @@ def start_class_session(lecturer, course_id, planned_start=None, planned_end=Non
 
     With no planned times given, uses today's timetable slot, so the late
     cut-off still has a scheduled start to work from.
+
+    `room` is where the class is actually held, when the lecturer says so
+    (a last-minute change); otherwise the slot's room. Readers in another
+    room are flagged or refused against it (terminal_rooms.py).
     """
     from models import db, Session as SessionModel
     from campus_time import campus_today
@@ -419,11 +423,13 @@ def start_class_session(lecturer, course_id, planned_start=None, planned_end=Non
         db.session.rollback()
         return 'already_active', running
 
-    slot = None
-    if planned_start is None and planned_end is None:
-        slot = resolve_timetable_slot_for_course(course_id)
-        if slot:
-            planned_start, planned_end = slot.start_time, slot.end_time
+    # Always find today's slot: it says which timetabled class this is
+    # (timetable_id) and its room, even when times were typed. The web form
+    # always sends times (pre-filled from the slot), so web-started classes
+    # used to record no slot at all. Typed times still win over the slot's.
+    slot = resolve_timetable_slot_for_course(course_id)
+    if slot and planned_start is None and planned_end is None:
+        planned_start, planned_end = slot.start_time, slot.end_time
 
     new_session = SessionModel(
         course_id=course_id,
@@ -434,8 +440,9 @@ def start_class_session(lecturer, course_id, planned_start=None, planned_end=Non
         planned_end=planned_end,
         # Which timetable slot this class is, so the admin dashboard can
         # tell a course's lecture from its tutorial on the same day. None
-        # for a class started outside the timetable, or with typed times.
+        # for a class with no slot today.
         timetable_id=slot.id if slot else None,
+        room=(room or '').strip()[:50] or (slot.room if slot else None),
         # Which of the course's lecturers ran this class.
         started_by=lecturer.user_id,
     )
@@ -580,7 +587,7 @@ def review_offline_tap(session, log_id, reviewer_user, accept, notify=True):
     'not_found'.
     """
     from sqlalchemy.exc import IntegrityError
-    from models import db, Enrollment, Attendance, OfflineCheckinLog
+    from models import db, Enrollment, Attendance, OfflineCheckinLog, Terminal
     from campus_time import to_campus
 
     log = OfflineCheckinLog.query.filter_by(id=log_id, session_id=session.id).first()
@@ -623,6 +630,9 @@ def review_offline_tap(session, log_id, reviewer_user, accept, notify=True):
         status=compute_attendance_status(session, at=tapped_campus),
         method='offline',
         marked_by=reviewer_user.id,
+        # The reader that uploaded it, and its room check from sync time.
+        terminal_id=db.session.query(Terminal.id).filter_by(code=log.terminal_id).scalar(),
+        wrong_room=log.wrong_room,
     ))
     settle('accepted')
     try:

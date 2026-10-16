@@ -56,8 +56,12 @@ only works with the right positions.
 - **Sketch:** `ESP32_ARDUINO CODE/SUAAMS_HCE/SUAAMS_HCE.ino`
 - **Secrets:** copy `secrets.h.example` to `secrets.h`. It holds Wi-Fi, the
   three URLs (check-in, healthz, backlog), `TERMINAL_ID` + `TERMINAL_SECRET`,
-  `BLE_BEACON_SECRET` and `BLE_TERMINAL_NUMBER`. The secrets must match the
-  server's `.env`. Set `BLE_BEACON_SECRET` to `""` to turn Bluetooth off. An
+  `BLE_BEACON_SECRET` and `BLE_TERMINAL_NUMBER`. **Each reader gets its own
+  `TERMINAL_ID` and `TERMINAL_SECRET`** from the admin **Terminals** page
+  (add the reader, set its room and Bluetooth number, and copy the three
+  lines it shows once). The old shared pair in the server's `.env` still
+  works during the changeover. `BLE_BEACON_SECRET` is still one value for all
+  readers and must match the server's `.env`. Set `BLE_BEACON_SECRET` to `""` to turn Bluetooth off. An
   old `secrets.h` without the BLE lines fails the build with a clear error.
 - **Libraries** (installed versions):
   - Adafruit PN532 **1.3.4**. In this version `inListPassiveTarget()` takes

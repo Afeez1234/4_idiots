@@ -444,6 +444,20 @@ class Attendance(db.Model):
     # attendance they recorded.
     marked_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
 
+    # Which reader took the check-in (NFC tap, Bluetooth code, accepted
+    # offline tap); NULL for hand marks and readers not yet registered.
+    # SET NULL: retiring a reader keeps its history. See Terminal.
+    # Named like the migration's, so create_all() (reset_db.py) and the
+    # migration build the same constraint.
+    terminal_id = db.Column(db.Integer, db.ForeignKey('terminals.id', ondelete='SET NULL',
+                                                      name='fk_attendance_terminal'), nullable=True)
+    # Whether that reader is in the class's room (terminal_rooms.room_verdict):
+    # True = the reader is in another room, False = same room, NULL = not
+    # checked (no reader, no reader room, or no class room). In "flag" mode
+    # a wrong-room check-in is recorded and shown; in "enforce" mode it is
+    # refused, so True only appears from flag mode.
+    wrong_room = db.Column(db.Boolean, nullable=True)
+
     # NEW: wasn't enforced before (a student could be marked twice for the
     # same session). Matches the existing attendance_already_recorded()
     # check in app.py/api/student.py, now backed by a real constraint.
@@ -641,6 +655,10 @@ class OfflineCheckinLog(db.Model):
     # removing a lecturer's account must not erase the review history.
     reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
+    # Same meaning as Attendance.wrong_room, worked out at sync time from
+    # the reader that uploaded the tap; copied onto the attendance row if
+    # the lecturer accepts it.
+    wrong_room = db.Column(db.Boolean, nullable=True)
 
     student = db.relationship('Student')
 
@@ -654,6 +672,43 @@ class OfflineCheckinLog(db.Model):
         # Reconciliation queries filter by session then status.
         db.Index('ix_offline_checkin_session_status', 'session_id', 'status'),
     )
+
+
+# ==========================================
+# READERS (ESP32 TERMINALS)
+# ==========================================
+class Terminal(db.Model):
+    """One physical reader, registered on the admin Terminals page.
+
+    Before this the server knew ONE reader identity (TERMINAL_ID /
+    TERMINAL_SECRET in the environment), shared by every reader, so it
+    couldn't tell readers apart: any reader accepted any class's check-in,
+    and one dumped board exposed the secret of all of them. Each reader now
+    has its own code and secret, and a room, so a check-in at a reader in
+    another room can be flagged or refused (terminal_rooms.py).
+
+    The secret is shown to the admin once, when generated, and only its
+    SHA-256 is stored. A plain hash is enough here: the secret is 32 random
+    bytes, not a password a person chose, so there's nothing to guess.
+    """
+    __tablename__ = 'terminals'
+    id = db.Column(db.Integer, primary_key=True)
+    # What the reader sends as X-Terminal-Id (TERMINAL_ID in its secrets.h).
+    code = db.Column(db.String(32), nullable=False, unique=True)
+    name = db.Column(db.String(100), nullable=False)
+    # As written on the timetable ("LT 1"); compared loosely, so "LT1" and
+    # "lt-1" match too. NULL = a reader with no fixed room: never flagged.
+    room = db.Column(db.String(50), nullable=True)
+    # BLE_TERMINAL_NUMBER in its secrets.h; inside every Bluetooth code it
+    # broadcasts (covered by the code's HMAC), which is how a Bluetooth
+    # check-in is traced to this reader.
+    ble_number = db.Column(db.Integer, nullable=True, unique=True)
+    secret_hash = db.Column(db.String(64), nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    # Updated on every request the reader authenticates (check-in, offline
+    # upload); the Terminals page shows online/offline from it.
+    last_seen_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
 
 # ==========================================

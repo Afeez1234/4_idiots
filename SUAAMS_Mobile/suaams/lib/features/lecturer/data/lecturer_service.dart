@@ -85,6 +85,7 @@ class LecturerService {
     int courseId, {
     String? plannedStart,
     String? plannedEnd,
+    String? room,
   }) async {
     try {
       final response = await http.post(
@@ -96,6 +97,9 @@ class LecturerService {
         body: jsonEncode({
           'planned_start': ?plannedStart,
           'planned_end': ?plannedEnd,
+          // Where the class actually is; the server falls back to the
+          // timetable room when it's left out.
+          'room': ?room,
         }),
       );
 

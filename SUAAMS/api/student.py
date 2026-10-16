@@ -10,7 +10,9 @@ from sqlalchemy.exc import IntegrityError
 # Import db and our elegant SQLAlchemy models
 # (added Enrollment here for the check-in endpoints, Timetable for the
 # today's-schedule endpoint below)
-from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester, Announcement, OfflineCheckinLog
+from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester, Announcement, OfflineCheckinLog, Terminal
+# Which reader is calling, and whether it's in the class's room.
+import terminal_rooms
 from extensions import limiter, jwt_identity_or_ip, api_error_response, client_ip
 from push_notifications import send_push_notification
 from utils import compute_attendance_status, student_course_attendance
@@ -75,43 +77,24 @@ def _describe_lag(seconds):
 
 
 def _check_terminal_auth():
-    """Validate the ESP32 terminal's shared secret.
+    """Is this request from a real reader? True for a registered, active
+    reader with its own secret (Terminals page), or -- during the
+    changeover -- the old shared TERMINAL_ID / TERMINAL_SECRET pair. See
+    terminal_rooms.authenticate, which also remembers WHICH reader it was
+    (terminal_rooms.authenticate()[1]) for the room check.
 
-    The submit endpoint is unauthenticated by design -- the terminal has no
-    login session, it just relays what it physically read. But that left it
-    completely open: without this check, any client that could reach the URL
-    could POST a (stolen or minted) beacon and record anyone's attendance.
+    The submit endpoints have no login of their own: the reader just relays
+    what it read. Without this, anyone who could reach the URL could post a
+    stolen or minted beacon and record anyone's attendance. It only helps
+    alongside real TLS, which the firmware enforces (useVerifiedTls in
+    SUAAMS_HCE.ino), so a secret can't be lifted by impersonating the
+    server on the venue Wi-Fi.
 
-    This is a shared-secret header check, not a signature. It authenticates
-    the terminal rather than the request, so a captured secret could be
-    replayed -- which is why it only meaningfully helps alongside real TLS.
-    The firmware now verifies this server's certificate against the ESP32
-    core's CA bundle (useVerifiedTls in SUAAMS_HCE.ino; it used to call
-    setInsecure()), so the secret can't be lifted by impersonating the
-    server on the venue Wi-Fi. It is still one secret shared by every
-    terminal, so a dumped board exposes all of them -- per-terminal
-    secrets are the follow-up.
-
-    Fails closed when unconfigured, for the same reason as
-    BEACON_SIGNING_SECRET: a missing secret must disable the route, not
-    silently authenticate everyone.
+    Fails closed: no registered readers and no shared pair means no reader
+    is accepted, not every caller.
     """
-    expected_id = os.environ.get("TERMINAL_ID", "").strip()
-    expected_secret = os.environ.get("TERMINAL_SECRET", "").strip()
-    if not expected_id or not expected_secret:
-        current_app.logger.error(
-            "TERMINAL_ID/TERMINAL_SECRET not configured; rejecting terminal check-in."
-        )
-        return False
-
-    supplied_id = request.headers.get("X-Terminal-Id", "")
-    supplied_secret = request.headers.get("X-Terminal-Secret", "")
-
-    # Constant-time on the secret so a wrong value can't be discovered a
-    # byte at a time from response timing.
-    if not hmac.compare_digest(supplied_secret, expected_secret):
-        return False
-    return hmac.compare_digest(supplied_id, expected_id)
+    ok, _terminal = terminal_rooms.authenticate()
+    return ok
 
 
 def terminal_or_ip_key():
@@ -466,9 +449,20 @@ def submit_checkin_beacon():
     if already_recorded:
         return jsonify({"success": True, "message": "Attendance already marked"}), 200
 
+    # Is this reader in the class's room? Readers used to accept any
+    # class's tap, so a student could tap in at a reader across campus.
+    # Flag mode records it, marked; enforce mode refuses it.
+    _ok, terminal = terminal_rooms.authenticate()
+    wrong_room = terminal_rooms.wrong_room(terminal, active_session)
+    if wrong_room and terminal_rooms.room_check_mode() == 'enforce':
+        return jsonify({"error": terminal_rooms.wrong_room_message(terminal, active_session),
+                        "reason": "wrong_room"}), 409
+
     record = Attendance(student_id=student.id, session_id=active_session.id,
                          status=compute_attendance_status(active_session),
-                         method='nfc')
+                         method='nfc',
+                         terminal_id=terminal.id if terminal is not None else None,
+                         wrong_room=wrong_room)
     db.session.add(record)
     try:
         db.session.commit()
@@ -670,9 +664,20 @@ def submit_ble_checkin():
             "course_code": course_code,
         }), 200
 
+    # The reader is the one whose Bluetooth number is inside the code (the
+    # code's HMAC covers it, so it can't be relabelled). Same room rule as
+    # the NFC tap.
+    reader = terminal_rooms.terminal_for_ble(terminal)
+    wrong_room = terminal_rooms.wrong_room(reader, active_session)
+    if wrong_room and terminal_rooms.room_check_mode() == 'enforce':
+        return jsonify({"error": terminal_rooms.wrong_room_message(reader, active_session),
+                        "reason": "wrong_room", "course_code": course_code}), 409
+
     record = Attendance(student_id=student.id, session_id=active_session.id,
                          status=compute_attendance_status(active_session),
-                         method='ble')
+                         method='ble',
+                         terminal_id=reader.id if reader is not None else None,
+                         wrong_room=wrong_room)
     db.session.add(record)
     try:
         db.session.commit()
@@ -1436,6 +1441,10 @@ def sync_offline_checkin_backlog():
             student_id=student_id, session_id=session_id
         ).first()
         status, reason = ('superseded', None) if already_present else ('pending_verification', None)
+        # Same room rule as a live tap, against the reader that uploaded it;
+        # shown to the lecturer at review and copied if they accept.
+        _ok, uploader = terminal_rooms.authenticate()
+        wrong_room = terminal_rooms.wrong_room(uploader, session)
         if read_at is not None and read_at - minted_at > OFFLINE_READ_MAX_LAG_SECONDS:
             status = 'rejected'
             reason = (f"Read {_describe_lag(read_at - minted_at)} after it was made; "
@@ -1448,6 +1457,7 @@ def sync_offline_checkin_backlog():
             captured_at=captured_at,
             status=status,
             reason=reason,
+            wrong_room=wrong_room,
         )
         db.session.add(log)
         accepted += 1

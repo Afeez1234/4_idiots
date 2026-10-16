@@ -457,3 +457,23 @@ if you know the date.
 - **Trade-off:** Lose the key and the app can never be updated in place,
   and a new key re-binds every student. Phones with an older debug-signed
   build must uninstall it before installing a release build.
+
+### D32. Readers have their own identity and a room (2026-10-16)
+
+- **Problem:** The server knew one reader identity, shared by every
+  reader, so it couldn't tell readers apart. Any reader accepted any
+  class's check-in, a Bluetooth code from any hall counted, and one dumped
+  board exposed every reader's secret.
+- **Chose:** A `terminals` table and an admin Terminals page. Each reader
+  has a code, its own secret (shown once, stored as a SHA-256), a room and
+  its Bluetooth number. A class's room is the one its lecturer gives at
+  start (pre-filled from the timetable), else its slot's. Rooms compare
+  loosely. `ROOM_CHECK=flag` (default) records a wrong-room check-in,
+  marked for the lecturer; `enforce` refuses it. Attendance records which
+  reader took it. The old shared pair still works during the changeover.
+- **Trade-off:** Flag first, because a room typo or a moved reader would
+  otherwise block a whole class. In enforce mode an NFC student isn't told
+  "wrong room" (the reader gets the 409; the app just sees no check-in).
+  Lecturers set the room when starting a class on the web or in the app
+  (a Room field pre-filled from the timetable); app versions from before
+  this can't, so a moved class started from an old app is flagged.

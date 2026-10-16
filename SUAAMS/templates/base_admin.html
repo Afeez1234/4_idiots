@@ -78,6 +78,16 @@
   </div>
 
   <div>
+    <p class="nav-section">Hardware</p>
+    <div class="space-y-1">
+      <a href="{{ url_for('admin.terminals_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'terminals' }}">
+        <span class="material-symbols-rounded text-xl">nfc</span>
+        <span class="rail-label">Terminals</span>
+      </a>
+    </div>
+  </div>
+
+  <div>
     <p class="nav-section">Communication</p>
     <div class="space-y-1">
       <a href="{{ url_for('admin.announcements_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' }}">

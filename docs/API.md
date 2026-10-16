@@ -33,7 +33,7 @@ end for completeness.
 - **Request:** `{"beacon_token": "<32 chars>"}`
 - **200:** `{"success": true, "message": "Attendance recorded successfully.", "student": {"id", "full_name"}}`
   This is also returned with `"Attendance already marked"` for a repeat, so a retry is safe.
-- **401** bad terminal, or invalid/expired code · **400** missing token or not enrolled · **404** student/session gone · **409** session has ended (or is from an earlier day)
+- **401** bad terminal, or invalid/expired code · **400** missing token or not enrolled · **404** student/session gone · **409** session has ended (or is from an earlier day), or `{"reason": "wrong_room"}` when `ROOM_CHECK=enforce` and this reader is in another room from the class. In flag mode it's recorded with `wrong_room` set.
 
 ### `GET /api/v1/student/checkin/status`: did my tap land?
 - **Caller:** app, polled about once a second for up to 25 s. **Auth:** JWT (student). **Limit:** 30/min.
@@ -48,7 +48,7 @@ end for completeness.
 - **Caller:** app. **Auth:** JWT (student). **Limit:** 10/min.
 - **Request:** `{"payload": "<28 hex chars = 14 bytes>", "rssi": -70}` (`rssi` is optional and only logged)
 - **200:** `{"success": true, "message": "...", "course_code": "..."}`. A single definite answer, so no polling.
-- **400** payload not hex · **401** `{"reason": "invalid_code"}` (forged, malformed or old) · **404** `{"reason": "no_active_session"}` · **503** BLE disabled
+- **400** payload not hex · **401** `{"reason": "invalid_code"}` (forged, malformed or old) · **404** `{"reason": "no_active_session"}` · **409** `{"reason": "wrong_room"}` (enforce mode; the reader is found by the Bluetooth number inside the code) · **503** BLE disabled
 
 ### `POST /api/v1/student/checkin/backlog`: offline taps
 - **Caller:** terminal. **Auth:** Terminal. **Limit:** 30/min per IP. **Max** 50 records.
@@ -95,8 +95,8 @@ end for completeness.
 |---|---|---|
 | GET | `/dashboard` | Courses + today |
 | GET | `/schedule/week` | Weekly teaching schedule |
-| GET | `/course/<course_id>` | Course workspace |
-| POST | `/course/<course_id>/start-session` | `{planned_start?: "HH:MM", planned_end?: "HH:MM"}` (10/min) |
+| GET | `/course/<course_id>` | Course workspace. Includes `today_room` (the timetable room, to pre-fill the start screen; null with a class running) and `active_session.room` |
+| POST | `/course/<course_id>/start-session` | `{planned_start?: "HH:MM", planned_end?: "HH:MM", room?: "LT 1"}` (10/min). `room` defaults to the timetable slot's; readers in another room are flagged against it |
 | POST | `/course/<course_id>/end-session` | End the active session (10/min) |
 | GET | `/course/<course_id>/history` | Past sessions |
 | GET | `/course/<course_id>/session/<session_id>` | Who attended, live or past |

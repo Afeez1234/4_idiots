@@ -4,13 +4,19 @@
 {# How a record got there, shown only when it isn't an ordinary NFC tap:
    a hand mark has no device evidence behind it, and a Bluetooth code is
    weaker evidence than a tap (see ble_beacon.py). method is record[6]. #}
-{%- macro method_tag(method) -%}
+{%- macro method_tag(method, wrong_room=false) -%}
     {%- if method == 'manual' -%}
         <p class="mt-2 text-xs text-muted">Marked by lecturer</p>
     {%- elif method == 'ble' -%}
         <p class="mt-2 text-xs text-muted">Via Bluetooth</p>
     {%- elif method == 'offline' -%}
         <p class="mt-2 text-xs text-muted">Offline tap, accepted</p>
+    {%- endif -%}
+    {#- A reader in another room took it (record[7]; flag mode, see
+        terminal_rooms.py): worth a look, not proof of cheating -- the class
+        may have moved without its room being changed. -#}
+    {%- if wrong_room -%}
+        <p class="mt-2 text-xs font-semibold text-error">Wrong room: tapped at a reader elsewhere</p>
     {%- endif -%}
 {%- endmacro -%}
 
@@ -129,7 +135,7 @@
                             {{ pill(record[4]|capitalize, 'neutral') }}
                         {% endif %}
                     </div>
-                    {{ method_tag(record[6]) }}
+                    {{ method_tag(record[6], record[7]) }}
                     <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
                         <div>
                             <dt class="text-muted">Matric Number</dt>
@@ -196,7 +202,7 @@
                                 {% else %}
                                     {{ pill(record[4]|capitalize, 'neutral') }}
                                 {% endif %}
-                                {{ method_tag(record[6]) }}
+                                {{ method_tag(record[6], record[7]) }}
                             </td>
                         </tr>
                     {% else %}
@@ -245,6 +251,9 @@
                                 <p class="mono text-xs text-muted">
                                     {{ tap.student.matric_number }} &middot; tapped {{ tap.captured_at|campus('%H:%M:%S') }}
                                 </p>
+                                {% if tap.wrong_room %}
+                                    <p class="text-xs font-semibold text-error">Wrong room: read by a reader elsewhere</p>
+                                {% endif %}
                             </div>
                         </div>
                         <div class="flex items-center gap-2">

@@ -49,6 +49,8 @@ that isn't true, usually for an absent friend. Secondary assets are accounts
 | T20 | **Departed staff or removed students still signing in** | Status: anything but active turns the login off and revokes the refresh token; every app and web request re-checks the account, so it is refused at its next request (not when its token expires); student exits release the phone binding; changes are audited with a reason | `people_status.py`, `api/auth.py` `install_account_check`, `/refresh` |
 | T21 | **Hidden text in an imported timetable PDF** | Only letters with ink under them are read; every import is previewed and saved as a draft until published | `timetable_pdf.py`, `timetable_import.py` |
 | T22 | **Checking in to a session left open from an earlier day** (the lecturer forgot to press End) | Check-in only resolves and accepts sessions dated today on campus; the terminal submit refuses a token bound to an older one | `api/student.py` `_active_session_for_student`, `submit_checkin_beacon` |
+| T24 | **Checking in at a reader in another room** (tapping in from a different lecture hall, or hearing another hall's Bluetooth code) | Each reader has a room; a check-in for a class in another room is marked `wrong_room` for the lecturer (`ROOM_CHECK=flag`, the default) or refused (`enforce`). The class's room is the one given at start, else its timetable slot's | `terminal_rooms.py`, `api/student.py` |
+| T25 | **One dumped reader exposing every reader's secret** | Each reader has its own secret (only its SHA-256 is stored), which can be replaced or the reader disabled on the Terminals page; a disabled reader is refused even with the old shared secret | `models.Terminal`, `terminal_rooms.authenticate`, `/admin/terminals` |
 | T23 | **A stolen or handed-on phone still receiving someone's notifications** | Push tokens are removed on logout, on an admin unbind, and when Status switches a login off; the app registers again at its next login | `api/auth.py` `/logout`, `blueprints/admin.py` `reset_student_binding`, `people_status.py` |
 
 ## 4. Known gaps (honest list)
@@ -78,7 +80,8 @@ one an examiner finds.
 | `SECRET_KEY`, `JWT_SECRET_KEY` | Server env | Server won't start |
 | `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Server env | Server won't start |
 | `BEACON_SIGNING_SECRET` | Server env | NFC check-in off (mint returns 503) |
-| `TERMINAL_ID`, `TERMINAL_SECRET` | Server env **and** terminal `secrets.h` (must match) | Terminal posts rejected (401) |
+| Per-reader code + secret | Terminals page (hash only) **and** that reader's `secrets.h` | That reader's posts rejected (401) |
+| `TERMINAL_ID`, `TERMINAL_SECRET` (old shared pair, changeover only) | Server env **and** terminal `secrets.h` | Readers not yet moved over are rejected (401) |
 | `BLE_BEACON_SECRET` | Server env **and** terminal `secrets.h` (must match) | BLE off; app hides it |
 | Wi-Fi SSID/password | Terminal `secrets.h` | Terminal runs offline, queues taps |
 | `firebase-service-account.json` | `SUAAMS/` (gitignored) | No push; notifications are still saved in-app |

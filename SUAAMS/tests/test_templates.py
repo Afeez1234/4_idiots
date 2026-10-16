@@ -210,7 +210,21 @@ VERIFIED_MATERIAL_SYMBOLS = {
     # glyph via textContent so it keeps pointing the way the rail is about to
     # move. Included here because the markup scan below cannot see it.
     "left_panel_open",
+    # Passed positionally to empty_state() / stat_card(), which the scan
+    # below did not read until 2026-10-16, plus the Terminals page's key and
+    # nfc. All rendered side by side in headless Chrome against the same
+    # Google Fonts stylesheet the app loads, and looked at, on 2026-10-16.
+    "key", "nfc", "domain", "domain_disabled", "event", "event_busy",
+    "event_note", "group", "groups", "how_to_reg", "insights", "query_stats",
+    "search_off", "verified", "event_available", "trending_up", "trending_down",
 }
+
+# The icon passed positionally to the macros that take one: the second
+# argument of empty_state(message, icon) and the fourth of
+# stat_card(label, value, caption, icon, ...). Only quoted literals count.
+_POSITIONAL_ICON = re.compile(
+    r"empty_state\([^,()]+(?:\([^()]*\))?[^,()]*,\s*'([a-z_0-9]+)'\s*\)"
+    r"|stat_card\((?:[^,()]+(?:\([^()]*\))?[^,()]*,\s*){3}'([a-z_0-9]+)'")
 
 # Names a script writes into a Material Symbols element. The markup regex
 # cannot see these, and a glyph that does not exist renders as its own name in
@@ -230,6 +244,7 @@ def test_icon_names_exist_in_the_font():
         # only icon= arguments that name a glyph, not prose
         used.update(m.group(1) for m in arg_pattern.finditer(source))
         used.update(m.group(1) for m in _JS_ICON_ASSIGNMENT.finditer(source))
+        used.update(m.group(1) or m.group(2) for m in _POSITIONAL_ICON.finditer(source))
 
     unknown = sorted(used - VERIFIED_MATERIAL_SYMBOLS)
     assert not unknown, (

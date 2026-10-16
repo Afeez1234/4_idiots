@@ -249,6 +249,29 @@ CONTEXTS = {
         },
     ),
 
+    # A just-created reader (so the one-time secret banner renders), one
+    # online, one disabled, one never seen.
+    "admin/terminals.html": dict(
+        role="admin",
+        active_page="terminals",
+        active_semester=None,
+        terminals=[
+            {"id": 1, "code": "T-01", "name": "LT 1 front door", "room": "LT 1", "ble_number": 1,
+             "is_active": True, "last_seen_at": datetime(2026, 10, 16, 9, 30)},
+            {"id": 2, "code": "T-02", "name": "Main Hall", "room": None, "ble_number": None,
+             "is_active": False, "last_seen_at": None},
+            {"id": 3, "code": "T-03", "name": "Lab B", "room": "Eng. Lab B", "ble_number": 3,
+             "is_active": True, "last_seen_at": datetime(2026, 10, 15, 16, 0)},
+        ],
+        online={1},
+        rooms=["Eng. Lab B", "LT 1", "LT 2"],
+        room_check_mode="flag",
+        shared_secret_set=True,
+        new_secret="x" * 43,
+        new_secret_for={"code": "T-01", "ble_number": 1},
+        relative_time=lambda dt: "2 min ago",
+    ),
+
     "admin/announcements.html": dict(
         role="admin",
         active_page="announcements",

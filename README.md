@@ -350,8 +350,11 @@ changes stay on the Activity page under their name.
 
 The server refuses to start until `.env` has the database details,
 `SECRET_KEY` and `JWT_SECRET_KEY`. Check-in also needs
-`BEACON_SIGNING_SECRET`, `TERMINAL_ID` and `TERMINAL_SECRET`. Bluetooth
-check-in needs `BLE_BEACON_SECRET`. The comments in
+`BEACON_SIGNING_SECRET`, plus each reader registered on the admin
+**Terminals** page (or, during the changeover, the old shared `TERMINAL_ID`
+and `TERMINAL_SECRET`). Bluetooth check-in needs `BLE_BEACON_SECRET`.
+`ROOM_CHECK` (flag / enforce / off) decides what a check-in at a reader in
+another room does. The comments in
 [SUAAMS/.env.example](SUAAMS/.env.example) explain each one.
 
 ### Mobile app

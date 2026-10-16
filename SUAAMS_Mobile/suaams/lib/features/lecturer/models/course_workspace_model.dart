@@ -5,12 +5,17 @@ class CourseWorkspaceModel {
   final WorkspaceStats stats;
   final ActiveSessionInfo? activeSession;
   final List<LiveAttendanceEntry> liveAttendance;
+  // Today's timetable room for this course, to pre-fill the start screen's
+  // Room field. Null with a class running, no slot today, or a server from
+  // before rooms were checked.
+  final String? todayRoom;
 
   CourseWorkspaceModel({
     required this.course,
     required this.stats,
     this.activeSession,
     required this.liveAttendance,
+    this.todayRoom,
   });
 
   factory CourseWorkspaceModel.fromJson(Map<String, dynamic> json) {
@@ -23,6 +28,7 @@ class CourseWorkspaceModel {
       liveAttendance: (json['live_attendance'] as List)
           .map((entry) => LiveAttendanceEntry.fromJson(entry))
           .toList(),
+      todayRoom: json['today_room'] as String?,
     );
   }
 }
@@ -71,12 +77,16 @@ class ActiveSessionInfo {
   final String? plannedStart;
   final String? plannedEnd;
   final String sessionDate;
+  // Where the class is: the room given at start, else its timetable slot's.
+  // Readers in another room flag (or refuse) check-ins against it.
+  final String? room;
 
   ActiveSessionInfo({
     required this.id,
     this.plannedStart,
     this.plannedEnd,
     required this.sessionDate,
+    this.room,
   });
 
   factory ActiveSessionInfo.fromJson(Map<String, dynamic> json) {
@@ -85,6 +95,7 @@ class ActiveSessionInfo {
       plannedStart: json['planned_start'] as String?,
       plannedEnd: json['planned_end'] as String?,
       sessionDate: json['session_date'] as String,
+      room: json['room'] as String?,
     );
   }
 }

@@ -104,6 +104,9 @@ class OfflineTap {
   // records attendance at this time, so it's shown to the lecturer.
   final String? tappedAt;
   final String? terminalId;
+  // Read by a reader in another room from the class; see
+  // SessionAttendanceRecord.wrongRoom. Shown before the lecturer accepts.
+  final bool wrongRoom;
 
   OfflineTap({
     required this.id,
@@ -112,6 +115,7 @@ class OfflineTap {
     required this.matricNumber,
     this.tappedAt,
     this.terminalId,
+    this.wrongRoom = false,
   });
 
   factory OfflineTap.fromJson(Map<String, dynamic> json) {
@@ -122,6 +126,7 @@ class OfflineTap {
       matricNumber: json['matric_number'] as String,
       tappedAt: json['tapped_at'] as String?,
       terminalId: json['terminal_id'] as String?,
+      wrongRoom: json['wrong_room'] == true,
     );
   }
 }
@@ -160,6 +165,10 @@ class SessionAttendanceRecord {
   // recorded before Attendance.method existed. Shown so a lecturer can tell
   // a tap from a Bluetooth code from a hand mark from an accepted offline tap.
   final String? method;
+  // Checked in at a reader in another room from the class (the server's
+  // ROOM_CHECK flag mode; see SUAAMS/terminal_rooms.py). Worth a look, not
+  // proof of cheating: the class may have moved without its room changing.
+  final bool wrongRoom;
 
   SessionAttendanceRecord({
     required this.fullName,
@@ -169,6 +178,7 @@ class SessionAttendanceRecord {
     this.timeIn,
     required this.status,
     this.method,
+    this.wrongRoom = false,
   });
 
   factory SessionAttendanceRecord.fromJson(Map<String, dynamic> json) {
@@ -180,6 +190,8 @@ class SessionAttendanceRecord {
       timeIn: json['time_in'] as String?,
       status: json['status'] as String,
       method: json['method'] as String?,
+      // Absent from servers older than the room check: treat as false.
+      wrongRoom: json['wrong_room'] == true,
     );
   }
 }

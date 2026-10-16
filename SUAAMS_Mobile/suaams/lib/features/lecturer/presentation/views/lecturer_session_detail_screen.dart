@@ -220,6 +220,18 @@ class _AttendanceCard extends StatelessWidget {
                   ),
                 ),
               ],
+              // A reader in another room took this check-in.
+              if (record.wrongRoom) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'WRONG ROOM',
+                  style: AppTheme.accent(
+                    size: 9,
+                    letterSpacing: 0.5,
+                    color: colorScheme.error,
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -498,6 +510,19 @@ class _OfflineTapsSectionState extends ConsumerState<_OfflineTapsSection> {
                             ),
                           ),
                         ),
+                        // Read by a reader in another room: shown before
+                        // the lecturer decides.
+                        if (tap.wrongRoom) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'WRONG ROOM',
+                            style: AppTheme.accent(
+                              size: 9,
+                              letterSpacing: 0.5,
+                              color: colorScheme.error,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

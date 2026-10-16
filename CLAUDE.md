@@ -166,6 +166,10 @@ Three rules that are load-bearing:
 - **`BEACON_SIGNING_SECRET` and `TERMINAL_ID`/`TERMINAL_SECRET` have no
   defaults.** Unset means disabled, not weak. Never give them a fallback
   literal — that pattern is what made the guard in `app.py` dead code.
+  Since 2026-10-16 each reader has its own code + secret (`terminals`
+  table, admin Terminals page, `terminal_rooms.py`); the shared env pair is
+  only a changeover path. Readers have rooms, and `ROOM_CHECK` (flag by
+  default, enforce, off) governs a check-in at a reader in another room.
 - **The session is bound at mint time**, not looked up at submit time. Both
   the mint and `/checkin/status` endpoints resolve it through
   `_active_session_for_student()`; they must agree or the app polls forever

@@ -75,7 +75,11 @@ class CourseWorkspaceNotifier extends Notifier<CourseWorkspaceState> {
   // Returns true/false rather than throwing so the calling screen can show
   // an inline error without needing a try/catch of its own -- same
   // convention as AuthNotifier.login/changePassword.
-  Future<bool> startSession({String? plannedStart, String? plannedEnd}) async {
+  Future<bool> startSession({
+    String? plannedStart,
+    String? plannedEnd,
+    String? room,
+  }) async {
     try {
       final lecturerService = ref.read(lecturerServiceProvider);
       await withAuthRetry(
@@ -85,6 +89,7 @@ class CourseWorkspaceNotifier extends Notifier<CourseWorkspaceState> {
           courseId,
           plannedStart: plannedStart,
           plannedEnd: plannedEnd,
+          room: room,
         ),
       );
       await loadWorkspace();

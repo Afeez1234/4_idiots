@@ -581,7 +581,10 @@ def start_session(course_id):
 
         # Ownership, "already running?" and the timetable fallback live in
         # utils.start_class_session, shared with the lecturer app.
-        outcome, _ = start_class_session(lecturer, course_id, planned_start, planned_end)
+        # Pre-filled with the timetable room; a lecturer moved to another
+        # hall changes it, so readers there aren't flagged as wrong room.
+        room = request.form.get('room') or None
+        outcome, _ = start_class_session(lecturer, course_id, planned_start, planned_end, room)
         if outcome == 'not_found':
             flash('Course not found or access denied.', 'error')
             return redirect(url_for('lecturer.dashboard'))
@@ -667,11 +670,11 @@ def session_detail(course_id, session_id):
         # position (record[2]).
         # Attendance.method appended at index 6 (positions 0-5 unchanged, so
         # the template's existing indexes still hold) to label manual and
-        # Bluetooth marks.
+        # Bluetooth marks; Attendance.wrong_room at index 7 (terminal_rooms).
         attendance_records = db.session.query(
             Student.full_name, Student.level, Department.name,
             Student.matric_number, Attendance.status, Attendance.time_in,
-            Attendance.method
+            Attendance.method, Attendance.wrong_room
         ).join(Attendance, Attendance.student_id == Student.id)\
          .join(Department, Student.department_id == Department.id)\
          .filter(Attendance.session_id == session_id).all()
