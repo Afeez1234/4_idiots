@@ -249,7 +249,7 @@ when a student checked in, are stored in UTC and converted when displayed.
 
 ## 7. Current status and known gaps
 
-*As of 14 October 2026. Update this date whenever a line below changes.*
+*As of 16 October 2026. Update this date whenever a line below changes.*
 
 **Working and tested**
 - NFC tap check-in, end to end, on real hardware
@@ -271,9 +271,10 @@ when a student checked in, are stored in UTC and converted when displayed.
 - **iPhone Bluetooth check-in**: should work, but nobody has tested it on an
   iPhone yet.
 - **HOD sign-offs**: placeholder page only.
-- **Terminals aren't tied to rooms**: all terminals share one ID and secret,
-  and the server doesn't know which room a terminal is in. A student could
-  tap the terminal at another door and still get credit for their own class.
+- **Wrong-room check-ins are only flagged by default**: each terminal now
+  has its own secret and a room, but `ROOM_CHECK` starts at `flag`, so a tap
+  at another room's reader still counts and is marked for the lecturer.
+  Set it to `enforce` to refuse those taps.
 - **No feedback at the door**: the terminal has no LED, buzzer or screen. The
   student only sees the result on their phone.
 - **Cold server**: Render's free tier sleeps when idle and takes ~8 seconds
@@ -356,6 +357,40 @@ and `TERMINAL_SECRET`). Bluetooth check-in needs `BLE_BEACON_SECRET`.
 `ROOM_CHECK` (flag / enforce / off) decides what a check-in at a reader in
 another room does. The comments in
 [SUAAMS/.env.example](SUAAMS/.env.example) explain each one.
+
+### Database backups
+
+Clever Cloud's free plan keeps no backups, so a GitHub Actions job
+([.github/workflows/db-backup.yml](.github/workflows/db-backup.yml)) does it
+instead. Every night at 02:00 campus time it dumps the production database,
+encrypts the dump and keeps it for 30 days under **Actions → db-backup →
+a run → Artifacts**. To take one on demand (do this before every migration),
+open **Actions → db-backup → Run workflow**.
+
+It needs six repository secrets (**Settings → Secrets and variables →
+Actions**): `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_PORT` and
+`BACKUP_PASSPHRASE`. Whenever the database password changes, update
+`DB_PASSWORD` there too, as well as on Render and in `.env`. The passphrase is
+also kept in the project lead's password manager. Without it, no backup can be
+opened.
+
+**To restore**, download the artifact (a `.zip` holding one
+`.sql.gz.gpg` file), unzip it, then in Git Bash:
+
+```bash
+gpg --decrypt suaams-YYYY-MM-DD-HHMM.sql.gz.gpg | gunzip > restore.sql
+"/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe" \
+  -h <host> -P <port> -u <user> -p <database> < restore.sql
+```
+
+The dump drops and recreates every table, so **load it into a development
+database to check it first**. Loading it into production replaces all live
+data with the backup's. Delete `restore.sql` afterwards, since it is the
+whole database in plain text.
+
+GitHub switches off scheduled jobs in a public repo after 60 days with no
+commits. If the repo goes quiet that long, re-enable the job on the Actions
+tab.
 
 ### Mobile app
 

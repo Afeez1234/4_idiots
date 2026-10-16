@@ -1,0 +1,120 @@
+# Nightly backup of the production database.
+#
+# Clever Cloud's free MySQL plan has no backups, so one bad migration or
+# accidental delete would lose every attendance record. This job dumps the
+# database every night, encrypts the dump and keeps it as a workflow
+# artifact for 30 days. See "Database backups" in the README for how to
+# restore one.
+#
+# The repo is public, and anyone signed in to GitHub can download a public
+# repo's artifacts -- so the dump is encrypted BEFORE upload and the plain
+# file never leaves the runner. Without BACKUP_PASSPHRASE (a repository
+# secret, also kept in the project lead's password manager) a backup is
+# unreadable, including to us.
+#
+# Needs these repository secrets: DB_HOST, DB_USER, DB_PASSWORD, DB_NAME,
+# DB_PORT, BACKUP_PASSPHRASE. When the DB password is rotated, update
+# DB_PASSWORD here as well as on Render and in .env, or this job fails
+# (loudly -- GitHub emails the repo owner about a failed scheduled run).
+name: db-backup
+
+on:
+  schedule:
+    # 01:00 UTC = 02:00 campus time (Africa/Lagos), when nobody is checking in.
+    - cron: "0 1 * * *"
+  # "Run workflow" button on the Actions tab, for a backup on demand (e.g.
+  # right before applying a migration).
+  workflow_dispatch:
+
+# The job only reads the repo; it never needs to write to it.
+permissions:
+  contents: read
+
+# Never let two backups run at once against the same database.
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Tables in production on 2026-10-16: 20 models with __tablename__,
+      # the course_lecturers link table and alembic_version. A dump with
+      # fewer CREATE TABLE lines than this is incomplete and fails the job
+      # instead of being kept as if it were a good backup. Raise it when a
+      # table is added.
+      MIN_TABLES: 22
+    steps:
+      - name: Make sure the MySQL client is installed
+        # GitHub's Ubuntu image ships it; install only if that ever changes.
+        run: command -v mysqldump || (sudo apt-get update && sudo apt-get install -y mysql-client)
+
+      - name: Write the connection details to a private options file
+        # A file readable only by this user, rather than -p on the command
+        # line, so the password never shows up in the process list.
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+        run: |
+          umask 077
+          printf '[client]\nhost="%s"\nuser="%s"\npassword="%s"\nport=%s\n' \
+            "$DB_HOST" "$DB_USER" "$DB_PASSWORD" "${DB_PORT:-3306}" > "$RUNNER_TEMP/db.cnf"
+
+      - name: Dump the database
+        env:
+          DB_NAME: ${{ secrets.DB_NAME }}
+        # --single-transaction: a consistent snapshot without locking tables,
+        #   so a check-in that lands mid-backup isn't blocked.
+        # --no-tablespaces: managed MySQL doesn't grant the PROCESS privilege
+        #   that tablespace info needs; without this the dump errors out.
+        # --set-gtid-purged=OFF / --column-statistics=0: keep the dump
+        #   loadable into any MySQL 8 server, e.g. a dev database.
+        run: |
+          set -euo pipefail
+          mysqldump --defaults-extra-file="$RUNNER_TEMP/db.cnf" \
+            --single-transaction --quick --no-tablespaces \
+            --set-gtid-purged=OFF --column-statistics=0 \
+            "$DB_NAME" > "$RUNNER_TEMP/dump.sql"
+
+      - name: Check the dump is complete
+        # mysqldump writes this footer only when it finished; a dropped
+        # connection leaves a truncated file without it.
+        run: |
+          set -euo pipefail
+          tail -n 1 "$RUNNER_TEMP/dump.sql" | grep -q "Dump completed" \
+            || { echo "::error::Dump has no completion footer -- truncated"; exit 1; }
+          tables=$(grep -c "^CREATE TABLE" "$RUNNER_TEMP/dump.sql")
+          echo "Tables in dump: $tables (expected at least $MIN_TABLES)"
+          [ "$tables" -ge "$MIN_TABLES" ] \
+            || { echo "::error::Only $tables tables in dump"; exit 1; }
+
+      - name: Compress and encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          [ -n "$BACKUP_PASSPHRASE" ] || { echo "::error::BACKUP_PASSPHRASE is not set"; exit 1; }
+          name="suaams-$(date -u +%Y-%m-%d-%H%M).sql.gz.gpg"
+          gzip -9 -c "$RUNNER_TEMP/dump.sql" \
+            | gpg --batch --yes --pinentry-mode loopback \
+                  --passphrase-file <(printf '%s' "$BACKUP_PASSPHRASE") \
+                  --symmetric --cipher-algo AES256 \
+                  -o "$RUNNER_TEMP/$name"
+          # Remove the plain copies now, not when the runner is recycled.
+          shred -u "$RUNNER_TEMP/dump.sql" "$RUNNER_TEMP/db.cnf"
+          echo "BACKUP_FILE=$name" >> "$GITHUB_ENV"
+          ls -lh "$RUNNER_TEMP/$name"
+
+      - name: Keep the encrypted backup for 30 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BACKUP_FILE }}
+          path: ${{ runner.temp }}/${{ env.BACKUP_FILE }}
+          retention-days: 30
+          # Already compressed and encrypted; zipping again gains nothing.
+          compression-level: 0
+          if-no-files-found: error
