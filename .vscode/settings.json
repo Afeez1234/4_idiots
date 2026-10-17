@@ -1,0 +1,20 @@
+{
+  // Point Pylance at the backend's virtualenv so its packages resolve as
+  // libraries instead of being indexed as ~2,500 workspace source files.
+  // Relative to the workspace root: the Python extension doesn't reliably
+  // expand ${workspaceFolder} in this particular setting.
+  "python.defaultInterpreterPath": "./SUAAMS/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": ["${workspaceFolder}/SUAAMS"],
+
+  // Only SUAAMS/ holds Python we write. Everything below is a virtualenv,
+  // build output, the Flutter app, or firmware: no Python to analyse there.
+  "python.analysis.exclude": [
+    "**/.venv",
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.git",
+    "SUAAMS_Mobile",
+    "ESP32_ARDUINO CODE",
+    "docs"
+  ]
+}
