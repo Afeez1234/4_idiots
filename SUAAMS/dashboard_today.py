@@ -103,8 +103,11 @@ def today(semester, now=None):
 
     slots = []
     if semester is not None:
+        # The coordinator is loaded with the course because the classes
+        # table names the lecturer on every row; lazily that was one query
+        # per lecturer. Co-lecturers are selectin on Course already.
         slots = (Timetable.query
-                 .options(joinedload(Timetable.course))
+                 .options(joinedload(Timetable.course).joinedload(Course.lecturer))
                  .filter(Timetable.semester_id == semester.id,
                          Timetable.day_of_week == day.weekday(),
                          Timetable.is_published.is_(True))

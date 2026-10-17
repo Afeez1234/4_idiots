@@ -63,7 +63,7 @@
     <div class="flex items-start justify-between gap-3">
       <span class="stat-label">{{ label }}</span>
       {% if icon %}
-        <span class="material-symbols-rounded text-lg" style="color: var(--color-{{ tone }})">{{ icon }}</span>
+        <span class="material-symbols-rounded text-lg" style="color: var(--color-{{ tone }})" aria-hidden="true">{{ icon }}</span>
       {% endif %}
     </div>
     <div>
@@ -126,7 +126,7 @@
    --------------------------------------------------------------------------- #}
 {%- macro pill(text, tone='neutral', icon='') -%}
   <span class="pill" data-tone="{{ tone }}">
-    {%- if icon -%}<span class="material-symbols-rounded text-sm">{{ icon }}</span>{%- endif -%}
+    {%- if icon -%}<span class="material-symbols-rounded text-sm" aria-hidden="true">{{ icon }}</span>{%- endif -%}
     {{- text -}}
   </span>
 {%- endmacro -%}
@@ -174,7 +174,7 @@
    --------------------------------------------------------------------------- #}
 {%- macro empty_state(message, icon='inbox', sub='') -%}
   <div class="empty-state">
-    <div class="empty-state-icon">
+    <div class="empty-state-icon" aria-hidden="true">
       <span class="material-symbols-rounded text-xl">{{ icon }}</span>
     </div>
     <p>{{ message }}</p>
@@ -208,7 +208,7 @@
      } -%}
   {%- set tone = tones.get(category, 'info') -%}
   <div class="alert" data-tone="{{ tone }}" role="alert">
-    <span class="material-symbols-rounded text-lg">
+    <span class="material-symbols-rounded text-lg" aria-hidden="true">
       {{- {'success': 'check_circle', 'error': 'error', 'warning': 'warning', 'info': 'info'}.get(tone, 'info') -}}
     </span>
     <p>{{ message }}</p>
@@ -233,11 +233,16 @@
 
 
 {# Section heading inside a card -- the 25 hand-repeated
-   `text-sm font-bold uppercase tracking-wide text-secondary` h2s. #}
+   `text-sm font-bold uppercase tracking-wide text-secondary` h2s.
+
+   Every icon in this file is aria-hidden (2026-10-17). Material Symbols are
+   text ligatures, so without it a screen reader announced the glyph's name
+   -- "Today's Classes info", "sensors", "check" -- next to the real text.
+   The ⓘ from info=true carries no tooltip or link; it is decoration only. #}
 {%- macro card_heading(text, info=false) -%}
   <h2 class="card-title flex items-center gap-1.5">
     {{ text }}
-    {% if info %}<span class="card-info">info</span>{% endif %}
+    {% if info %}<span class="card-info" aria-hidden="true">info</span>{% endif %}
   </h2>
 {%- endmacro -%}
 

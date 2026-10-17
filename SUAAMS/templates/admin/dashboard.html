@@ -4,7 +4,9 @@
 {% block title %}Dashboard | SUAAMS Admin{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
 {% block page_subtitle %}
+  {% if not load_error %}
   <p class="page-subtitle">{{ today.now.strftime('%A %d %B %Y') }} &middot; is today's teaching happening?</p>
+  {% endif %}
 {% endblock %}
 
 {# Shared by the check-in pill and the method split. NFC is the primary
@@ -23,12 +25,27 @@
 
 {% block content %}
 
+    {# The route's error path renders this with load_error and no data.
+       It used to redirect to the login page, which sends a signed-in
+       admin straight back here -- a redirect loop the browser ends with
+       ERR_TOO_MANY_REDIRECTS. The cause is in the server log. #}
+    {% if load_error %}
+        <div class="alert" data-tone="error" role="alert">
+            <span class="material-symbols-rounded text-lg" aria-hidden="true">warning</span>
+            <div>
+                <p class="font-semibold">Today's data couldn't be loaded.</p>
+                <p class="mt-0.5">This is usually a brief database hiccup. Reload the page to try again.</p>
+                <a href="{{ url_for('admin.dashboard') }}" class="btn-secondary btn-sm mt-3">Reload</a>
+            </div>
+        </div>
+    {% else %}
+
     {# Late classes: timetabled, no session LATE_AFTER minutes after the
        start. One banner each, with the reminder button (remind_lecturer). #}
     {% for row in today.alerts %}
         <div class="now-banner" data-tone="warning">
             <span class="now-banner-icon" data-tone="warning">
-                <span class="material-symbols-rounded text-xl">schedule</span>
+                <span class="material-symbols-rounded text-xl" aria-hidden="true">schedule</span>
             </span>
             <div class="min-w-0 flex-1 text-sm text-ink">
                 <span class="font-semibold">{{ row.course.course_code }} {{ row.course.course_title }}</span>
@@ -50,18 +67,17 @@
 
     {% set checkins = today.checkins %}
     {% set not_running = today.slots|selectattr('status', 'in', ['late', 'missed'])|list %}
-    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    {# Three figures that each answer part of "is teaching happening today?".
+       A fourth card (total active students) was dropped 2026-10-17: it says
+       nothing about today. The decorative icons went with it. #}
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
         {{ stat_card('Live Sessions', today.live|length,
-                     (today.live|map(attribute='room')|select|join(' · ')) or 'In progress right now',
-                     'sensors', 'success') }}
+                     (today.live|map(attribute='room')|select|join(' · ')) or 'In progress right now') }}
         {{ stat_card('Check-ins Today',
                      checkins.count ~ (' / ' ~ checkins.expected if checkins.expected else ''),
-                     (checkins.pct ~ '% present in the classes held') if checkins.pct is not none else 'No classes held yet',
-                     'how_to_reg') }}
+                     (checkins.pct ~ '% present in the classes held') if checkins.pct is not none else 'No classes held yet') }}
         {{ stat_card('Late or Missed', not_running|length,
-                     'Timetabled today, never started' if not_running else 'Every class so far has started',
-                     'event_busy', 'error' if not_running else 'success') }}
-        {{ stat_card('Students', total_students, 'Active this session', 'group') }}
+                     'Timetabled today, never started' if not_running else 'Every class so far has started') }}
     </div>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -70,7 +86,7 @@
            pattern as courses.html and students.html. #}
         <div class="card-clip lg:col-span-2">
             <div class="card-header flex items-center justify-between gap-3">
-                {{ card_heading("Today's Classes", info=true) }}
+                {{ card_heading("Today's Classes") }}
                 <a href="{{ url_for('admin.timetable_page') }}" class="btn-link">Full timetable</a>
             </div>
             {% if today.slots %}
@@ -86,6 +102,7 @@
                                 {{ course_chip(row.course.course_code) }}
                                 <span class="truncate text-sm text-secondary">{{ row.slot.room or '' }}</span>
                             </div>
+                            <p class="mt-1 truncate text-xs text-secondary">{{ row.course.lecturer_summary or 'No lecturer assigned' }}</p>
                             <p class="mt-1 text-xs text-muted">
                                 {% if row.present is not none %}{{ row.present }} / {{ row.enrolled }} present{% else %}{{ row.enrolled }} enrolled{% endif %}
                             </p>
@@ -113,6 +130,13 @@
                                             <span class="shrink-0 whitespace-nowrap">{{ course_chip(row.course.course_code) }}</span>
                                             <span class="truncate text-secondary">{{ row.course.course_title }}</span>
                                         </div>
+                                        {# Who to contact about a due, late or
+                                           missed class -- before 2026-10-17
+                                           only the late banner named them. A
+                                           second line, not its own column: a
+                                           sixth column pushed Present out of
+                                           the card at 1440px. #}
+                                        <p class="mt-1 truncate text-xs text-muted">{{ row.course.lecturer_summary or 'No lecturer assigned' }}</p>
                                     </td>
                                     <td class="td td-muted">{{ row.slot.room or '—' }}</td>
                                     <td class="td whitespace-nowrap">{{ pill(label, tone) }}</td>
@@ -143,7 +167,7 @@
         {# Latest check-ins, with how each arrived. #}
         <div class="card">
             <div class="card-header">
-                {{ card_heading('Latest Check-ins', info=true) }}
+                {{ card_heading('Latest Check-ins') }}
             </div>
             <div class="card-body">
                 {% if recent_checkins %}
@@ -175,7 +199,7 @@
            uses the three-tier grade scale (see _macros.html). #}
         <div class="card lg:col-span-2">
             <div class="card-header">
-                {{ card_heading('Department Attendance', info=true) }}
+                {{ card_heading('Department Attendance') }}
                 <p class="mt-1 text-2xs text-muted">This semester: check-ins &divide; (sessions &times; enrolled), per course</p>
             </div>
             <div class="card-body">
@@ -205,7 +229,7 @@
            are failing somewhere -- worth a look at that room's terminal. #}
         <div class="card">
             <div class="card-header">
-                {{ card_heading('Check-in Method', info=true) }}
+                {{ card_heading('Check-in Method') }}
                 <p class="mt-1 text-2xs text-muted">Today &middot; {{ checkins.count }} check-ins</p>
             </div>
             <div class="card-body">
@@ -235,4 +259,5 @@
         </div>
     </div>
 
+    {% endif %}
 {% endblock %}

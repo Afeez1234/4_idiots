@@ -104,16 +104,19 @@ def dashboard():
         return render_template(
             'admin/dashboard.html',
             today=dashboard_today.today(semester),
-            total_students=Student.query.filter_by(status='active').count(),
             department_attendance=dashboard_today.department_rates(semester),
             recent_checkins=dashboard_today.recent_checkins(),
             relative_time=_relative_time,
             active_page='dashboard',
         )
     except Exception:
+        # Render the page with an error panel rather than redirecting. The
+        # old redirect went to the login page, which sends a signed-in admin
+        # straight back here: an endless loop on any database hiccup.
+        db.session.rollback()
         log_exception("Admin Dashboard Error")
-        flash("An error occurred while loading administrative dashboard metrics.", "error")
-        return redirect(url_for('auth.login'))
+        return render_template('admin/dashboard.html', load_error=True,
+                               active_page='dashboard'), 500
 
 
 @admin_bp.route('/timetable/<int:slot_id>/remind', methods=['POST'])

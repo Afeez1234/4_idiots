@@ -51,7 +51,8 @@ def _dash_slot(slot_id, code, start, end, room, status, present, enrolled, remin
     h2, m2 = map(int, end.split(":"))
     return {
         "slot": {"id": slot_id, "start_time": time(h1, m1), "end_time": time(h2, m2), "room": room},
-        "course": {"course_code": code, "course_title": "Course " + code, "lecturer_names": "Dr. Amina Yusuf"},
+        "course": {"course_code": code, "course_title": "Course " + code, "lecturer_names": "Dr. Amina Yusuf",
+                   "lecturer_summary": "Dr. Amina Yusuf"},
         "status": status, "present": present, "enrolled": enrolled, "reminded_at": reminded_at,
     }
 
@@ -167,7 +168,6 @@ CONTEXTS = {
         role="admin",
         active_page="dashboard",
         active_semester={"name": "2026/2027 First Semester"},
-        total_students=474,
         today={
             "now": datetime(2026, 10, 8, 10, 40),
             "alerts": [r for r in _DASH_SLOTS if r["status"] == "late"],

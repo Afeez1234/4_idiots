@@ -84,9 +84,9 @@
                         <p class="truncate text-sm font-semibold text-on-rail">{{ session.get('username', 'User') }}</p>
                         <p class="text-2xs capitalize text-on-rail-muted">{{ session.get('role', '') }}</p>
                     </div>
-                    <a href="{{ url_for('auth.logout') }}" title="Log out"
+                    <a href="{{ url_for('auth.logout') }}" title="Log out" aria-label="Log out"
                        class="shrink-0 text-on-rail-muted transition-colors hover:text-error">
-                        <span class="material-symbols-rounded text-xl">logout</span>
+                        <span class="material-symbols-rounded text-xl" aria-hidden="true">logout</span>
                     </a>
                 </div>
             </div>
@@ -98,7 +98,7 @@
             <header class="page-header shrink-0">
                 <div class="flex min-w-0 items-center gap-3">
                     <button id="sidebar-toggle" class="btn-ghost btn-icon lg:hidden" aria-label="Toggle navigation">
-                        <span class="material-symbols-rounded">menu</span>
+                        <span class="material-symbols-rounded" aria-hidden="true">menu</span>
                     </button>
                     <div class="min-w-0">
                         <h1 class="page-title truncate">{% block page_title %}Dashboard{% endblock %}</h1>

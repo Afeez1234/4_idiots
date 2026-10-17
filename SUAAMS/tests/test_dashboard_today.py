@@ -291,6 +291,17 @@ class DashboardTodayTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn('today', render.call_args.kwargs)
 
+    def test_dashboard_error_renders_instead_of_redirecting(self):
+        # It used to redirect to the login page, which bounces a signed-in
+        # admin straight back: an endless redirect loop.
+        with self.client.session_transaction() as sess:
+            sess['user_id'], sess['username'], sess['role'] = self.admin.id, 'tunde', 'admin'
+        with mock.patch('blueprints.admin.dashboard_today.today', side_effect=RuntimeError('db down')), \
+             mock.patch('blueprints.admin.render_template', return_value='error page') as render:
+            response = self.client.get('/admin/dashboard')
+        self.assertEqual(response.status_code, 500)
+        self.assertTrue(render.call_args.kwargs.get('load_error'))
+
     # ---- page cost --------------------------------------------------------------
 
     def test_queries_do_not_grow_with_classes(self):
@@ -299,7 +310,11 @@ class DashboardTodayTestCase(unittest.TestCase):
             listener = lambda *a: seen.append(1)    # noqa: E731
             event.listen(db.engine, 'before_cursor_execute', listener)
             try:
-                dt.today(self.sem, now=at(11, 0))
+                # The classes table names each row's lecturer, so read it
+                # here too: a lazy coordinator load would add a query per
+                # lecturer.
+                for row in dt.today(self.sem, now=at(11, 0))['slots']:
+                    row['course'].lecturer_summary
                 dt.department_rates(self.sem)
                 dt.recent_checkins()
             finally:
@@ -309,6 +324,9 @@ class DashboardTodayTestCase(unittest.TestCase):
         def add_classes(n, start):
             for i in range(n):
                 c = self.course(f'X{start + i}', self.cpe)
+                # A lecturer of its own: with them all sharing Dr Lead the
+                # identity map would hide a per-lecturer query.
+                c.lecturer_id = self.lecturer(f'Dr X{start + i}', f'STF/X{start + i}').id
                 s = self.slot(c, (9, 0), (10, 0))
                 sess = self.session(c, slot=s)
                 self.checkin(self.students(c, 1)[0], sess)

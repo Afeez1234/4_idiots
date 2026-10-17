@@ -42,13 +42,28 @@
   --color-error:       #D93A3F;   --color-error-soft:   #FCEDED;
   --color-error-hover: #B72D32;
 
+  /* Text on a -soft background (pills, alerts). The base hues above are
+     fills -- bars, dots, buttons -- and as 11px text on their own -soft tint
+     they measured 3.0-4.0:1, under WCAG AA's 4.5:1 and unreadable on a
+     lecture-hall projector. These darker shades measure 4.9-5.8:1 on their
+     tint. Fills keep the brighter base hue. (Added 2026-10-17.) */
+  --color-success-ink: #0B7A3B;   /* 4.87:1 on success-soft */
+  --color-warning-ink: #8F5300;   /* 5.61:1 on warning-soft */
+  --color-error-ink:   #B42328;   /* 5.75:1 on error-soft */
+  --color-accent-ink:  #1E56CC;   /* 5.68:1 on accent-soft */
+
   /* --- Ink. In a dark theme primary text was literally `text-white`.
          Inverted here to a single --color-ink so that ONE rename covers it.
          `text-white` still means white and is still correct ON a filled
          accent/error button -- just no longer valid on a card. */
   --color-ink:       #141824;
   --color-secondary: #5A6474;   /* KEEP NAME (was #9CA3AF, a light grey) */
-  --color-muted:     #939BA9;   /* KEEP NAME (was #4B5563) */
+  /* KEEP NAME (was #4B5563 in the dark theme). Darkened 2026-10-17 from
+     #939BA9, which measured 2.8:1 on a card and 2.5:1 on the page -- every
+     caption, timestamp and empty state failed WCAG AA. #646C7D is 5.3:1 on
+     card, 4.8:1 on surface and on the warning/success banner tints. It now
+     sits close to --color-secondary; hierarchy comes from size and weight. */
+  --color-muted:     #646C7D;
 
   /* --- Text on the dark rail. ----------------------------------------- */
   --color-on-rail:       #E8EBF2;
@@ -251,12 +266,13 @@
   .pill {
     @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-semibold;
   }
-  .pill[data-tone="success"] { @apply bg-success-soft text-success; }
-  .pill[data-tone="warning"] { @apply bg-warning-soft text-warning; }
-  .pill[data-tone="error"]   { @apply bg-error-soft   text-error; }
-  .pill[data-tone="accent"]  { @apply bg-accent-soft  text-accent; }
+  /* Text uses the -ink shades: 11px bold on a tint needs AA's 4.5:1. */
+  .pill[data-tone="success"] { @apply bg-success-soft text-success-ink; }
+  .pill[data-tone="warning"] { @apply bg-warning-soft text-warning-ink; }
+  .pill[data-tone="error"]   { @apply bg-error-soft   text-error-ink; }
+  .pill[data-tone="accent"]  { @apply bg-accent-soft  text-accent-ink; }
   .pill[data-tone="neutral"] { @apply bg-surface      text-secondary; }
-  .pill[data-tone="live"]    { @apply bg-success-soft text-success; }
+  .pill[data-tone="live"]    { @apply bg-success-soft text-success-ink; }
 
   /* Course-code chip -- pure repetition, 8 sites, no conditional logic. */
   .chip {
@@ -376,10 +392,10 @@
   .alert {
     @apply flex items-start gap-3 rounded-btn border px-4 py-3 text-sm;
   }
-  .alert[data-tone="success"] { @apply border-success/25 bg-success-soft text-success; }
-  .alert[data-tone="error"]   { @apply border-error/25   bg-error-soft   text-error; }
-  .alert[data-tone="warning"] { @apply border-warning/25 bg-warning-soft text-warning; }
-  .alert[data-tone="info"]    { @apply border-accent-line bg-accent-soft text-accent; }
+  .alert[data-tone="success"] { @apply border-success/25 bg-success-soft text-success-ink; }
+  .alert[data-tone="error"]   { @apply border-error/25   bg-error-soft   text-error-ink; }
+  .alert[data-tone="warning"] { @apply border-warning/25 bg-warning-soft text-warning-ink; }
+  .alert[data-tone="info"]    { @apply border-accent-line bg-accent-soft text-accent-ink; }
 
   /* ======================================================================
      STRUCTURE

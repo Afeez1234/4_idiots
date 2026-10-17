@@ -11,7 +11,7 @@
   {# active_semester comes from the inject_active_semester context processor in
      blueprints/admin.py, so it is available on every admin route. #}
   <span class="rail-pill" data-tone="{{ 'semester' if active_semester else 'inactive' }}">
-    <span class="material-symbols-rounded text-sm">event_available</span>
+    <span class="material-symbols-rounded text-sm" aria-hidden="true">event_available</span>
     <span class="rail-label">{{ active_semester.name if active_semester else 'No active semester' }}</span>
   </span>
 {% endblock %}
@@ -22,11 +22,11 @@
     <div class="space-y-1">
       <a href="{{ url_for('admin.dashboard') }}"
          class="nav-link {{ 'nav-link-active' if active_page == 'dashboard' }}">
-        <span class="material-symbols-rounded text-xl">dashboard</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">dashboard</span>
         <span class="rail-label">Dashboard</span>
       </a>
       <a href="{{ url_for('admin.analytics_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'analytics' }}">
-        <span class="material-symbols-rounded text-xl">analytics</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">analytics</span>
         <span class="rail-label">Analytics</span>
       </a>
     </div>
@@ -36,15 +36,15 @@
     <p class="nav-section">People</p>
     <div class="space-y-1">
       <a href="{{ url_for('admin.lecturers_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'lecturers' }}">
-        <span class="material-symbols-rounded text-xl">school</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">school</span>
         <span class="rail-label">Lecturers</span>
       </a>
       <a href="{{ url_for('admin.students_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'students' }}">
-        <span class="material-symbols-rounded text-xl">groups_2</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">groups_2</span>
         <span class="rail-label">Students</span>
       </a>
       <a href="{{ url_for('admin.hods_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'hods' }}">
-        <span class="material-symbols-rounded text-xl">workspace_premium</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">workspace_premium</span>
         <span class="rail-label">HODs</span>
       </a>
     </div>
@@ -54,11 +54,11 @@
     <p class="nav-section">Academic</p>
     <div class="space-y-1">
       <a href="{{ url_for('admin.courses_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'courses' }}">
-        <span class="material-symbols-rounded text-xl">book</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">book</span>
         <span class="rail-label">Courses</span>
       </a>
       <a href="{{ url_for('admin.timetable_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'timetable' }}">
-        <span class="material-symbols-rounded text-xl">calendar_month</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">calendar_month</span>
         <span class="rail-label">Timetable</span>
         {# Imported slots nobody has published: invisible to students and
            lecturers until someone does (inject_active_semester counts them). #}
@@ -67,11 +67,11 @@
         {% endif %}
       </a>
       <a href="{{ url_for('admin.organization_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'organization' }}">
-        <span class="material-symbols-rounded text-xl">account_tree</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">account_tree</span>
         <span class="rail-label">Organization</span>
       </a>
       <a href="{{ url_for('admin.semesters_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'semesters' }}">
-        <span class="material-symbols-rounded text-xl">date_range</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">date_range</span>
         <span class="rail-label">Semesters</span>
       </a>
     </div>
@@ -81,7 +81,7 @@
     <p class="nav-section">Hardware</p>
     <div class="space-y-1">
       <a href="{{ url_for('admin.terminals_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'terminals' }}">
-        <span class="material-symbols-rounded text-xl">nfc</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">nfc</span>
         <span class="rail-label">Terminals</span>
       </a>
     </div>
@@ -91,11 +91,11 @@
     <p class="nav-section">Communication</p>
     <div class="space-y-1">
       <a href="{{ url_for('admin.announcements_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' }}">
-        <span class="material-symbols-rounded text-xl">campaign</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">campaign</span>
         <span class="rail-label">Announcements</span>
       </a>
       <a href="{{ url_for('admin.reports_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'reports' }}">
-        <span class="material-symbols-rounded text-xl">summarize</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">summarize</span>
         <span class="rail-label">Reports</span>
       </a>
     </div>
@@ -107,7 +107,7 @@
     <p class="nav-section">Oversight</p>
     <div class="space-y-1">
       <a href="{{ url_for('admin.activity_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'activity' }}">
-        <span class="material-symbols-rounded text-xl">history</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">history</span>
         <span class="rail-label">Activity</span>
       </a>
     </div>
