@@ -1,11 +1,16 @@
 {% extends "base_admin.html" %}
 {% from '_macros.html' import pill, card_heading %}
 
-{# Preview of a lecturer or course CSV upload (bulk_upload.py). Nothing has
-   been saved when this page shows. "Save" posts the rows back as JSON,
-   where they are checked again from scratch before saving. #}
+{# Preview of a student, lecturer or course CSV upload (bulk_upload.py).
+   Nothing has been saved when this page shows. "Save" posts the rows back as
+   JSON, where they are checked again from scratch before saving.
 
-{% set noun = 'lecturer' if plan.kind == 'lecturers' else 'course' %}
+   Students skip bad rows (bulk_upload.SKIPS_BAD_ROWS), so their preview can
+   be saved with problem rows in it: those rows are listed as "Skipped". For
+   lecturers and courses any problem row blocks the file. #}
+
+{% set noun = plan.kind[:-1] %}
+{% set skips = plan.kind == 'students' %}
 {% set new_count = plan.count('new') %}
 {% set exists_count = plan.count('exists') %}
 {% set error_count = plan.count('error') %}
@@ -26,8 +31,17 @@
         </p>
 
         {% if plan.ok and new_count %}
+            {% if skips and error_count %}
+                <div class="alert" data-tone="warning">
+                    <span>
+                        {{ error_count }} row{{ '' if error_count == 1 else 's' }} with a problem will be skipped
+                        &mdash; they're listed first below, with the reason. Fix them in the CSV and upload it
+                        again later; rows already saved are skipped then, not duplicated.
+                    </span>
+                </div>
+            {% endif %}
             <p class="text-sm text-secondary">
-                Everything checks out. Saving creates {{ new_count }} {{ noun }}{{ '' if new_count == 1 else 's' }}{% if exists_count %};
+                {% if not error_count %}Everything checks out. {% endif %}Saving creates {{ new_count }} {{ noun }}{{ '' if new_count == 1 else 's' }}{% if exists_count %};
                 the {{ exists_count }} that already exist are left unchanged{% endif %}.
             </p>
             <form action="{{ url_for('admin.bulk_upload_confirm') }}" method="POST" class="flex flex-wrap gap-2">
@@ -37,7 +51,10 @@
                 <a href="{{ back_url }}" class="btn-ghost">Cancel</a>
             </form>
         {% elif plan.ok %}
-            <p class="text-sm text-secondary">Every row already exists. There is nothing new to save.</p>
+            <p class="text-sm text-secondary">
+                {% if error_count %}No row can be saved: each one already exists or has a problem listed below.
+                {% else %}Every row already exists. There is nothing new to save.{% endif %}
+            </p>
             <a href="{{ back_url }}" class="btn-secondary">Back</a>
         {% else %}
             <div class="alert" data-tone="warning">
@@ -56,7 +73,13 @@
                 <thead>
                     <tr>
                         <th class="th">Line</th>
-                        {% if plan.kind == 'lecturers' %}
+                        {% if plan.kind == 'students' %}
+                            <th class="th">Matric No.</th>
+                            <th class="th">Name</th>
+                            <th class="th">Level</th>
+                            <th class="th">Department</th>
+                            <th class="th">RFID UID</th>
+                        {% elif plan.kind == 'lecturers' %}
                             <th class="th">Staff ID</th>
                             <th class="th">Name</th>
                             <th class="th">Department</th>
@@ -76,7 +99,13 @@
                     {% for r in plan.rows|sort(attribute='status') %}
                         <tr>
                             <td class="td td-muted mono text-xs">{{ r.line }}</td>
-                            {% if plan.kind == 'lecturers' %}
+                            {% if plan.kind == 'students' %}
+                                <td class="td mono whitespace-nowrap">{{ r.values.matric_number }}</td>
+                                <td class="td">{{ r.values.full_name }}</td>
+                                <td class="td td-muted">{{ r.resolved.level or r.values.level }}</td>
+                                <td class="td td-muted">{{ r.values.department }}</td>
+                                <td class="td td-muted mono">{{ r.values.rfid_uid or '—' }}</td>
+                            {% elif plan.kind == 'lecturers' %}
                                 <td class="td mono">{{ r.values.staff_id }}</td>
                                 <td class="td">{{ r.values.full_name }}</td>
                                 <td class="td td-muted">{{ r.values.department }}</td>
@@ -95,7 +124,10 @@
                             {% endif %}
                             <td class="td">
                                 {% if r.errors %}
-                                    {% for e in r.errors %}<p class="text-xs text-error">{{ e }}</p>{% endfor %}
+                                    {# A student row with a problem is skipped, not
+                                       fatal: say so in words, not just in red. #}
+                                    {% if skips %}{{ pill('Skipped', 'warning') }}{% endif %}
+                                    {% for e in r.errors %}<p class="text-xs text-error-ink">{{ e }}</p>{% endfor %}
                                 {% elif r.status == 'exists' %}
                                     {{ pill('Exists', 'neutral') }} <span class="text-2xs text-muted">{{ r.note }}</span>
                                 {% else %}

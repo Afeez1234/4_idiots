@@ -212,40 +212,62 @@ class AuditTestCase(unittest.TestCase):
         self.assertEqual(self.entries('faculty.create'), [])
 
     def test_bad_csv_row_does_not_discard_the_rows_before_it(self):
-        self.sign_in(self.admin)
         csv_text = (
             'matric_number,full_name,level,department_name,rfid_uid\n'
             'MCT/19/0010,First,400,Mechatronics,AAA\n'
-            'MCT/19/0011,Second,400,Mechatronics,AAA\n'   # duplicate RFID: fails
+            'MCT/19/0011,Second,400,Mechatronics,AAA\n'   # duplicate RFID: skipped
             'MCT/19/0012,Third,400,Mechatronics,\n'
         )
-        self.client.post('/admin/students/bulk-enroll', data={
-            'file': (io.BytesIO(csv_text.encode()), 'students.csv'),
-        }, content_type='multipart/form-data')
+        self.upload(csv_text)
 
         saved = {s.matric_number for s in Student.query.all()}
         self.assertEqual(saved, {'MCT/19/0010', 'MCT/19/0012'})
         entry = self.entries('student.bulk_import')[0]
         self.assertEqual(entry.details['created'], 2)
-        self.assertEqual(entry.details['skipped'], 1)
+        self.assertEqual(entry.details['skipped_invalid'], 1)
+        # The reason is kept, so it can be read on the Activity page.
+        self.assertIn('line 3', entry.details['skipped_examples'][0])
+
+    def test_preview_saves_nothing_and_shows_skipped_rows(self):
+        preview = self.preview(
+            'matric_number,full_name,level,department_name\n'
+            'MCT/19/0030,Good,400,Mechatronics\n'
+            'MCT/19/0031,Bad Level,900,Mechatronics\n'
+        )
+        self.assertEqual(Student.query.count(), 0)
+        plan = preview['plan']
+        self.assertTrue(plan.ok)                      # a student file saves around bad rows
+        self.assertEqual((plan.count('new'), plan.count('error')), (1, 1))
+        self.assertIn('900', [r for r in plan.rows if r.errors][0].errors[0])
 
     def test_csv_saved_by_excel_is_read(self):
         # Excel's "CSV UTF-8" puts a byte-order mark in front of the header,
         # and Windows often names the file in capitals.
-        self.sign_in(self.admin)
-        csv_bytes = '\ufeffmatric_number,full_name,level,department_name\r\nMCT/19/0020,Excel,400,Mechatronics\r\n'
-        self.client.post('/admin/students/bulk-enroll', data={
-            'file': (io.BytesIO(csv_bytes.encode('utf-8')), 'STUDENTS.CSV'),
-        }, content_type='multipart/form-data')
+        csv_text = '\ufeffmatric_number,full_name,level,department_name\r\nMCT/19/0020,Excel,400,Mechatronics\r\n'
+        self.upload(csv_text, filename='STUDENTS.CSV')
         self.assertEqual([s.matric_number for s in Student.query.all()], ['MCT/19/0020'])
 
     # ---- bulk upload speed and rules -------------------------------------------
 
-    def upload(self, csv_text):
+    # Since 2026-10-17 the student upload is upload -> preview -> confirm
+    # (bulk_upload.py); it used to save on submit at /students/bulk-enroll.
+
+    def preview(self, csv_text, filename='students.csv'):
+        """Upload a file; the preview page's render kwargs, or None if the
+        file was refused before a preview."""
         self.sign_in(self.admin)
-        return self.client.post('/admin/students/bulk-enroll', data={
-            'file': (io.BytesIO(csv_text.encode()), 'students.csv'),
-        }, content_type='multipart/form-data')
+        with mock.patch('blueprints.admin.render_template', return_value='') as render:
+            self.client.post('/admin/bulk/students', data={
+                'file': (io.BytesIO(csv_text.encode('utf-8')), filename),
+            }, content_type='multipart/form-data')
+        return render.call_args.kwargs if render.called else None
+
+    def upload(self, csv_text, filename='students.csv'):
+        """Upload, then confirm the preview, as an admin clicking Save."""
+        preview = self.preview(csv_text, filename)
+        if preview:
+            self.client.post('/admin/bulk/confirm', data={'plan': preview['plan_json']})
+        return preview
 
     @staticmethod
     def csv_rows(start, count):
@@ -298,11 +320,14 @@ class AuditTestCase(unittest.TestCase):
             {'MCT/20/0000', 'MCT/20/0001'},
         )
         entry = self.entries('student.bulk_import')[-1]
-        self.assertEqual((entry.details['created'], entry.details['skipped']), (1, 3))
+        # Already Here exists (left unchanged); the lower-case repeat and the
+        # bad department are skipped with problems.
+        self.assertEqual((entry.details['created'], entry.details['skipped_existing'],
+                          entry.details['skipped_invalid']), (1, 1, 2))
 
     def test_oversized_upload_is_refused_and_saves_nothing(self):
-        from blueprints.admin import BULK_UPLOAD_MAX_ROWS
-        self.upload(self.csv_rows(0, BULK_UPLOAD_MAX_ROWS + 1))
+        from bulk_upload import MAX_ROWS
+        self.assertIsNone(self.upload(self.csv_rows(0, MAX_ROWS + 1)))
         self.assertEqual(Student.query.count(), 0)
 
     def test_enrol_by_matric_number(self):

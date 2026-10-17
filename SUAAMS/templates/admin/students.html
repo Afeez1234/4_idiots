@@ -32,7 +32,7 @@
 
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Add Student', info=true) }}
+                    {{ card_heading('Add Student') }}
                 </div>
                 <div class="card-body">
                     <form action="{{ url_for('admin.students_page') }}" method="POST" class="space-y-4">
@@ -89,29 +89,33 @@
 
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Bulk Enroll (CSV)', info=true) }}
+                    {{ card_heading('Bulk Enroll (CSV)') }}
                 </div>
                 <div class="card-body">
-                    {# The only multipart form in the admin portal. enctype is
-                       load-bearing: drop it and the browser sends the filename
-                       as a plain form value and the upload silently finds
-                       nothing. #}
-                    <form action="{{ url_for('admin.bulk_enroll_students') }}" method="POST"
+                    {# Upload -> preview -> confirm (bulk_upload.py), like the
+                       lecturer and course uploads. Until 2026-10-17 this saved
+                       on submit and reported skipped rows as "View logs".
+                       enctype is load-bearing: drop it and the browser sends
+                       the filename as a plain form value and the upload
+                       silently finds nothing. #}
+                    <form action="{{ url_for('admin.bulk_upload_preview', kind='students') }}" method="POST"
                           enctype="multipart/form-data" class="space-y-4">
                         {% include '_csrf_field.html' %}
 
                         <div>
                             <label class="form-label" for="csv-file">CSV File</label>
-                            <input type="file" name="file" id="csv-file" accept=".csv" required class="form-file">
+                            <input type="file" name="file" id="csv-file" accept=".csv,text/csv" required class="form-file">
                             <p class="form-help">
-                                Required columns: matric_number, full_name, level, department_name.
-                                Level must be 100–500 ("400" or "400L"); other rows are skipped.
-                                Optional: rfid_uid. Default password for every row is its own
-                                matric number.
+                                Columns: matric_number, full_name, level (100–500, "400" or "400L"),
+                                department (its exact name), and optionally rfid_uid. Up to 1,000 rows.
+                                You'll see every row before anything is saved; rows with a problem are
+                                skipped and listed with the reason. Each student's first password is
+                                their matric number.
+                                <a href="{{ url_for('admin.bulk_template', kind='students') }}" class="text-accent">Download the template</a>.
                             </p>
                         </div>
 
-                        <button type="submit" class="btn-secondary mt-2 w-full">Upload &amp; Enroll</button>
+                        <button type="submit" class="btn-secondary mt-2 w-full">Preview upload</button>
                     </form>
                 </div>
             </div>
@@ -121,7 +125,7 @@
 
             {# Yearly promotion lives on its own page: it acts on everyone. #}
             <div class="card card-body">
-                {{ card_heading('New Session', info=true) }}
+                {{ card_heading('New Session') }}
                 <p class="mt-3 text-xs text-secondary">
                     Move every active student up one level, once per session, after making the new session's
                     first semester active. You'll see a preview first, and it can be undone.
@@ -130,8 +134,10 @@
             </div>
         </div>
 
-        <!-- Roster -->
-        <div class="form-main">
+        {# Roster. order-first below lg: finding a student is the page's main
+           job, so on a phone it comes before the four forms rather than
+           after them. lg:order-none puts it back in the right-hand column. #}
+        <div class="form-main order-first lg:order-none">
             <div class="card-clip">
                 {{ directory_heading('Roster', pagination.total, 'student') }}
 
@@ -362,19 +368,18 @@
     // appear. Reading it as a data attribute and interpolating it into a
     // JS template literal here avoids that: it's a real string value at
     // that point, never re-parsed as code.
-    // Dropdowns apply as soon as they change; the search box still waits
-    // for Enter/Search so it doesn't reload on every keystroke. Without JS
-    // the Search button applies everything, so this is a convenience only.
-    document.querySelectorAll('#roster-filters select').forEach(function (select) {
-        select.addEventListener('change', function () {
-            select.form.submit();
-        });
-    });
+    // The filter dropdowns used to submit on change. With a keyboard, an
+    // arrow key on a closed <select> fires change, so the page reloaded on
+    // the first press -- you couldn't arrow down to a department -- and
+    // focus jumped to the top (WCAG 3.2.2). Removed 2026-10-17: the Search
+    // button applies every filter.
 
     document.querySelectorAll('.unbind-form').forEach(function (form) {
         form.addEventListener('submit', function (e) {
             const name = form.dataset.studentName;
-            if (!confirm(`Unbind ${name}'s device? They'll be able to pair a new one on next login.`)) {
+            // The policy (CLAUDE.md, device binding): unbind only after the
+            // student presents their physical school ID, so the prompt says so.
+            if (!confirm(`Unbind ${name}'s phone? Only do this after checking their student ID card. They can pair a new phone at their next login.`)) {
                 e.preventDefault();
             }
         });

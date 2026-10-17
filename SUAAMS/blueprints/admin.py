@@ -6,7 +6,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, Response
 import bcrypt
-from sqlalchemy import or_, insert as sa_insert
+from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
@@ -463,7 +463,8 @@ def _lecturer_course_counts(lecturer_ids, semester):
 # by the upload itself; the preview's rows come back with the confirm form
 # as JSON and are checked again from scratch there. See bulk_upload.py.
 
-BULK_PAGES = {'lecturers': 'admin.lecturers_page', 'courses': 'admin.courses_page'}
+BULK_PAGES = {'students': 'admin.students_page', 'lecturers': 'admin.lecturers_page',
+              'courses': 'admin.courses_page'}
 
 
 @admin_bp.route('/bulk/<kind>/template.csv', methods=['GET'])
@@ -499,8 +500,12 @@ def bulk_upload_preview(kind):
         if len(data) > 2 * 1024 * 1024:
             raise bulk_upload.BulkCsvError('The file is over 2 MB -- split it into smaller files.')
         rows = bulk_upload.read_csv(data, kind)
-        plan = (bulk_upload.plan_lecturers(rows, upload.filename) if kind == 'lecturers'
-                else bulk_upload.plan_courses(rows, upload.filename, semester))
+        if kind == 'students':
+            plan = bulk_upload.plan_students(rows, upload.filename)
+        elif kind == 'lecturers':
+            plan = bulk_upload.plan_lecturers(rows, upload.filename)
+        else:
+            plan = bulk_upload.plan_courses(rows, upload.filename, semester)
     except bulk_upload.BulkCsvError as e:
         flash(f"{e} Nothing was saved.", 'error')
         return redirect(back)
@@ -533,22 +538,37 @@ def bulk_upload_confirm():
             flash('Something changed since the preview -- see the errors below. Nothing was saved.', 'error')
             return _render_bulk_preview(plan, semester)
 
-        if kind == 'lecturers':
+        if kind == 'students':
+            created = bulk_upload.apply_students(plan)
+            what = f"{created} students"
+        elif kind == 'lecturers':
             created = bulk_upload.apply_lecturers(plan)
             what = f"{created} lecturers"
         else:
             created = bulk_upload.apply_courses(plan, semester)
             what = f"{created} courses for {semester.name}"
         skipped = plan.count('exists')
-        # One entry for the whole file, like the student upload.
+        # Rows with a problem: only a student upload saves around them
+        # (bulk_upload.SKIPS_BAD_ROWS); the others never get this far.
+        invalid = [r for r in plan.rows if r.errors]
+        details = {'filename': plan.filename, 'created': created, 'skipped_existing': skipped,
+                   'semester_id': semester.id if semester else None}
+        if invalid:
+            # The first few, so "why were 12 skipped?" can be answered from
+            # the Activity page later.
+            details['skipped_invalid'] = len(invalid)
+            details['skipped_examples'] = [f"line {r.line}: {r.errors[0]}" for r in invalid[:20]]
+        # One entry for the whole file, not one per row.
         log_action(f"{kind[:-1]}.bulk_import",
-                   f"Uploaded {plan.filename}: {what} created, {skipped} already existed",
-                   kind[:-1], None,
-                   {'filename': plan.filename, 'created': created, 'skipped_existing': skipped,
-                    'semester_id': semester.id if semester else None})
+                   f"Uploaded {plan.filename}: {what} created, {skipped} already existed"
+                   + (f", {len(invalid)} skipped with problems" if invalid else ''),
+                   kind[:-1], None, details)
         db.session.commit()
+        first_password = {'students': 'matric number', 'lecturers': 'staff ID'}.get(kind)
         flash(f"Created {what}." + (f" {skipped} already existed and were left unchanged." if skipped else '')
-              + (" Each signs in with their staff ID as the first password." if kind == 'lecturers' and created else ''),
+              + (f" {len(invalid)} with problems were skipped." if invalid else '')
+              + (f" Each signs in with their {first_password} as the first password."
+                 if first_password and created else ''),
               'success')
     except bulk_upload.BulkCsvError as e:
         flash(f"{e} Nothing was saved.", 'error')
@@ -1082,225 +1102,6 @@ def students_page():
         is_filtered=bool(filter_args),
         active_page='students',
     )
-
-
-# Largest CSV accepted in one upload. With the batched inserts below, 1,000
-# rows is a few seconds even on Render's free tier -- well inside the
-# request timeout. Bigger files are refused outright rather than half-run.
-BULK_UPLOAD_MAX_ROWS = 1000
-
-# Rows per IN (...) lookup and per INSERT batch. Keeps each statement well
-# under MySQL's max_allowed_packet however big the file is.
-_BULK_CHUNK = 500
-
-# bcrypt cost for DEFAULT passwords created by a bulk upload. Every other
-# password in the app uses bcrypt's default (12).
-#
-# Why lower here: the default password IS the student's matric number --
-# printed on their ID card and present in the uploaded CSV. A slow hash
-# protects a password an attacker can't guess; it adds nothing to one they
-# already know. What protects these accounts is the forced change at first
-# sign-in, and the new password is hashed at full cost (12) by the
-# change-password routes. Meanwhile cost 12 is ~0.3s per hash on a fast PC
-# and roughly 3s on Render's free tier, which is what made uploads time out.
-# Cost 4 (bcrypt's minimum) is ~1ms.
-BULK_DEFAULT_PASSWORD_ROUNDS = 4
-
-
-def _existing_values(column, values):
-    """Which of `values` already exist in `column`, in a few IN queries."""
-    found = set()
-    unique = list(dict.fromkeys(values))
-    for i in range(0, len(unique), _BULK_CHUNK):
-        chunk = unique[i:i + _BULK_CHUNK]
-        found.update(v for (v,) in db.session.query(column).filter(column.in_(chunk)))
-    return found
-
-
-def _bulk_create_students(valid):
-    """Insert users + student profiles for pre-validated rows.
-
-    Bulk INSERTs (one multi-row statement per chunk) instead of one ORM
-    object and flush per student. Users go in first; their ids are read
-    back by username in one query, since MySQL can't return generated ids
-    from a multi-row INSERT. Not committed here -- the caller commits
-    together with its audit entry.
-    """
-    for i in range(0, len(valid), _BULK_CHUNK):
-        chunk = valid[i:i + _BULK_CHUNK]
-        db.session.execute(sa_insert(User), [
-            {
-                'username': matric,
-                # Default password = the student's own matric number.
-                'password_hash': bcrypt.hashpw(
-                    matric.encode('utf-8'),
-                    bcrypt.gensalt(BULK_DEFAULT_PASSWORD_ROUNDS),
-                ).decode('utf-8'),
-                'role': 'student',
-                'is_active': True,
-                'requires_password_change': True,
-            }
-            for matric, _name, _level, _dept, _rfid in chunk
-        ])
-        user_ids = dict(
-            db.session.query(User.username, User.id)
-            .filter(User.username.in_([row[0] for row in chunk]))
-        )
-        db.session.execute(sa_insert(Student), [
-            {
-                'full_name': name,
-                'matric_number': matric,
-                'level': level,
-                'rfid_uid': rfid,
-                'department_id': dept_id,
-                'user_id': user_ids[matric],
-            }
-            for matric, name, level, dept_id, rfid in chunk
-        ])
-
-
-@admin_bp.route('/students/bulk-enroll', methods=['POST'])
-@limiter.limit("10 per minute")
-def bulk_enroll_students():
-    """
-    Processes university-scale bulk enrollments from an uploaded CSV file.
-    Expects columns: matric_number, full_name, level, department_name, rfid_uid
-    """
-    if 'file' not in request.files:
-        flash('No file selected.', 'error')
-        return redirect(url_for('admin.students_page'))
-
-    file = request.files['file']
-    if file.filename == '':
-        flash('No file selected.', 'error')
-        return redirect(url_for('admin.students_page'))
-
-    if not file.filename.lower().endswith('.csv'):
-        flash('Invalid file format. Please upload a structured .csv file.', 'error')
-        return redirect(url_for('admin.students_page'))
-
-    try:
-        # utf-8-sig, like bulk_upload.py: Excel's "CSV UTF-8" starts the file
-        # with a byte-order mark, which plain UTF-8 keeps -- the first header
-        # became "\ufeffmatric_number" and a correct file was refused for
-        # missing headers.
-        stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
-        csv_reader = csv.DictReader(stream)
-
-        required_cols = {'matric_number', 'full_name', 'level', 'department_name'}
-        if not required_cols.issubset(set(csv_reader.fieldnames or [])):
-            flash('CSV missing required headers: matric_number, full_name, level, department_name', 'error')
-            return redirect(url_for('admin.students_page'))
-
-        rows = list(csv_reader)
-        if len(rows) > BULK_UPLOAD_MAX_ROWS:
-            flash(f"This file has {len(rows)} rows. Upload at most {BULK_UPLOAD_MAX_ROWS} at a time: "
-                  f"split it into smaller files. Nothing was saved.", 'error')
-            return redirect(url_for('admin.students_page'))
-
-        # PERF: this used to do everything per row -- two lookup queries, a
-        # savepoint, two flushed INSERTs and a full-strength bcrypt hash --
-        # so about 6 database round trips and ~3s of CPU per student on
-        # Render's free tier. Gunicorn kills a request after 30s, so any
-        # upload past ~10 students died with a 502, freezing the site for
-        # everyone while it ran. Now: validate every row in memory against
-        # three up-front lookups, then insert all valid rows in bulk. The
-        # round trips no longer grow with the file size.
-        departments = {d.name.strip().lower(): d for d in Department.query.all()}
-        matrics = [r['matric_number'].strip() for r in rows if (r.get('matric_number') or '').strip()]
-        rfids = [r['rfid_uid'].strip() for r in rows if (r.get('rfid_uid') or '').strip()]
-        # Lower-cased: MySQL's default collation compares case-insensitively,
-        # so "mct/19/0001" would collide with "MCT/19/0001" at INSERT time.
-        taken_matrics = {m.lower() for m in _existing_values(User.username, matrics)}
-        taken_matrics |= {m.lower() for m in _existing_values(Student.matric_number, matrics)}
-        taken_rfids = {r.lower() for r in _existing_values(Student.rfid_uid, rfids)}
-
-        error_count = 0
-        skipped_records = []
-        valid = []  # (matric, name, level, department_id, rfid)
-
-        for row in rows:
-            matric_no = (row.get('matric_number') or '').strip()
-            name = (row.get('full_name') or '').strip()
-            level_str = (row.get('level') or '').strip()
-            dept_name = (row.get('department_name') or '').strip()
-            rfid = (row.get('rfid_uid') or '').strip() or None
-
-            if not matric_no or not name or not level_str or not dept_name:
-                error_count += 1
-                skipped_records.append(f"{name or 'Unknown'} (Incomplete Row fields)")
-                continue
-
-            # Same rule as the Add Student form. A bad level skips just this
-            # row (reported below like every other skipped row) rather than
-            # failing the whole upload.
-            level = normalize_level(level_str)
-            if level is None:
-                error_count += 1
-                skipped_records.append(f"{name} (Invalid level '{level_str}': use 100-500)")
-                continue
-
-            department = departments.get(dept_name.lower())
-            if not department:
-                error_count += 1
-                skipped_records.append(f"{name} (Department '{dept_name}' not found)")
-                continue
-
-            # Checked against the database AND earlier rows of this same
-            # file: a matric number or RFID that appears twice in one upload
-            # would otherwise fail the whole batch at INSERT time.
-            if matric_no.lower() in taken_matrics:
-                error_count += 1
-                skipped_records.append(f"{name} (Matric number already registered)")
-                continue
-            if rfid and rfid.lower() in taken_rfids:
-                error_count += 1
-                skipped_records.append(f"{name} (RFID UID '{rfid}' already in use)")
-                continue
-
-            taken_matrics.add(matric_no.lower())
-            if rfid:
-                taken_rfids.add(rfid.lower())
-            valid.append((matric_no, name, level, department.id, rfid))
-
-        success_count = len(valid)
-        if valid:
-            _bulk_create_students(valid)
-
-        # One entry for the whole file, not one per row -- a 2,000-row
-        # upload would otherwise bury every other entry on the Activity
-        # page. The first skipped rows are kept so "why were 12 skipped?"
-        # can be answered from the log.
-        if success_count or error_count:
-            log_action(
-                'student.bulk_import',
-                f"Uploaded {file.filename}: {success_count} students created, "
-                f"{error_count} skipped",
-                'student', None,
-                {
-                    'filename': file.filename,
-                    'created': success_count,
-                    'skipped': error_count,
-                    'skipped_examples': skipped_records[:20],
-                },
-            )
-        db.session.commit()
-
-        if success_count > 0:
-            flash(f"Successfully enrolled {success_count} students in bulk. Default credentials set.", 'success')
-        if error_count > 0:
-            flash(f"Skipped {error_count} records due to validation issues. View logs.", 'warning')
-            logger.warning(f"Skipped rows: {skipped_records}")
-
-    except Exception:
-        db.session.rollback()
-        # All-or-nothing: rows are validated first and saved in one
-        # transaction, so a failure here (bad encoding, or a matric number
-        # someone else registered a moment ago) saves none of the file.
-        flash('Failed to process the CSV. Nothing was saved -- check the file and try again.', 'error')
-        log_exception("Bulk CSV Execution Error")
-
-    return redirect(url_for('admin.students_page'))
 
 
 @admin_bp.route('/students/unbind/<int:student_id>', methods=['POST'])

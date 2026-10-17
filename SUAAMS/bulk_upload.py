@@ -1,9 +1,10 @@
-"""Bulk CSV upload of lecturers and courses, with a preview before saving.
+"""Bulk CSV upload of students, lecturers and courses, with a preview
+before saving.
 
 Same two steps as the timetable import, so nothing is saved unseen:
 
-  plan_lecturers() / plan_courses()   check every row -> a preview
-  apply_lecturers() / apply_courses() save an approved plan, in one transaction
+  plan_students() / plan_lecturers() / plan_courses()     check every row -> a preview
+  apply_students() / apply_lecturers() / apply_courses()  save an approved plan
 
 The preview travels back with the confirm form as JSON and is re-planned
 from scratch on confirm (plan_from_json), so a stale or edited preview can't
@@ -11,9 +12,14 @@ save anything the checks would reject.
 
 Rules
 -----
-* Any row with an error blocks the whole file: fix the CSV, upload again.
-  (The student upload skips bad rows instead; for lecturers and courses a
-  half-saved file is harder to repair than a rejected one.)
+* For lecturers and courses, any row with an error blocks the whole file:
+  fix the CSV, upload again -- a half-saved file is harder to repair than a
+  rejected one. Students are different (SKIPS_BAD_ROWS): a 900-row class
+  list shouldn't wait on one typo, so bad rows are shown in the preview as
+  skipped, with the reason, and the rest are saved. Until 2026-10-17 the
+  student upload had no preview at all: it saved on submit and reported
+  skipped rows only as "View logs" -- the server logs, out of an admin's
+  reach.
 * A row that already exists -- a staff ID already registered, a course code
   already in that semester -- is SKIPPED, not an error, and never changed.
   So re-uploading the same file, or a file that overlaps an earlier one, is
@@ -33,24 +39,31 @@ from dataclasses import dataclass, field
 import bcrypt
 from sqlalchemy import insert as sa_insert
 
-from models import db, Course, Department, Lecturer, User, course_lecturers
+from models import db, Course, Department, Lecturer, Student, User, course_lecturers
 from timetable_pdf import normalize_code
+from utils import normalize_level
 
 MAX_ROWS = 1000         # same limit as the student upload
 _CHUNK = 500            # rows per IN (...) lookup and per INSERT batch
 
-# Same reasoning as BULK_DEFAULT_PASSWORD_ROUNDS in blueprints/admin.py: the
-# default password is the staff ID itself, which is in the CSV, so a slow
-# hash protects nothing; the forced change at first sign-in does, and that
+# bcrypt cost for DEFAULT passwords. The default password is the matric
+# number or staff ID itself -- in the CSV, and on a student's ID card -- so a
+# slow hash protects nothing (cost 12 was ~3s per row on Render's free tier,
+# which timed uploads out; 4 is ~1ms); the forced change at first sign-in does, and that
 # new password is hashed at full cost.
 DEFAULT_PASSWORD_ROUNDS = 4
 
+STUDENT_COLUMNS = ('matric_number', 'full_name', 'level', 'department', 'rfid_uid')
 LECTURER_COLUMNS = ('staff_id', 'full_name', 'department')
 COURSE_COLUMNS = ('course_code', 'course_title', 'department', 'credit_units', 'lecturers')
+COLUMNS = {'students': STUDENT_COLUMNS, 'lecturers': LECTURER_COLUMNS, 'courses': COURSE_COLUMNS}
 REQUIRED = {
+    'students': {'matric_number', 'full_name', 'level', 'department'},
     'lecturers': {'staff_id', 'full_name', 'department'},
     'courses': {'course_code', 'course_title', 'lecturers'},
 }
+# Kinds whose bad rows are skipped rather than blocking the file (see Rules).
+SKIPS_BAD_ROWS = {'students'}
 # Header spellings accepted as the same column: the student CSV says
 # department_name, so colleagues will reuse it.
 ALIASES = {'department_name': 'department', 'code': 'course_code', 'title': 'course_title',
@@ -73,14 +86,15 @@ class BulkRow:
 
 @dataclass
 class BulkPlan:
-    kind: str                       # 'lecturers' | 'courses'
+    kind: str                       # 'students' | 'lecturers' | 'courses'
     filename: str
     rows: list[BulkRow]
     semester_id: int | None = None
 
     @property
     def ok(self):
-        return not any(r.errors for r in self.rows)
+        """Can this plan be saved? Always, for a kind that skips bad rows."""
+        return self.kind in SKIPS_BAD_ROWS or not any(r.errors for r in self.rows)
 
     def count(self, status):
         return sum(1 for r in self.rows if r.status == status)
@@ -110,7 +124,7 @@ def read_csv(data, kind):
     if missing:
         raise BulkCsvError(f"Missing column(s): {', '.join(sorted(missing))}. "
                            f"Download the template to see the expected headers.")
-    columns = LECTURER_COLUMNS if kind == 'lecturers' else COURSE_COLUMNS
+    columns = COLUMNS[kind]
     rows = []
     for i, raw in enumerate(reader, start=2):
         values = {c: '' for c in columns}
@@ -136,10 +150,13 @@ def _header(name):
 def plan_from_json(payload, semester=None):
     """Rebuild a plan from the preview's JSON (on confirm) and re-check it."""
     kind = payload.get('kind')
-    columns = LECTURER_COLUMNS if kind == 'lecturers' else COURSE_COLUMNS
-    rows = [BulkRow(line=int(r.get('line', 0)), values={c: str(r.get(c) or '') for c in columns})
+    if kind not in COLUMNS:
+        raise BulkCsvError('That preview is no longer valid.')
+    rows = [BulkRow(line=int(r.get('line', 0)), values={c: str(r.get(c) or '') for c in COLUMNS[kind]})
             for r in payload.get('rows', [])]
     filename = str(payload.get('filename') or '')
+    if kind == 'students':
+        return plan_students(rows, filename)
     if kind == 'lecturers':
         return plan_lecturers(rows, filename)
     if kind == 'courses' and semester is not None:
@@ -164,6 +181,59 @@ def _existing(column, values):
         found.update(v.lower() for (v,) in db.session.query(column)
                      .filter(db.func.lower(column).in_(unique[i:i + _CHUNK])))
     return found
+
+
+def plan_students(rows, filename):
+    """The same rules the student upload always had: level 100-500 ("400"
+    or "400L"), an existing department, a matric number and RFID UID used
+    once. A matric number already registered is skipped, not changed."""
+    departments = _departments()
+    matrics = [r.values['matric_number'] for r in rows]
+    students = _existing(Student.matric_number, matrics)
+    usernames = _existing(User.username, matrics)
+    rfids = _existing(Student.rfid_uid, [r.values['rfid_uid'] for r in rows])
+    seen_matric, seen_rfid = {}, {}
+
+    for r in rows:
+        v = r.values
+        for col in STUDENT_COLUMNS:
+            if col in REQUIRED['students'] and not v[col]:
+                r.errors.append(f"{col} is empty.")
+        if r.errors:
+            continue
+        key = v['matric_number'].lower()
+        if key in seen_matric:
+            r.errors.append(f"Matric number {v['matric_number']} is also on line {seen_matric[key]}.")
+            continue
+        seen_matric[key] = r.line
+        if key in students:
+            r.status, r.note = 'exists', 'Already registered -- skipped, not changed.'
+            continue
+        if key in usernames:
+            # A lecturer or admin already signs in with this as a username.
+            r.errors.append(f"{v['matric_number']} is already another account's login.")
+            continue
+        level = normalize_level(v['level'])
+        if level is None:
+            r.errors.append(f"Level \"{v['level']}\" isn't 100-500.")
+            continue
+        department = departments.get(v['department'].lower())
+        if not department:
+            r.errors.append(f"No department \"{v['department']}\". Create it on the Organization page first.")
+            continue
+        rfid = v['rfid_uid'].lower()
+        if rfid and (rfid in rfids or rfid in seen_rfid):
+            where = f"line {seen_rfid[rfid]}" if rfid in seen_rfid else 'another student'
+            r.errors.append(f"RFID UID {v['rfid_uid']} is already used by {where}.")
+            continue
+        if rfid:
+            seen_rfid[rfid] = r.line
+        r.resolved.update(level=level, department_id=department.id)
+
+    for r in rows:
+        if r.errors:
+            r.status = 'error'
+    return BulkPlan('students', filename, rows)
 
 
 def plan_lecturers(rows, filename):
@@ -269,6 +339,30 @@ def plan_courses(rows, filename, semester):
 # ---- saving ----------------------------------------------------------------------------
 # Not committed here: the caller commits together with its audit entry.
 
+def apply_students(plan):
+    """Saves the plan's new rows; its error rows are the skipped ones."""
+    rows = plan.new_rows
+    for i in range(0, len(rows), _CHUNK):
+        chunk = rows[i:i + _CHUNK]
+        db.session.execute(sa_insert(User), [{
+            'username': r.values['matric_number'],
+            # Default password = the matric number, as for one-at-a-time creation.
+            'password_hash': bcrypt.hashpw(r.values['matric_number'].encode('utf-8'),
+                                           bcrypt.gensalt(DEFAULT_PASSWORD_ROUNDS)).decode('utf-8'),
+            'role': 'student', 'is_active': True, 'requires_password_change': True,
+        } for r in chunk])
+        # MySQL can't return ids from a multi-row INSERT: read them back.
+        user_ids = {u.lower(): uid for u, uid in db.session.query(User.username, User.id)
+                    .filter(User.username.in_([r.values['matric_number'] for r in chunk]))}
+        db.session.execute(sa_insert(Student), [{
+            'full_name': r.values['full_name'], 'matric_number': r.values['matric_number'],
+            'level': r.resolved['level'], 'department_id': r.resolved['department_id'],
+            'rfid_uid': r.values['rfid_uid'] or None,
+            'user_id': user_ids[r.values['matric_number'].lower()],
+        } for r in chunk])
+    return len(rows)
+
+
 def apply_lecturers(plan):
     if not plan.ok:
         raise ValueError('This upload has errors and cannot be saved.')
@@ -318,6 +412,9 @@ def apply_courses(plan, semester):
 
 def template_csv(kind):
     """A header row plus one example, for the "Download template" links."""
+    if kind == 'students':
+        return ('matric_number,full_name,level,department,rfid_uid\n'
+                'MCT/20/0001,Aisha Bello,400,Mechatronics Engineering,\n')
     if kind == 'lecturers':
         return 'staff_id,full_name,department\nSTF/0001,Dr Jane Doe,Mechatronics Engineering\n'
     return ('course_code,course_title,department,credit_units,lecturers\n'
