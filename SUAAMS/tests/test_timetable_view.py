@@ -213,6 +213,52 @@ class TimetableViewTestCase(unittest.TestCase):
         self.assertIn(b'slot-modal', grid.data)
         self.assertNotIn(b'Timetable coverage', grid.data)
 
+    # ---- Add Slot's semester (2026-10-17) -----------------------------------------
+    # The form's semester used to be a dropdown defaulting to the ACTIVE
+    # semester. Adding a class while preparing next semester's grid saved it
+    # into the current one -- published and announced -- with no warning,
+    # since the default never differed from the active semester.
+
+    def test_add_slot_goes_into_the_semester_being_viewed(self):
+        nxt = Semester(name='2026/2027 First Semester', start_date=date(2026, 9, 1),
+                       end_date=date(2027, 1, 31), is_active=False)
+        db.session.add(nxt)
+        db.session.flush()
+        course = Course(course_title='Robotics', course_code='MCT405', lecturer_id=self.lect.id,
+                        department_id=self.mct.id, semester_id=nxt.id)
+        db.session.add(course)
+        db.session.commit()
+        self.sign_in()
+
+        html = self.client.get('/admin/timetable', query_string={
+            'semester': nxt.id, 'dept': self.mct.id, 'level': '400'}).get_data(as_text=True)
+        self.assertIn(f'name="semester_id" value="{nxt.id}"', html)
+        # Not the active semester, so the confirmation is asked up front.
+        self.assertIn('name="confirm_other_semester" id="create-confirm-other-semester" required', html)
+
+        # What the browser posts from that form.
+        self.client.post(f'/admin/timetable?semester={nxt.id}&dept={self.mct.id}&level=400', data={
+            'action': 'create', 'course_id': course.id, 'semester_id': nxt.id,
+            'confirm_other_semester': 'on', 'day_of_week': 3,
+            'start_time': '10:00', 'end_time': '12:00', 'room': 'LR 9'})
+        added = Timetable.query.filter_by(course_id=course.id).one()
+        self.assertEqual(added.semester_id, nxt.id)
+
+    def test_active_semester_grid_asks_no_confirmation(self):
+        self.sign_in()
+        html = self.client.get('/admin/timetable', query_string={
+            'dept': self.mct.id, 'level': '400'}).get_data(as_text=True)
+        self.assertIn(f'name="semester_id" value="{self.sem.id}"', html)
+        self.assertNotIn('create-confirm-other-semester', html)
+
+    def test_draft_chip_says_draft_before_the_code(self):
+        # A truncating line: "Draft" first, or a narrow chip cuts it off.
+        self.sign_in()
+        html = self.client.get('/admin/timetable', query_string={
+            'dept': self.mct.id, 'level': '300'}).get_data(as_text=True)
+        self.assertRegex(html, r'Draft &middot;</span>\s*MCT301')
+        self.assertIn('Drafts waiting', html)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -65,7 +65,7 @@
        CSS rather than in a JS string -- see renderNowBanner() below. #}
     <div id="now-banner" class="now-banner" data-tone="neutral">
         <div id="now-banner-icon-wrap" class="now-banner-icon" data-tone="neutral">
-            <span class="material-symbols-rounded text-xl" id="now-banner-icon">schedule</span>
+            <span class="material-symbols-rounded text-xl" id="now-banner-icon" aria-hidden="true">schedule</span>
         </div>
         <div class="min-w-0" id="now-banner-text">
             <p class="text-sm font-bold text-ink">Checking today's schedule&hellip;</p>
@@ -77,6 +77,31 @@
 
         <div class="form-col">
 
+        {# ============ DRAFTS WAITING ============
+           Publishing is the page's most consequential action -- it replaces
+           those courses' current classes and notifies the people affected
+           (timetable_publish.py) -- so it has its own card, first in the
+           column. Until 2026-10-17 it sat inside the PDF import card and
+           read as part of importing. One Publish per semester with drafts;
+           each asks first. #}
+        {% if draft_count %}
+        <div class="card card-body">
+            {{ card_heading('Drafts waiting') }}
+            <p class="mt-3 text-xs text-secondary">
+                {{ draft_count }} draft class{{ '' if draft_count == 1 else 'es' }} not yet published
+                (dashed and marked &ldquo;Draft&rdquo; on the grid). Students and lecturers can't see them yet.
+            </p>
+            {% for sem, count, course_count in draft_semesters %}
+                <form action="{{ url_for('admin.timetable_publish') }}" method="POST" class="publish-form mt-3"
+                      data-message="Publish {{ count }} class{{ '' if count == 1 else 'es' }} for {{ course_count }} course{{ '' if course_count == 1 else 's' }} in {{ sem.name }}? They replace those courses' current classes, and students and lecturers whose classes change will be notified.">
+                    {% include '_csrf_field.html' %}
+                    <input type="hidden" name="semester_id" value="{{ sem.id }}">
+                    <button type="submit" class="btn-primary w-full">Publish {{ sem.name }} ({{ count }})</button>
+                </form>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         {# ============ IMPORT FROM STUDENT AFFAIRS PDFs ============
            Up to 10 one-page sheets at a time. Nothing is saved until the
            preview (timetable_import.html) has been checked and confirmed;
@@ -84,23 +109,6 @@
            lecturers until published. See timetable_import.py. #}
         <div class="card card-body">
             {{ card_heading('Import from PDF') }}
-            {% if draft_count %}
-                <p class="mt-3 text-xs text-secondary">
-                    {{ draft_count }} draft class{{ '' if draft_count == 1 else 'es' }} waiting to be published
-                    (marked &ldquo;Draft&rdquo; on the grid; students and lecturers can't see them yet).
-                </p>
-                {# One Publish per semester with drafts. Publishing replaces those
-                   courses' current classes and notifies the people affected
-                   (timetable_publish.py), so it asks first. #}
-                {% for sem, count, course_count in draft_semesters %}
-                    <form action="{{ url_for('admin.timetable_publish') }}" method="POST" class="publish-form mt-3"
-                          data-message="Publish {{ count }} class{{ '' if count == 1 else 'es' }} for {{ course_count }} course{{ '' if course_count == 1 else 's' }} in {{ sem.name }}? They replace those courses' current classes, and students and lecturers whose classes change will be notified.">
-                        {% include '_csrf_field.html' %}
-                        <input type="hidden" name="semester_id" value="{{ sem.id }}">
-                        <button type="submit" class="btn-primary w-full">Publish {{ sem.name }} ({{ count }})</button>
-                    </form>
-                {% endfor %}
-            {% endif %}
             <form action="{{ url_for('admin.timetable_import') }}" method="POST"
                   enctype="multipart/form-data" class="mt-5 space-y-4">
                 {% include '_csrf_field.html' %}
@@ -181,29 +189,25 @@
                     </select>
                 </div>
 
-                <div>
-                    <label class="form-label" for="create-semester-id">Semester</label>
-                    <select name="semester_id" id="create-semester-id" required class="form-select">
-                        <option value="" disabled {{ 'selected' if not active_semester else '' }}>Select semester</option>
-                        {% for semester in semesters %}
-                            <option value="{{ semester.id }}" {{ 'selected' if active_semester and semester.id == active_semester.id else '' }}>
-                                {{ semester.name }}{{ ' (active)' if active_semester and semester.id == active_semester.id else '' }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                    <p class="form-help">
-                        {% if active_semester %}Defaults to the active semester.{% else %}No active semester is set &mdash; pick one explicitly.{% endif %}
-                    </p>
-                </div>
+                {# The semester is the one this grid shows. It used to be a
+                   dropdown defaulting to the ACTIVE semester, so a slot added
+                   while preparing next semester's grid was saved -- and
+                   published, and announced -- in the current one, and never
+                   appeared on the grid it was added from. #}
+                <input type="hidden" name="semester_id" value="{{ view.semester_id }}">
+                <p class="text-xs text-secondary">
+                    Into <span class="font-semibold text-ink">{{ view.semester.name }}</span>, the semester shown on the grid.
+                </p>
 
-                {# Only shown/required when the picked semester isn't the active
-                   one -- see wireOtherSemesterWarning() below. Prevents
-                   accidentally creating a slot under the wrong academic
-                   session without removing the semester field. #}
-                <label id="create-other-semester-row" class="alert hidden" data-tone="warning">
-                    <input type="checkbox" name="confirm_other_semester" id="create-confirm-other-semester" class="mt-0.5">
-                    <span>This isn't the active semester{% if active_semester %} ({{ active_semester.name }}){% endif %}. Use it anyway.</span>
-                </label>
+                {# Not the active semester: the server still requires this
+                   (timetable_page), so ask up front rather than after a
+                   round trip. #}
+                {% if active_semester and view.semester_id != active_semester.id %}
+                    <label class="alert flex" data-tone="warning">
+                        <input type="checkbox" name="confirm_other_semester" id="create-confirm-other-semester" required class="mt-0.5">
+                        <span>{{ view.semester.name }} isn't the active semester ({{ active_semester.name }}). Add the class to it anyway.</span>
+                    </label>
+                {% endif %}
 
                 <div>
                     <label class="form-label" for="create-day-of-week">Day of Week</label>
@@ -317,6 +321,8 @@
                     {% for day in weekday_names %}
                         <button type="button"
                                 class="day-tab shrink-0"
+                                aria-pressed="{{ 'true' if loop.index0 == grid.today_weekday else 'false' }}"
+                                aria-label="{{ day }}"
                                 data-day="{{ loop.index0 }}">
                             {{ day[:3] }}
                         </button>
@@ -330,7 +336,7 @@
                             {% for p in day_entries %}
                                 {% set entry = p.entry %}
                                 <button type="button"
-                                        class="timetable-chip w-full rounded-card border border-accent-line bg-accent-soft p-3 text-left transition-colors hover:border-accent"
+                                        class="timetable-chip w-full rounded-card border p-3 text-left transition-colors hover:border-accent {{ 'border-dashed border-muted bg-surface' if not entry.is_published else 'border-accent-line bg-accent-soft' }}"
                                         data-id="{{ entry.id }}"
                                         data-course-id="{{ entry.course_id }}"
                                         data-course-code="{{ entry.course.course_code if entry.course else '' }}"
@@ -347,7 +353,7 @@
                                         data-today-status="{{ p.today_status.status if p.today_status else '' }}"
                                         data-today-present="{{ p.today_status.present_count if p.today_status and p.today_status.present_count is not none else '' }}">
                                     <div class="flex items-center justify-between gap-2">
-                                        <p class="truncate text-sm font-bold text-accent">{{ entry.course.course_code if entry.course else 'Unknown' }}{% if not entry.is_published %} <span class="text-2xs font-medium text-muted">&middot; Draft</span>{% endif %}</p>
+                                        <p class="truncate text-sm font-bold {{ 'text-ink' if not entry.is_published else 'text-accent-ink' }}">{% if not entry.is_published %}<span class="text-2xs uppercase tracking-wide text-secondary">Draft &middot;</span> {% endif %}{{ entry.course.course_code if entry.course else 'Unknown' }}</p>
                                         <span class="shrink-0 text-2xs text-muted">{{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}</span>
                                     </div>
                                     <p class="mt-1 truncate text-xs text-secondary">
@@ -407,7 +413,7 @@
                     {% for p in grid.placed %}
                         {% set entry = p.entry %}
                         <button type="button"
-                                class="timetable-chip my-0.5 cursor-pointer overflow-hidden rounded-[8px] border border-accent-line bg-accent-soft px-2 py-1 text-left transition-colors hover:border-accent"
+                                class="timetable-chip my-0.5 cursor-pointer overflow-hidden rounded-[8px] border px-2 py-1 text-left transition-colors hover:border-accent {{ 'border-dashed border-muted bg-surface' if not entry.is_published else 'border-accent-line bg-accent-soft' }}"
                                 style="grid-column: {{ p.day_col }}; grid-row: {{ p.row_start + 1 }} / span {{ p.row_span }};
                                        justify-self: start; align-self: stretch;
                                        width: calc({{ p.width_pct }}% - {{ 4 if p.lane_count > 1 else 8 }}px);
@@ -427,7 +433,10 @@
                                 data-type="{{ entry.type }}"
                                 data-today-status="{{ p.today_status.status if p.today_status else '' }}"
                                 data-today-present="{{ p.today_status.present_count if p.today_status and p.today_status.present_count is not none else '' }}">
-                            <p class="truncate text-2xs font-bold text-accent">{{ entry.course.course_code if entry.course else 'Unknown' }}{% if not entry.is_published %} <span class="font-medium text-muted">&middot; Draft</span>{% endif %}</p>
+                            {# "Draft" comes FIRST: the line truncates, and as a
+                               suffix it was the first thing cut off in a
+                               narrow two-lane chip. #}
+                            <p class="truncate text-2xs font-bold {{ 'text-ink' if not entry.is_published else 'text-accent-ink' }}">{% if not entry.is_published %}<span class="uppercase tracking-wide text-secondary">Draft &middot;</span> {% endif %}{{ entry.course.course_code if entry.course else 'Unknown' }}</p>
                             <p class="truncate text-2xs text-secondary">
                                 {{ entry.start_time.strftime('%H:%M') }}&ndash;{{ entry.end_time.strftime('%H:%M') }}{% if entry.room %} &middot; {{ entry.room }}{% endif %}
                             </p>
@@ -451,11 +460,12 @@
     {% if view.is_grid %}
     {# ============ SLOT DETAILS / EDIT MODAL ============ #}
     <div id="slot-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
-        <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-card p-6 shadow-pop">
+        <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-card border border-border bg-card p-6 shadow-pop"
+             role="dialog" aria-modal="true" aria-labelledby="slot-modal-title">
             <div class="mb-4 flex items-center justify-between">
-                <h3 class="card-title">Timetable Slot</h3>
+                <h3 class="card-title" id="slot-modal-title">Timetable Slot</h3>
                 <button type="button" id="slot-modal-close" class="btn-ghost btn-icon" aria-label="Close">
-                    <span class="material-symbols-rounded text-xl">close</span>
+                    <span class="material-symbols-rounded text-xl" aria-hidden="true">close</span>
                 </button>
             </div>
 
@@ -585,7 +595,7 @@
             selectEl.addEventListener('change', toggle);
             toggle();
         }
-        wireOtherSemesterWarning(document.getElementById('create-semester-id'), document.getElementById('create-other-semester-row'));
+        // Edit only: Add Slot's semester is fixed to the grid's (see its form).
         wireOtherSemesterWarning(document.getElementById('edit-semester-id'), document.getElementById('edit-other-semester-row'));
 
         // ---------- start < end validation (create + edit forms) ----------
@@ -617,16 +627,32 @@
         var view = document.getElementById('slot-view');
         var editForm = document.getElementById('slot-edit-form');
 
+        // Keyboard (added 2026-10-17, as in admin/_edit.html): focus moves
+        // into the dialog, Tab stays inside it, Escape closes it, and focus
+        // returns to the class chip that opened it.
+        var opener = null;
         function openModal() {
             modal.classList.remove('hidden');
             modal.classList.add('flex');
+            document.getElementById('slot-edit-btn').focus();
         }
         function closeModal() {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
             view.classList.remove('hidden');
             editForm.classList.add('hidden');
+            if (opener) opener.focus();
         }
+        modal.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { closeModal(); return; }
+            if (e.key !== 'Tab') return;
+            var items = Array.prototype.filter.call(
+                modal.querySelectorAll('button, select, input:not([type=hidden]), textarea, a[href]'),
+                function (el) { return el.offsetParent !== null; });
+            var first = items[0], last = items[items.length - 1];
+            if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+            else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+        });
 
         function statusText(data) {
             if (!data.todayStatus) return 'Not today';
@@ -638,6 +664,7 @@
         document.querySelectorAll('.timetable-chip').forEach(function (chip) {
             chip.addEventListener('click', function () {
                 var d = chip.dataset;
+                opener = chip;
 
                 document.getElementById('slot-view-course').textContent = d.courseCode + ' – ' + d.courseTitle;
                 document.getElementById('slot-view-lecturer').textContent = d.lecturer || '—';
@@ -668,13 +695,17 @@
         document.getElementById('slot-modal-close').addEventListener('click', closeModal);
         modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
 
+        // Edit swaps the details for the form: move focus with it, or it is
+        // left on a button that is now hidden.
         document.getElementById('slot-edit-btn').addEventListener('click', function () {
             view.classList.add('hidden');
             editForm.classList.remove('hidden');
+            document.getElementById('edit-course-id').focus();
         });
         document.getElementById('slot-cancel-edit-btn').addEventListener('click', function () {
             editForm.classList.add('hidden');
             view.classList.remove('hidden');
+            document.getElementById('slot-edit-btn').focus();
         });
         document.getElementById('slot-delete-btn').addEventListener('click', function () {
             var courseCode = document.getElementById('slot-view-course').textContent;
@@ -691,6 +722,8 @@
         function selectDay(day) {
             dayTabs.forEach(function (t) {
                 t.classList.toggle('tab-pill-active', t.dataset.day === day);
+                // The selected day was colour only; say it to screen readers.
+                t.setAttribute('aria-pressed', t.dataset.day === day ? 'true' : 'false');
             });
             document.querySelectorAll('.day-agenda').forEach(function (panel) {
                 panel.classList.toggle('hidden', panel.dataset.day !== day);
