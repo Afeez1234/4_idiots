@@ -406,20 +406,24 @@ CONTEXTS = {
                 "status": "on_leave",
                 "department": {"name": "Computer Engineering"},
                 "department_id": 1,
-                "courses": [{}, {}, {}],
                 "user": {"requires_password_change": False},
             },
             {
                 "id": 2,
                 "full_name": "Dr. Tunde Cole",
                 "staff_id": "LECT-1007",
+                "status": "active",
                 "department": None,
                 "department_id": None,
-                "courses": [],
                 "user": {"requires_password_change": True},
             },
         ],
         departments=[{"id": 1, "name": "Computer Engineering"}],
+        # Filtered, so the selected department and the Clear link render.
+        course_counts={1: 3},
+        filters={"q": "", "dept": 1},
+        filter_args={"dept": 1},
+        is_filtered=True,
     ),
 
     "admin/organization.html": dict(

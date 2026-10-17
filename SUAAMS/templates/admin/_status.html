@@ -27,11 +27,12 @@
 
 {% macro status_dialog(names, exits_note) -%}
     <div id="status-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
-        <div class="w-full max-w-md rounded-card border border-border bg-card p-6 shadow-pop">
+        <div class="w-full max-w-md rounded-card border border-border bg-card p-6 shadow-pop"
+             role="dialog" aria-modal="true" aria-labelledby="status-title">
             <div class="mb-4 flex items-center justify-between">
-                <h3 class="card-title">Change status</h3>
+                <h3 class="card-title" id="status-title">Change status</h3>
                 <button type="button" id="status-close" class="btn-ghost btn-icon" aria-label="Close">
-                    <span class="material-symbols-rounded text-xl">close</span>
+                    <span class="material-symbols-rounded text-xl" aria-hidden="true">close</span>
                 </button>
             </div>
             <form id="status-form" method="POST" class="space-y-4">
@@ -65,9 +66,27 @@
         (function () {
             var modal = document.getElementById('status-modal');
             var form = document.getElementById('status-form');
-            function close() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+            // Keyboard: focus moves into the dialog on open, Tab stays inside
+            // it, Escape closes it and focus goes back to the row's button
+            // (the edit dialog in _edit.html does the same).
+            var opener = null;
+            function close() {
+                modal.classList.add('hidden'); modal.classList.remove('flex');
+                if (opener) opener.focus();
+            }
+            modal.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') { close(); return; }
+                if (e.key !== 'Tab') return;
+                var items = Array.prototype.filter.call(
+                    modal.querySelectorAll('button, select, input:not([type=hidden]), textarea, a[href]'),
+                    function (el) { return el.offsetParent !== null; });
+                var first = items[0], last = items[items.length - 1];
+                if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+                else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+            });
             document.querySelectorAll('.status-open').forEach(function (btn) {
                 btn.addEventListener('click', function () {
+                    opener = btn;
                     form.action = btn.dataset.action;
                     // textContent, not innerHTML: a name is data, never markup.
                     document.getElementById('status-name').textContent = btn.dataset.name;
@@ -75,6 +94,7 @@
                     document.getElementById('status-reason').value = '';
                     modal.classList.remove('hidden');
                     modal.classList.add('flex');
+                    document.getElementById('status-select').focus();
                 });
             });
             document.getElementById('status-close').addEventListener('click', close);
@@ -87,7 +107,7 @@
 {% macro bulk_status_card(kind, names, id_label) -%}
     <div class="card">
         <div class="card-header">
-            {{ card_heading('Change Status (CSV)', info=true) }}
+            {{ card_heading('Change Status (CSV)') }}
         </div>
         <div class="card-body">
             <form action="{{ url_for('admin.bulk_status', kind=kind) }}" method="POST"

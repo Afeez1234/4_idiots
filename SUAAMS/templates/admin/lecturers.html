@@ -1,7 +1,18 @@
 {% extends "base_admin.html" %}
-{% from '_macros.html' import pill, avatar, table_empty, card_heading, directory_heading %}
+{% from '_macros.html' import avatar, empty_state, table_empty, card_heading, directory_heading %}
 {% from 'admin/_status.html' import status_cell, status_dialog, bulk_status_card with context %}
 {% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
+
+{# One Edit button per lecturer, used by both the card and table views. The
+   filters ride along so saving returns to this same view. #}
+{% macro lecturer_edit(lecturer) -%}
+    {{ edit_button(url_for('admin.edit_record', kind='lecturers', record_id=lecturer.id, **filter_args),
+                   url_for('admin.delete_record', kind='lecturers', record_id=lecturer.id, **filter_args),
+                   lecturer.full_name ~ ' (' ~ lecturer.staff_id ~ ')',
+                   {'full_name': lecturer.full_name, 'staff_id': lecturer.staff_id,
+                    'department_id': lecturer.department_id},
+                   delete_blockers.get(lecturer.id)) }}
+{%- endmacro %}
 
 {% block title %}Lecturers | SUAAMS Admin{% endblock %}
 {% block page_title %}Lecturers{% endblock %}
@@ -17,7 +28,7 @@
         <div class="form-col">
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Add Lecturer', info=true) }}
+                    {{ card_heading('Add Lecturer') }}
                 </div>
                 <div class="card-body">
                     <form action="{{ url_for('admin.lecturers_page') }}" method="POST" class="space-y-4">
@@ -59,7 +70,7 @@
                until the preview is confirmed; existing rows are skipped. #}
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Bulk Upload (CSV)', info=true) }}
+                    {{ card_heading('Bulk Upload (CSV)') }}
                 </div>
                 <div class="card-body">
                     <form action="{{ url_for('admin.bulk_upload_preview', kind='lecturers') }}" method="POST"
@@ -84,19 +95,84 @@
             {{ bulk_status_card('lecturers', lecturer_statuses, 'staff ID') }}
         </div>
 
-        <!-- Directory -->
-        <div class="form-main">
+        {# Directory. order-first below lg: finding a lecturer is the page's
+           main job, so on a phone it comes before the three forms instead of
+           after them. lg:order-none puts it back in the right-hand column. #}
+        <div class="form-main order-first lg:order-none">
             <div class="card-clip">
                 {{ directory_heading('Lecturers', lecturers|length, 'lecturer') }}
 
-                <div class="table-wrap border-t border-divider">
+                {# Search + department filter: a plain GET form, as on the
+                   Students roster, so the view lives in the URL and the edit
+                   and status dialogs return to it. #}
+                <form method="GET" action="{{ url_for('admin.lecturers_page') }}" id="lecturer-filters"
+                      class="grid gap-3 px-5 pb-4 sm:grid-cols-[1fr_14rem_auto]">
+                    <div>
+                        <label class="form-label" for="filter-q">Search</label>
+                        <input type="search" name="q" id="filter-q" value="{{ filters.q }}"
+                               placeholder="Staff ID or name, e.g. LECT-1002"
+                               autocomplete="off" class="form-input">
+                    </div>
+                    <div>
+                        <label class="form-label" for="filter-dept">Department</label>
+                        <select name="dept" id="filter-dept" class="form-select">
+                            <option value="">All departments</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if filters.dept == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex items-end gap-2">
+                        <button type="submit" class="btn-primary flex-1">Search</button>
+                        {% if is_filtered %}
+                            <a href="{{ url_for('admin.lecturers_page') }}" class="btn-ghost">Clear</a>
+                        {% endif %}
+                    </div>
+                </form>
+
+                {# Card view below sm, as on the Students roster: the
+                   six-column table hid Courses, Status and Edit off the right
+                   edge of a phone. Same data, stacked. #}
+                <div class="divide-y divide-divider border-t border-divider sm:hidden">
+                    {% for lecturer in lecturers %}
+                        <div class="px-5 py-4">
+                            <div class="flex items-center gap-3">
+                                {{ avatar(lecturer.full_name) }}
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm font-semibold text-ink">{{ lecturer.full_name }}</p>
+                                    <p class="mono text-2xs text-muted">{{ lecturer.staff_id }}</p>
+                                </div>
+                            </div>
+                            <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                                <div>
+                                    <dt class="text-muted">Department</dt>
+                                    <dd class="mt-0.5 truncate text-secondary">{{ lecturer.department.name if lecturer.department else '—' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-muted">Courses this semester</dt>
+                                    <dd class="mt-0.5 text-secondary">{{ course_counts.get(lecturer.id, 0) }}</dd>
+                                </div>
+                            </dl>
+                            <div class="mt-3 flex flex-wrap items-center gap-2">
+                                {{ status_cell(lecturer, lecturer_statuses, url_for('admin.change_status', kind='lecturers', person_id=lecturer.id, **filter_args)) }}
+                                {{ lecturer_edit(lecturer) }}
+                            </div>
+                        </div>
+                    {% else %}
+                        {{ empty_state('No lecturers match this search.' if is_filtered else 'No lecturers registered yet.', 'school') }}
+                    {% endfor %}
+                </div>
+
+                <div class="table-wrap hidden border-t border-divider sm:block">
                     <table class="table">
                         <thead>
                             <tr>
                                 <th class="th">Lecturer</th>
                                 <th class="th">Staff ID</th>
                                 <th class="th">Department</th>
-                                <th class="th">Courses</th>
+                                {# Coordinated + co-lectured, active semester only
+                                   (_lecturer_course_counts in admin.py). #}
+                                <th class="th">Courses<span class="block text-2xs font-normal normal-case tracking-normal">this semester</span></th>
                                 <th class="th">Status</th>
                                 <th class="th"><span class="sr-only">Edit</span></th>
                             </tr>
@@ -110,26 +186,19 @@
                                             <span class="font-medium">{{ lecturer.full_name }}</span>
                                         </div>
                                     </td>
-                                    <td class="td td-muted mono text-xs">{{ lecturer.staff_id }}</td>
+                                    <td class="td td-muted mono whitespace-nowrap text-xs">{{ lecturer.staff_id }}</td>
                                     <td class="td td-muted">{{ lecturer.department.name if lecturer.department else '—' }}</td>
-                                    <td class="td td-muted">{{ lecturer.courses|length }}</td>
+                                    <td class="td td-muted">{{ course_counts.get(lecturer.id, 0) }}</td>
                                     <td class="td">
                                         {# School status when not Active; otherwise the
                                            account-setup state ("Pending Setup" until the
                                            first password change). #}
-                                        {{ status_cell(lecturer, lecturer_statuses, url_for('admin.change_status', kind='lecturers', person_id=lecturer.id)) }}
+                                        {{ status_cell(lecturer, lecturer_statuses, url_for('admin.change_status', kind='lecturers', person_id=lecturer.id, **filter_args)) }}
                                     </td>
-                                    <td class="td">
-                                        {{ edit_button(url_for('admin.edit_record', kind='lecturers', record_id=lecturer.id),
-                                                       url_for('admin.delete_record', kind='lecturers', record_id=lecturer.id),
-                                                       lecturer.full_name ~ ' (' ~ lecturer.staff_id ~ ')',
-                                                       {'full_name': lecturer.full_name, 'staff_id': lecturer.staff_id,
-                                                        'department_id': lecturer.department_id},
-                                                       delete_blockers.get(lecturer.id)) }}
-                                    </td>
+                                    <td class="td">{{ lecturer_edit(lecturer) }}</td>
                                 </tr>
                             {% else %}
-                                {{ table_empty(6, 'No lecturers registered yet.') }}
+                                {{ table_empty(6, 'No lecturers match this search.' if is_filtered else 'No lecturers registered yet.') }}
                             {% endfor %}
                         </tbody>
                     </table>

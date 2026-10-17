@@ -11,7 +11,7 @@ from sqlalchemy.orm import joinedload
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
     Session as SessionModel, Attendance, HOD, Semester, Announcement, Timetable,
-    AuditLog, DeviceToken, Terminal,
+    AuditLog, DeviceToken, Terminal, course_lecturers,
 )
 from extensions import log_exception, logger, limiter
 from campus_time import campus_now, campus_today
@@ -396,17 +396,64 @@ def lecturers_page():
 
         return redirect(url_for('admin.lecturers_page'))
 
-    lecturers = Lecturer.query.all()
-    departments = Department.query.all()
+    # Search + department filter in the query, the same GET-form pattern as
+    # the Students roster. It used to be Lecturer.query.all() in insertion
+    # order, with Ctrl+F the only way to find anyone. No pagination: staff
+    # number in the hundreds at most, and search finds one person.
+    q = request.args.get('q', '').strip()
+    dept_id = request.args.get('dept', type=int)
+
+    query = Lecturer.query
+    if q:
+        pattern = f'%{_escape_like(q)}%'
+        query = query.filter(or_(
+            Lecturer.staff_id.ilike(pattern, escape='\\'),
+            Lecturer.full_name.ilike(pattern, escape='\\'),
+        ))
+    if dept_id:
+        query = query.filter(Lecturer.department_id == dept_id)
+    # joinedload: every row reads lecturer.department, and the status cell
+    # reads lecturer.user -- lazily, one query each per row.
+    lecturers = (query.options(joinedload(Lecturer.department), joinedload(Lecturer.user))
+                 .order_by(Lecturer.full_name, Lecturer.id).all())
+
+    filter_args = {k: v for k, v in (('q', q), ('dept', dept_id)) if v}
+    semester = Semester.query.filter_by(is_active=True).first()
     return render_template(
         'admin/lecturers.html',
         lecturers=lecturers,
-        departments=departments,
+        departments=Department.query.order_by(Department.name).all(),
+        course_counts=_lecturer_course_counts([l.id for l in lecturers], semester),
+        filters={'q': q, 'dept': dept_id},
+        filter_args=filter_args,
+        is_filtered=bool(filter_args),
         lecturer_statuses=LECTURER_STATUSES,
         # Which rows can't be deleted, and why (greys out the button).
         delete_blockers=record_edits.delete_blockers('lecturers', lecturers),
         active_page='lecturers',
     )
+
+
+def _lecturer_course_counts(lecturer_ids, semester):
+    """{lecturer id: courses they teach in the active semester}, counting
+    coordinated and co-lectured courses once each.
+
+    The directory used to show len(lecturer.courses): coordinated courses
+    only (Course.lecturer_id), across every semester -- a co-lecturer on
+    three running courses read 0. Two GROUP BY queries, not one per row."""
+    if semester is None or not lecturer_ids:
+        return {}
+    pairs = set(db.session.query(Course.lecturer_id, Course.id)
+                .filter(Course.semester_id == semester.id,
+                        Course.lecturer_id.in_(lecturer_ids)))
+    pairs |= set(db.session.query(course_lecturers.c.lecturer_id, Course.id)
+                 .join(Course, Course.id == course_lecturers.c.course_id)
+                 .filter(Course.semester_id == semester.id,
+                         course_lecturers.c.lecturer_id.in_(lecturer_ids)))
+    counts = {}
+    for lecturer_id, _course_id in pairs:
+        counts[lecturer_id] = counts.get(lecturer_id, 0) + 1
+    return counts
 
 
 # ==========================================
