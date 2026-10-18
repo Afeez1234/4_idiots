@@ -2,6 +2,7 @@ import csv
 import os
 import io
 import json
+import re
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, Response
@@ -2589,7 +2590,7 @@ def delete_announcement(announcement_id):
 # ==========================================
 # REPORTS
 # ==========================================
-def _all_course_attendance_reports():
+def _all_course_attendance_reports(semester=None):
     """
     System-wide per-course attendance percentage, shared by reports_page()
     and export_reports() so the on-screen table and the exported CSV can't
@@ -2601,7 +2602,9 @@ def _all_course_attendance_reports():
     Now a fixed handful, with each course's lecturers and department loaded
     up front.
     """
-    courses = (Course.query
+    # One semester's courses plus those with no semester (utils.current_courses,
+    # with the semester given rather than assumed).
+    courses = (current_courses(Course.query, semester)
                .options(joinedload(Course.department), joinedload(Course.lecturer))
                .order_by(Course.course_code).all())
     stats = course_attendance([c.id for c in courses])
@@ -2765,8 +2768,9 @@ def analytics_eligibility_csv():
 
 @admin_bp.route('/reports', methods=['GET'])
 def reports_page():
+    semester = _reports_semester()
     try:
-        course_reports = _all_course_attendance_reports()
+        course_reports = _all_course_attendance_reports(semester)
     except Exception:
         log_exception("Admin Reports Error")
         flash('An error occurred loading reports.', 'error')
@@ -2775,14 +2779,26 @@ def reports_page():
     return render_template(
         'admin/reports.html',
         course_reports=course_reports,
+        semester=semester,
+        semesters=Semester.query.order_by(Semester.start_date.desc()).all(),
         active_page='reports',
     )
 
 
+def _reports_semester():
+    """The semester a report is for: ?semester=, else the active one, else
+    the latest. Reports used to cover every course ever, so each code
+    appeared once per semester and the CSV mixed years together."""
+    semester = db.session.get(Semester, request.args.get('semester', type=int) or 0)
+    return (semester or Semester.query.filter_by(is_active=True).first()
+            or Semester.query.order_by(Semester.start_date.desc()).first())
+
+
 @admin_bp.route('/reports/export', methods=['GET'])
 def export_reports():
+    semester = _reports_semester()
     try:
-        course_reports = _all_course_attendance_reports()
+        course_reports = _all_course_attendance_reports(semester)
 
         output = io.StringIO()
         writer = csv.writer(output)
@@ -2801,17 +2817,20 @@ def export_reports():
         # Changes nothing, but it's data leaving the system -- worth knowing
         # who took a copy and when.
         log_action('report.export',
-                   f"Downloaded the attendance report ({len(course_reports)} courses)",
-                   'report', None)
+                   f"Downloaded the attendance report for {semester.name if semester else 'all semesters'} "
+                   f"({len(course_reports)} courses)",
+                   'report', None, {'semester_id': semester.id if semester else None})
         db.session.commit()
     except Exception:
         db.session.rollback()
         log_exception("Admin Reports Export Error")
         flash('Failed to export attendance report.', 'error')
-        return redirect(url_for('admin.reports_page'))
+        return redirect(url_for('admin.reports_page', **({'semester': semester.id} if semester else {})))
 
+    # Named after the semester, so two downloads can't be confused.
+    label = re.sub(r'[^A-Za-z0-9]+', '_', semester.name).strip('_') if semester else 'all'
     return Response(
         output.getvalue(),
         mimetype='text/csv',
-        headers={'Content-Disposition': 'attachment; filename=admin_attendance_report.csv'},
+        headers={'Content-Disposition': f'attachment; filename=attendance_report_{label}.csv'},
     )

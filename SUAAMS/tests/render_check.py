@@ -496,6 +496,9 @@ CONTEXTS = {
                 "average_attendance": 34.0,
             },
         ],
+        semester={"id": 1, "name": "2025/2026 First Semester"},
+        semesters=[{"id": 1, "name": "2025/2026 First Semester", "is_active": True},
+                   {"id": 2, "name": "2024/2025 First Semester", "is_active": False}],
     ),
 
     "admin/semesters.html": dict(

@@ -4,7 +4,7 @@
 {% block title %}Reports | SUAAMS Admin{% endblock %}
 {% block page_title %}Attendance Reports{% endblock %}
 {% block page_subtitle %}
-    <p class="page-subtitle">Attendance percentage across every course</p>
+    <p class="page-subtitle">Attendance percentage for each course, one semester at a time</p>
 {% endblock %}
 
 {% block content %}
@@ -12,13 +12,28 @@
     <div class="card-clip">
         {# Header sits in a card-header so the Export button lines up on the
            right of the title, and the table below bleeds to the card edge --
-           that is what card-clip is for. #}
-        <div class="card-header pb-4">
-            <h2 class="card-title">Course Attendance</h2>
-            <a href="{{ url_for('admin.export_reports') }}" class="btn-secondary btn-sm">
-                <span class="material-symbols-rounded text-base">download</span>
-                Export
-            </a>
+           that is what card-clip is for. One semester at a time (it was every
+           course ever, so each code appeared once per semester); the export
+           follows the picker. #}
+        <div class="card-header flex-wrap pb-4">
+            <h2 class="card-title">Course Attendance{% if semester %} &middot; {{ semester.name }}{% endif %}</h2>
+            <div class="flex flex-wrap items-end gap-2">
+                <form method="GET" action="{{ url_for('admin.reports_page') }}" class="flex items-end gap-2">
+                    <div>
+                        <label class="form-label" for="report-semester">Semester</label>
+                        <select name="semester" id="report-semester" class="form-select py-1.5">
+                            {% for s in semesters %}
+                                <option value="{{ s.id }}" {{ 'selected' if semester and s.id == semester.id else '' }}>{{ s.name }}{{ ' (active)' if s.is_active else '' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-secondary btn-sm">Show</button>
+                </form>
+                <a href="{{ url_for('admin.export_reports', **({'semester': semester.id} if semester else {})) }}" class="btn-secondary btn-sm">
+                    <span class="material-symbols-rounded text-base" aria-hidden="true">download</span>
+                    Export CSV
+                </a>
+            </div>
         </div>
 
         <!-- Card view (below sm): same reasoning as students.html -- six
@@ -59,7 +74,7 @@
                     </dl>
                 </div>
             {% else %}
-                {{ empty_state('No courses yet.', 'book') }}
+                {{ empty_state('No courses in this semester yet.', 'book') }}
             {% endfor %}
         </div>
 
@@ -101,7 +116,7 @@
                             </td>
                         </tr>
                     {% else %}
-                        {{ table_empty(6, 'No courses yet.') }}
+                        {{ table_empty(6, 'No courses in this semester yet.') }}
                     {% endfor %}
                 </tbody>
             </table>
