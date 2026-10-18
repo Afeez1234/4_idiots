@@ -71,7 +71,10 @@ def login():
         flash('You are already logged in. Redirecting to your dashboard.', 'info')
         return redirect_to_dashboard()
 
-    if request.method == 'GET':
+    # != 'POST', not == 'GET': Flask answers HEAD (uptime monitors, browser
+    # prefetch) by running this view with method 'HEAD', which matched
+    # neither branch, returned None and logged a 500 on Render.
+    if request.method != 'POST':
         return render_template('auth/login.html')
 
     if request.method == 'POST':
@@ -149,7 +152,10 @@ def web_change_password():
     if not user.requires_password_change:
         return redirect_to_dashboard()
 
-    if request.method == 'GET':
+    # != 'POST', not == 'GET': Flask answers HEAD (uptime monitors, browser
+    # prefetch) by running this view with method 'HEAD', which matched
+    # neither branch, returned None and logged a 500 on Render.
+    if request.method != 'POST':
         return render_template('auth/change_password.html')
 
     if request.method == 'POST':

@@ -117,6 +117,30 @@ class LoginPageTestCase(unittest.TestCase):
         self.assertIn('Too many attempts', html)
         self.assertIn('id="new_password"', html)
 
+    # ---- HEAD requests ------------------------------------------------------------------
+    # Flask runs the GET view for HEAD with request.method == 'HEAD'. The
+    # views checked `== 'GET'` then `== 'POST'`, matched neither, returned
+    # None -- a 500 in Render's log for every uptime-monitor / prefetch HEAD.
+
+    def test_head_requests_get_a_200_not_a_500(self):
+        self.assertEqual(self.client.head('/login').status_code, 200)
+        u = self.user('CPE/20/6000', fresh=True)
+        with self.client.session_transaction() as s:
+            s['user_id'], s['username'], s['role'] = u.id, u.username, 'student'
+        self.assertEqual(self.client.head('/change-password').status_code, 200)
+
+    def test_head_on_terminals_isnt_treated_as_a_form_post(self):
+        admin = User(username='tunde', role='admin', is_active=True, requires_password_change=False,
+                     password_hash='x')
+        db.session.add(admin)
+        db.session.commit()
+        with self.client.session_transaction() as s:
+            s['user_id'], s['username'], s['role'] = admin.id, 'tunde', 'admin'
+        self.assertEqual(self.client.head('/admin/terminals').status_code, 200)
+        # It used to fall into the POST branch and leave an error flash.
+        with self.client.session_transaction() as s:
+            self.assertFalse(s.get('_flashes'))
+
     # ---- the pages ---------------------------------------------------------------------
 
     def test_show_password_buttons_are_reachable_by_keyboard(self):

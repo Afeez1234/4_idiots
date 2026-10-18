@@ -2124,7 +2124,10 @@ def _terminals_page(new_secret=None, for_terminal=None):
 @admin_bp.route('/terminals', methods=['GET', 'POST'])
 @limiter.limit("20 per minute", methods=['POST'])
 def terminals_page():
-    if request.method == 'GET':
+    # != 'POST', not == 'GET': Flask answers HEAD (uptime monitors, browser
+    # prefetch) by running this view with method 'HEAD', which matched
+    # neither branch, returned None and logged a 500 on Render.
+    if request.method != 'POST':
         return _terminals_page()
     action = request.form.get('action')
     try:
