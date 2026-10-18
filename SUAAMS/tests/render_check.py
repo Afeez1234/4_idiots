@@ -283,6 +283,8 @@ CONTEXTS = {
              "is_active": True, "last_seen_at": datetime(2026, 10, 15, 16, 0)},
         ],
         online={1},
+        # admin._secret_fingerprint per reader, for the New secret forms.
+        fingerprints={1: "a1b2c3d4e5f60718", 2: "0f1e2d3c4b5a6978", 3: "1122334455667788"},
         rooms=["Eng. Lab B", "LT 1", "LT 2"],
         room_check_mode="flag",
         shared_secret_set=True,

@@ -14,7 +14,7 @@
     {% if new_secret %}
         <div class="now-banner" data-tone="warning">
             <span class="now-banner-icon" data-tone="warning">
-                <span class="material-symbols-rounded text-xl">key</span>
+                <span class="material-symbols-rounded text-xl" aria-hidden="true">key</span>
             </span>
             <div class="min-w-0 flex-1 text-sm text-ink">
                 <p class="font-semibold">Secret for {{ new_secret_for.code }}: copy it into that reader's <span class="mono">secrets.h</span> now.</p>
@@ -30,7 +30,7 @@
         <div class="form-col">
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Add Reader', info=true) }}
+                    {{ card_heading('Add Reader') }}
                 </div>
                 <div class="card-body">
                     <form action="{{ url_for('admin.terminals_page') }}" method="POST" class="space-y-4">
@@ -69,7 +69,7 @@
             </div>
 
             <div class="card card-body">
-                {{ card_heading('Room Check', info=true) }}
+                {{ card_heading('Room Check') }}
                 <p class="mt-3 text-xs text-secondary">
                     Mode: <span class="font-semibold text-ink">{{ room_check_mode }}</span>.
                     {% if room_check_mode == 'flag' %}A check-in at a reader in the wrong room is recorded and marked for the lecturer.
@@ -117,9 +117,15 @@
                                             {% include '_csrf_field.html' %}
                                             <input type="hidden" name="action" value="regenerate">
                                             <input type="hidden" name="terminal_id" value="{{ t.id }}">
+                                            {# Which secret this form replaces (admin._secret_fingerprint):
+                                               a refresh that re-sends it is refused, not obeyed. #}
+                                            <input type="hidden" name="current" value="{{ fingerprints[t.id] }}">
                                             <button type="submit" class="btn-link">New secret</button>
                                         </form>
-                                        <form method="POST" action="{{ url_for('admin.terminals_page') }}">
+                                        {# Disabling asks first: check-ins at this reader stop
+                                           at once, which mid-lecture strands a whole room. #}
+                                        <form method="POST" action="{{ url_for('admin.terminals_page') }}"
+                                              {% if t.is_active %}class="disable-form" data-code="{{ t.code }}" data-room="{{ t.room or '' }}"{% endif %}>
                                             {% include '_csrf_field.html' %}
                                             <input type="hidden" name="action" value="toggle">
                                             <input type="hidden" name="terminal_id" value="{{ t.id }}">
@@ -135,10 +141,24 @@
                                         {% include '_csrf_field.html' %}
                                         <input type="hidden" name="action" value="update">
                                         <input type="hidden" name="terminal_id" value="{{ t.id }}">
-                                        <input type="text" name="code" value="{{ t.code }}" required maxlength="32" class="form-input mono" aria-label="Code">
-                                        <input type="text" name="name" value="{{ t.name }}" required maxlength="100" class="form-input" aria-label="Name">
-                                        <input type="text" name="room" value="{{ t.room or '' }}" maxlength="50" list="timetable-rooms" class="form-input" aria-label="Room" placeholder="Room">
-                                        <input type="number" name="ble_number" value="{{ t.ble_number or '' }}" min="1" max="65535" class="form-input" aria-label="Bluetooth number" placeholder="Bluetooth number">
+                                        {# Visible labels: with aria-label only, a cleared field gave
+                                           no clue whether it was Name or Room. #}
+                                        <div>
+                                            <label class="form-label" for="edit-code-{{ t.id }}">Code</label>
+                                            <input type="text" name="code" id="edit-code-{{ t.id }}" value="{{ t.code }}" required maxlength="32" class="form-input mono">
+                                        </div>
+                                        <div>
+                                            <label class="form-label" for="edit-name-{{ t.id }}">Name</label>
+                                            <input type="text" name="name" id="edit-name-{{ t.id }}" value="{{ t.name }}" required maxlength="100" class="form-input">
+                                        </div>
+                                        <div>
+                                            <label class="form-label" for="edit-room-{{ t.id }}">Room</label>
+                                            <input type="text" name="room" id="edit-room-{{ t.id }}" value="{{ t.room or '' }}" maxlength="50" list="timetable-rooms" class="form-input">
+                                        </div>
+                                        <div>
+                                            <label class="form-label" for="edit-ble-{{ t.id }}">Bluetooth number</label>
+                                            <input type="number" name="ble_number" id="edit-ble-{{ t.id }}" value="{{ t.ble_number or '' }}" min="1" max="65535" class="form-input">
+                                        </div>
                                         <button type="submit" class="btn-secondary sm:col-span-2">Save</button>
                                     </form>
                                 </details>
@@ -162,6 +182,14 @@
     document.querySelectorAll('.secret-form').forEach(function (form) {
         form.addEventListener('submit', function (e) {
             if (!confirm('Issue a new secret for ' + form.dataset.code + '? Its current secret stops working now, so the reader must be reflashed.')) {
+                e.preventDefault();
+            }
+        });
+    });
+    document.querySelectorAll('.disable-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            var where = form.dataset.room ? ' in ' + form.dataset.room : '';
+            if (!confirm('Disable reader ' + form.dataset.code + where + '? Check-ins at it stop now, until it is enabled again.')) {
                 e.preventDefault();
             }
         });

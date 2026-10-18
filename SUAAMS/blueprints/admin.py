@@ -2120,12 +2120,26 @@ def _terminal_form():
     return code, name, room, ble_number
 
 
+def _secret_fingerprint(terminal):
+    """A short tag for a reader's CURRENT secret, put in its "New secret"
+    form. Derived from the stored hash (never the secret), so it says
+    nothing about the secret itself; it only changes when the secret does.
+
+    The new secret is shown on the page the POST returns. Refreshing that
+    page re-sent the form and issued a SECOND secret, silently killing the
+    one just copied into the reader's secrets.h. A re-sent form carries the
+    old fingerprint, so terminals_page can recognise it and refuse."""
+    import hashlib
+    return hashlib.sha256(f"fingerprint:{terminal.secret_hash}".encode()).hexdigest()[:16]
+
+
 def _terminals_page(new_secret=None, for_terminal=None):
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     terminals = Terminal.query.order_by(Terminal.code).all()
     return render_template(
         'admin/terminals.html',
         terminals=terminals,
+        fingerprints={t.id: _secret_fingerprint(t) for t in terminals},
         online={t.id for t in terminals if t.last_seen_at and now - t.last_seen_at <= TERMINAL_ONLINE_WITHIN},
         rooms=sorted({r for (r,) in db.session.query(Timetable.room).distinct() if r}),
         room_check_mode=terminal_rooms.room_check_mode(),
@@ -2187,6 +2201,13 @@ def terminals_page():
             flash(f"Saved reader {terminal.code}.", 'success')
 
         elif action == 'regenerate':
+            # A re-sent form (refresh after issuing one) carries the
+            # fingerprint of a secret that's already been replaced: issuing
+            # again would kill the secret just copied into the reader.
+            if request.form.get('current') != _secret_fingerprint(terminal):
+                flash(f"{terminal.code}'s secret was already replaced, so no new one was issued. "
+                      f"If you've lost the one you were shown, click New secret again.", 'warning')
+                return redirect(url_for('admin.terminals_page'))
             # For a lost or dumped reader: the old secret stops working now.
             secret = terminal_rooms.new_secret()
             terminal.secret_hash = terminal_rooms.hash_secret(secret)

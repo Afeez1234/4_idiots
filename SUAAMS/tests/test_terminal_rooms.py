@@ -236,10 +236,38 @@ class TerminalRoomsTestCase(unittest.TestCase):
         # The page shown later doesn't repeat it.
         self.assertNotIn(secret, self.client.get('/admin/terminals').get_data(as_text=True))
 
+    def regenerate(self, current):
+        return self.client.post('/admin/terminals', data={
+            'action': 'regenerate', 'terminal_id': self.lt1.id, 'current': current})
+
     def test_new_secret_replaces_the_old_one(self):
+        from blueprints.admin import _secret_fingerprint
         self.sign_in()
-        self.client.post('/admin/terminals', data={'action': 'regenerate', 'terminal_id': self.lt1.id})
+        # The form carries the current secret's fingerprint, as the page renders it.
+        self.regenerate(_secret_fingerprint(self.lt1))
         self.assertEqual(self.tap('T-01').status_code, 401)            # old secret dead
+
+    def test_a_resent_new_secret_form_issues_nothing(self):
+        # Refreshing the page that showed a new secret re-sends the form. It
+        # used to issue a second secret, killing the one just copied into
+        # the reader. Since 2026-10-18 the stale fingerprint is refused.
+        from blueprints.admin import _secret_fingerprint
+        self.sign_in()
+        stale = _secret_fingerprint(self.lt1)
+        page = self.regenerate(stale).get_data(as_text=True)
+        issued = page.split('TERMINAL_SECRET "')[1].split('"')[0]
+        hash_after_first = db.session.get(Terminal, self.lt1.id).secret_hash
+
+        resp = self.regenerate(stale)                                  # the refresh
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(db.session.get(Terminal, self.lt1.id).secret_hash, hash_after_first)
+        self.assertEqual(hash_after_first, terminal_rooms.hash_secret(issued))
+
+    def test_page_asks_before_disabling_and_labels_the_edit_fields(self):
+        self.sign_in()
+        page = self.client.get('/admin/terminals').get_data(as_text=True)
+        self.assertIn('class="disable-form" data-code="T-01"', page)
+        self.assertIn(f'<label class="form-label" for="edit-room-{self.lt1.id}">Room</label>', page)
 
     def test_duplicate_code_is_refused(self):
         self.sign_in()
