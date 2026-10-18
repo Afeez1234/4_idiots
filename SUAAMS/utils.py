@@ -321,9 +321,11 @@ def student_course_attendance(student):
     from sqlalchemy.orm import joinedload
     from models import Course, Enrollment
 
-    courses = (Course.query
-               .join(Enrollment, Enrollment.course_id == Course.id)
-               .filter(Enrollment.student_id == student.id)
+    # This semester's courses only (current_courses): the dashboards that
+    # call this show "now", and old enrolments never expire.
+    courses = (current_courses(Course.query
+                               .join(Enrollment, Enrollment.course_id == Course.id)
+                               .filter(Enrollment.student_id == student.id))
                .options(joinedload(Course.lecturer))
                .all())
     course_ids = [c.id for c in courses]
@@ -364,6 +366,59 @@ def teaches(lecturer):
     )
 
 
+# ---- the current semester -----------------------------------------------------
+# Enrolments and published timetables never expire, so screens that show
+# "now" -- a student's Today/Week/Dashboard, a lecturer's courses and week,
+# an HOD's department figures -- must ask for the current semester
+# explicitly, or after a changeover they mix last year with this year
+# (two MCT401s, last year's classes in today's list). History screens
+# (attendance history, session history, reports, exports) deliberately
+# don't use these. (2026-10-18.)
+
+def current_semester():
+    """The active semester, or None."""
+    from models import Semester
+    return Semester.query.filter_by(is_active=True).first()
+
+
+def current_course_filter(semester=None):
+    """A Course filter for "this semester": its courses plus those with no
+    semester, which belong to every semester (the timetable's rule).
+
+    None when there is no active semester -- callers then don't filter at
+    all. A missing active semester is an admin setup gap; showing everything,
+    as before, beats blanking every student's and lecturer's app."""
+    from models import Course
+    from sqlalchemy import or_
+    semester = semester or current_semester()
+    if semester is None:
+        return None
+    return or_(Course.semester_id == semester.id, Course.semester_id.is_(None))
+
+
+def in_current_semester(course, semester=None):
+    """The same rule as current_course_filter, for one loaded course."""
+    semester = semester or current_semester()
+    return semester is None or course.semester_id is None or course.semester_id == semester.id
+
+
+def current_courses(query, semester=None):
+    """`query` (of Course) narrowed to the current semester, if there is one."""
+    condition = current_course_filter(semester)
+    return query if condition is None else query.filter(condition)
+
+
+def current_slot_filter(semester=None):
+    """A Timetable filter for this semester's slots, or None (no filter).
+
+    Slots are matched on their OWN semester, not their course's: a course
+    with no semester (GST212) has a separate set of slots each semester,
+    and only the current ones are this week's classes."""
+    from models import Timetable
+    semester = semester or current_semester()
+    return None if semester is None else (Timetable.semester_id == semester.id)
+
+
 def courses_taught_by(lecturer):
     """Query of every course this lecturer teaches (coordinator or co-)."""
     from models import Course
@@ -401,8 +456,9 @@ def start_class_session(lecturer, course_id, planned_start=None, planned_end=Non
     Shared by the lecturer app (api/lecturer.py) and the web portal
     (blueprints/lecturer.py), which each had their own copy. Returns
     (outcome, session): 'started', 'already_active' (session = the running
-    one) or 'not_found' (no such course, or not one they teach). Any of
-    the course's lecturers can start it; the session records which one.
+    one), 'past_semester' (session = None; the course belongs to another
+    semester) or 'not_found' (no such course, or not one they teach). Any
+    of the course's lecturers can start it; the session records which one.
 
     With no planned times given, uses today's timetable slot, so the late
     cut-off still has a scheduled start to work from.
@@ -414,9 +470,17 @@ def start_class_session(lecturer, course_id, planned_start=None, planned_end=Non
     from models import db, Session as SessionModel
     from campus_time import campus_today
 
-    if _lock_owned_course(lecturer, course_id) is None:
+    course = _lock_owned_course(lecturer, course_id)
+    if course is None:
         db.session.rollback()  # release the (empty) lock
         return 'not_found', None
+
+    # Last year's MCT401 is still "a course they teach", but a class started
+    # on it would take check-ins from last year's class list and file the
+    # attendance under the wrong semester.
+    if not in_current_semester(course):
+        db.session.rollback()
+        return 'past_semester', None
 
     running = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
     if running:

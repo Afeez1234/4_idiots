@@ -1,7 +1,7 @@
 import re
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for
 from datetime import datetime, timezone
-from utils import login_required, normalize_level, held_sessions, attended_by_student
+from utils import login_required, normalize_level, held_sessions, attended_by_student, current_courses
 from models import db, HOD, Department, Lecturer, Course, Student, Session as SessionModel, Enrollment
 from extensions import log_exception
 
@@ -120,7 +120,9 @@ def dashboard():
 
         department = hod.department
 
-        courses = Course.query.filter_by(department_id=hod.department_id).all()
+        # This semester's courses (utils.current_courses): every course the
+        # department has ever had would blend several years' attendance.
+        courses = current_courses(Course.query.filter_by(department_id=hod.department_id)).all()
         course_ids = [c.id for c in courses]
 
         active_sessions = SessionModel.query.filter(
@@ -167,7 +169,8 @@ def levels():
         if not hod:
             return redirect(url_for('auth.login'))
 
-        courses = Course.query.filter_by(department_id=hod.department_id).order_by(Course.course_code).all()
+        # This semester's courses (utils.current_courses).
+        courses = current_courses(Course.query.filter_by(department_id=hod.department_id)).order_by(Course.course_code).all()
         students = Student.query.filter_by(department_id=hod.department_id).all()
 
         by_level = {}
@@ -227,8 +230,9 @@ def students():
         if not hod:
             return redirect(url_for('auth.login'))
 
+        # This semester's courses (utils.current_courses).
         attendance = _department_attendance(
-            Course.query.filter_by(department_id=hod.department_id).all()
+            current_courses(Course.query.filter_by(department_id=hod.department_id)).all()
         )
 
         all_students = Student.query.filter_by(department_id=hod.department_id).all()

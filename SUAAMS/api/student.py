@@ -15,7 +15,8 @@ from models import db, Student, Course, Session as SessionModel, Attendance, Enr
 import terminal_rooms
 from extensions import limiter, jwt_identity_or_ip, api_error_response, client_ip
 from push_notifications import send_push_notification
-from utils import compute_attendance_status, student_course_attendance
+from utils import (compute_attendance_status, student_course_attendance, in_current_semester,
+                   current_semester, current_slot_filter)
 # Stored UTC moments -> campus time for display; campus "today" for
 # timetable lookups. See campus_time.py.
 from campus_time import campus_fmt, campus_today
@@ -749,8 +750,12 @@ def get_today_schedule():
         today_weekday = today.weekday()
 
         # Reuse the Course objects already loaded via student.courses
-        # instead of re-querying Course per timetable row below.
-        courses_by_id = {course.id: course for course in student.courses}
+        # instead of re-querying Course per timetable row below. This
+        # semester's only: old enrolments never expire, so last year's
+        # courses (and their still-published slots) would show as today's.
+        semester = current_semester()
+        courses_by_id = {course.id: course for course in student.courses
+                         if in_current_semester(course, semester)}
         if not courses_by_id:
             return jsonify({"success": True, "today_protocol": []}), 200
 
@@ -758,6 +763,7 @@ def get_today_schedule():
             Timetable.day_of_week == today_weekday,
             Timetable.course_id.in_(courses_by_id.keys()),
             Timetable.is_published.is_(True),  # drafts stay hidden until published
+            *[f for f in [current_slot_filter(semester)] if f is not None],
         ).order_by(Timetable.start_time.asc()).all()
 
         today_protocol = []
@@ -941,13 +947,17 @@ def get_week_schedule():
         if not student:
             return jsonify({"error": "Student profile not found."}), 404
 
-        courses_by_id = {course.id: course for course in student.courses}
+        # This semester's courses and slots only, as on Today.
+        semester = current_semester()
+        courses_by_id = {course.id: course for course in student.courses
+                         if in_current_semester(course, semester)}
         if not courses_by_id:
             return jsonify({"success": True, "week": []}), 200
 
         entries = Timetable.query.filter(
             Timetable.course_id.in_(courses_by_id.keys()),
             Timetable.is_published.is_(True),  # drafts stay hidden until published
+            *[f for f in [current_slot_filter(semester)] if f is not None],
         ).order_by(Timetable.day_of_week.asc(), Timetable.start_time.asc()).all()
 
         week = []

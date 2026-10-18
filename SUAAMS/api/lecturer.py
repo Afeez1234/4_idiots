@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Announcement, Timetable
 from extensions import limiter, jwt_identity_or_ip, api_error_response
 from utils import (build_course_register_csv, start_class_session, end_class_session,
-                   taught_course, courses_taught_by, teaches,
+                   taught_course, courses_taught_by, teaches, current_courses, current_slot_filter,
                    students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps,
                    notify_announcement, course_attendance, ATTENDED_STATUSES,
@@ -46,7 +46,9 @@ def get_lecturer_dashboard():
         return error_response, status
 
     try:
-        courses = courses_taught_by(lecturer).all()
+        # This semester's courses: courses_taught_by is every course they
+        # have ever taught, and last year's would sit beside this year's.
+        courses = current_courses(courses_taught_by(lecturer)).all()
 
         active_session_count = SessionModel.query.join(Course).filter(
             teaches(lecturer),
@@ -145,8 +147,9 @@ def get_lecturer_week_schedule():
         return error_response, status
 
     try:
+        # This semester's courses and slots only (see current_courses).
         courses_by_id = {
-            c.id: c for c in courses_taught_by(lecturer).all()
+            c.id: c for c in current_courses(courses_taught_by(lecturer)).all()
         }
         if not courses_by_id:
             return jsonify({"success": True, "week": []}), 200
@@ -154,6 +157,7 @@ def get_lecturer_week_schedule():
         entries = Timetable.query.filter(
             Timetable.course_id.in_(courses_by_id.keys()),
             Timetable.is_published.is_(True),  # drafts stay hidden until published
+            *[f for f in [current_slot_filter()] if f is not None],
         ).order_by(Timetable.day_of_week.asc(), Timetable.start_time.asc()).all()
 
         week = []
@@ -320,6 +324,9 @@ def start_session(course_id):
             return jsonify({"error": "Course not found or access denied."}), 404
         if outcome == 'already_active':
             return jsonify({"error": "A session is already active for this course."}), 409
+        if outcome == 'past_semester':
+            course = Course.query.get(course_id)
+            return jsonify({"error": f"{course.course_code} belongs to {course.semester.name if course.semester else 'another semester'}, not the current semester, so a class can't be started on it."}), 409
 
         return jsonify({
             "success": True,

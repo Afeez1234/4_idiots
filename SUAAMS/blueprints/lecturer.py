@@ -4,7 +4,7 @@ from flask import Blueprint, flash, render_template, redirect, request, session,
 from datetime import date, datetime, timezone
 from utils import (login_required, resolve_timetable_slot_for_course, notify_announcement,
                    start_class_session, end_class_session,
-                   taught_course, courses_taught_by, teaches,
+                   taught_course, courses_taught_by, teaches, current_courses,
                    build_course_register_csv, students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps,
                    course_attendance, ATTENDED_STATUSES)
@@ -25,7 +25,8 @@ def dashboard():
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
 
-        courses = courses_taught_by(lecturer).order_by(Course.course_code).all()
+        # This semester's courses only (current_courses).
+        courses = current_courses(courses_taught_by(lecturer)).order_by(Course.course_code).all()
 
         # Full active-session rows (not just a count) so the dashboard banner
         # can name the course(s) currently live and link straight into them.
@@ -362,7 +363,8 @@ def _course_attendance_reports(lecturer):
     """Per-course attendance percentage, shared by reports(), analytics()
     and export_reports() so they can't drift apart. The shared attendance
     rule (utils.course_attendance): finished classes, present or late."""
-    courses = courses_taught_by(lecturer).order_by(Course.course_code).all()
+    # This semester's courses only (current_courses).
+    courses = current_courses(courses_taught_by(lecturer)).order_by(Course.course_code).all()
     stats = course_attendance([c.id for c in courses])
     return [{
         'course': course,
@@ -590,6 +592,10 @@ def start_session(course_id):
             return redirect(url_for('lecturer.dashboard'))
         if outcome == 'already_active':
             flash('A session is already active for this course.', 'error')
+            return redirect(url_for('lecturer.course_workspace', course_id=course_id))
+        if outcome == 'past_semester':
+            course = Course.query.get(course_id)
+            flash(f"{course.course_code} belongs to {course.semester.name if course.semester else 'another semester'}, not the current semester, so a class can't be started on it.", 'error')
             return redirect(url_for('lecturer.course_workspace', course_id=course_id))
 
         flash('Session started successfully.', 'success')

@@ -88,6 +88,13 @@ Define strict cascades (`cascade="all, delete-orphan"`) on model relationships
 so child records (e.g. attendance ledger nodes) are pruned cleanly when
 parents (e.g. sessions) are cleared.
 
+**Current semester.** Enrolments and published timetables never expire, so
+any screen that shows "now" (a student's Today/Week/Dashboard, a lecturer's
+courses or week, an HOD's figures) must scope through `utils.current_courses`
+/ `current_slot_filter`, or it mixes last year with this year after a
+changeover. History screens deliberately don't. `courses_taught_by` and
+`student.courses` are every semester ever.
+
 **Architecture:** Blueprint-based — auth, admin, lecturer, student, api.
 bcrypt auth, role-based `login_required` decorator. JWT-based endpoints for
 mobile (auth + lecturer flows). 20-table schema (see `models.py`), grown
