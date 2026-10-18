@@ -75,7 +75,7 @@
     <div class="card-clip">
         <div class="card-header flex flex-wrap items-start justify-between gap-3">
             <div>
-                {{ card_heading('Below ' ~ e.threshold ~ '% Attendance', info=true) }}
+                {{ card_heading('Below ' ~ e.threshold ~ '% Attendance') }}
                 <p class="mt-1 text-xs text-secondary">
                     {% if e.students %}
                         <span class="font-semibold text-ink">{{ e.students|length }}</span>
@@ -172,7 +172,7 @@
     <div class="card-clip">
         <div class="card-header">
           <div>
-            {{ card_heading('Classes Held vs Timetabled', info=true) }}
+            {{ card_heading('Classes Held vs Timetabled') }}
             <p class="mt-1 text-xs text-secondary">
                 {% if d.teaching_start %}
                     Each published timetable slot is due once a week from {{ d.teaching_start.strftime('%d %b %Y') }},
@@ -257,11 +257,7 @@
 
 {% endblock %}
 
-{% block extra_scripts %}
-<script>
-    // Dropdowns apply as soon as they change, like the student roster.
-    document.querySelectorAll('#analytics-filters select').forEach(function (select) {
-        select.addEventListener('change', function () { select.form.submit(); });
-    });
-</script>
-{% endblock %}
+{# No auto-submit (removed 2026-10-18): on Windows an arrow key on a closed
+   dropdown fires change, so the page reloaded on the first press and you
+   couldn't reach the option you wanted; focus also jumped to the top. The
+   button applies the filters, as on Students, Courses and Reports. #}

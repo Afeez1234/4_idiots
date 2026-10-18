@@ -232,6 +232,22 @@ _POSITIONAL_ICON = re.compile(
 _JS_ICON_ASSIGNMENT = re.compile(r"textContent\s*=\s*'([a-z_0-9]+)'")
 
 
+def test_admin_dropdowns_dont_submit_on_change():
+    """No admin page reloads when a dropdown changes (2026-10-18). On
+    Windows an arrow key on a closed <select> fires change, so a page that
+    submitted on change reloaded on the first press -- you couldn't reach
+    the option you wanted, focus jumped to the top (WCAG 3.2.2), and on
+    Analytics each reload re-ran the whole eligibility calculation. Filters
+    apply with their button instead. The other portals aren't reviewed yet,
+    so this covers templates/admin only."""
+    offenders = [
+        str(path.relative_to(TEMPLATES))
+        for path in sorted((TEMPLATES / "admin").glob("*.html"))
+        if "form.submit()" in path.read_text(encoding="utf-8")
+    ]
+    assert not offenders, f"submit-on-change is back in: {offenders}"
+
+
 def test_icon_names_exist_in_the_font():
     """Guards against the silent 'renders as text' failure described above."""
     pattern = re.compile(r"material-symbols-rounded[^>]*>([^<>{}]{2,30})<")

@@ -121,14 +121,7 @@
     </div>
 {% endblock %}
 
-{% block extra_scripts %}
-<script>
-    // Apply a filter as soon as it's picked; the Filter button does the same
-    // without JavaScript.
-    document.querySelectorAll('#activity-filters select').forEach(function (select) {
-        select.addEventListener('change', function () {
-            select.form.submit();
-        });
-    });
-</script>
-{% endblock %}
+{# No auto-submit (removed 2026-10-18): on Windows an arrow key on a closed
+   dropdown fires change, so the page reloaded on the first press and you
+   couldn't reach the option you wanted; focus also jumped to the top. The
+   button applies the filters, as on Students, Courses and Reports. #}
