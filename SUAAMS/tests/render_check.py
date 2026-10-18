@@ -57,6 +57,25 @@ def _dash_slot(slot_id, code, start, end, room, status, present, enrolled, remin
     }
 
 
+# The Courses catalog (admin/courses.html): one course with a coordinator and
+# a co-lecturer, one general course with no semester and no lecturer.
+_COURSES = [
+    {
+        "id": 1, "course_code": "CPE401", "course_title": "Embedded Systems",
+        "department": {"name": "Computer Engineering"}, "department_id": 1, "semester_id": 1,
+        "lecturer": {"full_name": "Dr. Jane Doe", "staff_id": "STF/1"},
+        "all_lecturers": [{"full_name": "Dr. Jane Doe", "staff_id": "STF/1"},
+                          {"full_name": "Dr. Ade Bello", "staff_id": "STF/7"}],
+        "credit_units": 3,
+    },
+    {
+        "id": 2, "course_code": "GST212", "course_title": "Philosophy and Logic",
+        "department": None, "department_id": None, "semester_id": None,
+        "lecturer": None, "all_lecturers": [], "credit_units": None,
+    },
+]
+
+
 _DASH_SLOTS = [
     _dash_slot(1, "CSC 201", "08:00", "10:00", "LT 2", "ended", 142, 156),
     _dash_slot(2, "MCT 401", "09:00", "11:00", "LT 1", "live", 74, 88),
@@ -316,36 +335,21 @@ CONTEXTS = {
         role="admin",
         active_page="courses",
         active_semester=None,
-        courses=[
-            {
-                "id": 1,
-                "course_code": "CPE401",
-                "course_title": "Embedded Systems",
-                "department": {"name": "Computer Engineering"},
-                "department_id": 1,
-                "semester_id": 1,
-                "lecturer": {"full_name": "Dr. Jane Doe"},
-                "credit_units": 3,
-                "enrollments": [{}, {}],
-            },
-            {
-                "id": 2,
-                "course_code": "SEE310",
-                "course_title": "Control Systems",
-                "department": {"name": "Systems Engineering"},
-                "department_id": None,
-                "semester_id": None,
-                "lecturer": None,
-                "credit_units": None,
-                "enrollments": [],
-            },
-        ],
+        courses=_COURSES,
+        semester_courses=_COURSES,
+        # Course 1 has two lecturers (coordinator + co-lecturer); course 2,
+        # a general course with no semester, has none.
+        enrolled={1: 2},
+        view_semester={"id": 1, "name": "2025/2026 First Semester"},
+        filters={"q": "", "dept": 1},
+        filter_args={"semester": 1, "dept": 1},
+        is_filtered=True,
         departments=[
             {"id": 1, "name": "Computer Engineering"},
             {"id": 2, "name": "Systems Engineering"},
         ],
         lecturers=[{"id": 1, "full_name": "Dr. Jane Doe"}],
-        semesters=[{"id": 1, "name": "2025/2026 First Semester"}],
+        semesters=[{"id": 1, "name": "2025/2026 First Semester", "is_active": True}],
         # Course 1 can't be deleted (greyed out); course 2 can.
         delete_blockers={1: "Has 12 class sessions."},
     ),

@@ -629,7 +629,7 @@ def change_status(kind, person_id):
         return redirect(url_for('admin.dashboard'))
     model, _names, page, _id_col = STATUS_KINDS[kind]
     # Back to the same filtered roster page the form was on.
-    back = url_for(page, **{k: v for k, v in request.args.items() if k in STUDENT_FILTER_ARGS})
+    back = url_for(page, **{k: v for k, v in request.args.items() if k in RETURN_ARGS})
     person = db.session.get(model, person_id)
     if not person:
         flash('That person no longer exists.', 'error')
@@ -746,7 +746,7 @@ def _record_label(kind, record):
 def _edit_target(kind, record_id):
     """(record or None, URL back to the page the dialog was opened on)."""
     model, page = EDIT_KINDS[kind]
-    back = url_for(page, **{k: v for k, v in request.args.items() if k in STUDENT_FILTER_ARGS})
+    back = url_for(page, **{k: v for k, v in request.args.items() if k in RETURN_ARGS})
     return db.session.get(model, record_id), back
 
 
@@ -951,6 +951,10 @@ STUDENTS_PER_PAGE = 50
 # on its redirect so the admin lands on the same filtered view instead of
 # the unfiltered first page -- otherwise every unbind means searching again.
 STUDENT_FILTER_ARGS = ('q', 'dept', 'level', 'device', 'status', 'page')
+
+# What the edit and status dialogs carry back to the page they were opened
+# on: the roster's filters plus the Courses catalog's semester.
+RETURN_ARGS = STUDENT_FILTER_ARGS + ('semester',)
 
 
 def _student_filter_args():
@@ -1254,7 +1258,7 @@ def courses_page():
 
             if not matric or not course_id:
                 flash('Enter a matric number and select a course.', 'error')
-                return redirect(url_for('admin.courses_page'))
+                return redirect(_courses_back())
 
             try:
                 student = Student.query.filter(
@@ -1280,7 +1284,7 @@ def courses_page():
                 flash('Failed to enroll student.', 'error')
                 log_exception("Enrollment Create Error")
 
-            return redirect(url_for('admin.courses_page'))
+            return redirect(_courses_back())
 
         if action == 'manage_lecturer':
             _manage_course_lecturer(
@@ -1288,7 +1292,7 @@ def courses_page():
                 (request.form.get('staff_id') or '').strip(),
                 request.form.get('change'),
             )
-            return redirect(url_for('admin.courses_page'))
+            return redirect(_courses_back())
 
         title = request.form.get('title')
         code = request.form.get('code')
@@ -1299,7 +1303,7 @@ def courses_page():
 
         if not all([title, code, department_id, lecturer_id]):
             flash('All academic course parameters must be specified.', 'error')
-            return redirect(url_for('admin.courses_page'))
+            return redirect(_courses_back())
 
         try:
             course = Course(
@@ -1324,22 +1328,66 @@ def courses_page():
             flash('Course Code must be unique within its semester.', 'error')
             log_exception("Course Registration Error")
 
-        return redirect(url_for('admin.courses_page'))
+        return redirect(_courses_back())
 
-    courses = Course.query.all()
-    departments = Department.query.all()
-    # Only active lecturers can be given a course; on leave or left can't.
-    lecturers = Lecturer.query.filter_by(status='active').order_by(Lecturer.full_name).all()
-    semesters = Semester.query.all()
+    # One semester at a time (2026-10-17). It used to be Course.query.all():
+    # every semester's courses together, unordered, so MCT401 appeared once
+    # per semester -- identically in the table and in the Enroll Student and
+    # Course Lecturers dropdowns, where last year's copy could be picked by
+    # mistake. Courses with no semester belong to every semester (the
+    # timetable's rule), so they are listed too.
+    semesters = Semester.query.order_by(Semester.start_date.desc()).all()
+    semester = db.session.get(Semester, request.args.get('semester', type=int) or 0)
+    if semester is None:
+        semester = next((s for s in semesters if s.is_active), semesters[0] if semesters else None)
+    q = request.args.get('q', '').strip()
+    dept_id = request.args.get('dept', type=int)
+
+    query = Course.query
+    if semester is not None:
+        query = query.filter(or_(Course.semester_id == semester.id, Course.semester_id.is_(None)))
+    # joinedload: every row reads department and the coordinator; the
+    # co-lecturers are selectin on Course already.
+    semester_courses = (query.options(joinedload(Course.department),
+                                      joinedload(Course.lecturer))
+                        .order_by(Course.course_code, Course.id).all())
+    # Search and department narrow the catalog only. The Enroll Student and
+    # Course Lecturers dropdowns keep the whole semester, so a search
+    # doesn't hide the course you meant to pick.
+    needle = q.lower()
+    courses = [c for c in semester_courses
+               if (not needle or needle in c.course_code.lower() or needle in c.course_title.lower())
+               and (not dept_id or c.department_id == dept_id)]
+    # One GROUP BY instead of loading every enrolment row to count them.
+    enrolled = dict(db.session.query(Enrollment.course_id, db.func.count())
+                    .filter(Enrollment.course_id.in_([c.id for c in courses]))
+                    .group_by(Enrollment.course_id)) if courses else {}
+
+    filter_args = {k: v for k, v in (('semester', semester.id if semester else None),
+                                     ('q', q), ('dept', dept_id)) if v}
     return render_template(
         'admin/courses.html',
         courses=courses,
-        departments=departments,
-        lecturers=lecturers,
+        semester_courses=semester_courses,
+        enrolled=enrolled,
+        view_semester=semester,
+        departments=Department.query.order_by(Department.name).all(),
+        # Only active lecturers can be given a course; on leave or left can't.
+        lecturers=Lecturer.query.filter_by(status='active').order_by(Lecturer.full_name).all(),
         semesters=semesters,
+        filters={'q': q, 'dept': dept_id},
+        filter_args=filter_args,
+        # Search or department narrowing; the semester alone isn't a filter.
+        is_filtered=bool(q or dept_id),
         delete_blockers=record_edits.delete_blockers('courses', courses),
         active_page='courses',
     )
+
+
+def _courses_back():
+    """The Courses page as the form was posted from (semester, search, dept)."""
+    return url_for('admin.courses_page',
+                   **{k: request.args[k] for k in ('semester', 'q', 'dept') if request.args.get(k)})
 
 
 # ==========================================
