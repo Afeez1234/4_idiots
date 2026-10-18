@@ -18,6 +18,7 @@ from campus_time import campus_now, campus_today
 from utils import (
     resolve_current_course, session_status_for_course, notify_announcement,
     VALID_LEVELS, normalize_level, course_level, _csv_safe, course_attendance,
+    current_courses,
 )
 from push_notifications import send_push_notification, notify_users
 from audit import log_action, changes
@@ -2488,6 +2489,18 @@ def announcements_page():
         if not all([title, body, scope]):
             flash('Title, body, and scope are all required.', 'error')
             return redirect(url_for('admin.announcements_page'))
+        # A department or course announcement needs its department or course.
+        # Without this check one was saved with neither -- and reached nobody
+        # (utils.announcement_user_ids returns [] for it).
+        if scope not in ('university', 'department', 'course'):
+            flash('Choose who the announcement is for.', 'error')
+            return redirect(url_for('admin.announcements_page'))
+        if scope == 'department' and not db.session.get(Department, request.form.get('department_id', type=int) or 0):
+            flash('Choose the department this announcement is for.', 'error')
+            return redirect(url_for('admin.announcements_page'))
+        if scope == 'course' and not db.session.get(Course, request.form.get('course_id', type=int) or 0):
+            flash('Choose the course this announcement is for.', 'error')
+            return redirect(url_for('admin.announcements_page'))
 
         try:
             announcement = Announcement(
@@ -2520,13 +2533,27 @@ def announcements_page():
         return redirect(url_for('admin.announcements_page'))
 
     announcements = Announcement.query.order_by(Announcement.created_at.desc()).all()
-    departments = Department.query.all()
-    courses = Course.query.all()
+    departments = Department.query.order_by(Department.name).all()
+    # This semester's courses (utils.current_courses): it listed every
+    # semester's, so MCT401 appeared once per semester, identically.
+    courses = current_courses(Course.query).order_by(Course.course_code).all()
+    # How many students each choice notifies -- the same rule as
+    # utils.announcement_user_ids -- so posting can say "notify 6,240
+    # students?" before a push goes to every phone it reaches.
+    audience = {
+        'university': Student.query.count(),
+        'departments': dict(db.session.query(Student.department_id, db.func.count(Student.id))
+                            .group_by(Student.department_id)),
+        'courses': dict(db.session.query(Enrollment.course_id, db.func.count(Enrollment.student_id))
+                        .filter(Enrollment.course_id.in_([c.id for c in courses]))
+                        .group_by(Enrollment.course_id)) if courses else {},
+    }
     return render_template(
         'admin/announcements.html',
         announcements=announcements,
         departments=departments,
         courses=courses,
+        audience=audience,
         active_page='announcements',
     )
 

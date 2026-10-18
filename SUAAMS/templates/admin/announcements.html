@@ -15,10 +15,13 @@
         <div class="form-col">
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Post Announcement', info=true) }}
+                    {{ card_heading('Post Announcement') }}
                 </div>
                 <div class="card-body">
-                    <form action="{{ url_for('admin.announcements_page') }}" method="POST" class="space-y-4">
+                    {# Posting pushes a notification to every student it reaches, so the
+                       script below asks first with the count (data-audience). #}
+                    <form action="{{ url_for('admin.announcements_page') }}" method="POST" class="space-y-4"
+                          id="announcement-form" data-audience="{{ audience.university }}">
                         {% include '_csrf_field.html' %}
 
                         <div>
@@ -51,7 +54,7 @@
                             <select name="department_id" id="announcement-department" class="form-select">
                                 <option value="" disabled selected>Select department</option>
                                 {% for dept in departments %}
-                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                                    <option value="{{ dept.id }}" data-audience="{{ audience.departments.get(dept.id, 0) }}">{{ dept.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -61,7 +64,7 @@
                             <select name="course_id" id="announcement-course" class="form-select">
                                 <option value="" disabled selected>Select course</option>
                                 {% for course in courses %}
-                                    <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
+                                    <option value="{{ course.id }}" data-audience="{{ audience.courses.get(course.id, 0) }}">{{ course.course_code }} &ndash; {{ course.course_title }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -87,9 +90,9 @@
                            audience an announcement reached is the fact an admin
                            scans the feed for. #}
                         {% if a.scope == 'university' %}
-                            {{ pill('University-wide', 'accent', 'public') }}
+                            {{ pill('University-wide', 'accent') }}
                         {% elif a.scope == 'department' %}
-                            {{ pill(a.department.name if a.department else 'Department', 'neutral', 'apartment') }}
+                            {{ pill(a.department.name if a.department else 'Department', 'neutral') }}
                         {% else %}
                             {{ course_chip(a.course.course_code if a.course else 'Course') }}
                         {% endif %}
@@ -99,9 +102,12 @@
                     </div>
                     <div class="card-foot">
                         {% if a.is_active %}
-                            {{ pill('Live', 'live', 'campaign') }}
+                            {{ pill('Live', 'live') }}
+                            {# Deleting hides it (a soft delete, kept for the record); it
+                               can't recall notifications already sent. The old text said
+                               "cannot be undone", which wasn't the point. #}
                             <form action="{{ url_for('admin.delete_announcement', announcement_id=a.id) }}" method="POST"
-                                  onsubmit="return confirm('Delete this announcement? This cannot be undone.');">
+                                  onsubmit="return confirm('Delete this announcement? Students stop seeing it now. Notifications already sent to phones can\'t be recalled.');">
                                 {% include '_csrf_field.html' %}
                                 <button type="submit" title="Delete announcement" class="btn-link ml-auto">
                                     Delete
@@ -134,12 +140,37 @@
         const departmentField = document.getElementById('department-field');
         const courseField = document.getElementById('course-field');
 
+        const departmentSelect = document.getElementById('announcement-department');
+        const courseSelect = document.getElementById('announcement-course');
         function syncFields() {
             departmentField.classList.toggle('hidden', scopeSelect.value !== 'department');
             courseField.classList.toggle('hidden', scopeSelect.value !== 'course');
+            // The visible one is required, so the browser asks for it before
+            // posting (the server refuses a missing one too).
+            departmentSelect.required = scopeSelect.value === 'department';
+            courseSelect.required = scopeSelect.value === 'course';
         }
         scopeSelect.addEventListener('change', syncFields);
         syncFields();
+
+        // Posting pushes to every student it reaches: say how many first.
+        const form = document.getElementById('announcement-form');
+        form.addEventListener('submit', function (e) {
+            let count = parseInt(form.dataset.audience, 10);
+            let who = 'every student';
+            const picked = scopeSelect.value === 'department' ? departmentSelect
+                         : scopeSelect.value === 'course' ? courseSelect : null;
+            if (picked) {
+                const option = picked.options[picked.selectedIndex];
+                count = parseInt(option.dataset.audience || '0', 10);
+                who = 'students in ' + option.textContent.trim();
+            }
+            const message = count === 0
+                ? 'No students would receive this (' + who + '). Post it anyway?'
+                : 'Post this and send a notification to ' + count.toLocaleString() + ' student'
+                  + (count === 1 ? '' : 's') + ' (' + who + ')?';
+            if (!confirm(message)) e.preventDefault();
+        });
     })();
 </script>
 {% endblock %}

@@ -331,6 +331,8 @@ CONTEXTS = {
         ],
         departments=[{"id": 1, "name": "Systems Engineering"}],
         courses=[{"id": 1, "course_code": "CPE401", "course_title": "Embedded Systems"}],
+        # Students each choice would notify (admin.announcements_page).
+        audience={"university": 6240, "departments": {1: 812}, "courses": {1: 156}},
     ),
 
     "admin/courses.html": dict(
