@@ -19,7 +19,7 @@
         <div class="space-y-6">
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Add Faculty', info=true) }}
+                    {{ card_heading('Add Faculty') }}
                 </div>
                 <div class="card-body">
                     <form action="{{ url_for('admin.organization_page') }}" method="POST" class="space-y-4">
@@ -38,20 +38,17 @@
             </div>
 
             <div class="card-clip">
-                {{ directory_heading('Faculties', faculties|length, 'faculty') }}
+                {{ directory_heading('Faculties', faculties|length, 'faculty', 'faculties') }}
 
                 <div class="divide-y divide-divider border-t border-divider">
                     {% for faculty in faculties %}
-                        {% set fc = faculty_counts.get(faculty.id, {'departments': 0, 'students': 0, 'lecturers': 0, 'courses': 0}) %}
+                        {% set fc = faculty_counts.get(faculty.id, {'departments': 0, 'students': 0, 'lecturers': 0, 'courses': 0, 'hods': 0}) %}
+                        {# Only an empty faculty can be deleted (admin._delete_blocker). #}
+                        {% set fc_in_use = fc.students or fc.lecturers or fc.courses or fc.hods %}
                         <div class="flex items-center justify-between gap-4 px-5 py-3.5">
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-semibold text-ink">{{ faculty.name }}</p>
-                                {# The cascade counts are built in the template
-                                   because the route doesn't precompute them:
-                                   deleting a faculty takes its departments --
-                                   and therefore every student, lecturer and
-                                   course under them -- with it, so the admin has
-                                   to see the blast radius before confirming. #}
+                                {# What sits under it: any of these blocks deleting it. #}
                                 <p class="mt-0.5 text-2xs text-muted">
                                     {{ fc.departments }} department{{ '' if fc.departments == 1 else 's' }} &middot;
                                     {{ fc.students }} students &middot;
@@ -59,20 +56,24 @@
                                     {{ fc.courses }} courses
                                 </p>
                             </div>
+                            {% if fc_in_use %}
+                                <span class="shrink-0 text-2xs text-muted">In use, can't delete</span>
+                            {% else %}
                             {# data-* below is the modal's entire input contract;
                                renaming any of it silently breaks the confirm
                                gate below, which compares the typed value against
                                data-name exactly. #}
                             <button type="button"
                                     class="btn-ghost btn-icon shrink-0 text-muted hover:text-error"
-                                    title="Delete faculty"
+                                    title="Delete faculty" aria-label="Delete faculty {{ faculty.name }}"
                                     data-delete-trigger
                                     data-entity-type="Faculty"
                                     data-name="{{ faculty.name }}"
                                     data-action-url="{{ url_for('admin.delete_faculty', faculty_id=faculty.id) }}"
-                                    data-message="Deleting &quot;{{ faculty.name }}&quot; will also delete {{ fc.departments }} department(s), {{ fc.students }} student(s), {{ fc.lecturers }} lecturer(s), and {{ fc.courses }} course(s). This cannot be undone.">
-                                <span class="material-symbols-rounded text-xl">delete</span>
+                                    data-message="Deleting &quot;{{ faculty.name }}&quot; also deletes its {{ fc.departments }} empty department(s). This cannot be undone.">
+                                <span class="material-symbols-rounded text-xl" aria-hidden="true">delete</span>
                             </button>
+                            {% endif %}
                         </div>
                     {% else %}
                         {{ empty_state('No faculties yet.', 'domain') }}
@@ -85,7 +86,7 @@
         <div class="space-y-6">
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Add Department', info=true) }}
+                    {{ card_heading('Add Department') }}
                 </div>
                 <div class="card-body">
                     <form action="{{ url_for('admin.organization_page') }}" method="POST" class="space-y-4">
@@ -130,7 +131,7 @@
 
                 <div class="divide-y divide-divider border-t border-divider">
                     {% for dept in departments %}
-                        {% set dc = dept_counts.get(dept.id, {'students': 0, 'lecturers': 0, 'courses': 0}) %}
+                        {% set dc = dept_counts.get(dept.id, {'students': 0, 'lecturers': 0, 'courses': 0, 'hods': 0}) %}
                         <div class="flex items-center justify-between gap-4 px-5 py-3.5">
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-semibold text-ink">{{ dept.name }}</p>
@@ -143,7 +144,9 @@
                             </div>
                             {# Programme length, settable in place: departments made
                                before it existed have none, and promotion won't run
-                               until every department with students has one. #}
+                               until every department with students has one. Saved
+                               with the button: it used to save on change, so one
+                               arrow-key press on the dropdown saved a wrong length. #}
                             <form action="{{ url_for('admin.organization_page') }}" method="POST" class="ml-auto flex shrink-0 items-center gap-2">
                                 {% include '_csrf_field.html' %}
                                 <input type="hidden" name="action" value="set_programme_years">
@@ -154,17 +157,22 @@
                                         <option value="{{ years }}" {{ 'selected' if dept.programme_years == years else '' }}>{{ years }} years</option>
                                     {% endfor %}
                                 </select>
+                                <button type="submit" class="btn-secondary btn-sm">Save</button>
                             </form>
+                            {% if dc.students or dc.lecturers or dc.courses or dc.hods %}
+                                <span class="shrink-0 text-2xs text-muted">In use, can't delete</span>
+                            {% else %}
                             <button type="button"
                                     class="btn-ghost btn-icon shrink-0 text-muted hover:text-error"
-                                    title="Delete department"
+                                    title="Delete department" aria-label="Delete department {{ dept.name }}"
                                     data-delete-trigger
                                     data-entity-type="Department"
                                     data-name="{{ dept.name }}"
                                     data-action-url="{{ url_for('admin.delete_department', department_id=dept.id) }}"
-                                    data-message="Deleting &quot;{{ dept.name }}&quot; will also delete {{ dc.students }} student(s), {{ dc.lecturers }} lecturer(s), and {{ dc.courses }} course(s). This cannot be undone.">
-                                <span class="material-symbols-rounded text-xl">delete</span>
+                                    data-message="Delete the empty department &quot;{{ dept.name }}&quot;? This cannot be undone.">
+                                <span class="material-symbols-rounded text-xl" aria-hidden="true">delete</span>
                             </button>
+                            {% endif %}
                         </div>
                     {% else %}
                         {{ empty_state('No departments yet.', 'account_tree') }}
@@ -184,9 +192,9 @@
          by the script when it opens -- both are literal classes here, so the
          scanner emits them even though the script only touches them by name. -->
     <div id="delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
-        <div class="card w-full max-w-md p-6">
+        <div class="card w-full max-w-md p-6" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
             <div class="mb-4 flex items-center gap-3">
-                <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-error-soft text-error">
+                <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-error-soft text-error" aria-hidden="true">
                     <span class="material-symbols-rounded text-xl">warning</span>
                 </div>
                 <h3 id="delete-modal-title" class="card-title text-base">Delete item?</h3>
@@ -217,11 +225,6 @@
 
 {% block extra_scripts %}
 <script>
-    // Programme length saves as soon as it's picked (one field, no Save button).
-    document.querySelectorAll('.programme-years').forEach(function (select) {
-        select.addEventListener('change', function () { select.form.submit(); });
-    });
-
     (function () {
         const modal = document.getElementById('delete-modal');
         const title = document.getElementById('delete-modal-title');
@@ -231,9 +234,11 @@
         const confirmBtn = document.getElementById('delete-modal-confirm');
         const form = document.getElementById('delete-modal-form');
         let expectedName = '';
+        let opener = null;
 
         document.querySelectorAll('[data-delete-trigger]').forEach(function (btn) {
             btn.addEventListener('click', function () {
+                opener = btn;
                 expectedName = btn.dataset.name;
                 title.textContent = 'Delete ' + btn.dataset.entityType + ' "' + expectedName + '"?';
                 message.textContent = btn.dataset.message;
@@ -258,7 +263,19 @@
         function closeModal() {
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+            if (opener) opener.focus();
         }
+        // Keyboard, as in admin/_edit.html: Escape closes, Tab stays inside.
+        modal.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { closeModal(); return; }
+            if (e.key !== 'Tab') return;
+            var items = Array.prototype.filter.call(
+                modal.querySelectorAll('button, input:not([type=hidden])'),
+                function (el) { return el.offsetParent !== null && !el.disabled; });
+            var first = items[0], last = items[items.length - 1];
+            if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+            else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+        });
         document.getElementById('delete-modal-cancel').addEventListener('click', closeModal);
         modal.addEventListener('click', function (e) {
             if (e.target === modal) closeModal();

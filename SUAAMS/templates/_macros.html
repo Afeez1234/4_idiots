@@ -246,12 +246,13 @@
   </h2>
 {%- endmacro -%}
 
-{# Directory header: heading + record count, shared by six admin pages. #}
-{%- macro directory_heading(text, count, noun='') -%}
+{# Directory header: heading + record count, shared by six admin pages.
+   `plural` for an irregular noun: "faculty" + "s" read "2 facultys". #}
+{%- macro directory_heading(text, count, noun='', plural=none) -%}
   <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
     <h2 class="card-title">{{ text }}</h2>
     {% if count is not none %}
-      <span class="text-xs text-muted">{{ count }} {{ noun }}{{ '' if count == 1 else 's' }}</span>
+      <span class="text-xs text-muted">{{ count }} {{ noun if count == 1 else (plural or noun ~ 's') }}</span>
     {% endif %}
   </div>
 {%- endmacro -%}

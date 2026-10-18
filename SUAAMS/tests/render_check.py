@@ -446,18 +446,18 @@ CONTEXTS = {
         # Counts come precomputed from _organization_counts() (GROUP BY
         # queries), not from the relationship lists, so the rows only need
         # ids and names.
-        faculties=[{"id": 1, "name": "Faculty of Engineering"}],
-        faculty_counts={1: {"departments": 1, "students": 3, "lecturers": 2, "courses": 5}},
+        # One faculty and department in use (no delete button: "In use"),
+        # one empty of each (delete button + modal).
+        faculties=[{"id": 1, "name": "Faculty of Engineering"}, {"id": 2, "name": "Faculty of Arts"}],
+        faculty_counts={1: {"departments": 1, "students": 3, "lecturers": 2, "courses": 5, "hods": 1}},
         programme_years=(4, 5),
         departments=[
-            {
-                "id": 1,
-                "name": "Computer Engineering",
-                "programme_years": None,
-                "faculty": {"name": "Faculty of Engineering"},
-            }
+            {"id": 1, "name": "Computer Engineering", "programme_years": None,
+             "faculty": {"name": "Faculty of Engineering"}},
+            {"id": 2, "name": "History", "programme_years": 4, "faculty": {"name": "Faculty of Arts"}},
         ],
-        dept_counts={1: {"students": 3, "lecturers": 2, "courses": 5}},
+        dept_counts={1: {"students": 3, "lecturers": 2, "courses": 5, "hods": 1},
+                     2: {"students": 0, "lecturers": 0, "courses": 0, "hods": 0}},
     ),
 
     "admin/reports.html": dict(

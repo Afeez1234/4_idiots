@@ -196,8 +196,9 @@ class PromotionTestCase(unittest.TestCase):
         dept_counts, faculty_counts = _organization_counts(Department.query.all())
         self.assertEqual(dept_counts[self.mct.id]['students'], 4)
         self.assertEqual(dept_counts[self.acc.id]['students'], 3)
+        # 'hods' since 2026-10-18: an HOD also blocks deleting a department.
         self.assertEqual(faculty_counts[self.mct.faculty_id], {'departments': 2, 'students': 7,
-                                                               'lecturers': 0, 'courses': 0})
+                                                               'lecturers': 0, 'courses': 0, 'hods': 0})
         self.sign_in()
         page = self.client.get('/admin/organization').get_data(as_text=True)
         self.assertIn('7 students', page)

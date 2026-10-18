@@ -226,8 +226,8 @@ def organization_page():
 
         return redirect(url_for('admin.organization_page'))
 
-    faculties = Faculty.query.all()
-    departments = Department.query.all()
+    faculties = Faculty.query.order_by(Faculty.name).all()
+    departments = Department.query.order_by(Department.name).all()
     dept_counts, faculty_counts = _organization_counts(departments)
     return render_template(
         'admin/organization.html',
@@ -249,8 +249,8 @@ def _organization_counts(departments):
     memory just to count them -- several times over, since the faculty
     totals and both delete warnings repeated it. At 6,000+ students that
     is tens of thousands of objects per page view."""
-    dept_counts = {d.id: {'students': 0, 'lecturers': 0, 'courses': 0} for d in departments}
-    for model, key in ((Student, 'students'), (Lecturer, 'lecturers'), (Course, 'courses')):
+    dept_counts = {d.id: {'students': 0, 'lecturers': 0, 'courses': 0, 'hods': 0} for d in departments}
+    for model, key in ((Student, 'students'), (Lecturer, 'lecturers'), (Course, 'courses'), (HOD, 'hods')):
         for dept_id, n in (db.session.query(model.department_id, db.func.count(model.id))
                            .group_by(model.department_id)):
             if dept_id in dept_counts:
@@ -258,7 +258,7 @@ def _organization_counts(departments):
     faculty_counts = {}
     for d in departments:
         totals = faculty_counts.setdefault(d.faculty_id, {'departments': 0, 'students': 0,
-                                                          'lecturers': 0, 'courses': 0})
+                                                          'lecturers': 0, 'courses': 0, 'hods': 0})
         totals['departments'] += 1
         for key, n in dept_counts[d.id].items():
             totals[key] += n
@@ -270,20 +270,38 @@ PROGRAMME_YEARS = (4, 5)
 
 
 def _cascade_counts(department_ids):
-    """How many students, lecturers and courses sit under these departments
-    -- what a cascade delete is about to remove. Recorded in the audit log."""
+    """How many students, lecturers, courses and HODs sit under these
+    departments -- what a cascade delete would remove. Any of them blocks
+    the delete (_delete_blocker)."""
     if not department_ids:
-        return {'students': 0, 'lecturers': 0, 'courses': 0}
+        return {'students': 0, 'lecturers': 0, 'courses': 0, 'hods': 0}
     return {
         'students': Student.query.filter(Student.department_id.in_(department_ids)).count(),
         'lecturers': Lecturer.query.filter(Lecturer.department_id.in_(department_ids)).count(),
         'courses': Course.query.filter(Course.department_id.in_(department_ids)).count(),
+        'hods': HOD.query.filter(HOD.department_id.in_(department_ids)).count(),
     }
+
+
+def _delete_blocker(name, counts):
+    """Why `name` can't be deleted, or None if nothing sits under it.
+
+    Faculties and departments delete only when EMPTY (2026-10-18). The
+    cascade used to remove every student, lecturer, course and HOD under
+    them -- with all their attendance -- behind nothing but a typed name,
+    while every other delete in the app refuses a record with history
+    (record_edits.py)."""
+    if not any(counts.values()):
+        return None
+    return (f"{name} still has {_describe_counts(counts)}. Move or remove them first; "
+            f"only an empty one can be deleted.")
 
 
 def _describe_counts(counts):
     """{'students': 3, 'courses': 0} -> '3 students'. 'nothing else' if all 0."""
-    parts = [f"{n} {name if n != 1 else name[:-1]}" for name, n in counts.items() if n]
+    labels = {'hods': ('HOD', 'HODs')}
+    parts = [f"{n} {labels[name][n != 1] if name in labels else (name if n != 1 else name[:-1])}"
+             for name, n in counts.items() if n]
     return ', '.join(parts) if parts else 'nothing else'
 
 
@@ -291,28 +309,26 @@ def _describe_counts(counts):
 @limiter.limit("10 per minute")
 def delete_faculty(faculty_id):
     """
-    Deletes a Faculty and cascades to every Department beneath it (and
-    everything under those -- Students, Lecturers, Courses, etc.), per the
-    cascade="all, delete-orphan" relationships in models.py. The
-    type-the-name-to-confirm modal in organization.html is the only
-    safeguard before this fires -- there's no "are you sure" here.
+    Deletes a Faculty and its (empty) Departments. Refused while any
+    student, lecturer, course or HOD sits under it (_delete_blocker): the
+    models cascade, so a delete would take all of them and their records.
+    The type-the-name modal in organization.html confirms an empty one.
     """
     faculty = Faculty.query.get_or_404(faculty_id)
+    dept_ids = [d.id for d in faculty.departments]
+    blocker = _delete_blocker(faculty.name, _cascade_counts(dept_ids))
+    if blocker:
+        flash(f"Can't delete: {blocker}", 'error')
+        return redirect(url_for('admin.organization_page'))
     try:
         name = faculty.name
-        # Counted BEFORE the delete: afterwards there is nothing left to
-        # count. This is the entry you'd look for after an accident, and
-        # "deleted faculty X" alone wouldn't say how much went with it.
-        dept_ids = [d.id for d in faculty.departments]
-        removed = _cascade_counts(dept_ids)
-        removed['departments'] = len(dept_ids)
+        removed = {'departments': len(dept_ids)}
         db.session.delete(faculty)
         log_action('faculty.delete',
-                   f"Deleted faculty {name} and everything under it "
-                   f"({_describe_counts(removed)})",
+                   f"Deleted faculty {name} ({_describe_counts(removed)})",
                    'faculty', faculty_id, {'removed': removed})
         db.session.commit()
-        flash(f"Faculty '{name}' and everything under it was deleted.", 'success')
+        flash(f"Faculty '{name}' was deleted.", 'success')
     except Exception:
         db.session.rollback()
         flash('Failed to delete faculty.', 'error')
@@ -323,19 +339,21 @@ def delete_faculty(faculty_id):
 @admin_bp.route('/departments/<int:department_id>/delete', methods=['POST'])
 @limiter.limit("10 per minute")
 def delete_department(department_id):
-    """Deletes a Department, cascading to its Students, Lecturers, and
-    Courses. Same caveat as delete_faculty above."""
+    """Deletes an empty Department. Refused while anything sits under it,
+    as for delete_faculty above."""
     department = Department.query.get_or_404(department_id)
+    blocker = _delete_blocker(department.name, _cascade_counts([department.id]))
+    if blocker:
+        flash(f"Can't delete: {blocker}", 'error')
+        return redirect(url_for('admin.organization_page'))
     try:
         name = department.name
-        removed = _cascade_counts([department.id])  # before the delete; see delete_faculty
+        removed = {}
         db.session.delete(department)
-        log_action('department.delete',
-                   f"Deleted department {name} and everything under it "
-                   f"({_describe_counts(removed)})",
+        log_action('department.delete', f"Deleted department {name}",
                    'department', department_id, {'removed': removed})
         db.session.commit()
-        flash(f"Department '{name}' and everything under it was deleted.", 'success')
+        flash(f"Department '{name}' was deleted.", 'success')
     except Exception:
         db.session.rollback()
         flash('Failed to delete department.', 'error')

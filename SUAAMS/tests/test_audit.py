@@ -189,7 +189,11 @@ class AuditTestCase(unittest.TestCase):
         self.assertEqual(entry.actor_label, 'tunde')
         self.assertIn('Ada Obi', entry.summary)
 
-    def test_department_delete_records_what_the_cascade_removed(self):
+    # Since 2026-10-18 a department (or faculty) deletes only when empty:
+    # the cascade used to take its students, lecturers, courses and HODs,
+    # with all their attendance, behind nothing but a typed name.
+
+    def test_department_with_people_is_not_deleted(self):
         user = User(username='MCT/19/0002', password_hash='x', role='student')
         db.session.add(user)
         db.session.flush()
@@ -199,9 +203,18 @@ class AuditTestCase(unittest.TestCase):
 
         self.sign_in(self.admin)
         self.client.post(f'/admin/departments/{self.dept.id}/delete')
-        entry = self.entries('department.delete')[0]
-        self.assertEqual(entry.details['removed']['students'], 1)
-        self.assertIn('1 student', entry.summary)
+        self.assertIsNotNone(db.session.get(Department, self.dept.id))
+        self.assertEqual(Student.query.filter_by(matric_number='MCT/19/0002').count(), 1)
+        self.assertEqual(self.entries('department.delete'), [])
+
+    def test_empty_department_delete_is_logged(self):
+        empty = Department(name='Empty Dept', faculty_id=self.dept.faculty_id)
+        db.session.add(empty)
+        db.session.commit()
+        self.sign_in(self.admin)
+        self.client.post(f'/admin/departments/{empty.id}/delete')
+        self.assertIsNone(db.session.get(Department, empty.id))
+        self.assertIn('Empty Dept', self.entries('department.delete')[0].summary)
 
     def test_failed_change_leaves_no_entry(self):
         # Duplicate faculty name: the commit fails, and its log entry must
