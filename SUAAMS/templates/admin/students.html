@@ -23,10 +23,8 @@
 
 {% block content %}
 
-    {# Add Student + Bulk Enroll share one sticky column -- wrapping them
-       together keeps the Roster's lg:col-span-2 lining up against a single
-       column 1, and .form-col keeps two independently-sticky cards from both
-       pinning to top-0 and overlapping. #}
+    {# The forms share one column (it scrolls with the page; see .form-grid in input.css): wrapping them together
+       keeps the Roster's lg:col-span-2 lining up against a single column 1. #}
     <div class="form-grid">
         <div class="form-col">
 

@@ -465,11 +465,18 @@
   .mono { @apply font-mono; }
 
   /* "Form column left, directory right" -- seven admin pages re-declared this
-     grid by hand. The sticky wrapper deliberately wraps BOTH form cards
-     rather than making each one sticky, which is what the hand-written
-     versions were working around. */
+     grid by hand.
+
+     The form column is NOT sticky (removed 2026-10-17). It used to be
+     lg:sticky lg:top-0, which only works while the column is shorter than
+     the screen: a pinned column can't scroll on its own, so on Students
+     (four cards) Bulk Enroll and Promote were unreachable until the whole
+     roster beside it had scrolled past. Now it scrolls with the page; the
+     Add form is a scroll back up away. Keeping it pinned with its own
+     scrollbar was the alternative -- a scroll area inside the page, fiddly
+     with a wheel or trackpad. */
   .form-grid { @apply grid grid-cols-1 items-start gap-6 lg:grid-cols-3; }
-  .form-grid > .form-col { @apply space-y-6 lg:sticky lg:top-0; }
+  .form-grid > .form-col { @apply space-y-6; }
   .form-grid > .form-main { @apply lg:col-span-2; }
 
   /* Wider ratio for pages whose directory needs more room (timetable). */
