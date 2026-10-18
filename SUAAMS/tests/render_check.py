@@ -815,8 +815,8 @@ CONTEXTS = {
              "lecturer_name": "Mr. T. Lawal", "credit_units": 4,
              "attended": 8, "total": 13},
         ],
-        # present / late / absent in one list: the status pill keys off exactly
-        # this set, so all three must appear somewhere.
+        # All four statuses, so every branch of attendance_status_pill renders
+        # (excused was the one the old copies showed red, like absent).
         recent_attendance=[
             {"course": "SEN 301", "course_title": "Signals & Systems",
              "date": "14 Sep 2026", "time": "09:00", "status": "present"},
@@ -824,6 +824,8 @@ CONTEXTS = {
              "date": "13 Sep 2026", "time": "14:00", "status": "late"},
             {"course": "SEN 311", "course_title": "Embedded Systems",
              "date": "12 Sep 2026", "time": "14:00", "status": "absent"},
+            {"course": "SEN 301", "course_title": "Signals & Systems",
+             "date": "11 Sep 2026", "time": "09:00", "status": "excused"},
         ],
     ),
 

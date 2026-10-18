@@ -44,6 +44,11 @@ Color attendanceStatusText(
 }
 
 /// The background tint and border for a status pill, from the same palette.
+///
+/// One map for every screen, web included (templates/_macros.html
+/// attendance_status_pill): present green, late amber, absent red, excused
+/// grey. 'excused' had no case here and fell through to the red ABSENT
+/// surface -- grey text on a red pill.
 ({Color bg, Color border}) attendanceStatusSurface(
   String status, [
   AppTerminal? palette,
@@ -54,6 +59,10 @@ Color attendanceStatusText(
       return (bg: t.successBg, border: t.successBorder);
     case 'late':
       return (bg: t.warningBg, border: t.warningBorder);
+    case 'excused':
+      // The palette has no neutral triple: the secondary text colour at the
+      // same 10% tint the status fills use, with the subtle border.
+      return (bg: t.textSecondary.withValues(alpha: 0.10), border: t.borderSubtle);
     case 'absent':
     default:
       return (bg: t.dangerBg, border: t.dangerBorder);

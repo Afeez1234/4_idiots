@@ -1,5 +1,5 @@
 {% extends "base_portal.html" %}
-{% from '_macros.html' import stat_card, pill, avatar, table_empty, card_heading %}
+{% from '_macros.html' import stat_card, pill, avatar, table_empty, card_heading, attendance_status_pill %}
 
 {% block title %}{{ course.course_title }} | SUAAMS Lecturer{% endblock %}
 {% block page_title %}{{ course.course_code }}{% endblock %}
@@ -133,19 +133,7 @@
                                     {{ record[5]|campus('%H:%M:%S') if record[5] else '—' }}
                                 </td>
                                 <td class="td">
-                                    {# Status maps to a tone name, never to an
-                                       interpolated colour class. 'absent' and
-                                       anything unexpected fall through to
-                                       neutral rather than error. #}
-                                    {% if status == 'present' %}
-                                        {{ pill(record[4]|capitalize, 'success', icon='check') }}
-                                    {% elif status == 'late' %}
-                                        {{ pill(record[4]|capitalize, 'warning', icon='schedule') }}
-                                    {% elif status == 'absent' %}
-                                        {{ pill(record[4]|capitalize, 'error', icon='close') }}
-                                    {% else %}
-                                        {{ pill(record[4]|capitalize, 'neutral') }}
-                                    {% endif %}
+                                    {{ attendance_status_pill(status) }}
                                 </td>
                             </tr>
                         {% else %}

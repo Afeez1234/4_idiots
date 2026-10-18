@@ -55,6 +55,12 @@ duplicate type definitions and generic bound errors in Riverpod compilation.
 **Design system:** midnight-black theme, Plus Jakarta Sans, terminal-style
 language conventions, custom SUAAMS logo via `CustomPainter`.
 
+**Attendance status colours (app and web):** present green, late amber (still
+counts as attended), absent red, excused grey -- always with its text label.
+One map each side: `lib/shared/utils/attendance_status.dart` and the web's
+`attendance_status_pill` macro in `templates/_macros.html`. Don't hand-write
+another; `tests/test_status_pills.py` fails if a template does.
+
 **Status:** full auth flow implemented; student dashboard with four tabs;
 50-item phased roadmap in place for remaining work.
 

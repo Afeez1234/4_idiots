@@ -5,6 +5,7 @@ import 'package:suaams/features/lecturer/models/session_detail_model.dart';
 import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
@@ -155,10 +156,12 @@ class _AttendanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPresent = record.status.toLowerCase() == 'present';
-    final statusColor = isPresent
-        ? AppStatus.success
-        : colorScheme.onSurface.withValues(alpha: 0.5);
+    // The shared status map (attendance_status.dart), like every other
+    // screen: this card coloured PRESENT green and everything else -- late,
+    // absent, excused -- the same grey, and used the raw AppStatus hue,
+    // which fails contrast as text in light mode.
+    final status = record.status.toLowerCase();
+    final statusColor = attendanceStatusText(status, terminalOf(context));
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -198,7 +201,7 @@ class _AttendanceCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                record.status.toUpperCase(),
+                attendanceStatusLabel(status),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,

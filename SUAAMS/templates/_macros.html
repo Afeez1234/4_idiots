@@ -131,6 +131,28 @@
   </span>
 {%- endmacro -%}
 
+{# ---------------------------------------------------------------------------
+   ATTENDANCE STATUS -- one colour and one label per status, everywhere
+   (2026-10-18). The same map as the Flutter app's attendance_status.dart:
+
+     present  green  "Present"     late     amber  "Late"
+     absent   red    "Absent"      excused  grey   "Excused"
+
+   It used to be written out by hand four times, and the copies disagreed:
+   the student pages showed Late green and Excused red (the same as
+   Absent), the lecturer pages Late amber and Excused grey. Late is amber
+   but still counts as attended (utils.ATTENDED_STATUSES); the student pages
+   say so beside their tables.
+   --------------------------------------------------------------------------- #}
+{# No icons: the label carries the meaning, and icons on three of the four
+   made Excused a shorter pill than the rest. #}
+{%- macro attendance_status_pill(status) -%}
+  {%- set s = (status or '')|lower -%}
+  {%- set tone = {'present': 'success', 'late': 'warning',
+                  'absent': 'error', 'excused': 'neutral'}.get(s, 'neutral') -%}
+  {{- pill(s|capitalize or 'Unknown', tone) -}}
+{%- endmacro -%}
+
 {%- macro course_chip(code) -%}
   <span class="chip">{{ code }}</span>
 {%- endmacro -%}

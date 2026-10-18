@@ -1,5 +1,5 @@
 {% extends "base_portal.html" %}
-{% from '_macros.html' import pill, avatar, progress_bar, at_risk_tone, card_heading %}
+{% from '_macros.html' import pill, avatar, progress_bar, at_risk_tone, card_heading, attendance_status_pill %}
 
 {# How a record got there, shown only when it isn't an ordinary NFC tap:
    a hand mark has no device evidence behind it, and a Bluetooth code is
@@ -125,15 +125,7 @@
                             {{ avatar(record[0]) }}
                             <span class="truncate text-sm font-medium">{{ record[0] }}</span>
                         </div>
-                        {% if status == 'present' %}
-                            {{ pill(record[4]|capitalize, 'success', icon='check') }}
-                        {% elif status == 'late' %}
-                            {{ pill(record[4]|capitalize, 'warning', icon='schedule') }}
-                        {% elif status == 'absent' %}
-                            {{ pill(record[4]|capitalize, 'error', icon='close') }}
-                        {% else %}
-                            {{ pill(record[4]|capitalize, 'neutral') }}
-                        {% endif %}
+                        {{ attendance_status_pill(status) }}
                     </div>
                     {{ method_tag(record[6], record[7]) }}
                     <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-xs">
@@ -193,15 +185,7 @@
                                 {{ record[5]|campus('%H:%M:%S') if record[5] else '—' }}
                             </td>
                             <td class="td">
-                                {% if status == 'present' %}
-                                    {{ pill(record[4]|capitalize, 'success', icon='check') }}
-                                {% elif status == 'late' %}
-                                    {{ pill(record[4]|capitalize, 'warning', icon='schedule') }}
-                                {% elif status == 'absent' %}
-                                    {{ pill(record[4]|capitalize, 'error', icon='close') }}
-                                {% else %}
-                                    {{ pill(record[4]|capitalize, 'neutral') }}
-                                {% endif %}
+                                {{ attendance_status_pill(status) }}
                                 {{ method_tag(record[6], record[7]) }}
                             </td>
                         </tr>

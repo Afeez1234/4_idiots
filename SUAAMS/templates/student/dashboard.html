@@ -1,5 +1,5 @@
 {% extends "base_student.html" %}
-{% from '_macros.html' import stat_card, donut, card_heading, course_chip, attendance_bar, attendance_pill, empty_state, table_empty, avatar %}
+{% from '_macros.html' import stat_card, donut, card_heading, course_chip, attendance_bar, attendance_pill, empty_state, table_empty, avatar, attendance_status_pill %}
 
 {% block title %}Dashboard | SUAAMS Student{% endblock %}
 {% block page_title %}Dashboard{% endblock %}
@@ -128,6 +128,9 @@
             {{ card_heading('Recent Attendance', info=true) }}
             <a href="{{ url_for('student.attendance_history') }}" class="btn-link">View full history</a>
         </div>
+        {# Late is amber like everywhere else, but it is an attended tap:
+           say so, so it doesn't read as a penalty. #}
+        <p class="px-5 pb-3 text-2xs text-muted">Late (amber) still counts towards your attendance; excused is grey.</p>
         <div class="table-wrap">
             <table class="table">
                 <thead>
@@ -145,15 +148,7 @@
                             <td class="td td-muted">{{ record.date }}</td>
                             <td class="td td-muted"><span class="mono">{{ record.time }}</span></td>
                             <td class="td">
-                                {# 'late' counts as attended: the terminal writes
-                                   it for a tap inside the grace window, so it is a
-                                   PRESENT record and greying it would contradict
-                                   the percentage above. #}
-                                {% set is_present = record.status in ('present', 'late') %}
-                                <span class="pill" data-tone="{{ 'success' if is_present else 'error' }}">
-                                    <span class="dot h-1.5 w-1.5" data-tone="{{ 'success' if is_present else 'error' }}"></span>
-                                    {{ record.status|capitalize }}
-                                </span>
+                                {{ attendance_status_pill(record.status) }}
                             </td>
                         </tr>
                     {% else %}

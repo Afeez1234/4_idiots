@@ -525,10 +525,12 @@ class _LiveAttendanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPresent = entry.status.toLowerCase() == 'present';
-    final statusColor = isPresent
-        ? AppStatus.success
-        : colorScheme.onSurface.withValues(alpha: 0.5);
+    // The shared status map (attendance_status.dart), like every other
+    // screen: this card coloured PRESENT green and everything else -- late,
+    // absent, excused -- the same grey, and used the raw AppStatus hue,
+    // which fails contrast as text in light mode.
+    final status = entry.status.toLowerCase();
+    final statusColor = attendanceStatusText(status, terminalOf(context));
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -568,7 +570,7 @@ class _LiveAttendanceCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                entry.status.toUpperCase(),
+                attendanceStatusLabel(status),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
