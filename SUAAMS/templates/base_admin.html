@@ -21,11 +21,11 @@
     <p class="nav-section">Overview</p>
     <div class="space-y-1">
       <a href="{{ url_for('admin.dashboard') }}"
-         class="nav-link {{ 'nav-link-active' if active_page == 'dashboard' }}">
+         class="nav-link {{ 'nav-link-active' if active_page == 'dashboard' }}" {% if active_page == 'dashboard' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">dashboard</span>
         <span class="rail-label">Dashboard</span>
       </a>
-      <a href="{{ url_for('admin.analytics_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'analytics' }}">
+      <a href="{{ url_for('admin.analytics_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'analytics' }}" {% if active_page == 'analytics' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">analytics</span>
         <span class="rail-label">Analytics</span>
       </a>
@@ -35,15 +35,15 @@
   <div>
     <p class="nav-section">People</p>
     <div class="space-y-1">
-      <a href="{{ url_for('admin.lecturers_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'lecturers' }}">
+      <a href="{{ url_for('admin.lecturers_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'lecturers' }}" {% if active_page == 'lecturers' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">school</span>
         <span class="rail-label">Lecturers</span>
       </a>
-      <a href="{{ url_for('admin.students_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'students' }}">
+      <a href="{{ url_for('admin.students_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'students' }}" {% if active_page == 'students' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">groups_2</span>
         <span class="rail-label">Students</span>
       </a>
-      <a href="{{ url_for('admin.hods_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'hods' }}">
+      <a href="{{ url_for('admin.hods_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'hods' }}" {% if active_page == 'hods' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">workspace_premium</span>
         <span class="rail-label">HODs</span>
       </a>
@@ -53,11 +53,11 @@
   <div>
     <p class="nav-section">Academic</p>
     <div class="space-y-1">
-      <a href="{{ url_for('admin.courses_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'courses' }}">
+      <a href="{{ url_for('admin.courses_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'courses' }}" {% if active_page == 'courses' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">book</span>
         <span class="rail-label">Courses</span>
       </a>
-      <a href="{{ url_for('admin.timetable_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'timetable' }}">
+      <a href="{{ url_for('admin.timetable_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'timetable' }}" {% if active_page == 'timetable' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">calendar_month</span>
         <span class="rail-label">Timetable</span>
         {# Imported slots nobody has published: invisible to students and
@@ -66,11 +66,11 @@
           <span class="nav-badge" title="{{ draft_slots }} draft slot{{ 's' if draft_slots != 1 }} waiting to be published">{{ draft_slots }}</span>
         {% endif %}
       </a>
-      <a href="{{ url_for('admin.organization_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'organization' }}">
+      <a href="{{ url_for('admin.organization_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'organization' }}" {% if active_page == 'organization' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">account_tree</span>
         <span class="rail-label">Organization</span>
       </a>
-      <a href="{{ url_for('admin.semesters_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'semesters' }}">
+      <a href="{{ url_for('admin.semesters_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'semesters' }}" {% if active_page == 'semesters' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">date_range</span>
         <span class="rail-label">Semesters</span>
       </a>
@@ -80,7 +80,7 @@
   <div>
     <p class="nav-section">Hardware</p>
     <div class="space-y-1">
-      <a href="{{ url_for('admin.terminals_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'terminals' }}">
+      <a href="{{ url_for('admin.terminals_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'terminals' }}" {% if active_page == 'terminals' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">nfc</span>
         <span class="rail-label">Terminals</span>
       </a>
@@ -90,11 +90,11 @@
   <div>
     <p class="nav-section">Communication</p>
     <div class="space-y-1">
-      <a href="{{ url_for('admin.announcements_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' }}">
+      <a href="{{ url_for('admin.announcements_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' }}" {% if active_page == 'announcements' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">campaign</span>
         <span class="rail-label">Announcements</span>
       </a>
-      <a href="{{ url_for('admin.reports_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'reports' }}">
+      <a href="{{ url_for('admin.reports_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'reports' }}" {% if active_page == 'reports' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">summarize</span>
         <span class="rail-label">Reports</span>
       </a>
@@ -106,7 +106,7 @@
   <div>
     <p class="nav-section">Oversight</p>
     <div class="space-y-1">
-      <a href="{{ url_for('admin.activity_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'activity' }}">
+      <a href="{{ url_for('admin.activity_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'activity' }}" {% if active_page == 'activity' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">history</span>
         <span class="rail-label">Activity</span>
       </a>

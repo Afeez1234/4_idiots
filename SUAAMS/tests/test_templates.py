@@ -232,6 +232,26 @@ _POSITIONAL_ICON = re.compile(
 _JS_ICON_ASSIGNMENT = re.compile(r"textContent\s*=\s*'([a-z_0-9]+)'")
 
 
+def test_rail_keyboard_and_screen_reader_contract():
+    """The side rail (2026-10-18): every portal marks its active link with
+    aria-current, hides its decorative icons from screen readers, and the
+    shell has a "Skip to content" link to #main and a visible (not hidden)
+    nav scrollbar -- the admin rail runs past a laptop screen."""
+    for name in ("base_admin.html", "base_portal.html", "base_student.html"):
+        source = (TEMPLATES / name).read_text(encoding="utf-8")
+        for m in re.finditer(r"\{\{ 'nav-link-active' if (.+?) \}\}\"", source):
+            tail = source[m.end():m.end() + 200]
+            assert 'aria-current="page"' in tail, f"{name}: active link without aria-current ({m.group(1)})"
+        icons = re.findall(r'<span class="material-symbols-rounded[^"]*"[^>]*>', source)
+        unhidden = [i for i in icons if 'aria-hidden="true"' not in i]
+        assert not unhidden, f"{name}: rail icons read aloud: {unhidden[:3]}"
+    shell = (TEMPLATES / "_shell.html").read_text(encoding="utf-8")
+    assert '<a href="#main" class="skip-link">' in shell
+    assert 'id="main"' in shell
+    assert "no-scrollbar" not in shell.split('id="sidebar"')[1].split("</nav>")[0]
+    assert 'aria-controls="sidebar"' in shell
+
+
 def test_admin_dropdowns_dont_submit_on_change():
     """No admin page reloads when a dropdown changes (2026-10-18). On
     Windows an arrow key on a closed <select> fires change, so a page that

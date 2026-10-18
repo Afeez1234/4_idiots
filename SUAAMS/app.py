@@ -6,7 +6,7 @@ from db_pool import engine_options
 import os
 import logging
 from flask_jwt_extended import JWTManager
-from models import db, HOD, Lecturer, Course, Semester
+from models import db, HOD, Lecturer, Course, Semester, Student, User
 from utils import courses_taught_by, current_courses
 from extensions import limiter, csrf
 from blueprints.auth import auth_bp
@@ -192,6 +192,27 @@ def inject_portal_context():
         context['sidebar_courses'] = current_courses(courses_taught_by(lecturer)).order_by(Course.course_code).all()
         context['active_semester'] = Semester.query.filter_by(is_active=True).first()
     return context
+
+
+
+# Who is signed in, for the rail's footer (_shell.html): the person's name
+# from their profile and a properly cased role. The footer used to show the
+# session username -- a staff ID or matric number -- and capitalise the role
+# as "Hod". An admin has no profile, so their username stays. Two indexed
+# lookups per page; nothing for a signed-out visitor.
+ROLE_LABELS = {'admin': 'Admin', 'lecturer': 'Lecturer', 'hod': 'HOD', 'student': 'Student'}
+
+
+@app.context_processor
+def inject_rail_identity():
+    user_id = session.get('user_id')
+    if not user_id:
+        return {}
+    role = session.get('role')
+    profile_model = {'student': Student, 'lecturer': Lecturer, 'hod': HOD}.get(role)
+    profile = profile_model.query.filter_by(user_id=user_id).first() if profile_model else None
+    name = profile.full_name if profile else session.get('username')
+    return {'rail_name': name, 'rail_role': ROLE_LABELS.get(role, '')}
 
 
 # Keep-warm target for an external scheduler (e.g. an uptime-monitor ping or

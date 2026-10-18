@@ -30,11 +30,11 @@
     <div class="grid grid-cols-2 gap-1 rounded-btn bg-white/5 p-1">
       <a href="{{ url_for('hod.dashboard') }}"
          class="portal-pill flex items-center justify-center gap-1.5 rounded-[7px] py-1.5 text-2xs font-semibold {{ 'portal-pill-active' if show_hod_section }}">
-        <span class="material-symbols-rounded text-sm">account_tree</span>HOD
+        <span class="material-symbols-rounded text-sm" aria-hidden="true">account_tree</span>HOD
       </a>
       <a href="{{ url_for('lecturer.dashboard') }}"
          class="portal-pill flex items-center justify-center gap-1.5 rounded-[7px] py-1.5 text-2xs font-semibold {{ '' if show_hod_section else 'portal-pill-active' }}">
-        <span class="material-symbols-rounded text-sm">book</span>Lecturer
+        <span class="material-symbols-rounded text-sm" aria-hidden="true">book</span>Lecturer
       </a>
     </div>
   {% else %}
@@ -42,7 +42,7 @@
        other two portals. The lecturer's semester also appears in the "My
        Courses" section header below, which is where it was before. #}
     <span class="rail-pill" data-tone="{{ 'semester' if active_semester else 'inactive' }}">
-      <span class="material-symbols-rounded text-sm">event_available</span>
+      <span class="material-symbols-rounded text-sm" aria-hidden="true">event_available</span>
       <span class="rail-label">{{ active_semester.name if active_semester else 'No active semester' }}</span>
     </span>
   {% endif %}
@@ -52,30 +52,30 @@
   {% if has_hod_profile %}
     <div class="space-y-6 {{ '' if (not has_lecturer_profile) or show_hod_section else 'hidden' }}">
       <div>
-        <div class="mb-2 flex items-center justify-between gap-2 px-3">
-          <p class="nav-section mb-0 px-0">Department</p>
-          <span class="rail-label truncate text-2xs text-on-rail-muted/70">{{ hod_department.name if hod_department else 'Department' }}</span>
-        </div>
+        {# The department on its own line: squeezed beside the heading it was
+           cut to "Systems Enginee...". #}
+        <p class="nav-section mb-0">Department</p>
+        <p class="mb-2 truncate px-3 text-xs text-on-rail">{{ hod_department.name if hod_department else '—' }}</p>
         <div class="space-y-1">
           <a href="{{ url_for('hod.dashboard') }}"
-             class="nav-link {{ 'nav-link-active' if request.blueprint == 'hod' and active_page == 'dashboard' }}">
-            <span class="material-symbols-rounded text-xl">dashboard</span>
+             class="nav-link {{ 'nav-link-active' if request.blueprint == 'hod' and active_page == 'dashboard' }}" {% if request.blueprint == 'hod' and active_page == 'dashboard' %}aria-current="page"{% endif %}>
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">dashboard</span>
             <span class="rail-label">Dashboard</span>
           </a>
           <a href="{{ url_for('hod.levels') }}"
-             class="nav-link {{ 'nav-link-active' if request.blueprint == 'hod' and active_page == 'levels' }}">
-            <span class="material-symbols-rounded text-xl">layers</span>
+             class="nav-link {{ 'nav-link-active' if request.blueprint == 'hod' and active_page == 'levels' }}" {% if request.blueprint == 'hod' and active_page == 'levels' %}aria-current="page"{% endif %}>
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">layers</span>
             <span class="rail-label">Levels 100&ndash;500</span>
           </a>
           <a href="{{ url_for('hod.students') }}"
-             class="nav-link {{ 'nav-link-active' if request.blueprint == 'hod' and active_page == 'students' }}">
-            <span class="material-symbols-rounded text-xl">groups_2</span>
-            <span class="rail-label">Students &amp; Attendance</span>
+             class="nav-link {{ 'nav-link-active' if request.blueprint == 'hod' and active_page == 'students' }}" {% if request.blueprint == 'hod' and active_page == 'students' %}aria-current="page"{% endif %}>
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">groups_2</span>
+            <span class="rail-label">Students</span>
           </a>
           <a href="{{ url_for('hod.signoffs') }}"
-             class="nav-link justify-between {{ 'nav-link-active' if request.blueprint == 'hod' and active_page == 'signoffs' }}">
+             class="nav-link justify-between {{ 'nav-link-active' if request.blueprint == 'hod' and active_page == 'signoffs' }}" {% if request.blueprint == 'hod' and active_page == 'signoffs' %}aria-current="page"{% endif %}>
             <span class="flex items-center gap-3">
-              <span class="material-symbols-rounded text-xl">task_alt</span>
+              <span class="material-symbols-rounded text-xl" aria-hidden="true">task_alt</span>
               <span class="rail-label">Sign-offs</span>
             </span>
             <span class="rail-label rounded-full border border-on-rail-line px-2 py-0.5 text-2xs font-bold uppercase tracking-wide text-on-rail-muted">Soon</span>
@@ -91,28 +91,32 @@
         <p class="nav-section">Overview</p>
         <div class="space-y-1">
           <a href="{{ url_for('lecturer.dashboard') }}"
-             class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'dashboard' }}">
-            <span class="material-symbols-rounded text-xl">dashboard</span>
+             class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'dashboard' }}" {% if request.blueprint == 'lecturer' and active_page == 'dashboard' %}aria-current="page"{% endif %}>
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">dashboard</span>
             <span class="rail-label">Dashboard</span>
           </a>
           <a href="{{ url_for('lecturer.analytics') }}"
-             class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'analytics' }}">
-            <span class="material-symbols-rounded text-xl">analytics</span>
+             class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'analytics' }}" {% if request.blueprint == 'lecturer' and active_page == 'analytics' %}aria-current="page"{% endif %}>
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">analytics</span>
             <span class="rail-label">Analytics</span>
           </a>
         </div>
       </div>
 
       <div>
-        <div class="mb-2 flex items-center justify-between gap-2 px-3">
-          <p class="nav-section mb-0 px-0">My Courses</p>
-          <span class="rail-label truncate text-2xs text-on-rail-muted/70">{{ active_semester.name if active_semester else 'No active semester' }}</span>
-        </div>
+        {# The semester shows here only for a promoted account, whose role
+           toggle replaces the semester pill above. Everyone else already
+           sees it in that pill -- repeated here it was cut to "No active
+           semest...". #}
+        <p class="nav-section {{ 'mb-0' if has_hod_profile else '' }}">My Courses</p>
+        {% if has_hod_profile %}
+          <p class="mb-2 truncate px-3 text-xs text-on-rail-muted">{{ active_semester.name if active_semester else 'No active semester' }}</p>
+        {% endif %}
         <div class="space-y-1">
           {% for course in sidebar_courses %}
             <a href="{{ url_for('lecturer.course_workspace', course_id=course.id) }}"
-               class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'course_workspace' and active_course_id == course.id }}">
-              <span class="material-symbols-rounded text-xl">book</span>
+               class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'course_workspace' and active_course_id == course.id }}" {% if request.blueprint == 'lecturer' and active_page == 'course_workspace' and active_course_id == course.id %}aria-current="page"{% endif %}>
+              <span class="material-symbols-rounded text-xl" aria-hidden="true">book</span>
               <span class="rail-label">{{ course.course_code }}</span>
             </a>
           {% else %}
@@ -124,12 +128,12 @@
       <div>
         <p class="nav-section">Sessions</p>
         <div class="space-y-1">
-          <a href="{{ url_for('lecturer.active_sessions') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'active_sessions' }}">
-            <span class="material-symbols-rounded text-xl">sensors</span>
+          <a href="{{ url_for('lecturer.active_sessions') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'active_sessions' }}" {% if request.blueprint == 'lecturer' and active_page == 'active_sessions' %}aria-current="page"{% endif %}>
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">sensors</span>
             <span class="rail-label">Active Sessions</span>
           </a>
-          <a href="{{ url_for('lecturer.session_history') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'session_history' }}">
-            <span class="material-symbols-rounded text-xl">history</span>
+          <a href="{{ url_for('lecturer.session_history') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'session_history' }}" {% if request.blueprint == 'lecturer' and active_page == 'session_history' %}aria-current="page"{% endif %}>
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">history</span>
             <span class="rail-label">Session History</span>
           </a>
         </div>
@@ -138,8 +142,8 @@
       <div>
         <p class="nav-section">Communication</p>
         <div class="space-y-1">
-          <a href="{{ url_for('lecturer.announcements') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'announcements' }}">
-            <span class="material-symbols-rounded text-xl">campaign</span>
+          <a href="{{ url_for('lecturer.announcements') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'announcements' }}" {% if request.blueprint == 'lecturer' and active_page == 'announcements' %}aria-current="page"{% endif %}>
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">campaign</span>
             <span class="rail-label">Announcements</span>
           </a>
         </div>
@@ -148,13 +152,9 @@
       <div>
         <p class="nav-section">Reports</p>
         <div class="space-y-1">
-          <a href="{{ url_for('lecturer.reports') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'reports' }}">
-            <span class="material-symbols-rounded text-xl">summarize</span>
+          <a href="{{ url_for('lecturer.reports') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'reports' }}" {% if request.blueprint == 'lecturer' and active_page == 'reports' %}aria-current="page"{% endif %}>
+            <span class="material-symbols-rounded text-xl" aria-hidden="true">summarize</span>
             <span class="rail-label">Attendance Reports</span>
-          </a>
-          <a href="{{ url_for('lecturer.export_reports') }}" class="nav-link">
-            <span class="material-symbols-rounded text-xl">download</span>
-            <span class="rail-label">Export</span>
           </a>
         </div>
       </div>

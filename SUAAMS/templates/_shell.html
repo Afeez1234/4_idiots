@@ -37,6 +37,9 @@
 </head>
 <body class="bg-surface font-sans text-ink antialiased">
 
+    {# First focusable thing on the page (.skip-link in input.css). #}
+    <a href="#main" class="skip-link">Skip to content</a>
+
     {# fixed inset-0 (not h-screen) -- h-screen sets a height but doesn't
        stop the document itself from being taller than the viewport and
        scrolling as a whole, which drags the rail's top out of view with it.
@@ -69,20 +72,27 @@
             </div>
 
             <!-- Nav. Each portal template fills this. -->
-            <nav class="no-scrollbar flex-1 space-y-6 overflow-y-auto px-3 py-4">
+            <nav class="rail-scroll flex-1 space-y-5 overflow-y-auto px-3 py-4" aria-label="Main">
                 {% block rail_nav %}{% endblock %}
             </nav>
 
             <!-- Rail footer: signed-in user + logout -->
             <div class="rail-foot">
+                {# The person, not the login: it showed the username (a staff ID
+                   or matric number) and capitalised the role as "Hod". rail_name
+                   / rail_role come from app.py's inject_rail_identity; the
+                   session username is the fallback (e.g. an admin, who has no
+                   profile, or a page rendered outside a request). #}
+                {% set _name = rail_name or session.get('username', 'User') %}
+                {% set _role = rail_role or {'admin': 'Admin', 'lecturer': 'Lecturer', 'hod': 'HOD', 'student': 'Student'}.get(session.get('role'), '') %}
                 <div class="flex items-center gap-3">
                     <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full
-                                 bg-white/10 text-sm font-bold text-on-rail">
-                        {{ session.get('username', 'A')[0]|upper }}
+                                 bg-white/10 text-sm font-bold text-on-rail" aria-hidden="true">
+                        {{ (_name or 'U')[0]|upper }}
                     </span>
                     <div class="rail-label">
-                        <p class="truncate text-sm font-semibold text-on-rail">{{ session.get('username', 'User') }}</p>
-                        <p class="text-2xs capitalize text-on-rail-muted">{{ session.get('role', '') }}</p>
+                        <p class="truncate text-sm font-semibold text-on-rail">{{ _name }}</p>
+                        <p class="text-2xs text-on-rail-muted">{{ _role }}</p>
                     </div>
                     <a href="{{ url_for('auth.logout') }}" title="Log out" aria-label="Log out"
                        class="shrink-0 text-on-rail-muted transition-colors hover:text-error">
@@ -97,7 +107,8 @@
 
             <header class="page-header shrink-0">
                 <div class="flex min-w-0 items-center gap-3">
-                    <button id="sidebar-toggle" class="btn-ghost btn-icon lg:hidden" aria-label="Toggle navigation">
+                    <button id="sidebar-toggle" class="btn-ghost btn-icon lg:hidden" aria-label="Open navigation"
+                            aria-controls="sidebar" aria-expanded="false">
                         <span class="material-symbols-rounded" aria-hidden="true">menu</span>
                     </button>
                     <div class="min-w-0">
@@ -111,7 +122,7 @@
                    can't be wrong isn't a status. #}
             </header>
 
-            <main class="page">
+            <main class="page" id="main" tabindex="-1">
                 <div class="page-inner space-y-6">
 
                     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -144,22 +155,44 @@
             /* --- Mobile drawer. Unchanged from the previous behaviour: the
                closed state lives in the markup (-translate-x-full) and this
                only toggles it. --- */
+            // Below lg the rail is an off-canvas drawer. While it's closed it
+            // is `inert`: off-screen links used to stay in the Tab order, so a
+            // keyboard user on a phone pressed Tab 15 times, focus vanishing
+            // into links they couldn't see, before reaching the page. Opening
+            // moves focus in; closing puts it back on the menu button.
+            var desktop = window.matchMedia('(min-width: 1024px)');
+            var open = false;
+            function sync() {
+                sidebar.inert = !desktop.matches && !open;
+                toggleBtn.setAttribute('aria-expanded', String(open));
+            }
             function openDrawer() {
+                open = true;
                 sidebar.classList.remove('-translate-x-full');
                 backdrop.classList.remove('hidden');
+                sync();
+                var first = sidebar.querySelector('nav a, nav button');
+                if (first) first.focus();
             }
             function closeDrawer() {
+                var wasOpen = open;
+                open = false;
                 sidebar.classList.add('-translate-x-full');
                 backdrop.classList.add('hidden');
+                sync();
+                if (wasOpen && !desktop.matches) toggleBtn.focus();
             }
             toggleBtn.addEventListener('click', openDrawer);
             backdrop.addEventListener('click', closeDrawer);
+            // Crossing the lg breakpoint (rotating a tablet, resizing).
+            desktop.addEventListener('change', function () { open = false; closeDrawer(); });
+            sync();
 
             // Escape closes the drawer -- the old version had no keyboard
             // path out of it, so the rail trapped keyboard and screen-reader
             // users on a phone.
             document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape') closeDrawer();
+                if (e.key === 'Escape' && open) closeDrawer();
             });
 
             // The desktop rail is always fully expanded. It used to collapse to

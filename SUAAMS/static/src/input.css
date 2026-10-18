@@ -148,8 +148,10 @@
   .rail-label { @apply min-w-0 flex-1 truncate; }
 
 
+  /* py-1.5 (was py-2): with 14 links the admin rail ran past the bottom of
+     a laptop screen; tighter links show more of it before it scrolls. */
   .nav-link {
-    @apply flex items-center gap-3 rounded-[9px] px-3 py-2 text-sm font-medium
+    @apply flex items-center gap-3 rounded-[9px] px-3 py-1.5 text-sm font-medium
            text-on-rail-muted transition-colors;
   }
   .nav-link:hover {
@@ -162,9 +164,33 @@
     @apply bg-accent text-white;
   }
 
-  /* Uppercase grouping label above a run of nav links. */
+  /* Uppercase grouping label above a run of nav links. Full muted colour
+     (4.8:1 on the rail): at /70 opacity it measured 3.0:1, under AA and close
+     to invisible on a projector. */
   .nav-section {
-    @apply mb-2 px-3 text-2xs font-bold uppercase tracking-widest text-on-rail-muted/70;
+    @apply mb-2 px-3 text-2xs font-bold uppercase tracking-widest text-on-rail-muted;
+  }
+
+  /* The rail's nav scrolls when it's taller than the window. Its scrollbar
+     used to be hidden (.no-scrollbar), so on a laptop the admin rail simply
+     stopped at Terminals: Announcements, Reports and Activity were below
+     the fold with nothing to say so. A thin bar in the rail's own line
+     colour says "there's more" without shouting. */
+  .rail-scroll { scrollbar-width: thin; scrollbar-color: var(--color-on-rail-muted) transparent; }
+  .rail-scroll::-webkit-scrollbar { width: 6px; }
+  .rail-scroll::-webkit-scrollbar-track { background: transparent; }
+  .rail-scroll::-webkit-scrollbar-thumb { background: var(--color-on-rail-line); border-radius: 3px; }
+  .rail-scroll:hover::-webkit-scrollbar-thumb { background: var(--color-on-rail-muted); }
+
+  /* "Skip to content": the first stop on every page, shown only when it has
+     keyboard focus. Without it, reaching anything on a page took 14 Tab
+     presses through the rail, on every page load. */
+  .skip-link {
+    @apply sr-only;
+  }
+  .skip-link:focus {
+    @apply not-sr-only fixed top-3 left-3 z-[60] rounded-btn bg-card px-4 py-2 text-sm font-semibold
+           text-ink shadow-pop outline-2 outline-accent;
   }
 
   /* The pill under the brand: active semester on admin/student, the
