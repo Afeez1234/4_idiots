@@ -434,6 +434,11 @@ CONTEXTS = {
         is_filtered=True,
     ),
 
+    # The two signed-out pages (STANDALONE: no rail). The login page with a
+    # username kept from a failed attempt.
+    "auth/login.html": dict(role="admin", username="CPE/20/1123"),
+    "auth/change_password.html": dict(role="admin"),
+
     "admin/organization.html": dict(
         role="admin",
         active_page="organization",
@@ -1180,10 +1185,16 @@ def test_all_registered_pages_render():
     assert not failures, "Render failures:\n  " + "\n  ".join(failures)
 
 
+# Signed-out pages with their own <head> and no rail, on purpose.
+STANDALONE = {"auth/login.html", "auth/change_password.html"}
+
+
 def test_shell_present_on_every_page():
     """Every page must come out wrapped in the shared shell, or the rail and
     topbar silently vanish from that one page."""
     for template, spec in CONTEXTS.items():
+        if template in STANDALONE:
+            continue
         html = render(template, spec)
         for hook in ('id="shell"', 'id="sidebar"', 'id="sidebar-toggle"'):
             assert hook in html, f"{template} rendered without {hook}"

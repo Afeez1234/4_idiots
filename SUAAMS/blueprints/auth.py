@@ -80,7 +80,7 @@ def login():
 
         if not username or not password:
             flash('Username and password are required', 'error')
-            return render_template('auth/login.html')
+            return render_template('auth/login.html', username=username)
 
         # SQLAlchemy query — no cursor, no connection management needed
         user = User.query.filter_by(username=username).first()
@@ -91,7 +91,7 @@ def login():
             # which usernames exist (see _DUMMY_HASH in api/auth.py).
             bcrypt.checkpw(password_bytes, _DUMMY_HASH.encode('utf-8'))
             flash('Invalid username or password', 'error')
-            return render_template('auth/login.html')
+            return render_template('auth/login.html', username=username)
 
         if not bcrypt.checkpw(
             password_bytes,
@@ -107,13 +107,15 @@ def login():
                 )
                 db.session.commit()
             flash('Invalid username or password', 'error')
-            return render_template('auth/login.html')
+            return render_template('auth/login.html', username=username)
 
         # Only after the right password, so a stranger can't learn that an
         # account exists and is switched off.
         if not user.is_active:
-            flash('User profile is deactivated', 'error')
-            return render_template('auth/login.html')
+            # Say what to do, not just what's wrong: a student marked
+            # graduated or suspended otherwise has no idea who to ask.
+            flash('This account is switched off. Ask the admin office to check your status.', 'error')
+            return render_template('auth/login.html', username=username)
 
         # Set session variables
         session['user_id'] = user.id
@@ -126,7 +128,8 @@ def login():
 
         # SECURITY CHECK: Force password change on first login
         if user.requires_password_change:
-            flash('Security Alert: Please update your default authorization code.', 'warning')
+            # No flash: the page's own heading says "Set a new password", and
+            # a message saying the same thing beneath it was noise.
             return redirect(url_for('auth.web_change_password'))
 
         # If everything is clear, route them to their respective dashboard
@@ -177,8 +180,22 @@ def web_change_password():
                        'user', user.id)
         db.session.commit()
 
-        flash('Authorization code updated successfully! Welcome to SUAAMS.', 'success')
+        flash('Password updated. Welcome to SUAAMS.', 'success')
         return redirect_to_dashboard()
+
+
+@auth_bp.errorhandler(429)
+def too_many_attempts(error):
+    """The sign-in and password limits, as a page rather than Flask's bare
+    "429 Too Many Requests -- 5 per 1 minute", which had no form, no link
+    back and no hint of when to try again. The limits themselves are
+    unchanged (see the decorators above). Still a 429, so clients and
+    monitoring see the real status."""
+    if request.endpoint == 'auth.web_change_password' and session.get('user_id'):
+        flash('Too many attempts. Wait a minute, then try again.', 'warning')
+        return render_template('auth/change_password.html'), 429
+    flash('Too many sign-in attempts for this username. Wait a minute, then try again.', 'warning')
+    return render_template('auth/login.html', username=request.form.get('username')), 429
 
 
 @auth_bp.route('/logout')

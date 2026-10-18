@@ -15,15 +15,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SUAAMS — Secure Terminal Login</title>
+    <title>Sign in | SUAAMS</title>
     {# ORDER MATTERS -- see _shell.html for the full explanation. Material
        Symbols is unlayered, so it must load BEFORE output.css for our rules to
        win at equal specificity; input.css's icon font-variation-settings and
        the .hidden guard both depend on that. #}
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    {# JetBrains Mono stays loaded even though the layout is no longer built
-       out of it: .mono is used for the credential fields and the footer
-       register, which is part of the terminal identity rather than styling. #}
+    {# JetBrains Mono: the username field is monospace, so a matric number
+       like CPE/20/1123 reads character by character. #}
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     {# Material Symbols Rounded -- the same icon font the portal shell loads,
        so this page stops being visually a different product. #}
@@ -32,13 +31,11 @@
 </head>
 <body class="bg-surface text-secondary font-sans min-h-screen flex flex-col items-center justify-center px-4 py-10 selection:bg-accent selection:text-white antialiased">
 
-    {# Ambient glows. Softer than the previous /10 and /5 -- on a light page a
-       saturated blurred disc competes with the card rather than sitting behind
-       it. Decorative only: pointer-events-none, no text lives here. #}
-    <div class="fixed top-[-10%] left-[-10%] h-96 w-96 rounded-full bg-accent/10 blur-[120px] pointer-events-none"></div>
-    <div class="fixed bottom-[-10%] right-[-10%] h-96 w-96 rounded-full bg-accent/5 blur-[120px] pointer-events-none"></div>
+    {# No ambient glows (removed 2026-10-18): the design rules say solid
+       surfaces, no glows -- they read as decoration and banded visibly on
+       the light page. #}
 
-    <div class="card relative z-10 w-full max-w-md p-6 sm:p-8">
+    <div class="card w-full max-w-md p-6 sm:p-8">
 
         <!-- Header. Same suaams_mark macro as _shell.html's brand block,
              so login and the portal it hands off to share one mark. -->
@@ -46,17 +43,19 @@
             <div class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full border border-accent-line bg-accent-soft">
                 {{ suaams_mark('h-9 w-9 text-ink') }}
             </div>
-            <h1 class="text-2xl font-extrabold uppercase tracking-widest text-ink">SUAAMS</h1>
-            <p class="mt-2 text-2xs font-bold uppercase tracking-widest text-muted">Smart University Attendance &amp; Monitoring</p>
+            {# The real name (CLAUDE.md); it read "Smart University Attendance
+               & Monitoring". Normal case: all-caps, widely spaced text is
+               slower to read. #}
+            <h1 class="text-xl font-bold text-ink">Sign in to SUAAMS</h1>
+            <p class="mt-1 text-xs text-secondary">Smart Universal Automated Attendance Management System</p>
         </div>
 
-        <!-- Flask flash messages. The four-way category-to-tone mapping lives
-             in the shared flash() macro now; this page only decides that the
-             text sits in the monospace terminal register, which is why it is
-             wrapped in .mono rather than restated per category. -->
+        <!-- Flask flash messages, through the shared flash() macro. In the
+             body font: they used to be monospace, a terminal look that made
+             a sentence harder to read. -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                <div class="mb-6 space-y-3 font-mono">
+                <div class="mb-6 space-y-3">
                     {% from '_macros.html' import flash %}
                     {% for category, message in messages %}
                         {{ flash(category, message) }}
@@ -76,12 +75,15 @@
                 <label for="username" class="form-label">Username / ID</label>
                 <div class="relative">
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <span class="material-symbols-rounded text-xl text-muted">person</span>
+                        <span class="material-symbols-rounded text-xl text-muted" aria-hidden="true">person</span>
                     </div>
                     <!-- pl-11/pr-11 clear the absolutely-positioned icons; both
                          are side-specific utilities so they win over the
                          form-input's px-4 regardless of source order. -->
+                    {# Keeps what was typed after a failed attempt (the route
+                       passes it back). Never the password. #}
                     <input type="text" id="username" name="username" required
+                           value="{{ username or '' }}"
                            placeholder="Staff ID or Matric Number"
                            autocomplete="username"
                            class="form-input mono pl-11 pr-4">
@@ -93,7 +95,7 @@
                 <label for="password" class="form-label">Password</label>
                 <div class="relative">
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <span class="material-symbols-rounded text-xl text-muted">lock</span>
+                        <span class="material-symbols-rounded text-xl text-muted" aria-hidden="true">lock</span>
                     </div>
                     <input type="password" id="password" name="password" required
                            placeholder="••••••••"
@@ -103,25 +105,24 @@
                          wirePasswordToggle() reaches for all of them by name.
                          `hidden` appears literally here so the class the script
                          toggles is one Tailwind emitted. -->
-                    <button type="button" id="toggle-password" tabindex="-1" aria-label="Show password"
+                    {# In the Tab order (it was tabindex="-1", so a keyboard
+                       user couldn't reveal what they had typed). #}
+                    <button type="button" id="toggle-password" aria-label="Show password" aria-pressed="false"
                             class="absolute inset-y-0 right-0 flex items-center rounded-r-btn pr-4 text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent">
-                        <span class="material-symbols-rounded text-xl" id="icon-eye-password">visibility</span>
-                        <span class="material-symbols-rounded hidden text-xl" id="icon-eye-off-password">visibility_off</span>
+                        <span class="material-symbols-rounded text-xl" id="icon-eye-password" aria-hidden="true">visibility</span>
+                        <span class="material-symbols-rounded hidden text-xl" id="icon-eye-off-password" aria-hidden="true">visibility_off</span>
                     </button>
                 </div>
             </div>
 
-            <button type="submit" class="btn-primary mt-6 w-full py-3.5 text-xs uppercase tracking-[0.2em]">
-                <span class="material-symbols-rounded text-lg">login</span>
-                Log In
-            </button>
+            <button type="submit" class="btn-primary mt-6 w-full py-3">Sign in</button>
         </form>
 
     </div>
 
     <!-- Footer -->
-    <div class="z-10 mt-8 text-center">
-        <p class="mono text-2xs uppercase tracking-widest text-muted">SUAAMS &copy; 2025 &middot; Secured portal &mdash; authorised access only</p>
+    <div class="mt-8 text-center">
+        <p class="text-2xs text-muted">SUAAMS &copy; 2026</p>
     </div>
 
     <script>
