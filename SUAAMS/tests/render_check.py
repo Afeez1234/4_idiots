@@ -516,6 +516,9 @@ CONTEXTS = {
                 "is_active": False,
             },
         ],
+        # Semester 2 is empty: its Set Active form carries 0 / 0 for the warning.
+        course_counts={1: 10},
+        slot_counts={1: 42},
     ),
 
     "admin/students.html": dict(

@@ -2267,36 +2267,52 @@ def semesters_page():
                 flash('Failed to activate semester.', 'error')
                 log_exception("Semester Activation Error")
         else:
-            name = request.form.get('name')
-            start_date = request.form.get('start_date')
-            end_date = request.form.get('end_date')
-            if not all([name, start_date, end_date]):
-                flash('Name, start date, and end date are all required.', 'error')
+            # Each failure says what it is. Every exception here used to be
+            # reported as "Semester name must be unique", a bad date included,
+            # and an end date before the start was accepted.
+            name = (request.form.get('name') or '').strip()
+            try:
+                start = datetime.strptime(request.form.get('start_date') or '', '%Y-%m-%d').date()
+                end = datetime.strptime(request.form.get('end_date') or '', '%Y-%m-%d').date()
+            except ValueError:
+                start = end = None
+            if not name or start is None:
+                flash('Name, start date and end date are all required.', 'error')
+            elif end <= start:
+                flash('The end date must be after the start date.', 'error')
+            elif Semester.query.filter(db.func.lower(Semester.name) == name.lower()).first():
+                flash(f"A semester called '{name}' already exists.", 'error')
             else:
                 try:
-                    semester = Semester(
-                        name=name.strip(),
-                        start_date=datetime.strptime(start_date, '%Y-%m-%d').date(),
-                        end_date=datetime.strptime(end_date, '%Y-%m-%d').date(),
-                    )
+                    semester = Semester(name=name, start_date=start, end_date=end)
                     db.session.add(semester)
                     db.session.flush()
                     log_action('semester.create', f"Created semester {semester.name}",
                                'semester', semester.id,
                                {'start_date': semester.start_date, 'end_date': semester.end_date})
                     db.session.commit()
-                    flash(f"Semester '{name}' created successfully.", 'success')
+                    flash(f"Semester '{name}' created.", 'success')
                 except Exception:
                     db.session.rollback()
-                    flash('Semester name must be unique.', 'error')
+                    flash('Failed to create the semester. Nothing was saved.', 'error')
                     log_exception("Semester Create Error")
 
         return redirect(url_for('admin.semesters_page'))
 
     semesters = Semester.query.order_by(Semester.start_date.desc()).all()
+    # What each semester holds, so "Set Active" can warn before switching
+    # to an empty one: since the "now" screens follow the active semester
+    # (utils.current_courses), activating one with no courses or no
+    # published timetable empties every student's and lecturer's app.
+    courses = dict(db.session.query(Course.semester_id, db.func.count(Course.id))
+                   .filter(Course.semester_id.isnot(None)).group_by(Course.semester_id))
+    slots = dict(db.session.query(Timetable.semester_id, db.func.count(Timetable.id))
+                 .filter(Timetable.is_published.is_(True)).group_by(Timetable.semester_id))
     return render_template(
         'admin/semesters.html',
         semesters=semesters,
+        course_counts=courses,
+        slot_counts=slots,
         active_page='semesters',
     )
 

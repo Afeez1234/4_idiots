@@ -17,7 +17,7 @@
         <div class="form-col">
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Add Semester', info=true) }}
+                    {{ card_heading('Add Semester') }}
                 </div>
                 <div class="card-body">
                     <form action="{{ url_for('admin.semesters_page') }}" method="POST" class="space-y-4">
@@ -59,18 +59,26 @@
                    mostly empty header. #}
                 <div class="divide-y divide-divider border-t border-divider">
                     {% for semester in semesters %}
+                        {% set n_courses = course_counts.get(semester.id, 0) %}
+                        {% set n_slots = slot_counts.get(semester.id, 0) %}
                         <div class="flex items-center justify-between gap-4 px-5 py-4">
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-semibold text-ink">{{ semester.name }}</p>
+                                {# What it holds: the active semester decides what every
+                                   student and lecturer sees, so an empty one matters. #}
                                 <p class="mt-0.5 text-2xs text-muted">
                                     {{ semester.start_date.strftime('%d %b %Y') }} &ndash;
                                     {{ semester.end_date.strftime('%d %b %Y') }}
+                                    &middot; {{ n_courses }} course{{ '' if n_courses == 1 else 's' }}
+                                    &middot; {{ n_slots }} published class{{ '' if n_slots == 1 else 'es' }}
                                 </p>
                             </div>
                             {% if semester.is_active %}
                                 {{ pill('Active', 'success', 'check_circle') }}
                             {% else %}
-                                <form action="{{ url_for('admin.semesters_page') }}" method="POST" class="shrink-0">
+                                {# Asks first, warning when it's empty (script below). #}
+                                <form action="{{ url_for('admin.semesters_page') }}" method="POST" class="activate-form shrink-0"
+                                      data-name="{{ semester.name }}" data-courses="{{ n_courses }}" data-slots="{{ n_slots }}">
                                     {% include '_csrf_field.html' %}
                                     <input type="hidden" name="action" value="activate">
                                     <input type="hidden" name="semester_id" value="{{ semester.id }}">
@@ -86,4 +94,31 @@
         </div>
     </div>
 
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Set Active changes what every student and lecturer sees (the "now"
+    // screens follow the active semester), so it asks -- and says plainly
+    // when the semester has nothing in it yet.
+    document.querySelectorAll('.activate-form').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            var name = form.dataset.name;
+            var courses = parseInt(form.dataset.courses, 10);
+            var slots = parseInt(form.dataset.slots, 10);
+            var message;
+            if (courses === 0) {
+                message = name + ' has no courses yet. Once it is active, students and lecturers will see no courses '
+                    + 'or classes until courses are copied in (Courses page) and a timetable is published. Make it active anyway?';
+            } else if (slots === 0) {
+                message = name + ' has ' + courses + ' course(s) but no published timetable, so the Today and Week '
+                    + 'screens will be empty until one is published. Make it active anyway?';
+            } else {
+                message = 'Make ' + name + ' the active semester? Students and lecturers see, and register for, '
+                    + 'its courses from now on.';
+            }
+            if (!confirm(message)) e.preventDefault();
+        });
+    });
+</script>
 {% endblock %}
