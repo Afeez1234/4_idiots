@@ -361,39 +361,40 @@ CONTEXTS = {
         role="admin",
         active_page="hods",
         active_semester=None,
-        hods=[
-            {
-                "id": 1,
-                "full_name": "Prof. Adaeze Nwosu",
-                "staff_id": "HOD-2001",
-                "department": {"name": "Systems Engineering"},
-                "department_id": 1,
-                "user_id": 11,
-                "user": {"requires_password_change": False},
-            },
-            {
-                "id": 2,
-                "full_name": "Dr. Emeka Obi",
-                "staff_id": "HOD-2002",
-                "department": {"name": "Computer Engineering"},
-                "department_id": 2,
-                "user_id": 12,
-                "user": {"requires_password_change": True},
-            },
+        # One row per department: an HOD with a set password, a promoted
+        # lecturer now on leave (sign-in off), one pending setup, and a
+        # department with no HOD at all.
+        rows=[
+            {"department": {"id": 1, "name": "Systems Engineering"},
+             "hod": {"id": 1, "full_name": "Prof. Adaeze Nwosu", "staff_id": "HOD-2001", "department_id": 1,
+                     "user_id": 11, "user": {"requires_password_change": False, "is_active": True}}},
+            {"department": {"id": 2, "name": "Computer Engineering"},
+             "hod": {"id": 2, "full_name": "Dr. Emeka Obi", "staff_id": "HOD-2002", "department_id": 2,
+                     "user_id": 12, "user": {"requires_password_change": True, "is_active": True}}},
+            {"department": {"id": 3, "name": "Mechatronics"},
+             "hod": {"id": 3, "full_name": "Dr. Tunde Cole", "staff_id": "LECT-1007", "department_id": 3,
+                     "user_id": 13, "user": {"requires_password_change": False, "is_active": False}}},
+            {"department": {"id": 4, "name": "Aerospace"}, "hod": None},
         ],
+        hod_count=3,
+        free_departments=[{"id": 4, "name": "Aerospace"}],
         departments=[
             {"id": 1, "name": "Systems Engineering"},
             {"id": 2, "name": "Computer Engineering"},
+            {"id": 3, "name": "Mechatronics"},
+            {"id": 4, "name": "Aerospace"},
         ],
-        # HOD 1 is a promoted lecturer: its dialog gets the per-row note.
-        hod_lecturer_ids={11},
+        # HODs 1 and 3 are promoted lecturers: their dialogs get the per-row
+        # note, and HOD 3's lecturer is on leave, so its login is off.
+        hod_lecturers={11: {"status": "active"}, 13: {"status": "on_leave"}},
+        lecturer_statuses={"active": "Active", "on_leave": "On leave", "left": "Left"},
         # Deliberately non-empty: the promote branch renders a `<select>` whose
         # options dereference .department.name, which an empty list would skip.
         promotable_lecturers=[
             {
                 "id": 7,
-                "full_name": "Dr. Tunde Cole",
-                "staff_id": "LECT-1007",
+                "full_name": "Dr. Ade Bello",
+                "staff_id": "LECT-1009",
                 "department": {"name": "Systems Engineering"},
             }
         ],

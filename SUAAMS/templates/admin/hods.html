@@ -1,5 +1,5 @@
 {% extends "base_admin.html" %}
-{% from '_macros.html' import pill, avatar, table_empty, card_heading, directory_heading %}
+{% from '_macros.html' import pill, avatar, table_empty, card_heading %}
 {% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
 
 {% block title %}HODs | SUAAMS Admin{% endblock %}
@@ -10,13 +10,9 @@
 
 {% block content %}
 
-    {# GAP still worth knowing about: the department dropdown below lists
-       every department, including ones that already have an HOD --
-       admin.hods_page rejects the submit server-side if the chosen
-       department already has one assigned (HOD.department_id has no
-       unique constraint at the schema level, so this is an
-       application-layer check, not a DB one), but the form doesn't
-       filter the options list to only show departments without one yet. #}
+    {# The assign forms list only departments with no HOD (free_departments).
+       hods_page still refuses a department that has one -- HOD.department_id
+       has no unique constraint, so that check is the real guard. #}
 
     <div class="form-grid">
 
@@ -24,7 +20,7 @@
         <div class="form-col">
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Assign HOD', info=true) }}
+                    {{ card_heading('Assign HOD') }}
                 </div>
                 <div class="card-body">
 
@@ -42,10 +38,10 @@
                        Tailwind's build-time scanner, so the rule would never be
                        emitted and the active state would render as plain text. #}
                     <div class="mb-5 flex gap-1 rounded-full border border-border bg-surface p-1">
-                        <button type="button" data-mode-tab="new" class="mode-tab tab-pill tab-pill-active flex-1">
+                        <button type="button" data-mode-tab="new" aria-pressed="true" class="mode-tab tab-pill tab-pill-active flex-1">
                             New Account
                         </button>
-                        <button type="button" data-mode-tab="promote" class="mode-tab tab-pill flex-1">
+                        <button type="button" data-mode-tab="promote" aria-pressed="false" class="mode-tab tab-pill flex-1">
                             Promote Lecturer
                         </button>
                     </div>
@@ -75,13 +71,16 @@
                             <label class="form-label" for="hod-department">Department</label>
                             <select name="department_id" id="hod-department" required class="form-select">
                                 <option value="" disabled selected>Select department</option>
-                                {% for dept in departments %}
+                                {% for dept in free_departments %}
                                     <option value="{{ dept.id }}">{{ dept.name }}</option>
                                 {% endfor %}
                             </select>
+                            {% if not free_departments %}
+                                <p class="form-help">Every department has an HOD. To change one, remove them in the table first.</p>
+                            {% endif %}
                         </div>
 
-                        <button type="submit" class="btn-primary mt-2 w-full">Assign HOD</button>
+                        <button type="submit" {{ 'disabled' if not free_departments else '' }} class="btn-primary mt-2 w-full">Assign HOD</button>
                     </form>
 
                     <!-- Promote Existing Lecturer -->
@@ -99,8 +98,8 @@
                             </select>
                             {% if not promotable_lecturers %}
                                 <p class="form-help">
-                                    No lecturers available to promote &mdash; everyone with a
-                                    lecturer account is already an HOD.
+                                    No lecturers available to promote &mdash; every active lecturer
+                                    is already an HOD.
                                 </p>
                             {% endif %}
                         </div>
@@ -109,10 +108,13 @@
                             <label class="form-label" for="hod-promote-department">Department (as HOD)</label>
                             <select name="department_id" id="hod-promote-department" required class="form-select">
                                 <option value="" disabled selected>Select department</option>
-                                {% for dept in departments %}
+                                {% for dept in free_departments %}
                                     <option value="{{ dept.id }}">{{ dept.name }}</option>
                                 {% endfor %}
                             </select>
+                            {% if not free_departments %}
+                                <p class="form-help">Every department has an HOD. To change one, remove them in the table first.</p>
+                            {% endif %}
                             <p class="form-help">
                                 Usually the same department they already teach in, but not
                                 required to be.
@@ -122,7 +124,7 @@
                         {# An inline note rather than a disabled-looking button: it
                            explains the one surprising consequence of promoting. #}
                         <div class="alert" data-tone="info">
-                            <span class="material-symbols-rounded text-lg">info</span>
+                            <span class="material-symbols-rounded text-lg" aria-hidden="true">info</span>
                             <p>
                                 Their existing login stays the same &mdash; they&rsquo;ll land on
                                 the HOD dashboard next time they sign in, with a link back
@@ -130,7 +132,7 @@
                             </p>
                         </div>
 
-                        <button type="submit" {{ 'disabled' if not promotable_lecturers else '' }}
+                        <button type="submit" {{ 'disabled' if not promotable_lecturers or not free_departments else '' }}
                                 class="btn-primary mt-2 w-full">
                             Promote to HOD
                         </button>
@@ -139,55 +141,76 @@
             </div>
         </div>
 
-        <!-- Directory -->
+        <!-- Directory: one row per department -->
         <div class="form-main">
             <div class="card-clip">
-                {# noun is the thing being counted, so this reads "3 HODs" -- the
-                   old header hardcoded "assigned", which directory_heading's
-                   pluraliser would have turned into "assigneds". #}
-                {{ directory_heading('Heads of Department', hods|length, 'HOD') }}
+                {# One row per department, so a department with no HOD shows as
+                   a gap instead of simply not being listed (2026-10-18). #}
+                <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
+                    <h2 class="card-title">Heads of Department</h2>
+                    <span class="text-xs text-muted">
+                        {{ hod_count }} of {{ rows|length }} department{{ '' if rows|length == 1 else 's' }} have an HOD
+                    </span>
+                </div>
 
                 <div class="table-wrap border-t border-divider">
                     <table class="table">
                         <thead>
                             <tr>
+                                <th class="th">Department</th>
                                 <th class="th">HOD</th>
                                 <th class="th">Staff ID</th>
-                                <th class="th">Department</th>
                                 <th class="th">Status</th>
                                 <th class="th"><span class="sr-only">Edit</span></th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for hod in hods %}
+                            {% for row in rows %}
+                                {% set hod = row.hod %}
                                 <tr>
-                                    <td class="td">
-                                        <div class="flex items-center gap-3">
-                                            {{ avatar(hod.full_name) }}
-                                            <span class="font-medium">{{ hod.full_name }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="td td-muted mono text-xs">{{ hod.staff_id }}</td>
-                                    <td class="td td-muted">{{ hod.department.name if hod.department else '—' }}</td>
-                                    <td class="td">
-                                        {% if hod.user and hod.user.requires_password_change %}
-                                            {{ pill('Pending Setup', 'warning') }}
-                                        {% else %}
-                                            {{ pill('Active', 'success') }}
-                                        {% endif %}
-                                    </td>
-                                    <td class="td">
-                                        {{ edit_button(url_for('admin.edit_record', kind='hods', record_id=hod.id),
-                                                       url_for('admin.delete_record', kind='hods', record_id=hod.id),
-                                                       hod.full_name ~ ' (' ~ hod.staff_id ~ ')',
-                                                       {'full_name': hod.full_name, 'staff_id': hod.staff_id,
-                                                        'department_id': hod.department_id},
-                                                       note=('A promoted lecturer: they go back to being a lecturer, keeping their courses and class history.'
-                                                             if hod.user_id in hod_lecturer_ids else none)) }}
-                                    </td>
+                                    <td class="td font-medium">{{ row.department.name }}</td>
+                                    {% if hod %}
+                                        <td class="td">
+                                            <div class="flex items-center gap-3">
+                                                {{ avatar(hod.full_name) }}
+                                                <span>{{ hod.full_name }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="td td-muted mono whitespace-nowrap text-xs">{{ hod.staff_id }}</td>
+                                        <td class="td">
+                                            {# Sign-in off first: "Active" used to show for an
+                                               HOD whose login was switched off -- e.g. a
+                                               promoted lecturer marked On leave or Left on the
+                                               Lecturers page, which turns their shared login off. #}
+                                            {% set lect = hod_lecturers.get(hod.user_id) %}
+                                            {% if hod.user and not hod.user.is_active %}
+                                                {% if lect and lect.status != 'active' %}
+                                                    {{ pill(lecturer_statuses.get(lect.status, lect.status) ~ ' · sign-in off',
+                                                            'error' if lect.status == 'left' else 'warning') }}
+                                                {% else %}
+                                                    {{ pill('Sign-in off', 'error') }}
+                                                {% endif %}
+                                            {% elif hod.user and hod.user.requires_password_change %}
+                                                {{ pill('Pending Setup', 'warning') }}
+                                            {% else %}
+                                                {{ pill('Active', 'success') }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="td">
+                                            {{ edit_button(url_for('admin.edit_record', kind='hods', record_id=hod.id),
+                                                           url_for('admin.delete_record', kind='hods', record_id=hod.id),
+                                                           hod.full_name ~ ' (' ~ hod.staff_id ~ ')',
+                                                           {'full_name': hod.full_name, 'staff_id': hod.staff_id,
+                                                            'department_id': hod.department_id},
+                                                           note=('A promoted lecturer: they go back to being a lecturer, keeping their courses and class history.'
+                                                                 if lect else none)) }}
+                                        </td>
+                                    {% else %}
+                                        <td class="td" colspan="4">{{ pill('No HOD yet', 'warning') }}</td>
+                                    {% endif %}
                                 </tr>
                             {% else %}
-                                {{ table_empty(5, 'No HODs assigned yet.') }}
+                                {{ table_empty(5, 'No departments yet. Add them on the Organization page.') }}
                             {% endfor %}
                         </tbody>
                     </table>
@@ -243,6 +266,8 @@
                 // the markup above.
                 tabs.forEach(function (t) {
                     t.classList.toggle('tab-pill-active', t === tab);
+                    // The selected mode was colour only; say it to screen readers.
+                    t.setAttribute('aria-pressed', t === tab ? 'true' : 'false');
                 });
 
                 Object.keys(forms).forEach(function (key) {

@@ -2294,6 +2294,13 @@ def hods_page():
                 if not lecturer:
                     flash('Lecturer not found.', 'error')
                     return redirect(url_for('admin.hods_page'))
+                # On leave or left means their login is off (people_status):
+                # they'd be an HOD who can't sign in. The form only lists
+                # active lecturers; this catches a stale page.
+                if lecturer.status != 'active':
+                    flash(f"{lecturer.full_name} is marked {LECTURER_STATUSES.get(lecturer.status, lecturer.status)} "
+                          f"and can't be made HOD.", 'error')
+                    return redirect(url_for('admin.hods_page'))
 
                 if HOD.query.filter_by(user_id=lecturer.user_id).first():
                     flash(f"{lecturer.full_name} is already an HOD.", 'error')
@@ -2371,25 +2378,37 @@ def hods_page():
 
         return redirect(url_for('admin.hods_page'))
 
-    hods = HOD.query.all()
-    departments = Department.query.all()
-    # Only lecturers not already promoted -- promoting flips User.role to
-    # 'hod', so this filter naturally excludes anyone already promoted
-    # without needing separate bookkeeping.
+    hods = HOD.query.options(joinedload(HOD.department), joinedload(HOD.user)).all()
+    departments = Department.query.order_by(Department.name).all()
+    by_department = {h.department_id: h for h in hods}
+    # Only active lecturers not already promoted. Promoting flips User.role
+    # to 'hod', so the role filter excludes anyone already promoted; the
+    # status filter excludes lecturers on leave or gone, whose login is off.
     promotable_lecturers = (
         Lecturer.query.join(User, Lecturer.user_id == User.id)
-        .filter(User.role == 'lecturer')
+        .filter(User.role == 'lecturer', Lecturer.status == 'active')
+        .options(joinedload(Lecturer.department))
         .order_by(Lecturer.full_name)
         .all()
     )
     return render_template(
         'admin/hods.html',
-        hods=hods,
-        # Which HODs are promoted lecturers: removing one sends them back to
-        # teaching, so the dialog says so.
-        hod_lecturer_ids={l.user_id for l in Lecturer.query.filter(
-            Lecturer.user_id.in_([h.user_id for h in hods]))},
+        # One row per department, with its HOD or None (2026-10-18): the
+        # page used to list only the HODs that exist, so finding the
+        # departments WITHOUT one meant checking against Organization.
+        rows=[{'department': d, 'hod': by_department.get(d.id)} for d in departments],
+        hod_count=len(hods),
+        # The assign forms offer only these: picking a department that
+        # already had an HOD used to be refused after submitting, losing
+        # the typed name and staff ID.
+        free_departments=[d for d in departments if d.id not in by_department],
         departments=departments,
+        # Promoted HODs' lecturer records, by user id: removing one sends
+        # them back to teaching (the dialog says so), and a lecturer marked
+        # on leave or left explains why the shared login is off.
+        hod_lecturers={l.user_id: l for l in Lecturer.query.filter(
+            Lecturer.user_id.in_([h.user_id for h in hods]))} if hods else {},
+        lecturer_statuses=LECTURER_STATUSES,
         promotable_lecturers=promotable_lecturers,
         active_page='hods',
     )
