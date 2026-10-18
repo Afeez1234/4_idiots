@@ -527,8 +527,8 @@ def bulk_upload_confirm():
     if kind not in BULK_PAGES:
         flash('That preview is no longer valid. Upload the file again.', 'error')
         return redirect(url_for('admin.dashboard'))
-    back = url_for(BULK_PAGES[kind])
     semester = db.session.get(Semester, payload.get('semester_id') or 0) if kind == 'courses' else None
+    back = _bulk_back(kind, semester)
 
     try:
         plan = bulk_upload.plan_from_json(payload, semester)
@@ -559,8 +559,9 @@ def bulk_upload_confirm():
             details['skipped_invalid'] = len(invalid)
             details['skipped_examples'] = [f"line {r.line}: {r.errors[0]}" for r in invalid[:20]]
         # One entry for the whole file, not one per row.
+        # A copy's "filename" is "Copied from <semester>" (plan_course_copy).
         log_action(f"{kind[:-1]}.bulk_import",
-                   f"Uploaded {plan.filename}: {what} created, {skipped} already existed"
+                   f"{'' if plan.is_copy else 'Uploaded '}{plan.filename}: {what} created, {skipped} already existed"
                    + (f", {len(invalid)} skipped with problems" if invalid else ''),
                    kind[:-1], None, details)
         db.session.commit()
@@ -579,13 +580,21 @@ def bulk_upload_confirm():
     return redirect(back)
 
 
+def _bulk_back(kind, semester):
+    """Where an upload or copy returns to: for courses, the semester they
+    went into -- the Courses catalog shows one semester at a time."""
+    if kind == 'courses' and semester is not None:
+        return url_for(BULK_PAGES[kind], semester=semester.id)
+    return url_for(BULK_PAGES[kind])
+
+
 def _render_bulk_preview(plan, semester):
     return render_template(
         'admin/bulk_preview.html',
         plan=plan,
         semester=semester,
         plan_json=json.dumps(plan.to_json()),
-        back_url=url_for(BULK_PAGES[plan.kind]),
+        back_url=_bulk_back(plan.kind, semester),
         active_page=plan.kind,
     )
 
@@ -1375,6 +1384,9 @@ def courses_page():
         # Only active lecturers can be given a course; on leave or left can't.
         lecturers=Lecturer.query.filter_by(status='active').order_by(Lecturer.full_name).all(),
         semesters=semesters,
+        # "Copy courses from another semester": the same semester last year
+        # by default -- first- and second-semester courses differ.
+        copy_source=tt_import.default_copy_source(semester, semesters) if semester else None,
         filters={'q': q, 'dept': dept_id},
         filter_args=filter_args,
         # Search or department narrowing; the semester alone isn't a filter.
@@ -1382,6 +1394,30 @@ def courses_page():
         delete_blockers=record_edits.delete_blockers('courses', courses),
         active_page='courses',
     )
+
+
+@admin_bp.route('/courses/copy', methods=['POST'])
+@limiter.limit("10 per minute")
+def courses_copy():
+    """Preview copying another semester's courses into this one (by default
+    the same semester last year). Same preview, checks and save as a course
+    CSV upload -- see bulk_upload.plan_course_copy."""
+    source = db.session.get(Semester, request.form.get('source_id', type=int) or 0)
+    target = db.session.get(Semester, request.form.get('semester_id', type=int) or 0)
+    back = url_for('admin.courses_page', **({'semester': target.id} if target else {}))
+    if not source or not target or source.id == target.id:
+        flash('Choose a different semester to copy from.', 'error')
+        return redirect(back)
+    try:
+        plan = bulk_upload.plan_course_copy(source, target)
+    except Exception:
+        log_exception("Course Copy Error")
+        flash('Something went wrong preparing the copy. Nothing was saved.', 'error')
+        return redirect(back)
+    if plan is None:
+        flash(f"{source.name} has no courses to copy.", 'info')
+        return redirect(back)
+    return _render_bulk_preview(plan, target)
 
 
 def _courses_back():

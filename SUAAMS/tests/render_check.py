@@ -349,7 +349,10 @@ CONTEXTS = {
             {"id": 2, "name": "Systems Engineering"},
         ],
         lecturers=[{"id": 1, "full_name": "Dr. Jane Doe"}],
-        semesters=[{"id": 1, "name": "2025/2026 First Semester", "is_active": True}],
+        # Two semesters, so the copy card renders with its default source.
+        semesters=[{"id": 1, "name": "2025/2026 First Semester", "is_active": True},
+                   {"id": 2, "name": "2024/2025 First Semester", "is_active": False}],
+        copy_source={"id": 2, "name": "2024/2025 First Semester"},
         # Course 1 can't be deleted (greyed out); course 2 can.
         delete_blockers={1: "Has 12 class sessions."},
     ),

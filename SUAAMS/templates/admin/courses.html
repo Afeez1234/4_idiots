@@ -152,6 +152,39 @@
                 </div>
             </div>
 
+            {# ============ COPY FROM ANOTHER SEMESTER ============
+               The new-semester changeover: last year's courses into the
+               semester being viewed, through the same preview and checks as
+               the CSV upload (bulk_upload.plan_course_copy). Defaults to the
+               same semester last year. #}
+            {% if view_semester and semesters|length > 1 %}
+            <div class="card">
+                <div class="card-header">
+                    {{ card_heading('Copy courses from another semester') }}
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('admin.courses_copy') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="semester_id" value="{{ view_semester.id }}">
+                        <div>
+                            <label class="form-label" for="copy-source-id">Copy from</label>
+                            <select name="source_id" id="copy-source-id" required class="form-select">
+                                {% for semester in semesters if semester.id != view_semester.id %}
+                                    <option value="{{ semester.id }}" {{ 'selected' if copy_source and semester.id == copy_source.id else '' }}>{{ semester.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <p class="form-help">
+                                Into <strong>{{ view_semester.name }}</strong>: each course's code, title, department,
+                                units and lecturers. Not its students or timetable. Codes already here are skipped;
+                                lecturers no longer active are left out. You'll see a preview first.
+                            </p>
+                        </div>
+                        <button type="submit" class="btn-secondary mt-2 w-full">Preview copy</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
             <div class="card">
                 <div class="card-header">
                     {{ card_heading('Enroll Student') }}

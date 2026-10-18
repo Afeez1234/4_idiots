@@ -16,7 +16,7 @@
 {% set error_count = plan.count('error') %}
 
 {% block title %}Upload preview | SUAAMS Admin{% endblock %}
-{% block page_title %}{{ plan.kind|capitalize }} upload{% endblock %}
+{% block page_title %}{{ plan.kind|capitalize }} {{ 'copy' if plan.is_copy else 'upload' }}{% endblock %}
 {% block page_subtitle %}
     <p class="page-subtitle">Preview &mdash; nothing has been saved yet</p>
 {% endblock %}
@@ -60,7 +60,7 @@
             <div class="alert" data-tone="warning">
                 <span>
                     {{ error_count }} row{{ '' if error_count == 1 else 's' }} below must be fixed before anything can be
-                    saved. Fix the CSV and upload it again. Nothing has been saved.
+                    saved. {% if plan.is_copy %}Fix {{ 'it' if error_count == 1 else 'them' }} as described, then copy again.{% else %}Fix the CSV and upload it again.{% endif %} Nothing has been saved.
                 </span>
             </div>
             <a href="{{ back_url }}" class="btn-secondary">Back</a>
@@ -72,7 +72,7 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th class="th">Line</th>
+                        {% if not plan.is_copy %}<th class="th">Line</th>{% endif %}
                         {% if plan.kind == 'students' %}
                             <th class="th">Matric No.</th>
                             <th class="th">Name</th>
@@ -98,7 +98,7 @@
                     {# 'error' < 'exists' < 'new' alphabetically, so a plain sort does it. #}
                     {% for r in plan.rows|sort(attribute='status') %}
                         <tr>
-                            <td class="td td-muted mono text-xs">{{ r.line }}</td>
+                            {% if not plan.is_copy %}<td class="td td-muted mono text-xs">{{ r.line }}</td>{% endif %}
                             {% if plan.kind == 'students' %}
                                 <td class="td mono whitespace-nowrap">{{ r.values.matric_number }}</td>
                                 <td class="td">{{ r.values.full_name }}</td>
@@ -132,6 +132,9 @@
                                     {{ pill('Exists', 'neutral') }} <span class="text-2xs text-muted">{{ r.note }}</span>
                                 {% else %}
                                     {{ pill('New', 'success') }}
+                                    {# A course copy notes lecturers left out or a new
+                                       coordinator (bulk_upload.plan_course_copy). #}
+                                    {% if r.note %}<span class="text-2xs text-secondary">{{ r.note }}</span>{% endif %}
                                 {% endif %}
                             </td>
                         </tr>

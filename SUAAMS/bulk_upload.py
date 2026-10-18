@@ -27,6 +27,10 @@ Rules
 * Courses name their lecturers by staff ID: the first is the coordinator,
   any others are co-lecturers ("STF/1; STF/7"). Lecturers must already
   exist -- upload the lecturers file first.
+* "Copy courses from another semester" (plan_course_copy) builds course
+  rows from a past semester's courses and runs them through the same
+  plan_courses checks, preview and save -- a CSV the admin didn't have to
+  write. Lecturers no longer active are left out rather than blocking it.
 * Saving uses multi-row INSERTs in chunks, like the student upload: an ORM
   object per row is one round trip each to the remote MySQL, which is what
   made the old student upload time out on Render.
@@ -64,6 +68,14 @@ REQUIRED = {
 }
 # Kinds whose bad rows are skipped rather than blocking the file (see Rules).
 SKIPS_BAD_ROWS = {'students'}
+
+# A course copy's plan is named after its source semester; the prefix is how
+# the preview and the audit entry tell a copy from an uploaded file.
+COPY_PREFIX = 'Copied from '
+
+
+def _status_name(status):
+    return status.replace('_', ' ')
 # Header spellings accepted as the same column: the student CSV says
 # department_name, so colleagues will reuse it.
 ALIASES = {'department_name': 'department', 'code': 'course_code', 'title': 'course_title',
@@ -98,6 +110,10 @@ class BulkPlan:
 
     def count(self, status):
         return sum(1 for r in self.rows if r.status == status)
+
+    @property
+    def is_copy(self):
+        return self.filename.startswith(COPY_PREFIX)
 
     @property
     def new_rows(self):
@@ -334,6 +350,61 @@ def plan_courses(rows, filename, semester):
         if r.errors:
             r.status = 'error'
     return BulkPlan('courses', filename, rows, semester_id=semester.id)
+
+
+def plan_course_copy(source, target):
+    """Copy `source` semester's courses into `target`, as a course plan.
+
+    Copies code, title, department, credit units, the coordinator and the
+    co-lecturers. Not enrolments (students register each semester), not the
+    timetable (Timetable has its own copy) and not courses with no semester
+    (they belong to every semester already). None if `source` has no courses.
+
+    A year on, some lecturers will be on leave or gone, and plan_courses
+    refuses a course with an inactive lecturer -- one such row would block
+    the whole copy. So: inactive co-lecturers are left out, an inactive
+    coordinator is replaced by the next active lecturer on the course, and
+    the preview says so on that row. Only a course with no active lecturer
+    at all is refused, with the reason.
+    """
+    courses = (Course.query.filter(Course.semester_id == source.id)
+               .order_by(Course.course_code, Course.id).all())
+    if not courses:
+        return None
+    rows, notes, no_active = [], {}, {}
+    for line, course in enumerate(courses, start=1):
+        everyone = course.all_lecturers                     # coordinator first
+        active = [l for l in everyone if l.status == 'active']
+        gone = [l for l in everyone if l.status != 'active']
+        row = BulkRow(line=line, values={
+            'course_code': course.course_code,
+            'course_title': course.course_title,
+            'department': course.department.name if course.department else '',
+            'credit_units': str(course.credit_units) if course.credit_units else '',
+            'lecturers': '; '.join(l.staff_id for l in active),
+        })
+        rows.append(row)
+        said = [f"{l.full_name} ({_status_name(l.status)}) not copied" for l in gone]
+        if active and course.lecturer is not None and course.lecturer.status != 'active':
+            said.append(f"{active[0].full_name} becomes coordinator")
+        if said:
+            notes[line] = '; '.join(said)
+        if not active:
+            no_active[line] = ', '.join(f"{l.full_name} ({_status_name(l.status)})" for l in gone) or 'none'
+
+    plan = plan_courses(rows, COPY_PREFIX + source.name, target)
+    for r in plan.rows:
+        if r.line in no_active:
+            # plan_courses says "lecturers is empty."; say why, and what to do.
+            r.errors = [f"No active lecturer to copy ({no_active[r.line]}). Add an active lecturer to "
+                        f"{r.values['course_code']} in {source.name} with Course Lecturers, then copy again."]
+            r.status = 'error'
+        elif r.status == 'new' and r.line in notes:
+            # Upper-case the first letter only: str.capitalize() would also
+            # lower-case the rest, turning "Dr Gone" into "Dr gone".
+            text = notes[r.line]
+            r.note = text[:1].upper() + text[1:] + '.'
+    return plan
 
 
 # ---- saving ----------------------------------------------------------------------------

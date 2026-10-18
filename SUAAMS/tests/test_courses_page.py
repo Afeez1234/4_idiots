@@ -29,7 +29,7 @@ from sqlalchemy import event  # noqa: E402
 
 from extensions import limiter, csrf  # noqa: E402
 from models import (  # noqa: E402
-    db, Course, Department, Enrollment, Faculty, Lecturer, Semester, Student, User,
+    db, AuditLog, Course, Department, Enrollment, Faculty, Lecturer, Semester, Student, User,
 )
 from blueprints.auth import auth_bp  # noqa: E402
 from blueprints.admin import admin_bp  # noqa: E402
@@ -181,6 +181,69 @@ class CoursesPageTestCase(unittest.TestCase):
             'code': 'CPE301', 'title': 'Digital Logic II', 'department_id': self.cpe.id,
             'semester_id': self.sem.id, 'credit_units': ''})
         self.assertIn(f'semester={self.old.id}', resp.headers['Location'])
+
+    # ---- copy courses from another semester (2026-10-18) --------------------------
+
+    def copy_preview(self, source, target):
+        """Preview a copy; the preview page's render kwargs."""
+        with mock.patch('blueprints.admin.render_template', return_value='') as render:
+            self.client.post('/admin/courses/copy', data={'source_id': source.id, 'semester_id': target.id})
+        return render.call_args.kwargs if render.called else None
+
+    def test_copy_creates_the_courses_with_their_lecturers(self):
+        self.course('MCT405', 'Robotics', self.old, co=[self.co])
+        db.session.commit()
+        preview = self.copy_preview(self.old, self.sem)
+        plan = preview['plan']
+        self.assertTrue(plan.ok)
+        # MCT401 is already in this semester: skipped, not changed.
+        self.assertEqual({r.values['course_code']: r.status for r in plan.rows},
+                         {'MCT401': 'exists', 'MCT405': 'new'})
+        self.assertEqual(Course.query.filter_by(course_code='MCT405').count(), 1)   # nothing saved yet
+
+        resp = self.client.post('/admin/bulk/confirm', data={'plan': preview['plan_json']})
+        copied = Course.query.filter_by(course_code='MCT405', semester_id=self.sem.id).one()
+        self.assertEqual([l.staff_id for l in copied.all_lecturers], ['STF/1', 'STF/2'])
+        self.assertEqual(copied.department_id, self.mct.id)
+        # The source semester is untouched, and we land on the target semester.
+        self.assertEqual(Course.query.filter_by(semester_id=self.old.id).count(), 2)
+        self.assertIn(f'semester={self.sem.id}', resp.headers['Location'])
+        entry = AuditLog.query.filter_by(action='course.bulk_import').one()
+        self.assertTrue(entry.summary.startswith(f'Copied from {self.old.name}: 1 courses for {self.sem.name} created'),
+                        entry.summary)
+
+    def test_inactive_lecturers_are_left_out_or_replaced(self):
+        gone = self.lecturer('Dr Gone', 'STF/9')
+        gone.status = 'left'
+        # Inactive co-lecturer: left out.
+        self.course('MCT405', 'Robotics', self.old, co=[self.co, gone])
+        # Inactive coordinator: the next active lecturer takes over.
+        self.course('MCT407', 'Vision', self.old, co=[self.co], lead=gone)
+        db.session.commit()
+        rows = {r.values['course_code']: r for r in self.copy_preview(self.old, self.sem)['plan'].rows}
+        self.assertEqual(rows['MCT405'].values['lecturers'], 'STF/1; STF/2')
+        self.assertIn('Dr Gone (left) not copied', rows['MCT405'].note)
+        self.assertEqual(rows['MCT407'].values['lecturers'], 'STF/2')
+        self.assertIn('Dr Co becomes coordinator', rows['MCT407'].note)
+        self.assertTrue(all(r.status in ('new', 'exists') for r in rows.values()))
+
+    def test_a_course_with_no_active_lecturer_blocks_the_copy(self):
+        gone = self.lecturer('Dr Gone', 'STF/9')
+        gone.status = 'on_leave'
+        self.course('MCT409', 'Thesis', self.old, lead=gone)
+        db.session.commit()
+        plan = self.copy_preview(self.old, self.sem)['plan']
+        self.assertFalse(plan.ok)
+        row = next(r for r in plan.rows if r.values['course_code'] == 'MCT409')
+        self.assertIn('No active lecturer to copy (Dr Gone (on leave))', row.errors[0])
+
+    def test_copy_defaults_to_the_same_semester_last_year(self):
+        # 2026/2027 First -> 2025/2026 First, not the more recent Second.
+        second = Semester(name='2025/2026 Second Semester', start_date=date(2026, 2, 1),
+                          end_date=date(2026, 7, 1))
+        db.session.add(second)
+        db.session.commit()
+        self.assertEqual(self.context()['copy_source'].id, self.old.id)
 
     def test_queries_do_not_grow_with_courses(self):
         def add(n, start):
