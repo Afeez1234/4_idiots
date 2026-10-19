@@ -1065,8 +1065,14 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
     // see a genuine tap happened even though it can't become attendance.
     Serial.println("[POST] No WiFi -- queuing capture for later sync");
     appendToBacklog(token, readAt);
+    oledShowQueued();
     return;
   }
+
+  // On screen while the server answers: usually under a second, but a
+  // cold backend can take several, and a blank screen meanwhile reads as
+  // "it didn't work".
+  oledShowChecking();
 
   String payload = "{\"beacon_token\":\"" + token + "\"}";
 
@@ -1170,6 +1176,7 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
       logTlsError(client, "POST");
       appendToBacklog(token, readAt);
       noteServerReply(httpResponseCode);
+      oledShowQueued();
       return;
     }
 
@@ -1181,6 +1188,7 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
     }
     // Any real HTTP status means the backend WAS reachable, so this isn't an
     // outage and must not be queued -- the server has given its answer.
+    oledShowServerAnswer(httpResponseCode, responseBody);
     return;
   }
 
@@ -1191,6 +1199,7 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
   // One strike for the whole tap, not one per retry: the retries exist to
   // ride out a marginal link, and shouldn't use up all the strikes at once.
   noteServerReply(-1);
+  oledShowQueued();
 }
 
 // ---------------- Setup / loop ----------------
@@ -1210,11 +1219,16 @@ void setup() {
   // prior that it's part of the intermittent read failures.
   Wire.setClock(100000);
 
+  // Screen first, so a dead reader below can say so at the door.
+  oledBegin();
+  oledShowBoot("Starting...");
+
   nfc.begin();
 
   uint32_t versiondata = nfc.getFirmwareVersion();
   if (!versiondata) {
     Serial.println("[FATAL] PN532 not found -- check wiring/interface selection.");
+    oledShowRejectionTwo("Reader not", "found. Wiring?");
     while (1) {
       delay(1000);
     }
@@ -1231,6 +1245,7 @@ void setup() {
   // unaccounted for.
   loadBacklog();
 
+  oledShowBoot("Wi-Fi...");
   connectWifi();
   // Wall-clock time for the Bluetooth code (UTC; no timezone needed, the
   // slot is plain unix time). Safe to call even if Wi-Fi isn't up yet: the
@@ -1251,6 +1266,8 @@ void setup() {
   // against a heap that has already been through it.
   bleSetup();
   Serial.printf("[BOOT] Terminal %s ready, waiting for taps...\n", TERMINAL_ID);
+  // Terminal ID and network for a few seconds, then the idle screen.
+  oledShowReady();
 }
 
 void loop() {
@@ -1276,6 +1293,10 @@ void loop() {
   // while a student is mid-tap risks missing their read entirely. With an
   // empty field there's nothing to lose.
   if (!targetInField) {
+    // Screen redraws (~25 ms) only happen here, never with a phone in the
+    // field. Returns at once when nothing on screen has changed.
+    oledUpdate();
+
     maybeKeepBackendWarm();
 
     // Push any offline captures now that the backend is answering. Only

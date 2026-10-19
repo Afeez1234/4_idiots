@@ -275,8 +275,10 @@ when a student checked in, are stored in UTC and converted when displayed.
   has its own secret and a room, but `ROOM_CHECK` starts at `flag`, so a tap
   at another room's reader still counts and is marked for the lecturer.
   Set it to `enforce` to refuse those taps.
-- **No feedback at the door**: the terminal has no LED, buzzer or screen. The
-  student only sees the result on their phone.
+- **Feedback at the door**: a terminal with the optional OLED screen shows
+  each tap's result (first name only, since the screen is public). There's
+  no buzzer or LED, and a terminal without the screen still only reports on
+  the phone.
 - **Cold server**: Render's free tier sleeps when idle and takes ~8 seconds
   to wake, which is longer than a code lasts. The terminal pings the server
   every 4 minutes to keep it awake.

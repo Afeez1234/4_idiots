@@ -14,6 +14,7 @@ hardware. Fill them in while it's on the desk.
 |---|---|---|
 | ESP32 board | Runs the terminal: Wi-Fi, BLE, NFC loop | Built as **ESP32 Dev Module** (classic ESP32, 4 MB flash, no PSRAM). **FILL IN:** the name printed on the physical board, if it's a specific DevKit. The firmware logs free heap because Wi-Fi + HTTPS + BLE together is tight on a classic ESP32 |
 | PN532 NFC module | Reads the phone's HCE response | I²C mode. Replaced the MFRC522 because it can hold an ISO 14443-4 APDU exchange with a phone |
+| OLED screen (optional) | Shows the tap result at the door | 0.96" SSD1306, 128×64, I²C (4-pin), address 0x3C or 0x3D. On its own I²C bus (see §2). The terminal works without it. Code in `oled_display.ino` |
 | Power supply | | **FILL IN:** source, voltage, current |
 | Enclosure / mounting | | **FILL IN** |
 
@@ -33,6 +34,41 @@ The old prototype (MFRC522 reading RFID cards) lives in `SUAAMS_ESP/` and
 The I²C clock is set to **100 kHz** (`Wire.setClock(100000)`). The Wire
 default is usually 400 kHz. The PN532 is the slower device, and the faster
 clock can drop bytes.
+
+**OLED screen**, on the ESP32's second I²C bus:
+
+| Signal | OLED pin | ESP32 pin |
+|---|---|---|
+| SDA | SDA | **GPIO 25** |
+| SCL | SCL | **GPIO 26** |
+| VCC | VCC | 3V3 |
+| GND | GND | GND |
+
+Not on the PN532's pins on purpose. That bus runs at 100 kHz, where one
+1 KB screen frame takes ~100 ms and the reader can't look for phones
+meanwhile. The second bus runs at 400 kHz (~25 ms a frame), the screen only
+redraws when something changes and never with a phone in the field, and a
+screen fault can't affect the reader.
+
+What it shows: `TAP your phone here` while idle (dimmed to a still-visible
+level after 2 minutes, with a sleepy
+face and a 1-pixel drift every minute, against burn-in), `WAIT
+Checking...` while the server answers, then for 3 s `DONE` + the student's
+**first name only** (the screen is public), `DONE Already marked`, `SAVED`
+(queued offline) or `OOPS` + a reason (code expired, not registered, wrong
+room, class ended). At the end of boot it shows `READY`, the terminal ID and
+the Wi-Fi network for 4 s, to tell identical boards apart. `WAIT` has a
+progress bar filling over the 10 s code window, drawn by a small task on the
+other core because the main loop is blocked in the HTTPS request.
+
+The top row is permanent, for a lecturer's glance: Wi-Fi signal bars (an x
+when not connected), `ON`/`OFF` for whether the **server** answered within
+the last ping interval plus a minute (being on Wi-Fi isn't enough), campus
+time (UTC+1; `--:--` until the first time sync), and `Q:n`, the taps stored
+on the terminal waiting to upload. **A Bluetooth check-in never shows
+here**: the phone posts the code to the server itself, so the terminal never
+learns about it. Those students see their result on the phone only. Libraries: Adafruit SSD1306 2.5.17,
+Adafruit GFX 1.12.6.
 
 ## 3. PN532 mode switches
 
@@ -65,6 +101,8 @@ only works with the right positions.
   readers and must match the server's `.env`. Set `BLE_BEACON_SECRET` to `""` to turn Bluetooth off. An
   old `secrets.h` without the BLE lines fails the build with a clear error.
 - **Libraries** (installed versions):
+  - Adafruit SSD1306 **2.5.17** and Adafruit GFX **1.12.6**, for the OLED.
+    Needed to build even without a screen attached.
   - Adafruit PN532 **1.3.4**. In this version `inListPassiveTarget()` takes
     no arguments.
   - Adafruit BusIO, a dependency of Adafruit PN532.
