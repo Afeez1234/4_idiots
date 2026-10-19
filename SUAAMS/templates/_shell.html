@@ -203,6 +203,28 @@
             }
             nav.addEventListener('scroll', syncFades, {passive: true});
             window.addEventListener('resize', syncFades);
+
+            // Collapsible sections (rail_section in _macros.html). The choice
+            // is remembered per portal in this browser (localStorage, which
+            // may be unavailable -- then nothing is remembered, nothing
+            // breaks). The group holding the current page always opens, so
+            // you can't land on a page whose link is folded away.
+            var portal = location.pathname.split('/')[1] || 'app';
+            document.querySelectorAll('[data-rail-section]').forEach(function (btn) {
+                var group = document.getElementById(btn.getAttribute('aria-controls'));
+                if (!group) return;
+                var key = 'suaams.rail.' + portal + '.' + btn.dataset.railSection;
+                function set(open, remember) {
+                    group.hidden = !open;
+                    btn.setAttribute('aria-expanded', String(open));
+                    if (remember) { try { localStorage.setItem(key, open ? 'open' : 'closed'); } catch (e) {} }
+                    syncFades();
+                }
+                var stored = null;
+                try { stored = localStorage.getItem(key); } catch (e) {}
+                set(!!group.querySelector('[aria-current="page"]') || stored !== 'closed', false);
+                btn.addEventListener('click', function () { set(group.hidden, true); });
+            });
             syncFades();
 
             // Escape closes the drawer -- the old version had no keyboard

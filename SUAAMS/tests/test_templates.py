@@ -253,6 +253,20 @@ def test_rail_keyboard_and_screen_reader_contract():
     assert 'aria-controls="sidebar"' in shell
 
 
+def test_collapsible_rail_sections_point_at_their_groups():
+    """Every collapsible heading (rail_section, 2026-10-19) controls a group
+    that exists: aria-controls="rail-sec-<key>" must match an id in the
+    same template, or the button folds nothing. Admin and lecturer rails
+    only; the student and HOD rails are short and stay plain."""
+    for name, expected in (("base_admin.html", 6), ("base_portal.html", 5)):
+        source = (TEMPLATES / name).read_text(encoding="utf-8")
+        keys = re.findall(r'rail_section\("[^"]+", "([a-z0-9-]+)"\)', source)
+        assert len(keys) == expected, f"{name}: {len(keys)} collapsible sections, expected {expected}"
+        for key in keys:
+            assert f'id="rail-sec-{key}"' in source, f"{name}: no group for section {key}"
+    assert "rail_section(" not in (TEMPLATES / "base_student.html").read_text(encoding="utf-8")
+
+
 def test_admin_dropdowns_dont_submit_on_change():
     """No admin page reloads when a dropdown changes (2026-10-18). On
     Windows an arrow key on a closed <select> fires change, so a page that

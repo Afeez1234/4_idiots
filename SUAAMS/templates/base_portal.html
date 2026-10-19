@@ -6,6 +6,7 @@
    has_lecturer_profile, hod_department and sidebar_courses regardless of which
    blueprint actually rendered it. #}
 {% extends "_shell.html" %}
+{% from '_macros.html' import rail_section %}
 
 {% block title %}SUAAMS{% endblock %}
 
@@ -88,8 +89,8 @@
   {% if has_lecturer_profile %}
     <div class="space-y-6 {{ '' if (not has_hod_profile) or not show_hod_section else 'hidden' }}">
       <div>
-        <p class="nav-section">Overview</p>
-        <div class="space-y-1">
+        {{ rail_section("Overview", "overview") }}
+        <div class="space-y-1" id="rail-sec-overview" data-rail-group="overview">
           <a href="{{ url_for('lecturer.dashboard') }}"
              class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'dashboard' }}" {% if request.blueprint == 'lecturer' and active_page == 'dashboard' %}aria-current="page"{% endif %}>
             <span class="material-symbols-rounded text-xl" aria-hidden="true">dashboard</span>
@@ -108,11 +109,11 @@
            toggle replaces the semester pill above. Everyone else already
            sees it in that pill -- repeated here it was cut to "No active
            semest...". #}
-        <p class="nav-section {{ 'mb-0' if has_hod_profile else '' }}">My Courses</p>
+        {{ rail_section("My Courses", "my-courses") }}
         {% if has_hod_profile %}
           <p class="mb-2 truncate px-3 text-xs text-on-rail-muted">{{ active_semester.name if active_semester else 'No active semester' }}</p>
         {% endif %}
-        <div class="space-y-1">
+        <div class="space-y-1" id="rail-sec-my-courses" data-rail-group="my-courses">
           {% for course in sidebar_courses %}
             <a href="{{ url_for('lecturer.course_workspace', course_id=course.id) }}"
                class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'course_workspace' and active_course_id == course.id }}" {% if request.blueprint == 'lecturer' and active_page == 'course_workspace' and active_course_id == course.id %}aria-current="page"{% endif %}>
@@ -126,8 +127,8 @@
       </div>
 
       <div>
-        <p class="nav-section">Sessions</p>
-        <div class="space-y-1">
+        {{ rail_section("Sessions", "sessions") }}
+        <div class="space-y-1" id="rail-sec-sessions" data-rail-group="sessions">
           <a href="{{ url_for('lecturer.active_sessions') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'active_sessions' }}" {% if request.blueprint == 'lecturer' and active_page == 'active_sessions' %}aria-current="page"{% endif %}>
             <span class="material-symbols-rounded text-xl" aria-hidden="true">sensors</span>
             <span class="rail-label">Active Sessions</span>
@@ -140,8 +141,8 @@
       </div>
 
       <div>
-        <p class="nav-section">Communication</p>
-        <div class="space-y-1">
+        {{ rail_section("Communication", "communication") }}
+        <div class="space-y-1" id="rail-sec-communication" data-rail-group="communication">
           <a href="{{ url_for('lecturer.announcements') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'announcements' }}" {% if request.blueprint == 'lecturer' and active_page == 'announcements' %}aria-current="page"{% endif %}>
             <span class="material-symbols-rounded text-xl" aria-hidden="true">campaign</span>
             <span class="rail-label">Announcements</span>
@@ -150,8 +151,8 @@
       </div>
 
       <div>
-        <p class="nav-section">Reports</p>
-        <div class="space-y-1">
+        {{ rail_section("Reports", "reports") }}
+        <div class="space-y-1" id="rail-sec-reports" data-rail-group="reports">
           <a href="{{ url_for('lecturer.reports') }}" class="nav-link {{ 'nav-link-active' if request.blueprint == 'lecturer' and active_page == 'reports' }}" {% if request.blueprint == 'lecturer' and active_page == 'reports' %}aria-current="page"{% endif %}>
             <span class="material-symbols-rounded text-xl" aria-hidden="true">summarize</span>
             <span class="rail-label">Attendance Reports</span>

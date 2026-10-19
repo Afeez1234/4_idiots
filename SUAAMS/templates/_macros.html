@@ -153,6 +153,24 @@
   {{- pill(s|capitalize or 'Unknown', tone) -}}
 {%- endmacro -%}
 
+{# ---------------------------------------------------------------------------
+   RAIL SECTION -- a collapsible heading for the admin and lecturer rails
+   (2026-10-19). The button folds the group whose id is rail-sec-<key>;
+   _shell.html's script remembers the choice per portal in this browser and
+   always keeps open the group holding the current page. Everything starts
+   open, and without JavaScript nothing folds. The student and HOD rails
+   are short enough not to need it, so their headings stay plain labels.
+   --------------------------------------------------------------------------- #}
+{%- macro rail_section(label, key) -%}
+  <button type="button" class="nav-section nav-section-toggle" aria-expanded="true"
+          aria-controls="rail-sec-{{ key }}" data-rail-section="{{ key }}">
+    <span>{{ label }}</span>
+    <svg class="nav-section-chevron" viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+{%- endmacro -%}
+
 {%- macro course_chip(code) -%}
   <span class="chip">{{ code }}</span>
 {%- endmacro -%}

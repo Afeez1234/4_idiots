@@ -171,6 +171,16 @@
     @apply mb-2 px-3 text-2xs font-bold uppercase tracking-widest text-on-rail-muted;
   }
 
+  /* A collapsible section heading (rail_section in _macros.html): the same
+     look as .nav-section, as a full-width button with a chevron that turns
+     when the group is folded. */
+  .nav-section-toggle {
+    @apply flex w-full items-center justify-between rounded-[6px] text-left transition-colors
+           hover:text-on-rail;
+  }
+  .nav-section-chevron { @apply h-3.5 w-3.5 shrink-0 transition-transform duration-150; }
+  .nav-section-toggle[aria-expanded="false"] .nav-section-chevron { transform: rotate(-90deg); }
+
   /* The rail's nav scrolls when it's taller than the window -- the admin
      rail does on a laptop. With its scrollbar simply hidden, the rail used
      to stop at Terminals with nothing to say Announcements, Reports and

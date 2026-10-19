@@ -3,6 +3,7 @@
    the shared shell. `active_page` is supplied by every admin route and drives
    the highlight, exactly as it did before. #}
 {% extends "_shell.html" %}
+{% from '_macros.html' import rail_section %}
 
 {% block title %}SUAAMS Admin{% endblock %}
 {% block brand_subtitle %}Admin Portal{% endblock %}
@@ -18,8 +19,8 @@
 
 {% block rail_nav %}
   <div>
-    <p class="nav-section">Overview</p>
-    <div class="space-y-1">
+    {{ rail_section("Overview", "overview") }}
+    <div class="space-y-1" id="rail-sec-overview" data-rail-group="overview">
       <a href="{{ url_for('admin.dashboard') }}"
          class="nav-link {{ 'nav-link-active' if active_page == 'dashboard' }}" {% if active_page == 'dashboard' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">dashboard</span>
@@ -33,8 +34,8 @@
   </div>
 
   <div>
-    <p class="nav-section">People</p>
-    <div class="space-y-1">
+    {{ rail_section("People", "people") }}
+    <div class="space-y-1" id="rail-sec-people" data-rail-group="people">
       <a href="{{ url_for('admin.lecturers_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'lecturers' }}" {% if active_page == 'lecturers' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">school</span>
         <span class="rail-label">Lecturers</span>
@@ -51,8 +52,8 @@
   </div>
 
   <div>
-    <p class="nav-section">Academic</p>
-    <div class="space-y-1">
+    {{ rail_section("Academic", "academic") }}
+    <div class="space-y-1" id="rail-sec-academic" data-rail-group="academic">
       <a href="{{ url_for('admin.courses_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'courses' }}" {% if active_page == 'courses' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">book</span>
         <span class="rail-label">Courses</span>
@@ -78,8 +79,8 @@
   </div>
 
   <div>
-    <p class="nav-section">Hardware</p>
-    <div class="space-y-1">
+    {{ rail_section("Hardware", "hardware") }}
+    <div class="space-y-1" id="rail-sec-hardware" data-rail-group="hardware">
       <a href="{{ url_for('admin.terminals_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'terminals' }}" {% if active_page == 'terminals' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">nfc</span>
         <span class="rail-label">Terminals</span>
@@ -88,8 +89,8 @@
   </div>
 
   <div>
-    <p class="nav-section">Communication</p>
-    <div class="space-y-1">
+    {{ rail_section("Communication", "communication") }}
+    <div class="space-y-1" id="rail-sec-communication" data-rail-group="communication">
       <a href="{{ url_for('admin.announcements_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' }}" {% if active_page == 'announcements' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">campaign</span>
         <span class="rail-label">Announcements</span>
@@ -104,8 +105,8 @@
   {# Audit trail: who changed what. Its own section so it reads as oversight,
      not as another thing to manage. #}
   <div>
-    <p class="nav-section">Oversight</p>
-    <div class="space-y-1">
+    {{ rail_section("Oversight", "oversight") }}
+    <div class="space-y-1" id="rail-sec-oversight" data-rail-group="oversight">
       <a href="{{ url_for('admin.activity_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'activity' }}" {% if active_page == 'activity' %}aria-current="page"{% endif %}>
         <span class="material-symbols-rounded text-xl" aria-hidden="true">history</span>
         <span class="rail-label">Activity</span>
