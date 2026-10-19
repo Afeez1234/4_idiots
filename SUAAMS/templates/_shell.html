@@ -72,9 +72,13 @@
             </div>
 
             <!-- Nav. Each portal template fills this. -->
+            {# Soft fades mark "more above / below" instead of a scrollbar
+               (.rail-fade in input.css; shown by the script below). #}
+            <div class="rail-fade rail-fade-top" id="rail-fade-top" aria-hidden="true"></div>
             <nav class="rail-scroll flex-1 space-y-5 overflow-y-auto px-3 py-4" aria-label="Main">
                 {% block rail_nav %}{% endblock %}
             </nav>
+            <div class="rail-fade rail-fade-bottom" id="rail-fade-bottom" aria-hidden="true"></div>
 
             <!-- Rail footer: signed-in user + logout -->
             <div class="rail-foot">
@@ -187,6 +191,19 @@
             // Crossing the lg breakpoint (rotating a tablet, resizing).
             desktop.addEventListener('change', function () { open = false; closeDrawer(); });
             sync();
+
+            // The rail's "more above / below" fades: shown only while the nav
+            // has something scrolled out of view in that direction.
+            var nav = sidebar.querySelector('nav');
+            var fadeTop = document.getElementById('rail-fade-top');
+            var fadeBottom = document.getElementById('rail-fade-bottom');
+            function syncFades() {
+                fadeTop.dataset.show = String(nav.scrollTop > 2);
+                fadeBottom.dataset.show = String(nav.scrollTop + nav.clientHeight < nav.scrollHeight - 2);
+            }
+            nav.addEventListener('scroll', syncFades, {passive: true});
+            window.addEventListener('resize', syncFades);
+            syncFades();
 
             // Escape closes the drawer -- the old version had no keyboard
             // path out of it, so the rail trapped keyboard and screen-reader

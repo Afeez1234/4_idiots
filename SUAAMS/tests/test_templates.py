@@ -235,8 +235,9 @@ _JS_ICON_ASSIGNMENT = re.compile(r"textContent\s*=\s*'([a-z_0-9]+)'")
 def test_rail_keyboard_and_screen_reader_contract():
     """The side rail (2026-10-18): every portal marks its active link with
     aria-current, hides its decorative icons from screen readers, and the
-    shell has a "Skip to content" link to #main and a visible (not hidden)
-    nav scrollbar -- the admin rail runs past a laptop screen."""
+    shell has a "Skip to content" link to #main and the rail's "more below"
+    fades -- the admin rail runs past a laptop screen, and its scrollbar is
+    hidden, so the fade is what says there's more."""
     for name in ("base_admin.html", "base_portal.html", "base_student.html"):
         source = (TEMPLATES / name).read_text(encoding="utf-8")
         for m in re.finditer(r"\{\{ 'nav-link-active' if (.+?) \}\}\"", source):
@@ -248,7 +249,7 @@ def test_rail_keyboard_and_screen_reader_contract():
     shell = (TEMPLATES / "_shell.html").read_text(encoding="utf-8")
     assert '<a href="#main" class="skip-link">' in shell
     assert 'id="main"' in shell
-    assert "no-scrollbar" not in shell.split('id="sidebar"')[1].split("</nav>")[0]
+    assert 'id="rail-fade-bottom"' in shell and 'id="rail-fade-top"' in shell
     assert 'aria-controls="sidebar"' in shell
 
 

@@ -171,16 +171,31 @@
     @apply mb-2 px-3 text-2xs font-bold uppercase tracking-widest text-on-rail-muted;
   }
 
-  /* The rail's nav scrolls when it's taller than the window. Its scrollbar
-     used to be hidden (.no-scrollbar), so on a laptop the admin rail simply
-     stopped at Terminals: Announcements, Reports and Activity were below
-     the fold with nothing to say so. A thin bar in the rail's own line
-     colour says "there's more" without shouting. */
-  .rail-scroll { scrollbar-width: thin; scrollbar-color: var(--color-on-rail-muted) transparent; }
-  .rail-scroll::-webkit-scrollbar { width: 6px; }
-  .rail-scroll::-webkit-scrollbar-track { background: transparent; }
-  .rail-scroll::-webkit-scrollbar-thumb { background: var(--color-on-rail-line); border-radius: 3px; }
-  .rail-scroll:hover::-webkit-scrollbar-thumb { background: var(--color-on-rail-muted); }
+  /* The rail's nav scrolls when it's taller than the window -- the admin
+     rail does on a laptop. With its scrollbar simply hidden, the rail used
+     to stop at Terminals with nothing to say Announcements, Reports and
+     Activity were below. A visible scrollbar fixed that but looked busy, so
+     (2026-10-18) the bar stays hidden and a soft fade marks the edge
+     instead: the last links melt into the rail while there's more below,
+     and a matching fade appears at the top once scrolled. The fades show
+     only while there's something past them (_shell.html's script sets
+     data-show). A functional edge, not decoration -- the same convention
+     phones use. scroll-padding keeps a focused link clear of the fade when
+     the browser scrolls it into view. */
+  .rail-scroll { scrollbar-width: none; scroll-padding-block: 40px; }
+  .rail-scroll::-webkit-scrollbar { display: none; }
+  .rail-fade {
+    @apply pointer-events-none relative z-10 shrink-0 opacity-0 transition-opacity duration-200;
+  }
+  .rail-fade[data-show="true"] { @apply opacity-100; }
+  .rail-fade-top {
+    height: 28px; margin-bottom: -28px;
+    background: linear-gradient(to top, transparent, var(--color-sidebar));
+  }
+  .rail-fade-bottom {
+    height: 48px; margin-top: -48px;
+    background: linear-gradient(to bottom, transparent, var(--color-sidebar) 85%);
+  }
 
   /* "Skip to content": the first stop on every page, shown only when it has
      keyboard focus. Without it, reaching anything on a page took 14 Tab
