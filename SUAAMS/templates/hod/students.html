@@ -43,51 +43,50 @@
 
         <div class="card-clip">
             {{ directory_heading('Roster', roster|length, 'student') }}
-            <div class="table-wrap">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th class="th">Student</th>
-                            <th class="th">Matric No.</th>
-                            <th class="th">Overall Attendance</th>
-                            <th class="th"><span class="sr-only">Per-course breakdown</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for st in roster %}
-                            {# The whole row is one <details>. A nested <table> per
-                               student would fight the outer grid, so the
-                               per-course breakdown renders below the summary as
-                               a plain list instead -- which is also what the
-                               data is: a handful of bars, not a grid. #}
-                            <tr>
-                                <td colspan="4" class="p-0">
-                                    <details class="group">
-                                        <summary class="flex cursor-pointer list-none items-center transition-colors hover:bg-surface/60">
-                                            <div class="flex min-w-0 flex-[2] items-center gap-2.5 px-5 py-3">
-                                                {{ avatar(st.name) }}
-                                                <span class="truncate font-medium text-ink">{{ st.name }}</span>
-                                            </div>
-                                            <div class="flex-[1.4] px-5 py-3">
-                                                <span class="mono text-xs text-secondary">{{ st.matric }}</span>
-                                            </div>
-                                            <div class="flex-[1.2] px-5 py-3">
-                                                {# overall is nullable -- a student
-                                                   with no sessions held anywhere
-                                                   has no percentage at all, and
-                                                   rendering "None%" or, worse,
-                                                   comparing None < 75 would
-                                                   either crash or flag them. #}
-                                                {% if st.overall is none %}
-                                                    {{ pill('No data', 'neutral') }}
-                                                {% else %}
-                                                    {{ attendance_pill(st.overall) }}
-                                                {% endif %}
-                                            </div>
-                                            <div class="shrink-0 px-5 py-3">
-                                                <span class="material-symbols-rounded text-secondary transition-transform group-open:rotate-180">expand_more</span>
-                                            </div>
-                                        </summary>
+            {# One column template for the header and every row (2026-10-19). It
+               was a <table> whose rows were each a single full-width cell holding
+               a flex strip, so the strip's widths never matched the header: matric
+               numbers sat under "Overall Attendance". A grid shared by both lines
+               them up; the last column is a fixed 4rem (the chevron), since an auto
+               width differed between header and rows and shifted the others. Below
+               sm the matric column hides so name and percentage fit. #}
+            <div class="border-t border-divider">
+                <div class="grid grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_4rem] sm:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_4rem] items-center border-b border-border" aria-hidden="true">
+                    <span class="th">Student</span>
+                    <span class="th hidden sm:block">Matric No.</span>
+                    <span class="th">Overall Attendance</span>
+                    <span class="th"></span>
+                </div>
+                <div class="divide-y divide-divider">
+                    {% for st in roster %}
+                        {# Each student is one <details>: the summary is the row, the
+                           per-course breakdown opens below it. The header above is
+                           visual only, so each cell carries a screen-reader label. #}
+                        <details class="group">
+                            <summary class="grid grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_4rem] sm:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1.2fr)_4rem] items-center cursor-pointer list-none transition-colors hover:bg-surface/60">
+                                <div class="flex min-w-0 items-center gap-2.5 px-5 py-3">
+                                    {{ avatar(st.name) }}
+                                    <span class="truncate font-medium text-ink">{{ st.name }}</span>
+                                </div>
+                                <div class="hidden px-5 py-3 sm:block">
+                                    <span class="sr-only">Matric number </span>
+                                    <span class="mono text-xs text-secondary">{{ st.matric }}</span>
+                                </div>
+                                <div class="px-5 py-3">
+                                    <span class="sr-only">Overall attendance </span>
+                                    {# overall is nullable -- a student with no sessions held
+                                       anywhere has no percentage at all, and rendering
+                                       "None%" or comparing None < 75 would crash or flag them. #}
+                                    {% if st.overall is none %}
+                                        {{ pill('No data', 'neutral') }}
+                                    {% else %}
+                                        {{ attendance_pill(st.overall) }}
+                                    {% endif %}
+                                </div>
+                                <div class="px-5 py-3">
+                                    <span class="material-symbols-rounded text-secondary transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
+                                </div>
+                            </summary>
 
                                         {% if st.courses %}
                                             {# Per-course bars use the at-risk rule
@@ -113,14 +112,11 @@
                                                 No sessions held yet for this student's courses.
                                             </p>
                                         {% endif %}
-                                    </details>
-                                </td>
-                            </tr>
-                        {% else %}
-                            {{ table_empty(4, 'No students at this level yet.') }}
-                        {% endfor %}
-                    </tbody>
-                </table>
+                        </details>
+                    {% else %}
+                        {{ empty_state('No students at this level yet.', 'groups_2') }}
+                    {% endfor %}
+                </div>
             </div>
         </div>
     {% else %}

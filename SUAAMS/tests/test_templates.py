@@ -267,6 +267,18 @@ def test_collapsible_rail_sections_point_at_their_groups():
     assert "rail_section(" not in (TEMPLATES / "base_student.html").read_text(encoding="utf-8")
 
 
+def test_hod_roster_header_and_rows_share_one_grid():
+    """The HOD Students roster (2026-10-19): the header and every row's
+    summary use the same column template, so they can't drift apart again
+    (it was a <table> header over full-width flex rows -- matric numbers sat
+    under "Overall Attendance")."""
+    source = (TEMPLATES / "hod" / "students.html").read_text(encoding="utf-8")
+    templates = re.findall(r'class="(grid grid-cols-\[[^"]*?) (?:border-b|cursor-pointer)', source)
+    assert len(templates) == 2, templates
+    assert templates[0] == templates[1], templates
+    assert "_auto]" not in templates[0], "an auto last column sizes differently in header and rows"
+
+
 def test_admin_dropdowns_dont_submit_on_change():
     """No admin page reloads when a dropdown changes (2026-10-18). On
     Windows an arrow key on a closed <select> fires change, so a page that
