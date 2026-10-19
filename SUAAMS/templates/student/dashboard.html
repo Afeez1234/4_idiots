@@ -81,7 +81,7 @@
            portfolio scale -- 70% here means THIS student is short. #}
         <div class="card">
             <div class="card-header">
-                {{ card_heading('Attendance Rate', info=true) }}
+                {{ card_heading('Attendance Rate') }}
             </div>
             <div class="card-body flex flex-col items-center">
                 {{ donut(overall_rate, overall_rate ~ '%', 'Overall',
@@ -96,7 +96,7 @@
         {# Course breakdown. The one column that needs width. #}
         <div class="card lg:col-span-2">
             <div class="card-header">
-                {{ card_heading('Course Breakdown', info=true) }}
+                {{ card_heading('Course Breakdown') }}
                 <a href="{{ url_for('student.my_courses') }}" class="btn-link">View all</a>
             </div>
             <div class="card-body">
@@ -125,7 +125,7 @@
     {# Recent check-ins. #}
     <div class="card-clip">
         <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
-            {{ card_heading('Recent Attendance', info=true) }}
+            {{ card_heading('Recent Attendance') }}
             <a href="{{ url_for('student.attendance_history') }}" class="btn-link">View full history</a>
         </div>
         {# Late is amber like everywhere else, but it is an attended tap:
