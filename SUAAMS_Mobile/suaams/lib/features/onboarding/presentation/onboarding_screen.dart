@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:suaams/core/router/home_route.dart';
 
 import 'package:suaams/core/providers/onboarding_provider.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
@@ -170,20 +171,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     // Straight to the role's home. Routing back through /splash would work
     // (the redirect would then send them onward) but costs a second
     // two-second splash in the middle of a flow the user just finished.
+    // homeRouteFor (home_route.dart) -- the shared rule.
     final user = ref.read(authProvider).user;
-    if (user == null) {
-      context.go('/login');
-    } else if (user.requiresPasswordChange) {
-      context.go('/change-password');
-    } else if (user.role == 'student') {
-      context.go('/student/home');
-    } else if (user.role == 'lecturer' || user.role == 'hod') {
-      context.go('/lecturer/home');
-    } else if (user.role == 'admin') {
-      context.go('/admin');
-    } else {
-      context.go('/login');
-    }
+    context.go(user == null ? '/login' : homeRouteFor(user));
   }
 
   @override

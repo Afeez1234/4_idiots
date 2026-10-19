@@ -129,6 +129,7 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
     final role = await _authService.getUserRole();
     final username = await _authService.getUsername();
     final reqPwdChange = await _authService.getPwdState();
+    final hasLecturerProfile = await _authService.getHasLecturerProfile();
 
     if (token == null || role == null || username == null) {
       state = state.copyWith(isLoading: false);
@@ -147,6 +148,7 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
         role: role,
         token: token,
         requiresPasswordChange: reqPwdChange,
+        hasLecturerProfile: hasLecturerProfile,
       ),
     );
 
@@ -270,6 +272,7 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
           role: currentUser.role,
           token: newAccessToken,
           requiresPasswordChange: false,
+          hasLecturerProfile: currentUser.hasLecturerProfile,
         ),
       );
       notifyListeners();
@@ -345,6 +348,7 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
           role: currentUser.role,
           token: newAccessToken,
           requiresPasswordChange: currentUser.requiresPasswordChange,
+          hasLecturerProfile: currentUser.hasLecturerProfile,
         ),
       );
       notifyListeners();

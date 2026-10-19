@@ -80,6 +80,10 @@ class AuthService {
         _secureStorage.write(key: 'user_role', value: userData['role']),
         _secureStorage.write(key: 'username', value: userData['username']),
         _secureStorage.write(
+          key: 'has_lecturer_profile',
+          value: (userData['has_lecturer_profile'] ?? true).toString(),
+        ),
+        _secureStorage.write(
           key: 'requires_password_change',
           value: userData['requires_password_change'].toString(),
         ),
@@ -247,6 +251,7 @@ class AuthService {
     'user_role',
     'username',
     'requires_password_change',
+    'has_lecturer_profile',
   ];
 
   Future<void> _notifyServerLogout(String refreshToken) async {
@@ -287,5 +292,12 @@ class AuthService {
   Future<bool> getPwdState() async {
     final value = await _secureStorage.read(key: 'requires_password_change');
     return value == 'true';
+  }
+
+  /// Missing (a login saved before this was stored) reads as true -- the
+  /// behaviour every account had before.
+  Future<bool> getHasLecturerProfile() async {
+    final value = await _secureStorage.read(key: 'has_lecturer_profile');
+    return value != 'false';
   }
 }

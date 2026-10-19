@@ -321,6 +321,31 @@ class CheckinTestCase(unittest.TestCase):
         return self.client.post('/api/v1/auth/login', json={
             'username': username, 'password': password, 'device_id': device_id})
 
+    def test_login_says_whether_the_account_can_teach(self):
+        # The app sends an HOD without a Lecturer profile to its web-portal
+        # screen; every lecturer screen would fail for them. (2026-10-19)
+        from models import HOD
+
+        def account(username, role, lecturer=False, hod=False):
+            user = User(username=username, role=role, is_active=True, requires_password_change=False,
+                        password_hash=bcrypt.hashpw(b'pw', bcrypt.gensalt(4)).decode())
+            db.session.add(user)
+            db.session.flush()
+            if lecturer:
+                db.session.add(Lecturer(full_name=username, staff_id=username,
+                                        department_id=self.dept.id, user_id=user.id))
+            if hod:
+                db.session.add(HOD(full_name=username, staff_id=username,
+                                   department_id=self.dept.id, user_id=user.id))
+            db.session.commit()
+
+        account('HOD/NEW', 'hod', hod=True)                       # created as a new account
+        account('HOD/PROMOTED', 'hod', lecturer=True, hod=True)   # a promoted lecturer
+        flag = lambda name: self.login(name, 'phone-x').get_json()['user']['has_lecturer_profile']  # noqa: E731
+        self.assertFalse(flag('HOD/NEW'))
+        self.assertTrue(flag('HOD/PROMOTED'))
+        self.assertFalse(flag('MCT/20/0001'))                     # a student
+
     def test_first_login_binds_and_another_phone_is_locked_out(self):
         self.assertEqual(self.login('MCT/20/0001', 'phone-1').status_code, 200)
         self.assertEqual(db.session.get(Student, self.student.id).device_id, 'phone-1')

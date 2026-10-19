@@ -203,7 +203,13 @@ def mobile_login():
                 "id": user.id,
                 "username": user.username,
                 "role": user.role,
-                "requires_password_change": user.requires_password_change # Flutter relies on this!
+                "requires_password_change": user.requires_password_change, # Flutter relies on this!
+                # An HOD created as a new account has no Lecturer profile,
+                # so every lecturer screen would fail "Lecturer profile not
+                # found"; the app sends them to its web-portal screen
+                # instead. A promoted HOD (lecturer + HOD) has one and keeps
+                # the lecturer app for their teaching. (2026-10-19)
+                "has_lecturer_profile": user.lecturer is not None,
             }
         }), 200
         

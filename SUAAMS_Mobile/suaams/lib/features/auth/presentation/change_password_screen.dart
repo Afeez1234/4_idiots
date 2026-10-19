@@ -5,6 +5,7 @@ import 'package:suaams/shared/widgets/dashboard_background.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/core/router/home_route.dart';
 import 'package:go_router/go_router.dart';
 import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
@@ -54,14 +55,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       if (mounted) {
         if (success) {
           // DEEP FIX 1: Explicitly force navigation on success to bypass Router redirect lag
+          // homeRouteFor (app_router.dart): this copy didn't know 'hod',
+          // so an HOD was left sitting on this screen after saving.
           final user = ref.read(authProvider).user;
-          if (user?.role == 'student') {
-            context.go('/student/home');
-          } else if (user?.role == 'lecturer') {
-            context.go('/lecturer/home');
-          } else if (user?.role == 'admin') {
-            context.go('/admin');
-          }
+          if (user != null) context.go(homeRouteFor(user));
         } else {
           final error = ref.read(authProvider).errorMessage;
           ScaffoldMessenger.of(context).showSnackBar(

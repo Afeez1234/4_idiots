@@ -7,6 +7,8 @@ import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/features/auth/presentation/splash_screen.dart';
 import 'package:suaams/features/auth/presentation/login_screen.dart';
 import 'package:suaams/features/auth/presentation/change_password_screen.dart';
+import 'package:suaams/features/auth/presentation/web_portal_screen.dart';
+import 'package:suaams/core/router/home_route.dart';
 import 'package:suaams/core/providers/onboarding_provider.dart';
 import 'package:suaams/features/onboarding/presentation/onboarding_screen.dart';
 
@@ -48,6 +50,7 @@ import 'package:suaams/features/lecturer/presentation/views/create_announcement_
 // this, since GoRouter itself lives inside a Riverpod Provider that isn't
 // reachable from a plain singleton service.
 final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   // 1. Create a simple ValueNotifier bridge for GoRouter
@@ -94,27 +97,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // And the reverse, for when markSeen() has just flipped the flag --
       // without this the button would leave the user parked on a dead route.
       if (isOnboarding && seenOnboardingRoles.contains(user?.role)) {
-        if (user == null) return '/login';
-        if (user.requiresPasswordChange) return '/change-password';
-        if (user.role == 'student') return '/student/home';
-        if (user.role == 'lecturer' || user.role == 'hod') return '/lecturer/home';
-        if (user.role == 'admin') return '/admin';
-        return '/login';
+        return user == null ? '/login' : homeRouteFor(user);
       }
 
       if (user != null && (isLoggingIn || isSplash)) {
-        if (user.role == 'admin') return '/admin';
-        // No HOD-specific mobile screen exists -- an HOD promoted from an
-        // existing Lecturer account (see hods_page's action ==
-        // 'promote_lecturer' in blueprints/admin.py) keeps that Lecturer
-        // profile, so mobile is only ever useful to them for their own
-        // teaching duties. Routes them into the same portal a plain
-        // lecturer gets; get_lecturer_or_403 in api/lecturer.py accepts
-        // role 'hod' too so the API calls that screen makes still work.
-        if (user.role == 'lecturer' || user.role == 'hod') {
-          return '/lecturer/home';
-        }
-        if (user.role == 'student') return '/student/home';
+        return homeRouteFor(user);
       }
 
       return null;
@@ -130,10 +117,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
+      // Admins, and HODs without a Lecturer profile: their work is on the
+      // web portal. It was a bare "Admin Dashboard" text with no way to
+      // sign out.
       GoRoute(
-        path: '/admin',
-        builder: (context, state) =>
-            const Scaffold(body: Center(child: Text('Admin Dashboard'))),
+        path: '/web-portal',
+        builder: (context, state) => const WebPortalScreen(),
       ),
       GoRoute(
         path: '/change-password',
