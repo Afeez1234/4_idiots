@@ -53,6 +53,17 @@
 #error "secrets.h is missing BLE_BEACON_SECRET / BLE_TERMINAL_NUMBER -- copy them from secrets.h.example (use \"\" for the secret to keep Bluetooth off)."
 #endif
 
+// Wi-Fi networks. A secrets.h written before multi-network support has a
+// single WIFI_SSID / WIFI_PASSWORD; treat that as a list of one so it keeps
+// building unchanged.
+#if !defined(WIFI_NETWORKS)
+  #if defined(WIFI_SSID) && defined(WIFI_PASSWORD)
+    #define WIFI_NETWORKS {WIFI_SSID, WIFI_PASSWORD}
+  #else
+    #error "secrets.h needs WIFI_NETWORKS (or the older WIFI_SSID + WIFI_PASSWORD) -- see secrets.h.example."
+  #endif
+#endif
+
 #define SDA_PIN 21
 #define SCL_PIN 22
 
@@ -204,6 +215,64 @@ const unsigned long WIFI_CONNECT_TIMEOUT_MS = 20000;
 const unsigned long WIFI_RETRY_INTERVAL_MS = 5000;
 unsigned long lastWifiAttempt = 0;
 bool wifiReady = false;
+
+// Several networks can be listed (WIFI_NETWORKS in secrets.h). When the link
+// is down the terminal scans, and joins the listed network with the
+// strongest signal; if that one fails it tries the next strongest. Signal
+// strength is all the board can measure BEFORE joining, so a network that
+// joins fine but has no working internet (a hotspot out of data, a login
+// page) is caught afterwards instead: see noteServerReply().
+//
+// It never switches while connected, even if a stronger network appears.
+// Switching drops the link for several seconds, and a working connection
+// beats a slightly stronger one.
+//
+// Why not the core's WiFiMulti: its run() scans synchronously, freezing
+// loop() for 2-4 s per scan. While Wi-Fi is down this terminal still reads
+// taps into the offline queue and retries every few seconds, so those
+// freezes would miss students. The scan here is asynchronous and each step
+// in wifiStep() returns immediately.
+struct KnownNetwork {
+  const char* ssid;
+  const char* password;
+};
+const KnownNetwork KNOWN_NETWORKS[] = { WIFI_NETWORKS };
+const uint8_t KNOWN_NETWORK_COUNT = sizeof(KNOWN_NETWORKS) / sizeof(KNOWN_NETWORKS[0]);
+// Each extra network adds a little to every scan-and-join cycle, and a long
+// list usually means stale entries. Five covers lab, faculty and a hotspot.
+static_assert(sizeof(KNOWN_NETWORKS) / sizeof(KNOWN_NETWORKS[0]) <= 5,
+              "List at most 5 networks in WIFI_NETWORKS.");
+
+// How long to wait for one network to accept us before trying the next.
+const unsigned long WIFI_PER_NETWORK_TIMEOUT_MS = 10000;
+
+enum WifiPhase { WIFI_IDLE, WIFI_SCANNING, WIFI_JOINING };
+WifiPhase wifiPhase = WIFI_IDLE;
+
+// Candidates from the last scan, strongest first: which listed network,
+// plus the exact access point (BSSID + channel) that was strongest for it,
+// so we join that AP rather than whichever one the driver finds first.
+struct WifiCandidate {
+  uint8_t network;  // index into KNOWN_NETWORKS
+  uint8_t bssid[6];
+  int32_t channel;
+  int32_t rssi;
+};
+WifiCandidate wifiCandidates[5];
+uint8_t wifiCandidateCount = 0;
+uint8_t wifiCandidateNext = 0;
+unsigned long wifiJoinStarted = 0;
+int8_t wifiCurrentNetwork = -1;  // index into KNOWN_NETWORKS, -1 if none
+
+// "Joined but no internet" detection. A request that got NO answer at all
+// (HTTP code < 0: DNS, connect or TLS failure, timeout) is a strike against
+// the current network; any real HTTP status, even 401 or 500, proves the
+// internet works and clears them. At NETWORK_DEAD_STRIKES the network is
+// skipped for NETWORK_DEAD_SKIP_MS and the terminal moves on.
+const uint8_t NETWORK_DEAD_STRIKES = 3;
+const unsigned long NETWORK_DEAD_SKIP_MS = 10UL * 60UL * 1000UL;  // 10 minutes
+uint8_t networkStrikes = 0;
+unsigned long networkSkippedAt[5] = {0};  // millis() when marked dead; 0 = fine
 
 // ---------------- Bluetooth check-in beacon ----------------
 // The fallback for phones that can't tap in by NFC (iPhones, Android phones
@@ -397,49 +466,212 @@ void printHexDump(const char* label, uint8_t* buf, uint8_t len) {
   Serial.println();
 }
 
-bool connectWifi() {
-  Serial.print("[WIFI] Connecting");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+bool networkSkipped(uint8_t i) {
+  return networkSkippedAt[i] != 0 && millis() - networkSkippedAt[i] < NETWORK_DEAD_SKIP_MS;
+}
 
-  unsigned long start = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - start < WIFI_CONNECT_TIMEOUT_MS) {
-    delay(250);
-    Serial.print('.');
+// Starts a background scan. Returns at once; wifiStep() collects the result.
+void wifiStartScan() {
+  WiFi.disconnect(false);  // stop any half-finished join first
+  WiFi.scanDelete();
+  if (WiFi.scanNetworks(true /* async */) == WIFI_SCAN_FAILED) {
+    Serial.println("[WIFI] Scan failed to start -- will retry");
+    wifiPhase = WIFI_IDLE;
+    return;
   }
-  Serial.println();
+  wifiPhase = WIFI_SCANNING;
+}
 
+// Turns a finished scan into wifiCandidates, strongest first. A network
+// marked no-internet is left out while there's any alternative in range;
+// if it's the only one, it goes back in, because a doubtful network beats
+// none.
+void wifiBuildCandidates(int16_t found) {
+  wifiCandidateCount = 0;
+  wifiCandidateNext = 0;
+
+  for (uint8_t pass = 0; pass < 2 && wifiCandidateCount == 0; pass++) {
+    bool includeSkipped = (pass == 1);
+    for (uint8_t k = 0; k < KNOWN_NETWORK_COUNT; k++) {
+      if (!includeSkipped && networkSkipped(k)) continue;
+
+      // The same network name can come from several access points; keep
+      // the strongest.
+      int16_t best = -1;
+      for (int16_t i = 0; i < found; i++) {
+        if (WiFi.SSID(i) == KNOWN_NETWORKS[k].ssid &&
+            (best < 0 || WiFi.RSSI(i) > WiFi.RSSI(best))) {
+          best = i;
+        }
+      }
+      if (best < 0) continue;
+
+      WifiCandidate c;
+      c.network = k;
+      memcpy(c.bssid, WiFi.BSSID(best), 6);
+      c.channel = WiFi.channel(best);
+      c.rssi = WiFi.RSSI(best);
+
+      // Insertion sort by signal strength -- at most 5 entries.
+      uint8_t pos = wifiCandidateCount;
+      while (pos > 0 && wifiCandidates[pos - 1].rssi < c.rssi) {
+        wifiCandidates[pos] = wifiCandidates[pos - 1];
+        pos--;
+      }
+      wifiCandidates[pos] = c;
+      wifiCandidateCount++;
+    }
+  }
+  WiFi.scanDelete();
+
+  for (uint8_t i = 0; i < wifiCandidateCount; i++) {
+    Serial.printf("[WIFI] In range: %s (%d dBm)%s\n",
+                  KNOWN_NETWORKS[wifiCandidates[i].network].ssid,
+                  (int)wifiCandidates[i].rssi,
+                  networkSkipped(wifiCandidates[i].network) ? " [marked no-internet]" : "");
+  }
+}
+
+// Joins the next candidate, or goes idle (rescan after the retry interval)
+// once the list is used up.
+void wifiJoinNext() {
+  if (wifiCandidateNext >= wifiCandidateCount) {
+    Serial.println(wifiCandidateCount == 0
+                       ? "[WIFI] None of the listed networks is in range -- will rescan"
+                       : "[WIFI] Couldn't join any listed network -- will rescan");
+    wifiCurrentNetwork = -1;
+    wifiPhase = WIFI_IDLE;
+    lastWifiAttempt = millis();
+    return;
+  }
+
+  const WifiCandidate& c = wifiCandidates[wifiCandidateNext++];
+  Serial.printf("[WIFI] Joining %s (%d dBm)...\n", KNOWN_NETWORKS[c.network].ssid, (int)c.rssi);
+  WiFi.disconnect(false);
+  WiFi.begin(KNOWN_NETWORKS[c.network].ssid, KNOWN_NETWORKS[c.network].password,
+             c.channel, c.bssid);
+  wifiCurrentNetwork = c.network;
+  wifiJoinStarted = millis();
+  wifiPhase = WIFI_JOINING;
+}
+
+// One non-blocking step of scan -> join strongest -> fall back to the next.
+// Called on every pass through loop() and in a bounded loop at boot.
+void wifiStep() {
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("[WIFI] Connected, IP ");
-    Serial.println(WiFi.localIP());
+    if (!wifiReady) {
+      Serial.printf("[WIFI] Connected to %s, IP %s, %d dBm\n",
+                    WiFi.SSID().c_str(), WiFi.localIP().toString().c_str(), (int)WiFi.RSSI());
+      // A fresh network starts with a clean record, and gets tested by a
+      // /healthz ping on the next empty field (lastWarmPing = 0 makes the
+      // ping due).
+      networkStrikes = 0;
+      lastWarmPing = 0;
+    }
     wifiReady = true;
-    return true;
+    wifiPhase = WIFI_IDLE;
+    return;
   }
+
+  if (wifiReady) {
+    Serial.println("[WIFI] Link down");
+    wifiReady = false;
+    wifiCurrentNetwork = -1;
+    wifiPhase = WIFI_IDLE;
+    lastWifiAttempt = 0;  // rescan straight away
+  }
+
+  switch (wifiPhase) {
+    case WIFI_IDLE:
+      if (lastWifiAttempt != 0 && millis() - lastWifiAttempt < WIFI_RETRY_INTERVAL_MS) return;
+      lastWifiAttempt = millis();
+      wifiStartScan();
+      return;
+
+    case WIFI_SCANNING: {
+      int16_t found = WiFi.scanComplete();
+      if (found == WIFI_SCAN_RUNNING) return;
+      if (found < 0) {
+        Serial.println("[WIFI] Scan failed -- will retry");
+        wifiPhase = WIFI_IDLE;
+        return;
+      }
+      wifiBuildCandidates(found);
+      wifiJoinNext();
+      return;
+    }
+
+    case WIFI_JOINING: {
+      wl_status_t st = WiFi.status();
+      bool refused = (st == WL_CONNECT_FAILED || st == WL_NO_SSID_AVAIL);
+      if (refused || millis() - wifiJoinStarted > WIFI_PER_NETWORK_TIMEOUT_MS) {
+        Serial.printf("[WIFI] %s didn't accept us (%s)\n",
+                      KNOWN_NETWORKS[wifiCurrentNetwork].ssid,
+                      refused ? "refused -- wrong password?" : "timed out");
+        wifiJoinNext();
+      }
+      return;
+    }
+  }
+}
+
+// Called with the HTTP code of every request to the backend. Any real HTTP
+// status (> 0) means this network reaches the internet. No answer at all
+// (< 0) is a strike; NETWORK_DEAD_STRIKES in a row and the network is set
+// aside so wifiStep() rescans and joins another.
+//
+// Only when more than one network is listed: with a single network there
+// is nowhere to move, and dropping the link would only add a reconnect on
+// top of whatever outage is already happening -- including the server
+// itself being down, which looks the same from here.
+void noteServerReply(int httpCode) {
+  if (httpCode > 0) {
+    networkStrikes = 0;
+    return;
+  }
+  if (KNOWN_NETWORK_COUNT < 2 || !wifiReady || wifiCurrentNetwork < 0) return;
+
+  networkStrikes++;
+  Serial.printf("[WIFI] No answer from the server over %s (%u of %u)\n",
+                KNOWN_NETWORKS[wifiCurrentNetwork].ssid, networkStrikes, NETWORK_DEAD_STRIKES);
+  if (networkStrikes < NETWORK_DEAD_STRIKES) return;
+
+  Serial.printf("[WIFI] %s looks like it has no internet -- skipping it for %lu min\n",
+                KNOWN_NETWORKS[wifiCurrentNetwork].ssid, NETWORK_DEAD_SKIP_MS / 60000UL);
+  // 0 means "not skipped", so make sure the stored time never is.
+  networkSkippedAt[wifiCurrentNetwork] = millis() | 1;
+  networkStrikes = 0;
+  WiFi.disconnect(false);  // wifiStep() sees the link drop and rescans
+}
+
+bool connectWifi() {
+  Serial.printf("[WIFI] %u network(s) listed\n", KNOWN_NETWORK_COUNT);
+  WiFi.mode(WIFI_STA);
+  // The terminal picks the network itself, so the driver mustn't rejoin
+  // the last one on its own behind our back. persistent(false) also stops
+  // every begin() rewriting the credentials to flash.
+  WiFi.persistent(false);
+  WiFi.setAutoReconnect(false);
+
+  // Bounded wait at boot, driving the same steps loop() uses later.
+  unsigned long start = millis();
+  while (!wifiReady && millis() - start < WIFI_CONNECT_TIMEOUT_MS) {
+    wifiStep();
+    delay(50);
+  }
+  if (wifiReady) return true;
 
   // Not fatal. The terminal still scans for taps; the POST will simply be
   // skipped until WiFi comes back, and the app will report "could not
   // confirm" rather than a false success.
   Serial.println("[WIFI] Connect timed out -- continuing offline, will retry in background");
-  wifiReady = false;
   return false;
 }
 
 // Keeps WiFi alive without ever blocking the NFC loop. Called on every
-// pass through loop(); returns immediately unless a retry is due.
+// pass through loop(); each step returns immediately.
 void maintainWifi() {
-  if (WiFi.status() == WL_CONNECTED) {
-    wifiReady = true;
-    return;
-  }
-
-  wifiReady = false;
-  if (millis() - lastWifiAttempt < WIFI_RETRY_INTERVAL_MS) {
-    return;
-  }
-  lastWifiAttempt = millis();
-
-  Serial.println("[WIFI] Link down, reconnecting...");
-  WiFi.reconnect();
+  wifiStep();
 }
 
 // ---- Offline backlog queue ------------------------------------------------
@@ -638,6 +870,7 @@ bool flushBacklog() {
   Serial.print(" capture(s) to backlog endpoint...");
   int code = http.POST(payload);
   String body = http.getString();
+  noteServerReply(code);
   http.end();
 
   if (code < 0) {
@@ -671,7 +904,12 @@ bool flushBacklog() {
 // request costing a few hundred ms, which is a fine trade for a field with
 // nothing in it and a real problem when it has a student in it.
 void maybeKeepBackendWarm(bool force = false) {
-  if (!force && millis() - lastWarmPing < WARM_PING_INTERVAL_MS) {
+  // While requests on this network are getting no answer, ping every 30 s
+  // instead of every 4 min, so a network with no internet is confirmed
+  // (NETWORK_DEAD_STRIKES pings) in about a minute and a half rather than
+  // twelve, and the terminal moves on to another one.
+  unsigned long interval = networkStrikes > 0 ? 30000UL : WARM_PING_INTERVAL_MS;
+  if (!force && millis() - lastWarmPing < interval) {
     return;
   }
   lastWarmPing = millis();
@@ -693,6 +931,7 @@ void maybeKeepBackendWarm(bool force = false) {
   unsigned long dur = millis() - t0;
 
   http.end();
+  noteServerReply(code);
 
   if (code == 200) {
     lastWarmPingOk = millis();
@@ -903,6 +1142,7 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
     // making one student a minute wait for a pointless extra round trip.
     if (httpResponseCode > 0) {
       lastWarmPingOk = millis();
+      noteServerReply(httpResponseCode);
     }
 
     // -1 means no response at all: connection refused, DNS failure, or a
@@ -929,6 +1169,7 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
       Serial.println(") -- queuing capture rather than retrying");
       logTlsError(client, "POST");
       appendToBacklog(token, readAt);
+      noteServerReply(httpResponseCode);
       return;
     }
 
@@ -947,6 +1188,9 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
   // treat this as offline rather than as a lost tap.
   Serial.println("[POST] All attempts failed at the transport layer -- queuing capture");
   appendToBacklog(token, readAt);
+  // One strike for the whole tap, not one per retry: the retries exist to
+  // ride out a marginal link, and shouldn't use up all the strikes at once.
+  noteServerReply(-1);
 }
 
 // ---------------- Setup / loop ----------------

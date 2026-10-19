@@ -54,7 +54,8 @@ only works with the right positions.
 ## 4. Firmware setup
 
 - **Sketch:** `ESP32_ARDUINO CODE/SUAAMS_HCE/SUAAMS_HCE.ino`
-- **Secrets:** copy `secrets.h.example` to `secrets.h`. It holds Wi-Fi, the
+- **Secrets:** copy `secrets.h.example` to `secrets.h`. It holds Wi-Fi (up to
+  5 networks in `WIFI_NETWORKS`; an old single `WIFI_SSID` still builds), the
   three URLs (check-in, healthz, backlog), `TERMINAL_ID` + `TERMINAL_SECRET`,
   `BLE_BEACON_SECRET` and `BLE_TERMINAL_NUMBER`. **Each reader gets its own
   `TERMINAL_ID` and `TERMINAL_SECRET`** from the admin **Terminals** page
@@ -119,6 +120,8 @@ only works with the right positions.
 | Keep-alive ping | At boot, every 4 minutes when idle, and before a POST if not confirmed warm in 60 s. Any real upload response also counts as "warm" | Render free tier sleeps and took 8.5 s to wake, longer than a code lasts |
 | TLS | Server certificate verified against the core's CA bundle (chain + hostname, not expiry) | Stops a fake server on the venue Wi-Fi collecting the terminal secret. Was `setInsecure()` |
 | Wi-Fi at boot | Waits 20 s at most, then carries on offline and retries every 5 s | Used to loop forever and wedge the board until a power cycle |
+| Which Wi-Fi | Background scan, joins the listed network with the strongest signal, falls back to the next if it refuses (10 s each). Never switches while connected | A blocking scan (the core's `WiFiMulti`) would freeze tap reading for 2–4 s on every retry during an outage |
+| Wi-Fi with no internet | 3 requests in a row with no answer at all (not an HTTP error) → that network is skipped for 10 min and the terminal moves on. Pings every 30 s while failing. Only with 2+ networks listed | A hotspot out of data joins fine and then fails every request. With one network there's nowhere to move, and the server being down looks the same |
 | Wi-Fi + BLE | Share one radio (coexistence is handled by the ESP32 core) | **FILL IN:** whether BLE has ever dropped out during uploads. Also note the lowest `[HEAP] lowest-ever` value seen after a run of taps |
 
 ## 7. Troubleshooting log
@@ -179,3 +182,8 @@ Still to measure. **FILL IN**, with the date and the phone model:
   "strong", and the server logs every RSSI it receives)
 - Wi-Fi dropped mid-class: **?** (pull the router; expect `[QUEUE] Queued`
   lines, then `[QUEUE] Flushing` once it's back)
+- Switching networks: **not yet tested on hardware**. Two checks: (1) list
+  two networks, switch the stronger one off, and expect `[WIFI] Link down`,
+  then `[WIFI] Joining <other>`; (2) list a phone hotspot with mobile data
+  off as the strongest, and expect three `No answer from the server` lines
+  within about 1.5 min, then `looks like it has no internet` and a switch
