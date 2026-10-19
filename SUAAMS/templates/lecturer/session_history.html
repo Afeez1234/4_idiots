@@ -11,7 +11,7 @@
 
     <div class="card-clip">
         <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
-            {{ card_heading('Sessions', info=true) }}
+            {{ card_heading('Sessions') }}
             <span class="text-xs text-muted">
                 {{ history_sessions|length }} session{{ '' if history_sessions|length == 1 else 's' }}
             </span>
@@ -31,15 +31,18 @@
                 </thead>
                 <tbody>
                     {% for s in history_sessions %}
-                        <tr class="cursor-pointer"
-                            onclick="window.location='{{ url_for('lecturer.session_detail', course_id=s.course.id, session_id=s.session_id) }}'">
-                            <td class="td">{{ s.date.strftime('%d %b %Y') }}</td>
+                        {# The date is a real link (keyboard, middle-click, new tab);
+                           the row's onclick stays as a convenience for the mouse.
+                           Before 2026-10-19 only the onclick existed. #}
+                        {% set detail = url_for('lecturer.session_detail', course_id=s.course.id, session_id=s.session_id) %}
+                        <tr class="cursor-pointer" onclick="window.location='{{ detail }}'">
+                            <td class="td"><a href="{{ detail }}" class="font-medium text-accent-ink hover:underline">{{ s.date.strftime('%d %b %Y') }}</a></td>
                             <td class="td">{{ course_chip(s.course.course_code) }}</td>
                             <td class="td td-muted mono text-xs">
                                 {{ s.start_time.strftime('%H:%M') if s.start_time else '—' }}
                             </td>
-                            <td class="td font-semibold text-success">{{ s.present_count }}</td>
-                            <td class="td font-semibold text-error">{{ s.absent_count }}</td>
+                            <td class="td font-semibold text-success-ink">{{ s.present_count }}</td>
+                            <td class="td font-semibold text-error-ink">{{ s.absent_count }}</td>
                             <td class="td">
                                 {# Turnout for a completed session, using the per-student
                                    at-risk rule: this is one session of one cohort, so

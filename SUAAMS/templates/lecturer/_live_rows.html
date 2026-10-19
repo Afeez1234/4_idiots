@@ -1,0 +1,26 @@
+{# The course page's live attendance rows (lecturer/course_workspace.html),
+   rendered on first load AND by live_attendance() for the 10-second refresh,
+   so the markup and status colours exist once. #}
+{% from '_macros.html' import avatar, table_empty, attendance_status_pill %}
+                        {% for record in attendance_records %}
+                            {# record = (full_name, level, department, matric, status, time_in) #}
+                            {% set status = record[4]|lower %}
+                            <tr>
+                                <td class="td">
+                                    <div class="flex items-center gap-3">
+                                        {{ avatar(record[0]) }}
+                                        <span class="font-medium">{{ record[0] }}</span>
+                                    </div>
+                                </td>
+                                <td class="td td-muted mono text-xs">{{ record[3] }}</td>
+                                <td class="td td-muted">{{ record[1] }}</td>
+                                <td class="td td-muted mono text-xs">
+                                    {{ record[5]|campus('%H:%M:%S') if record[5] else '—' }}
+                                </td>
+                                <td class="td">
+                                    {{ attendance_status_pill(status) }}
+                                </td>
+                            </tr>
+                        {% else %}
+                            {{ table_empty(5, 'No check-ins yet. Waiting for students to tap in.') }}
+                        {% endfor %}

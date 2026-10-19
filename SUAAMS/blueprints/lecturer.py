@@ -1,6 +1,7 @@
 import csv
 import io
-from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response
+import re
+from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response, jsonify
 from datetime import date, datetime, timezone
 from utils import (login_required, resolve_timetable_slot_for_course, notify_announcement,
                    start_class_session, end_class_session,
@@ -68,6 +69,43 @@ def dashboard():
     )
 
 
+def _live_records(session_id):
+    """(full_name, level, department, matric, status, time_in) for everyone
+    checked in to a session -- the live table's rows. Shared by the course
+    page and its 10-second refresh (live_attendance), so they can't drift."""
+    return db.session.query(
+        Student.full_name, Student.level, Department.name,
+        Student.matric_number, Attendance.status, Attendance.time_in
+    ).join(Attendance, Attendance.student_id == Student.id)\
+     .join(Department, Student.department_id == Department.id)\
+     .filter(Attendance.session_id == session_id)\
+     .order_by(Attendance.time_in.desc()).all()
+
+
+@lecturer_bp.route('/lecturer/course/<int:course_id>/live')
+@login_required(('lecturer', 'hod'))
+def live_attendance(course_id):
+    """The live table's rows and count, for the course page to refresh in
+    place every 10 seconds. The page used to reload itself every 5 seconds
+    (<meta http-equiv="refresh">), wiping the search box, jumping to the top
+    and re-running every statistic 12 times a minute per open tab. The rows
+    are rendered by the same snippet as the first load, so the HTML (and
+    the status colours) exist once. (2026-10-19)"""
+    lecturer = Lecturer.query.filter_by(user_id=session.get('user_id')).first()
+    course = taught_course(lecturer, course_id) if lecturer else None
+    if course is None:
+        return jsonify({'error': 'Course not found or access denied.'}), 404
+    active_session = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
+    if active_session is None:
+        return jsonify({'active': False})
+    records = _live_records(active_session.id)
+    return jsonify({
+        'active': True,
+        'present': len(records),
+        'rows_html': render_template('lecturer/_live_rows.html', attendance_records=records),
+    })
+
+
 @lecturer_bp.route('/lecturer/course/<int:course_id>')
 @login_required(('lecturer', 'hod'))
 def course_workspace(course_id):
@@ -87,24 +125,7 @@ def course_workspace(course_id):
         # Get active session if it exists
         active_session = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
         
-        attendance_records = []
-        if active_session:
-            # BUG FIX: Student.department is a relationship, not a column --
-            # selecting it directly here doesn't error, it silently returns
-            # True (a meaningless boolean) for every row instead of the
-            # actual department, since it can't resolve as a scalar column
-            # without an explicit join. Confirmed by testing this exact
-            # query shape against a real DB. Joining Department explicitly
-            # and selecting Department.name instead -- same fix already
-            # applied to api/lecturer.py's equivalent queries. Column order
-            # unchanged, so template indices (record[0], [3], [4], [5])
-            # relying on this tuple's position still line up correctly.
-            attendance_records = db.session.query(
-                Student.full_name, Student.level, Department.name,
-                Student.matric_number, Attendance.status, Attendance.time_in
-            ).join(Attendance, Attendance.student_id == Student.id)\
-             .join(Department, Student.department_id == Department.id)\
-             .filter(Attendance.session_id == active_session.id).all()
+        attendance_records = _live_records(active_session.id) if active_session else []
             
         # The shared attendance rule: finished classes, present or late.
         course_stats = course_attendance([course_id])[course_id]
@@ -359,12 +380,15 @@ def delete_announcement(announcement_id):
 ANALYTICS_PALETTE = ['#2F6BEE', '#A8420F', '#5F3FBF', '#9E2760', '#8A5D00']
 
 
-def _course_attendance_reports(lecturer):
+def _course_attendance_reports(lecturer, semester=None):
     """Per-course attendance percentage, shared by reports(), analytics()
     and export_reports() so they can't drift apart. The shared attendance
-    rule (utils.course_attendance): finished classes, present or late."""
-    # This semester's courses only (current_courses).
-    courses = current_courses(courses_taught_by(lecturer)).order_by(Course.course_code).all()
+    rule (utils.course_attendance): finished classes, present or late.
+
+    `semester`: Reports' picker; None is the current semester (analytics).
+    When the "now" screens were scoped (fb3c525) this helper went with them,
+    which left Reports with no way to see a past semester at all."""
+    courses = current_courses(courses_taught_by(lecturer), semester).order_by(Course.course_code).all()
     stats = course_attendance([c.id for c in courses])
     return [{
         'course': course,
@@ -470,7 +494,8 @@ def reports():
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
 
-        course_reports = _course_attendance_reports(lecturer)
+        semester = _report_semester()
+        course_reports = _course_attendance_reports(lecturer, semester)
 
     except Exception:
         log_exception("Lecturer Reports Error")
@@ -480,8 +505,17 @@ def reports():
     return render_template(
         'lecturer/reports.html',
         course_reports=course_reports,
+        semester=semester,
+        semesters=Semester.query.order_by(Semester.start_date.desc()).all(),
         active_page='reports',
     )
+
+
+def _report_semester():
+    """?semester=, else the active one, else the latest."""
+    semester = db.session.get(Semester, request.args.get('semester', type=int) or 0)
+    return (semester or Semester.query.filter_by(is_active=True).first()
+            or Semester.query.order_by(Semester.start_date.desc()).first())
 
 
 @lecturer_bp.route('/lecturer/reports/export')
@@ -495,7 +529,8 @@ def export_reports():
             flash('Lecturer profile not found.', 'error')
             return redirect(url_for('auth.login'))
 
-        course_reports = _course_attendance_reports(lecturer)
+        semester = _report_semester()
+        course_reports = _course_attendance_reports(lecturer, semester)
 
         output = io.StringIO()
         writer = csv.writer(output)
@@ -517,7 +552,9 @@ def export_reports():
     return Response(
         output.getvalue(),
         mimetype='text/csv',
-        headers={'Content-Disposition': 'attachment; filename=attendance_report.csv'},
+        # Named after the semester, so downloads can't be confused.
+        headers={'Content-Disposition': 'attachment; filename=attendance_report_'
+                 + (re.sub(r'[^A-Za-z0-9]+', '_', semester.name).strip('_') if semester else 'all') + '.csv'},
     )
 
 

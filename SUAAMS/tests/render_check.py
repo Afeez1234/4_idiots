@@ -1099,6 +1099,9 @@ CONTEXTS = {
                         "course_title": "Compiler Design"},
              "enrolled_count": 32, "session_count": 7, "average_attendance": 64.2},
         ],
+        semester={"id": 1, "name": "2025/2026 First Semester"},
+        semesters=[{"id": 1, "name": "2025/2026 First Semester", "is_active": True},
+                   {"id": 2, "name": "2024/2025 First Semester", "is_active": False}],
     ),
 
     "lecturer/announcements.html": dict(

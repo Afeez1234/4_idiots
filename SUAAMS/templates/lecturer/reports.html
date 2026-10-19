@@ -4,7 +4,7 @@
 {% block title %}Reports | SUAAMS Lecturer{% endblock %}
 {% block page_title %}Attendance Reports{% endblock %}
 {% block page_subtitle %}
-    <p class="page-subtitle">Attendance percentage across your courses</p>
+    <p class="page-subtitle">Attendance percentage across your courses, one semester at a time</p>
 {% endblock %}
 
 {% block content %}
@@ -16,23 +16,38 @@
         {% set rated = course_reports|selectattr('session_count', 'gt', 0)|list %}
         {% set avg = (rated|sum(attribute='average_attendance') / rated|length)|round(1) if rated else none %}
         {{ stat_card('Courses Rated', rated|length,
-                     'Of ' ~ course_reports|length ~ ' assigned', 'summarize') }}
+                     'Of ' ~ course_reports|length ~ ' assigned') }}
         {{ stat_card('Average Attendance', avg ~ '%' if avg is not none else '—',
-                     'Mean across rated courses' if avg is not none else 'No completed sessions yet',
-                     'insights') }}
+                     'Mean across rated courses' if avg is not none else 'No completed sessions yet') }}
         {# Same 75% line as at_risk_tone() in _macros.html -- a course below it
            is a real flag, not a soft portfolio grade. #}
         {{ stat_card('At Risk', course_reports|selectattr('average_attendance', 'lt', 75)|list|length,
-                     'Courses below 75%', 'warning', 'warning') }}
+                     'Courses below 75%') }}
     </div>
 
     <div class="card-clip">
         <div class="flex flex-wrap items-center justify-between gap-4 px-5 pt-5 pb-4">
-            {{ card_heading('Course Attendance', info=true) }}
-            <a href="{{ url_for('lecturer.export_reports') }}" class="btn-secondary btn-sm">
-                <span class="material-symbols-rounded text-base">download</span>
-                Export All
-            </a>
+            {{ card_heading('Course Attendance' ~ (' · ' ~ semester.name if semester else '')) }}
+            {# A semester picker; the export follows it. Since the "now" screens
+               were scoped to the current semester (fb3c525), this page had no
+               way to show a past one. #}
+            <div class="flex flex-wrap items-end gap-2">
+                <form method="GET" action="{{ url_for('lecturer.reports') }}" class="flex items-end gap-2">
+                    <div>
+                        <label class="form-label" for="report-semester">Semester</label>
+                        <select name="semester" id="report-semester" class="form-select py-1.5">
+                            {% for s in semesters %}
+                                <option value="{{ s.id }}" {{ 'selected' if semester and s.id == semester.id else '' }}>{{ s.name }}{{ ' (active)' if s.is_active else '' }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn-secondary btn-sm">Show</button>
+                </form>
+                <a href="{{ url_for('lecturer.export_reports', **({'semester': semester.id} if semester else {})) }}" class="btn-secondary btn-sm">
+                    <span class="material-symbols-rounded text-base" aria-hidden="true">download</span>
+                    Export CSV
+                </a>
+            </div>
         </div>
 
         <div class="table-wrap border-t border-divider">

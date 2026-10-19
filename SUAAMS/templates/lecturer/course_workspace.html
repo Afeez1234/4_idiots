@@ -7,22 +7,21 @@
     <p class="page-subtitle">{{ course.course_title }}</p>
 {% endblock %}
 
-{% block extra_head %}
-    {# Auto-refresh every 5s while a session is live, so the stat cards and
-       live attendance table stay current without a manual reload. #}
-    {% if active_session %}
-        <meta http-equiv="refresh" content="5">
-    {% endif %}
-{% endblock %}
+{# No <meta http-equiv="refresh"> (removed 2026-10-19): it reloaded the
+   whole page every 5 seconds during a class, wiping the search box and
+   jumping to the top. The script at the bottom refreshes just the live
+   rows and the Present Now count. #}
 
 {% block content %}
 
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {{ stat_card('Students Enrolled', stats.total_enrolled_students, 'Registered for this course', 'group') }}
-        {{ stat_card('Sessions This Semester', stats.total_sessions_this_semester, 'Attendance sessions run', 'event') }}
-        {{ stat_card('Average Attendance', stats.average_attendance ~ '%', 'Across completed sessions', 'insights') }}
-        {{ stat_card('Present Now', stats.present_in_current_session, 'Checked in this session', 'how_to_reg',
-                     'success' if active_session else 'accent') }}
+        {{ stat_card('Students Enrolled', stats.total_enrolled_students, 'Registered for this course') }}
+        {{ stat_card('Sessions This Semester', stats.total_sessions_this_semester, 'Attendance sessions run') }}
+        {{ stat_card('Average Attendance', stats.average_attendance ~ '%', 'Across completed sessions') }}
+        {# data-live-count: the refresh updates this number in place. #}
+        <div data-live-count class="contents">
+            {{ stat_card('Present Now', stats.present_in_current_session, 'Checked in this session') }}
+        </div>
     </div>
 
     {# Session controls. Exactly one of the two forms is ever rendered, so a
@@ -32,7 +31,7 @@
        real endpoint name, kept verbatim here so the POST keeps resolving. #}
     <div class="card">
         <div class="card-header">
-            {{ card_heading('Session Controls', info=true) }}
+            {{ card_heading('Session Controls') }}
         </div>
         <div class="card-body">
             <div class="flex flex-wrap items-center justify-between gap-4">
@@ -41,12 +40,18 @@
                 </p>
 
                 {% if active_session %}
-                    <div class="flex items-center gap-3">
-                        {{ pill('Session Active', 'live', icon='sensors') }}
-                        <form method="POST" action="{{ url_for('lecturer.end_session_r', course_id=course.id) }}">
+                    <div class="flex flex-wrap items-center gap-3">
+                        {{ pill('Session Active', 'live') }}
+                        {# The session page holds Mark present (a phone that
+                           failed) and Taps while offline. It was only
+                           reachable through Session History. #}
+                        <a href="{{ url_for('lecturer.session_detail', course_id=course.id, session_id=active_session.id) }}"
+                           class="btn-secondary btn-sm">Open session (mark present, offline taps)</a>
+                        {# Asks first: ending stops check-ins at once (script below). #}
+                        <form method="POST" action="{{ url_for('lecturer.end_session_r', course_id=course.id) }}"
+                              class="end-session-form" data-course="{{ course.course_code }}">
                             {% include '_csrf_field.html' %}
                             <button type="submit" class="btn-danger btn-sm">
-                                <span class="material-symbols-rounded text-base">stop_circle</span>
                                 End Session
                             </button>
                         </form>
@@ -80,7 +85,6 @@
                                    value="{{ timetable_slot.room if timetable_slot and timetable_slot.room else '' }}">
                         </div>
                         <button type="submit" class="btn-primary">
-                            <span class="material-symbols-rounded text-lg">play_circle</span>
                             Start Session
                         </button>
                     </form>
@@ -95,7 +99,7 @@
     {% if active_session %}
         <div class="card-clip">
             <div class="flex flex-wrap items-center justify-between gap-4 px-5 pt-5 pb-4">
-                {{ card_heading('Live Attendance', info=true) }}
+                {{ card_heading('Live Attendance') }}
                 {# id="live-search" is the DOM contract with the inline script
                    at the bottom of this file. #}
                 <input type="search" id="live-search" placeholder="Search student or matric number&hellip;"
@@ -117,28 +121,7 @@
                        contract. Do not rename either without updating the
                        script. #}
                     <tbody id="live-table-body">
-                        {% for record in attendance_records %}
-                            {# record = (full_name, level, department, matric, status, time_in) #}
-                            {% set status = record[4]|lower %}
-                            <tr>
-                                <td class="td">
-                                    <div class="flex items-center gap-3">
-                                        {{ avatar(record[0]) }}
-                                        <span class="font-medium">{{ record[0] }}</span>
-                                    </div>
-                                </td>
-                                <td class="td td-muted mono text-xs">{{ record[3] }}</td>
-                                <td class="td td-muted">{{ record[1] }}</td>
-                                <td class="td td-muted mono text-xs">
-                                    {{ record[5]|campus('%H:%M:%S') if record[5] else '—' }}
-                                </td>
-                                <td class="td">
-                                    {{ attendance_status_pill(status) }}
-                                </td>
-                            </tr>
-                        {% else %}
-                            {{ table_empty(5, 'No check-ins yet. Waiting for students to scan...') }}
-                        {% endfor %}
+                        {% include 'lecturer/_live_rows.html' %}
                     </tbody>
                 </table>
             </div>
@@ -149,18 +132,59 @@
 
 {% block extra_scripts %}
 <script>
-    // Client-side filter over the live attendance table.
-    // DOM contract: #live-search and #live-table-body, both owned by this
-    // template. Hiding uses inline style.display rather than a class so no
-    // Tailwind utility has to be toggled on and off in pairs.
-    const liveSearch = document.getElementById('live-search');
-    if (liveSearch) {
-        liveSearch.addEventListener('input', function () {
-            const term = this.value.toLowerCase();
-            document.querySelectorAll('#live-table-body tr').forEach(function (row) {
+    (function () {
+        // Client-side filter over the live attendance table.
+        // DOM contract: #live-search and #live-table-body, both owned by this
+        // template. Hiding uses inline style.display rather than a class so no
+        // Tailwind utility has to be toggled on and off in pairs.
+        var liveSearch = document.getElementById('live-search');
+        var body = document.getElementById('live-table-body');
+        function applySearch() {
+            if (!liveSearch || !body) return;
+            var term = liveSearch.value.toLowerCase();
+            body.querySelectorAll('tr').forEach(function (row) {
                 row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
             });
+        }
+        if (liveSearch) liveSearch.addEventListener('input', applySearch);
+
+        // End Session asks first, with how many have checked in.
+        document.querySelectorAll('.end-session-form').forEach(function (form) {
+            form.addEventListener('submit', function (e) {
+                var count = document.querySelector('[data-live-count] .stat-value');
+                var n = count ? count.textContent.trim() : '?';
+                if (!confirm('End ' + form.dataset.course + "'s class now? " + n + ' student(s) have checked in; '
+                             + "anyone who hasn't won't be able to after this.")) {
+                    e.preventDefault();
+                }
+            });
         });
-    }
+
+        // Live refresh: just the rows and the count, every 10 seconds, only
+        // while the tab is visible. Replaces a whole-page reload every 5
+        // seconds. If the class was ended elsewhere (the app, another tab),
+        // reload once to show the Start form.
+        {% if active_session %}
+        var url = {{ url_for('lecturer.live_attendance', course_id=course.id)|tojson }};
+        function refresh() {
+            if (document.visibilityState !== 'visible') return;
+            fetch(url, {headers: {'Accept': 'application/json'}, credentials: 'same-origin'})
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data) return;
+                    if (!data.active) { window.location.reload(); return; }
+                    // rows_html is rendered by the server from the same Jinja
+                    // snippet as the first load, with autoescaping.
+                    body.innerHTML = data.rows_html;
+                    var count = document.querySelector('[data-live-count] .stat-value');
+                    if (count) count.textContent = data.present;
+                    applySearch();
+                })
+                .catch(function () {});
+        }
+        setInterval(refresh, 10000);
+        document.addEventListener('visibilitychange', refresh);
+        {% endif %}
+    })();
 </script>
 {% endblock %}
