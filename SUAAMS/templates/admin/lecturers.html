@@ -70,7 +70,7 @@
                until the preview is confirmed; existing rows are skipped. #}
             <div class="card">
                 <div class="card-header">
-                    {{ card_heading('Bulk Upload (CSV)') }}
+                    {{ card_heading('Bulk Upload') }}
                 </div>
                 <div class="card-body">
                     <form action="{{ url_for('admin.bulk_upload_preview', kind='lecturers') }}" method="POST"
@@ -78,11 +78,16 @@
                         {% include '_csrf_field.html' %}
 
                         <div>
-                            <label class="form-label" for="bulk-lecturers-file">CSV File</label>
-                            <input type="file" name="file" id="bulk-lecturers-file" accept=".csv,text/csv" required class="form-file">
+                            <label class="form-label" for="bulk-lecturers-file">Excel or CSV file</label>
+                            <input type="file" name="file" id="bulk-lecturers-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required class="form-file">
                             <p class="form-help">
                                 Columns: staff_id, full_name, department (its exact name). Up to 1,000 rows. Each lecturer's first password is their staff ID. Staff IDs already registered are skipped.
                                 <a href="{{ url_for('admin.bulk_template', kind='lecturers') }}" class="text-accent">Download the template</a>.
+                                {# Excel workbooks are read directly (bulk_upload.read_upload), so
+                                   nobody has to save as CSV first; a CSV must be UTF-8, since
+                                   Excel's plain "CSV" turns letters like ẹ and ọ into "?". #}
+                                <span class="mt-1 block">Upload the <strong>Excel file (.xlsx)</strong> as it is, or a CSV saved as
+                                    &ldquo;CSV UTF-8&rdquo; &mdash; plain &ldquo;CSV&rdquo; from Excel loses letters like ẹ and ọ.</span>
                             </p>
                         </div>
 

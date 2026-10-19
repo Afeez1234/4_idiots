@@ -22,3 +22,9 @@ tzdata==2026.5
 # Reads Student Affairs timetable PDFs (timetable_pdf.py). Brings pypdfium2,
 # used to render the page and skip text that isn't actually printed.
 pdfplumber==0.11.10
+# Reads Excel workbooks (.xlsx) for the student, lecturer and course bulk
+# uploads (bulk_upload.read_xlsx), so nobody has to "Save As CSV UTF-8"
+# first. defusedxml: openpyxl uses it, when installed, to refuse malicious
+# XML in an uploaded workbook.
+openpyxl==3.1.5
+defusedxml==0.7.1

@@ -31,6 +31,11 @@ Rules
   rows from a past semester's courses and runs them through the same
   plan_courses checks, preview and save -- a CSV the admin didn't have to
   write. Lecturers no longer active are left out rather than blocking it.
+* An Excel workbook (.xlsx) is accepted as well as CSV (read_upload,
+  2026-10-19): the first sheet's first row is the header, read through the
+  same checks. Excel's plain "CSV" turns letters like ẹ, ọ and ṣ into "?"
+  and older Excel has no "CSV UTF-8", so uploading the workbook itself is
+  the easy, lossless path.
 * Saving uses multi-row INSERTs in chunks, like the student upload: an ORM
   object per row is one round trip each to the remote MySQL, which is what
   made the old student upload time out on Render.
@@ -126,36 +131,95 @@ class BulkPlan:
 
 # ---- reading ---------------------------------------------------------------------
 
+def read_upload(data, filename, kind):
+    """An uploaded file -> [BulkRow]: an Excel workbook (.xlsx) or a CSV,
+    told apart by name and by content (an .xlsx is a zip, starting "PK").
+    Raises BulkCsvError."""
+    name = (filename or '').lower()
+    if name.endswith('.xls'):
+        raise BulkCsvError("Old Excel files (.xls) can't be read. In Excel use Save As -> "
+                           "\"Excel Workbook (.xlsx)\", or upload a CSV.")
+    if name.endswith('.xlsx') or data[:4] == b'PK\x03\x04':
+        return read_xlsx(data, kind)
+    return read_csv(data, kind)
+
+
 def read_csv(data, kind):
-    """bytes -> [BulkRow] with cleaned values. Raises BulkCsvError."""
+    """CSV bytes -> [BulkRow] with cleaned values. Raises BulkCsvError."""
     try:
         # utf-8-sig: Excel's "CSV UTF-8" puts a byte-order mark in front of
         # the first header, which would otherwise read as "﻿staff_id".
         text = data.decode('utf-8-sig')
     except UnicodeDecodeError:
-        raise BulkCsvError("The file isn't UTF-8 text. In Excel use Save As -> \"CSV UTF-8\".")
-    reader = csv.DictReader(io.StringIO(text, newline=''))
-    headers = {_header(h) for h in (reader.fieldnames or [])}
-    missing = REQUIRED[kind] - headers
+        # Strict on purpose: a file from Excel's plain "CSV" has already
+        # turned letters like ẹ and ọ into "?", and guessing another
+        # encoding would save those damaged names.
+        raise BulkCsvError("The file isn't UTF-8 text. Upload the Excel file (.xlsx) itself, "
+                           "or in Excel use Save As -> \"CSV UTF-8\".")
+    reader = csv.reader(io.StringIO(text, newline=''))
+    return _table_rows(next(reader, []), reader, kind)
+
+
+def read_xlsx(data, kind):
+    """Excel workbook bytes -> [BulkRow], from the first sheet: its first
+    row is the header. Read-only and values-only (a formula gives its last
+    computed value). Raises BulkCsvError."""
+    from openpyxl import load_workbook
+    try:
+        book = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except Exception:
+        raise BulkCsvError("That isn't a readable Excel workbook (.xlsx). Open it in Excel and save it "
+                           "again, or upload a CSV.")
+    try:
+        if not book.worksheets:
+            raise BulkCsvError('The workbook has no sheets.')
+        rows = book.worksheets[0].iter_rows(values_only=True)
+        header = next(rows, ())
+        return _table_rows([_cell(v) for v in header], ([_cell(v) for v in r] for r in rows), kind)
+    finally:
+        book.close()
+
+
+def _cell(value):
+    """An Excel cell as the text a CSV would hold. Whole numbers lose the
+    ".0" Excel stores them with (a staff ID typed as 1001 is "1001", credit
+    units 3 is "3"); a date is its ISO date; empty is ""."""
+    if value is None:
+        return ''
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if hasattr(value, 'date') and hasattr(value, 'isoformat'):
+        return value.date().isoformat() if hasattr(value, 'hour') else value.isoformat()
+    return str(value)
+
+
+def _table_rows(header, rows, kind):
+    """A header row and the rows under it (lists of text) -> [BulkRow] with
+    cleaned values, for CSV and Excel alike. Line numbers count the header
+    as line 1, as a spreadsheet shows them. Stops reading past MAX_ROWS, so
+    a huge sheet is refused without being loaded whole."""
+    names = [_header(h) for h in header]
+    missing = REQUIRED[kind] - set(names)
     if missing:
         raise BulkCsvError(f"Missing column(s): {', '.join(sorted(missing))}. "
                            f"Download the template to see the expected headers.")
     columns = COLUMNS[kind]
-    rows = []
-    for i, raw in enumerate(reader, start=2):
+    out = []
+    for i, raw in enumerate(rows, start=2):
         values = {c: '' for c in columns}
-        for key, value in raw.items():
-            name = _header(key)
-            if name in values and value is not None:
-                values[name] = ' '.join(str(value).split())    # trim, collapse spaces
-        if any(values.values()):                                # skip blank lines
-            rows.append(BulkRow(line=i, values=values))
-    if not rows:
+        for index, name in enumerate(names):
+            if name in values and index < len(raw) and raw[index] is not None:
+                values[name] = ' '.join(str(raw[index]).split())    # trim, collapse spaces
+        if any(values.values()):                                     # skip blank lines
+            out.append(BulkRow(line=i, values=values))
+            if len(out) > MAX_ROWS:
+                raise BulkCsvError(f"The file has more than {MAX_ROWS} rows. Upload at most {MAX_ROWS} "
+                                   f"at a time: split it into smaller files.")
+    if not out:
         raise BulkCsvError('The file has no rows under its headers.')
-    if len(rows) > MAX_ROWS:
-        raise BulkCsvError(f"The file has {len(rows)} rows. Upload at most {MAX_ROWS} at a time: "
-                           f"split it into smaller files.")
-    return rows
+    return out
 
 
 def _header(name):

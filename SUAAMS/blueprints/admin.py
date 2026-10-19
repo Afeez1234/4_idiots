@@ -519,7 +519,8 @@ def bulk_upload_preview(kind):
         data = upload.read(2 * 1024 * 1024 + 1)
         if len(data) > 2 * 1024 * 1024:
             raise bulk_upload.BulkCsvError('The file is over 2 MB -- split it into smaller files.')
-        rows = bulk_upload.read_csv(data, kind)
+        # CSV or an Excel workbook (.xlsx): read_upload tells them apart.
+        rows = bulk_upload.read_upload(data, upload.filename, kind)
         if kind == 'students':
             plan = bulk_upload.plan_students(rows, upload.filename)
         elif kind == 'lecturers':

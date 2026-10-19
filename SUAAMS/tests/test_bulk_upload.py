@@ -229,6 +229,57 @@ class BulkUploadTestCase(unittest.TestCase):
                                                            'MCT401,A,STF/0001')))
         self.assertEqual(Course.query.count(), 0)
 
+    # ---- Excel workbooks (2026-10-19) -----------------------------------------------------
+    # read_upload takes an .xlsx as it is, so nobody has to "Save As CSV
+    # UTF-8" -- which older Excel doesn't even offer.
+
+    def test_xlsx_is_read_like_a_csv_and_keeps_every_letter(self):
+        data = xlsx_bytes(['staff_id', 'full_name', 'Department Name'],      # header spelling varies
+                          [1001, 'Dr Adéwálé Ògúnlẹ́yẹ̀', 'Mechatronics Engineering'],
+                          [None, None, None],                                 # a blank row is skipped
+                          ['STF/0002', '  Dr   Spaced  ', 'Mechatronics Engineering'])
+        rows = bu.read_upload(data, 'Lecturers.XLSX', 'lecturers')
+        self.assertEqual([(r.line, r.values['staff_id'], r.values['full_name']) for r in rows],
+                         [(2, '1001', 'Dr Adéwálé Ògúnlẹ́yẹ̀'),          # a whole number loses ".0"
+                          (4, 'STF/0002', 'Dr Spaced')])                  # line = the spreadsheet row
+        self.assertTrue(bu.plan_lecturers(rows, 'Lecturers.xlsx').ok)
+
+    def test_an_xlsx_is_recognised_by_its_content_too(self):
+        data = xlsx_bytes(['staff_id', 'full_name', 'department'], ['STF/0009', 'Dr X', 'Mechatronics Engineering'])
+        self.assertEqual(bu.read_upload(data, 'renamed.csv', 'lecturers')[0].values['staff_id'], 'STF/0009')
+
+    def test_old_xls_and_broken_workbooks_are_refused_with_a_reason(self):
+        with self.assertRaisesRegex(bu.BulkCsvError, r'\.xls'):
+            bu.read_upload(b'\xd0\xcf\x11\xe0 old binary', 'old.xls', 'lecturers')
+        with self.assertRaisesRegex(bu.BulkCsvError, 'readable Excel workbook'):
+            bu.read_upload(b'PK\x03\x04 not really a workbook', 'broken.xlsx', 'lecturers')
+
+    def test_a_huge_sheet_is_refused_without_reading_it_all(self):
+        rows = [['STF/%05d' % i, 'Dr %d' % i, 'Mechatronics Engineering'] for i in range(bu.MAX_ROWS + 1)]
+        with self.assertRaisesRegex(bu.BulkCsvError, 'more than'):
+            bu.read_upload(xlsx_bytes(['staff_id', 'full_name', 'department'], *rows), 'big.xlsx', 'lecturers')
+
+    def test_xlsx_upload_previews_then_saves(self):
+        data = xlsx_bytes(['staff_id', 'full_name', 'department'],
+                          ['STF/0003', 'Dr Ọlá Ẹ̀mí', 'Mechatronics Engineering'])
+        kwargs = self.upload('lecturers', data)
+        self.assertTrue(kwargs['plan'].ok)
+        self.client.post('/admin/bulk/confirm', data={'plan': kwargs['plan_json']})
+        self.assertEqual(Lecturer.query.filter_by(staff_id='STF/0003').one().full_name, 'Dr Ọlá Ẹ̀mí')
+
+
+def xlsx_bytes(header, *rows):
+    """An in-memory Excel workbook: one sheet, a header row, then rows."""
+    from openpyxl import Workbook
+    book = Workbook()
+    sheet = book.active
+    sheet.append(header)
+    for row in rows:
+        sheet.append(row)
+    buffer = __import__('io').BytesIO()
+    book.save(buffer)
+    return buffer.getvalue()
+
 
 if __name__ == '__main__':
     unittest.main()
