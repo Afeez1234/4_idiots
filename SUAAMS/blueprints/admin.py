@@ -756,6 +756,8 @@ EDIT_KINDS = {
     'students': (Student, 'admin.students_page'),
     # For HODs, "delete" means removing them as HOD (record_edits.remove_hod).
     'hods': (HOD, 'admin.hods_page'),
+    # Name and dates; delete only when empty and not active (2026-10-19).
+    'semesters': (Semester, 'admin.semesters_page'),
 }
 
 # What the flash says after remove_hod, by outcome.
@@ -770,6 +772,8 @@ HOD_REMOVED = {
 def _record_label(kind, record):
     if kind == 'courses':
         return f"{record.course_code} ({record.course_title})"
+    if kind == 'semesters':
+        return record.name
     return _person_label(kind, record)
 
 
@@ -2279,12 +2283,14 @@ def semesters_page():
                 end = datetime.strptime(request.form.get('end_date') or '', '%Y-%m-%d').date()
             except ValueError:
                 start = end = None
+            # End after start, a unique name, no overlap: the same rule as
+            # Edit (record_edits.semester_problem).
+            problem = (None if not name or start is None
+                       else record_edits.semester_problem(name, start, end))
             if not name or start is None:
                 flash('Name, start date and end date are all required.', 'error')
-            elif end <= start:
-                flash('The end date must be after the start date.', 'error')
-            elif Semester.query.filter(db.func.lower(Semester.name) == name.lower()).first():
-                flash(f"A semester called '{name}' already exists.", 'error')
+            elif problem:
+                flash(problem, 'error')
             else:
                 try:
                     semester = Semester(name=name, start_date=start, end_date=end)
@@ -2314,6 +2320,7 @@ def semesters_page():
     return render_template(
         'admin/semesters.html',
         semesters=semesters,
+        delete_blockers=record_edits.delete_blockers('semesters', semesters),
         course_counts=courses,
         slot_counts=slots,
         active_page='semesters',

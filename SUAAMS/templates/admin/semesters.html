@@ -1,5 +1,6 @@
 {% extends "base_admin.html" %}
 {% from '_macros.html' import pill, empty_state, card_heading, directory_heading %}
+{% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
 
 {% block title %}Semesters | SUAAMS Admin{% endblock %}
 {% block page_title %}Semesters{% endblock %}
@@ -73,6 +74,18 @@
                                     &middot; {{ n_slots }} published class{{ '' if n_slots == 1 else 'es' }}
                                 </p>
                             </div>
+                            <div class="flex shrink-0 flex-wrap items-center justify-end gap-3">
+                            {# Fix a typo in the name or dates; delete only an empty,
+                               inactive semester (record_edits). #}
+                            {{ edit_button(url_for('admin.edit_record', kind='semesters', record_id=semester.id),
+                                           url_for('admin.delete_record', kind='semesters', record_id=semester.id),
+                                           semester.name,
+                                           {'name': semester.name,
+                                            'start_date': semester.start_date.isoformat(),
+                                            'end_date': semester.end_date.isoformat()},
+                                           delete_blockers.get(semester.id),
+                                           note=('This is the active semester: changing its dates changes which classes Analytics counts as due.'
+                                                 if semester.is_active else none)) }}
                             {% if semester.is_active %}
                                 {{ pill('Active', 'success', 'check_circle') }}
                             {% else %}
@@ -85,6 +98,7 @@
                                     <button type="submit" class="btn-secondary btn-sm">Set Active</button>
                                 </form>
                             {% endif %}
+                            </div>
                         </div>
                     {% else %}
                         {{ empty_state('No semesters yet.', 'date_range', 'Create one on the left to get started.') }}
@@ -93,6 +107,24 @@
             </div>
         </div>
     </div>
+
+    {% call edit_dialog('Edit semester', 'Removes the semester. Only possible while it is empty (no courses, timetable or results) and not active.') %}
+        <div>
+            <label class="form-label" for="edit-semester-name">Semester Name</label>
+            <input type="text" name="name" id="edit-semester-name" required maxlength="100" class="form-input">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div>
+                <label class="form-label" for="edit-semester-start">Start Date</label>
+                <input type="date" name="start_date" id="edit-semester-start" required class="form-input">
+            </div>
+            <div>
+                <label class="form-label" for="edit-semester-end">End Date</label>
+                <input type="date" name="end_date" id="edit-semester-end" required class="form-input">
+            </div>
+        </div>
+        <p class="form-help">Lists order semesters by start date, so fixing the dates puts it in its right place. Dates can't overlap another semester.</p>
+    {% endcall %}
 
 {% endblock %}
 

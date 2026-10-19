@@ -123,6 +123,52 @@ class SemestersPageTestCase(unittest.TestCase):
         html = self.create('2027/2028 First Semester', '', '2028-01-31')
         self.assertIn('Name, start date and end date are all required.', html)
 
+    def test_overlapping_dates_are_refused_on_create(self):
+        # 2027 typed as 2026: lands inside 2026/2027 First (Sep 2026 - Jan 2027).
+        html = self.create('2025/2026 Second Semester', '2026-10-01', '2027-03-31')
+        self.assertIn('overlap 2026/2027 First Semester', html)
+        self.assertEqual(Semester.query.count(), 2)
+
+    # ---- edit and delete (2026-10-19) ------------------------------------------------------
+    # There was no edit: a typo in a semester's name or dates was permanent.
+
+    def edit(self, semester, **form):
+        return self.client.post(f'/admin/semesters/{semester.id}/edit', data=form,
+                                follow_redirects=True).get_data(as_text=True)
+
+    def test_edit_fixes_name_and_dates_and_is_logged(self):
+        from models import AuditLog
+        self.edit(self.old, name='2025/2026 First Semester (fixed)', start_date='2025-09-08', end_date='2026-01-30')
+        fixed = db.session.get(Semester, self.old.id)
+        self.assertEqual((fixed.name, fixed.start_date), ('2025/2026 First Semester (fixed)', date(2025, 9, 8)))
+        self.assertEqual(AuditLog.query.filter_by(action='semester.edit').count(), 1)
+
+    def test_edit_refuses_overlap_and_end_before_start(self):
+        html = self.edit(self.old, name=self.old.name, start_date='2025-09-01', end_date='2026-10-15')
+        self.assertIn('overlap 2026/2027 First Semester', html)
+        html = self.edit(self.old, name=self.old.name, start_date='2025-09-01', end_date='2025-08-01')
+        self.assertIn('The end date must be after the start date.', html)
+        self.assertEqual(db.session.get(Semester, self.old.id).end_date, date(2026, 1, 31))   # unchanged
+
+    def test_a_semester_may_keep_its_own_dates(self):
+        # Its own range isn't an overlap with itself.
+        self.edit(self.new, name='2026/2027 First Semester', start_date='2026-09-01', end_date='2027-02-15')
+        self.assertEqual(db.session.get(Semester, self.new.id).end_date, date(2027, 2, 15))
+
+    def test_only_an_empty_inactive_semester_can_be_deleted(self):
+        # 2026/2027 becomes the active one: active-and-empty, has-courses, and
+        # empty-and-inactive are then the three cases.
+        self.old.is_active, self.new.is_active = False, True
+        spare = Semester(name='Test Semester', start_date=date(2030, 1, 1), end_date=date(2030, 6, 1))
+        db.session.add(spare)
+        db.session.commit()
+        self.client.post(f'/admin/semesters/{self.old.id}/delete')    # has courses (inactive now)
+        self.client.post(f'/admin/semesters/{self.new.id}/delete')    # active, though empty
+        self.client.post(f'/admin/semesters/{spare.id}/delete')       # empty, inactive
+        self.assertIsNotNone(db.session.get(Semester, self.old.id))
+        self.assertIsNotNone(db.session.get(Semester, self.new.id))
+        self.assertIsNone(db.session.get(Semester, spare.id))
+
     def test_a_good_semester_is_created_inactive(self):
         self.create('2027/2028 First Semester', '2027-09-01', '2028-01-31')
         made = Semester.query.filter_by(name='2027/2028 First Semester').one()

@@ -43,7 +43,7 @@ from models import (
 )
 from utils import normalize_level
 
-KINDS = ('courses', 'lecturers', 'students', 'hods')
+KINDS = ('courses', 'lecturers', 'students', 'hods', 'semesters')
 
 
 class EditError(ValueError):
@@ -207,8 +207,52 @@ def edit_student(student, form):
     return diff
 
 
+# ---- semesters (2026-10-19) ---------------------------------------------------
+# A typo in a semester's name or dates used to be permanent: there was no
+# edit. The dates matter -- every list orders semesters by start date, and
+# Analytics counts classes due from it -- so they're checked here, for the
+# Semesters page's create form too (semester_problem).
+
+def _date(form, name, label):
+    from datetime import datetime
+    raw = (form.get(name) or '').strip()
+    try:
+        return datetime.strptime(raw, '%Y-%m-%d').date()
+    except ValueError:
+        raise EditError(f'{label} is required.')
+
+
+def semester_problem(name, start, end, exclude_id=None):
+    """Why this name and these dates can't be saved, or None. Shared by the
+    create form and edit_semester: end after start, a unique name, and no
+    overlap with another semester -- real semesters never overlap, so an
+    overlap is almost always a mistyped year."""
+    if end <= start:
+        return 'The end date must be after the start date.'
+    others = Semester.query.filter(Semester.id != exclude_id) if exclude_id else Semester.query
+    if others.filter(func.lower(Semester.name) == name.lower()).first():
+        return f"A semester called '{name}' already exists."
+    # Inclusive on both ends: a semester ending the day another starts overlaps.
+    clash = (others.filter(Semester.start_date <= end, Semester.end_date >= start)
+             .order_by(Semester.start_date).first())
+    if clash:
+        return (f"These dates overlap {clash.name} ({clash.start_date.strftime('%d %b %Y')} – "
+                f"{clash.end_date.strftime('%d %b %Y')}). Semesters can't overlap.")
+    return None
+
+
+def edit_semester(semester, form):
+    name = _text(form, 'name', 'Semester name', 100)
+    start = _date(form, 'start_date', 'Start date')
+    end = _date(form, 'end_date', 'End date')
+    problem = semester_problem(name, start, end, exclude_id=semester.id)
+    if problem:
+        raise EditError(problem)
+    return _apply(semester, {'name': name, 'start_date': start, 'end_date': end})
+
+
 EDITORS = {'courses': edit_course, 'lecturers': edit_lecturer, 'students': edit_student,
-           'hods': edit_hod}
+           'hods': edit_hod, 'semesters': edit_semester}
 
 
 # ---- what blocks a delete ---------------------------------------------------
@@ -287,6 +331,16 @@ def delete_blockers(kind, records):
             block(_counts(column, user_ids), by_user,
                   lambda n, r, word=word: f'Has {_plural(n, word)}. Set status to Left instead.')
 
+    elif kind == 'semesters':
+        # Only an empty, inactive semester -- the one created by mistake.
+        for r in records:
+            if r.is_active:
+                out[r.id] = 'Is the active semester. Make another one active first.'
+        for column, word in ((Course.semester_id, 'course'), (Timetable.semester_id, 'timetable slot'),
+                             (Result.semester_id, 'result')):
+            block(_counts(column, ids), lambda r: r.id,
+                  lambda n, r, word=word: f'Has {_plural(n, word)}.')
+
     elif kind == 'students':
         for column, word in ((Attendance.student_id, 'attendance record'),
                              (OfflineCheckinLog.student_id, 'offline tap'),
@@ -317,6 +371,10 @@ def delete_record(kind, record):
         # the co-lecturer links go with the course through `secondary`.
         db.session.delete(record)
         return removed
+
+    if kind == 'semesters':
+        db.session.delete(record)
+        return {}
 
     if kind == 'lecturers':
         # Their co-lecturer links. Removed through the Course side, which

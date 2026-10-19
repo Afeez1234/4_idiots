@@ -521,7 +521,9 @@ CONTEXTS = {
                 "is_active": False,
             },
         ],
-        # Semester 2 is empty: its Set Active form carries 0 / 0 for the warning.
+        # Semester 2 is empty: its Set Active form carries 0 / 0 for the warning,
+        # and only it can be deleted (semester 1 is active and has courses).
+        delete_blockers={1: "Is the active semester. Make another one active first."},
         course_counts={1: 10},
         slot_counts={1: 42},
     ),
