@@ -209,13 +209,41 @@ class TerminalStatusTestCase(unittest.TestCase):
         self.assertIsNone(status['now'])
         self.assertEqual(status['next']['course_code'], 'MCT 405')
 
+    # ---- due (timetabled now, not started) ----------------------------------------
+
+    def test_timetabled_now_but_not_started_is_due(self):
+        # The 09:00-11:00 slot is under way and nobody has started it.
+        self.live.is_active = False
+        db.session.commit()
+        status = status_for(self.lt1, now=NOW)
+        self.assertIsNone(status['now'])
+        self.assertEqual(status['due'], {'course_code': 'MCT 401', 'starts': '09:00', 'ends': '11:00'})
+
+    def test_due_is_dropped_once_the_class_is_live(self):
+        self.assertIsNone(status_for(self.lt1, now=NOW)['due'])
+
+    def test_finished_or_other_room_slot_isnt_due(self):
+        self.live.is_active = False
+        self.slot.end_time = time(9, 30)   # finished before 10:00
+        self.add_slot(self.mct405, time(9, 30), time(10, 30), 'LT 2')
+        db.session.commit()
+        self.assertIsNone(status_for(self.lt1, now=NOW)['due'])
+
+    def test_due_and_next_together(self):
+        self.live.is_active = False
+        self.add_slot(self.mct405, time(14, 0), time(15, 0), 'LT 1')
+        db.session.commit()
+        status = status_for(self.lt1, now=NOW)
+        self.assertEqual(status['due']['course_code'], 'MCT 401')
+        self.assertEqual(status['next']['course_code'], 'MCT 405')
+
     # ---- readers the server can't place ---------------------------------------------
 
     def test_reader_with_no_room_gets_nothing(self):
-        self.assertEqual(status_for(self.roomless, now=NOW), {'room': None, 'now': None, 'next': None})
+        self.assertEqual(status_for(self.roomless, now=NOW), {'room': None, 'now': None, 'due': None, 'next': None})
 
     def test_unregistered_shared_secret_reader_gets_nothing(self):
-        self.assertEqual(status_for(None, now=NOW), {'room': None, 'now': None, 'next': None})
+        self.assertEqual(status_for(None, now=NOW), {'room': None, 'now': None, 'due': None, 'next': None})
 
     # ---- the route ----------------------------------------------------------------
 
@@ -237,7 +265,7 @@ class TerminalStatusTestCase(unittest.TestCase):
     def test_route_for_shared_secret_reader(self):
         resp = self.get('shared-01', 'shared-secret')
         self.assertEqual(resp.status_code, 200)
-        self.assertEqual(resp.get_json(), {'room': None, 'now': None, 'next': None})
+        self.assertEqual(resp.get_json(), {'room': None, 'now': None, 'due': None, 'next': None})
 
 
 if __name__ == '__main__':

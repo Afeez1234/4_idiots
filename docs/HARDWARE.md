@@ -61,13 +61,15 @@ the Wi-Fi network for 4 s, to tell identical boards apart. `WAIT` has a
 progress bar filling over the 10 s code window, drawn by a small task on the
 other core because the main loop is blocked in the HTTPS request.
 
-**The class in its room.** Once a minute (when no phone is on the reader)
+**The class in its room.** Once a minute, or every 20 s while a class is live (when no phone is on the reader)
 the terminal asks `GET /api/v1/terminal/status`, which doubles as the
 keep-warm ping. While a class is live in the reader's room the idle screen
 shows the course code, `23 / 40 checked in`, `ends 11:00` and `TAP your
-phone`; with none, `NO CLASS` and the next class today (`Next: MCT 405`
-`at 14:00`). Its own NFC taps bump the count at once; the minute refresh
-corrects it for Bluetooth and hand marks. A reader with no room on the
+phone`; a class timetabled for now that nobody has started shows its code,
+`Not started yet` and its times; with none, `NO CLASS` and the next class today (`Next: MCT 405`
+`at 14:00`). Its own NFC taps bump the count at once; the refresh
+catches up Bluetooth and hand marks, which never pass through the reader,
+within about 20 s. A reader with no room on the
 Terminals page (or on the old shared secret) keeps the plain `TAP` screen,
 and its boot screen says `Room not set`. Needs the **ArduinoJson 7.x**
 library. The pre-tap warm-up stays on `/healthz`, which skips the database.
@@ -185,6 +187,8 @@ only works with the right positions.
 | TLS | Server certificate verified against the core's CA bundle (chain + hostname, not expiry) | Stops a fake server on the venue Wi-Fi collecting the terminal secret. Was `setInsecure()` |
 | Wi-Fi at boot | Waits 20 s at most, then carries on offline and retries every 5 s | Used to loop forever and wedge the board until a power cycle |
 | Which Wi-Fi | Background scan, joins the listed network with the strongest signal, falls back to the next if it refuses (10 s each). Never switches while connected | A blocking scan (the core's `WiFiMulti`) would freeze tap reading for 2–4 s on every retry during an outage |
+| Clock | NTP at boot; until NTP has synced once, set from the server's `Date` header on each status answer (logs `[TIME] Clock set from the server`) | Some campus networks block NTP. With no clock the Bluetooth code can't be built, so Bluetooth check-in would silently stop, not just the screen's clock |
+| Screen lost mid-run | Each frame first checks the screen still answers; if not, the screen is switched off (`[OLED] Screen stopped answering`) and looked for every 30 s (`[OLED] Screen back`). I²C transfers time out after 20 ms | A loose screen wire made every redraw wait on I²C timeouts, including `Checking...` just before a check-in POST, inside the 10 s window |
 | Wi-Fi with no internet | 3 requests in a row with no answer at all (not an HTTP error) → that network is skipped for 10 min and the terminal moves on. Pings every 30 s while failing. Only with 2+ networks listed | A hotspot out of data joins fine and then fails every request. With one network there's nowhere to move, and the server being down looks the same |
 | Wi-Fi + BLE | Share one radio (coexistence is handled by the ESP32 core) | **FILL IN:** whether BLE has ever dropped out during uploads. Also note the lowest `[HEAP] lowest-ever` value seen after a run of taps |
 

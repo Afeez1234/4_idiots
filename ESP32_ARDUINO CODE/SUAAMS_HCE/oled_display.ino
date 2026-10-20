@@ -32,7 +32,16 @@
 
 TwoWire oledWire = TwoWire(1);
 Adafruit_SSD1306 oled(OLED_WIDTH, OLED_HEIGHT, &oledWire, -1);
-bool oledOk = false;
+// True while a screen is answering. Written under oledLock; a screen that
+// stops answering mid-run (a wire worked loose) flips it back to false --
+// see oledStillThere().
+volatile bool oledOk = false;
+uint8_t oledAddr = 0;             // 0x3C or 0x3D once found
+unsigned long oledLastProbe = 0;  // when we last looked for a missing screen
+// How often to look for a screen that's missing (never found, or lost).
+// Looking costs a fraction of a millisecond, so reconnecting a loose wire
+// brings the screen back within this long, with no reboot.
+const unsigned long OLED_REPROBE_MS = 30000;
 
 // How long a tap's result stays up before going back to the idle screen.
 const unsigned long OLED_RESULT_MS = 3000;
@@ -85,7 +94,7 @@ void oledBarTask(void*) {
     xSemaphoreTake(oledLock, portMAX_DELAY);
     // Re-checked under the lock: a result may have replaced the screen
     // while we waited for it.
-    if (oledWaitStart) {
+    if (oledWaitStart && oledOk && oledStillThere()) {
       unsigned long elapsed = millis() - oledWaitStart;
       int16_t fill = elapsed >= OLED_BAR_FULL_MS
                          ? OLED_BAR_W - 2
@@ -97,39 +106,90 @@ void oledBarTask(void*) {
   }
 }
 
-void oledBegin() {
-  oledWire.begin(OLED_SDA_PIN, OLED_SCL_PIN, 400000);
+// Does a screen answer at `addr`? One empty I2C write: a fraction of a
+// millisecond either way, since a missing device simply doesn't acknowledge.
+bool oledProbe(uint8_t addr) {
+  oledWire.beginTransmission(addr);
+  return oledWire.endTransmission() == 0;
+}
 
-  // Ask the bus first. oled.begin() only reports whether it could allocate
-  // its frame buffer -- it never checks that a screen answered -- so on its
-  // own it says "ready" with nothing wired up at all. 0x3C is the usual
-  // address; some boards are strapped to 0x3D.
-  uint8_t addr = 0;
-  for (uint8_t candidate : {0x3C, 0x3D}) {
-    oledWire.beginTransmission(candidate);
-    if (oledWire.endTransmission() == 0) { addr = candidate; break; }
-  }
+// Finds the screen and starts it. Used at boot and to bring a lost screen
+// back. Ask the bus first: oled.begin() only reports whether it could
+// allocate its frame buffer -- it never checks that a screen answered -- so
+// on its own it says "ready" with nothing wired up at all. 0x3C is the usual
+// address; some boards are strapped to 0x3D.
+bool oledAttach(bool atBoot) {
+  uint8_t addr = oledProbe(0x3C) ? 0x3C : (oledProbe(0x3D) ? 0x3D : 0);
   if (!addr) {
-    Serial.println("[OLED] No screen answered on GPIO 25 (SDA) / 26 (SCL) -- carrying on without it."
-                   " Run OLED_Test to find it.");
-    return;
+    if (atBoot) {
+      Serial.println("[OLED] No screen answered on GPIO 25 (SDA) / 26 (SCL) -- carrying on without it."
+                     " Run OLED_Test to find it. Will keep looking every 30 s.");
+    }
+    return false;
   }
-
-  oledOk = oled.begin(SSD1306_SWITCHCAPVCC, addr);
-  if (!oledOk) {
+  // Re-running begin() after a loss re-sends the screen's start-up commands
+  // (a screen that lost power forgets them) and reuses the frame buffer.
+  if (!oled.begin(SSD1306_SWITCHCAPVCC, addr)) {
     Serial.println("[OLED] Screen found but couldn't allocate its buffer -- carrying on without it");
-    return;
+    return false;
   }
-  Serial.printf("[OLED] Screen ready at 0x%02X\n", addr);
-  oledLastActivity = millis();
   // A long network name or terminal ID is cut off at the edge rather than
   // wrapping onto the line below it.
   oled.setTextWrap(false);
+  oledAddr = addr;
+  oledOk = true;
+  oledMode = OLED_IDLE;
+  oledIdleDrawn = 0xFFFFFFFF;  // draw everything afresh
+  oledLastActivity = millis();
+  Serial.printf("[OLED] Screen %s at 0x%02X\n", atBoot ? "ready" : "back", addr);
+  return true;
+}
 
-  // Core 0, beside the Wi-Fi stack; loop() runs on core 1. The task sleeps
-  // unless "Checking..." is up, so it costs nothing the rest of the time.
+// Is the screen still answering? Called under oledLock before every frame.
+// A screen whose wire has worked loose would otherwise make every frame
+// wait on I2C timeouts -- including "Checking...", drawn just before a
+// check-in POST, inside the student's 10-second window. So the first frame
+// that finds it gone switches the screen off, and oledUpdate() looks for it
+// again every OLED_REPROBE_MS.
+bool oledStillThere() {
+  if (oledProbe(oledAddr)) return true;
+  oledOk = false;
+  oledWaitStart = 0;
+  oledLastProbe = millis();
+  Serial.println("[OLED] Screen stopped answering -- switched off; will look for it every 30 s");
+  return false;
+}
+
+// Takes the lock and starts a full frame, or returns false (lock released)
+// when there's no screen to draw on. Every full redraw starts here, and
+// clears any progress bar in the same locked step, so the bar task can't
+// paint over a screen that has just replaced "Checking...".
+bool oledFrameStart(bool dimmed) {
+  xSemaphoreTake(oledLock, portMAX_DELAY);
+  oledWaitStart = 0;
+  if (!oledOk || !oledStillThere()) {
+    xSemaphoreGive(oledLock);
+    return false;
+  }
+  oledSetDimmed(dimmed);
+  oled.clearDisplay();
+  return true;
+}
+
+void oledBegin() {
+  oledWire.begin(OLED_SDA_PIN, OLED_SCL_PIN, 400000);
+  // Bound how long one I2C transfer may hang (a bus held low by a damaged
+  // screen), so the worst case is short even before oledStillThere() acts.
+  oledWire.setTimeOut(20);
+
+  // The lock and the progress-bar task exist even with no screen yet, so a
+  // screen plugged in later just works. Core 0, beside the Wi-Fi stack;
+  // loop() runs on core 1. The task sleeps unless "Checking..." is up.
   oledLock = xSemaphoreCreateMutex();
   xTaskCreatePinnedToCore(oledBarTask, "oledBar", 3072, nullptr, 1, nullptr, 0);
+
+  oledLastProbe = millis();
+  oledAttach(true);
 }
 
 // Idle brightness. Not the library's dim(): that sets contrast 0, which on
@@ -275,10 +335,7 @@ void oledDrawStatusLine(int16_t dx) {
 // paint a bar over a screen that has just replaced "Checking...".
 void oledDraw(uint8_t face, const char* title, const char* line1, const char* line2,
               int16_t dx, int16_t dy, bool dimmed, bool waiting) {
-  xSemaphoreTake(oledLock, portMAX_DELAY);
-  oledWaitStart = 0;
-  oledSetDimmed(dimmed);
-  oled.clearDisplay();
+  if (!oledFrameStart(dimmed)) return;
   oled.setTextColor(SSD1306_WHITE);
   oledDrawStatusLine(dx);
   oledDrawFace(18 + dx, 38 + dy, face);
@@ -306,11 +363,10 @@ void oledDraw(uint8_t face, const char* title, const char* line1, const char* li
 //           23 / 40 checked in                Next: MCT 405
 //           ends 11:00                        at 14:00
 //           TAP your phone                    (or "Nothing else today")
+//
+//   timetabled now, not started:  MCT 401 / Not started yet / 09:00 - 11:00
 void oledDrawDoor(int16_t dx, int16_t dy, bool dimmed) {
-  xSemaphoreTake(oledLock, portMAX_DELAY);
-  oledWaitStart = 0;
-  oledSetDimmed(dimmed);
-  oled.clearDisplay();
+  if (!oledFrameStart(dimmed)) return;
   oled.setTextColor(SSD1306_WHITE);
   oledDrawStatusLine(dx);
 
@@ -336,6 +392,18 @@ void oledDrawDoor(int16_t dx, int16_t dy, bool dimmed) {
     }
     oled.setCursor(dx, 55 + dy);
     oled.print("TAP your phone");
+  } else if (door.hasDue) {
+    // Timetabled now, not started: tell the students at the door it's
+    // coming, rather than "NO CLASS" while they wait for the lecturer.
+    oled.setTextSize(2);
+    oled.setCursor(dx, 14 + dy);
+    oled.print(door.dueCourse);
+    oled.setTextSize(1);
+    oled.setCursor(dx, 36 + dy);
+    oled.print("Not started yet");
+    snprintf(line, sizeof(line), "%s - %s", door.dueStarts, door.dueEnds);
+    oled.setCursor(dx, 47 + dy);
+    oled.print(line);
   } else {
     oled.setTextSize(2);
     oled.setCursor(dx, 14 + dy);
@@ -569,10 +637,7 @@ void oledDrawDiag() {
       break;
   }
 
-  xSemaphoreTake(oledLock, portMAX_DELAY);
-  oledWaitStart = 0;
-  oledSetDimmed(false);
-  oled.clearDisplay();
+  if (!oledFrameStart(false)) return;
   oled.setTextSize(1);
   // Header in reverse video so it reads as "this isn't the normal screen".
   oled.fillRect(0, 0, OLED_WIDTH, 9, SSD1306_WHITE);
@@ -607,7 +672,18 @@ void oledDiagButton() {
 // screen current. Cheap when nothing changed. Only call this with no phone
 // in the field: a redraw takes ~25 ms.
 void oledUpdate() {
-  if (!oledOk) return;
+  if (!oledOk) {
+    // No screen right now (never found, or lost): look again now and then.
+    if (millis() - oledLastProbe >= OLED_REPROBE_MS) {
+      oledLastProbe = millis();
+      xSemaphoreTake(oledLock, portMAX_DELAY);
+      bool back = oledAttach(false);
+      xSemaphoreGive(oledLock);
+      if (!back) return;
+    } else {
+      return;
+    }
+  }
 
   if (oledMode == OLED_DIAG) {
     if (millis() >= oledDiagUntil) {

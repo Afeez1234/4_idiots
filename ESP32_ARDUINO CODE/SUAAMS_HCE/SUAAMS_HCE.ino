@@ -38,6 +38,7 @@
 #include <NimBLEDevice.h>     // Library Manager: "NimBLE-Arduino" (2.x)
 #include "mbedtls/md.h"       // HMAC-SHA256, built into the ESP32 core
 #include <ArduinoJson.h>      // Library Manager: "ArduinoJson" (7.x), for /terminal/status
+#include "esp_sntp.h"         // to know whether NTP has ever synced (see clock fallback)
 
 #include "secrets.h"  // WiFi + terminal credentials. NOT in git.
 
@@ -160,6 +161,8 @@ const uint16_t HTTP_TIMEOUT_MS = 6000;
 // a tap's 10-second window shouldn't wait on a query.
 const unsigned long WARM_PING_INTERVAL_MS = 60UL * 1000UL;  // 1 minute
 const uint16_t WARM_PING_TIMEOUT_MS = 5000;
+// The same request, more often while a class is live (see maybeKeepBackendWarm).
+const unsigned long DOOR_LIVE_REFRESH_MS = 20UL * 1000UL;
 
 // What the door screen shows, from the last /terminal/status answer. See
 // terminal_status.py on the server for the meaning of each field. `version`
@@ -173,6 +176,10 @@ struct DoorStatus {
   uint16_t present = 0;
   uint16_t enrolled = 0;
   uint8_t more = 0;        // other live classes in the same room
+  bool hasDue = false;     // timetabled for now, but nobody has started it
+  char dueCourse[16] = "";
+  char dueStarts[6] = "";
+  char dueEnds[6] = "";
   bool hasNext = false;
   char nextCourse[16] = "";
   char nextStarts[6] = "";
@@ -969,6 +976,51 @@ String statusUrl() {
 #endif
 }
 
+// ---- Clock fallback: the server's Date header --------------------------
+// The clock normally comes from NTP (configTime in setup). Some campus
+// networks block NTP, and then the clock never sets -- which matters far
+// beyond the screen's `--:--`: the Bluetooth code is built from the time
+// slot, so with no clock no Bluetooth check-in can work. Every HTTP answer
+// carries the server's time in its Date header, so until NTP has synced
+// at least once, each status answer sets the clock from that. Accurate to
+// about a second, well inside the 5-second Bluetooth slot (the server also
+// accepts the previous slot).
+volatile bool ntpSynced = false;
+
+// Days from 1970-01-01 to y-m-d (proleptic Gregorian), without leaning on
+// the C library's time-zone handling.
+long daysFromCivil(int y, unsigned m, unsigned d) {
+  y -= m <= 2;
+  const long era = (y >= 0 ? y : y - 399) / 400;
+  const unsigned yoe = (unsigned)(y - era * 400);
+  const unsigned doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+  const unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+  return era * 146097 + (long)doe - 719468;
+}
+
+// "Tue, 20 Oct 2026 10:00:00 GMT" -> unix time, or 0 if it doesn't parse.
+time_t parseHttpDate(const String& date) {
+  int day, year, hh, mm, ss;
+  char mon[4] = "";
+  if (sscanf(date.c_str(), "%*3s, %d %3s %d %d:%d:%d", &day, mon, &year, &hh, &mm, &ss) != 6) return 0;
+  static const char* const months = "JanFebMarAprMayJunJulAugSepOctNovDec";
+  const char* at = strstr(months, mon);
+  if (!at || mon[0] == '\0') return 0;
+  unsigned month = (at - months) / 3 + 1;
+  return (time_t)daysFromCivil(year, month, day) * 86400 + hh * 3600 + mm * 60 + ss;
+}
+
+void maybeSetClockFromServer(const String& date) {
+  if (ntpSynced || date.length() == 0) return;
+  time_t serverNow = parseHttpDate(date);
+  if (serverNow < 1700000000) return;
+  time_t ours = time(nullptr);
+  if (ours >= 1700000000 && labs((long)(serverNow - ours)) <= 2) return;  // close enough
+  struct timeval tv = {serverNow, 0};
+  settimeofday(&tv, nullptr);
+  Serial.println("[TIME] Clock set from the server (NTP hasn't synced -- blocked on this network?)");
+}
+
 void copyField(char* out, size_t outLen, const char* value) {
   strncpy(out, value ? value : "", outLen - 1);
   out[outLen - 1] = '\0';
@@ -986,10 +1038,14 @@ void fetchDoorStatus() {
   http.setTimeout(WARM_PING_TIMEOUT_MS);
   http.addHeader("X-Terminal-Id", TERMINAL_ID);
   http.addHeader("X-Terminal-Secret", TERMINAL_SECRET);
+  // HTTPClient drops response headers unless asked to keep them.
+  const char* keepHeaders[] = {"Date"};
+  http.collectHeaders(keepHeaders, 1);
 
   unsigned long t0 = millis();
   int code = http.GET();
   String body = (code > 0) ? http.getString() : String();
+  if (code > 0) maybeSetClockFromServer(http.header("Date"));
   unsigned long dur = millis() - t0;
   http.end();
   noteServerReply(code);
@@ -1024,6 +1080,13 @@ void fetchDoorStatus() {
     next.enrolled = now["enrolled"] | 0;
     next.more = now["more"] | 0;
   }
+  JsonVariant due = doc["due"];
+  if (!due.isNull()) {
+    next.hasDue = true;
+    copyField(next.dueCourse, sizeof(next.dueCourse), due["course_code"] | "");
+    copyField(next.dueStarts, sizeof(next.dueStarts), due["starts"] | "");
+    copyField(next.dueEnds, sizeof(next.dueEnds), due["ends"] | "");
+  }
   JsonVariant upcoming = doc["next"];
   if (!upcoming.isNull()) {
     next.hasNext = true;
@@ -1055,7 +1118,14 @@ void maybeKeepBackendWarm(bool force = false) {
   // While requests on this network are getting no answer, ping every 30 s,
   // so a network with no internet is confirmed (NETWORK_DEAD_STRIKES pings)
   // in about a minute and a half and the terminal moves on to another one.
-  unsigned long interval = networkStrikes > 0 ? 30000UL : WARM_PING_INTERVAL_MS;
+  //
+  // During a live class, every 20 s: Bluetooth check-ins never pass through
+  // the terminal, so the refresh is the only way its count catches up, and
+  // a minute behind looked broken. Each refresh holds loop() for a few
+  // hundred ms with an empty field -- under 2% of the time at 20 s.
+  unsigned long interval = networkStrikes > 0 ? 30000UL
+                         : door.live          ? DOOR_LIVE_REFRESH_MS
+                                              : WARM_PING_INTERVAL_MS;
   if (!force && lastWarmPing != 0 && millis() - lastWarmPing < interval) {
     return;
   }
@@ -1371,6 +1441,12 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
 // beside its variables: the Arduino builder puts its generated prototypes
 // just before the FIRST function in the file, and up there they'd come
 // before the Bluetooth constants some of those prototypes use.
+// Called by the SNTP client each time NTP sets the clock.
+void onNtpSync(struct timeval*) {
+  if (!ntpSynced) Serial.println("[TIME] NTP synced");
+  ntpSynced = true;
+}
+
 void IRAM_ATTR onDiagButton() {
   unsigned long now = millis();
   if (now - diagButtonLastEdge > 250) {  // ignore contact bounce
@@ -1434,6 +1510,9 @@ void setup() {
   // and the ESP32 keeps counting between syncs, so a Wi-Fi drop doesn't
   // stop broadcasting.
   configTime(0, 0, "pool.ntp.org", "time.google.com");
+  // Note the first real NTP sync; until then the server's Date header sets
+  // the clock instead (see maybeSetClockFromServer).
+  sntp_set_time_sync_notification_cb(onNtpSync);
   // Warm the backend as the LAST thing at boot. This used to wait out a
   // full WARM_PING_INTERVAL_MS before the first ping ever fired, because
   // lastWarmPing starts at 0 and millis() starts near 0 -- so the very
