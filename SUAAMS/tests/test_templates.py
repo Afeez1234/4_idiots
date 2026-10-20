@@ -199,7 +199,7 @@ VERIFIED_MATERIAL_SYMBOLS = {
     "groups_2", "history", "info", "layers", "left_panel_close", "lock",
     "login", "logout", "menu", "person", "play_circle", "schedule",
     "school", "sensors", "stop_circle", "summarize", "task_alt",
-    "visibility", "visibility_off", "warning", "workspace_premium",
+    "visibility", "visibility_off", "warning",
     # `inbox` is the empty_state() macro's default only -- no page passes it.
     "inbox",
     # "Accept all" on the lecturer's offline-tap review. Checked 2026-10-12
@@ -217,6 +217,10 @@ VERIFIED_MATERIAL_SYMBOLS = {
     "key", "nfc", "domain", "domain_disabled", "event", "event_busy",
     "event_note", "group", "groups", "how_to_reg", "insights", "query_stats",
     "search_off", "verified", "event_available", "trending_up", "trending_down",
+    # Admin rail, 2026-10-19: HODs (was workspace_premium, a medal -- read as
+    # an award) and Activity (was history, the same glyph as the two history
+    # pages, for what is an audit log). Rendered and looked at that day.
+    "supervisor_account", "manage_history",
 }
 
 # The icon passed positionally to the macros that take one: the second

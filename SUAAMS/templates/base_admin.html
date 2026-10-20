@@ -37,15 +37,15 @@
     {{ rail_section("People", "people") }}
     <div class="space-y-1" id="rail-sec-people" data-rail-group="people">
       <a href="{{ url_for('admin.lecturers_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'lecturers' }}" {% if active_page == 'lecturers' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">school</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">co_present</span>
         <span class="rail-label">Lecturers</span>
       </a>
       <a href="{{ url_for('admin.students_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'students' }}" {% if active_page == 'students' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">groups_2</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">school</span>
         <span class="rail-label">Students</span>
       </a>
       <a href="{{ url_for('admin.hods_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'hods' }}" {% if active_page == 'hods' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">workspace_premium</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">supervisor_account</span>
         <span class="rail-label">HODs</span>
       </a>
     </div>
@@ -108,7 +108,7 @@
     {{ rail_section("Oversight", "oversight") }}
     <div class="space-y-1" id="rail-sec-oversight" data-rail-group="oversight">
       <a href="{{ url_for('admin.activity_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'activity' }}" {% if active_page == 'activity' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">history</span>
+        <span class="material-symbols-rounded text-xl" aria-hidden="true">manage_history</span>
         <span class="rail-label">Activity</span>
       </a>
     </div>
