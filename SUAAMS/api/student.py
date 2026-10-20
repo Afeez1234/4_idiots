@@ -636,6 +636,18 @@ def submit_ble_checkin():
         # almost always old -- the app rescans and retries.
         return jsonify({"error": "Invalid or expired code", "reason": "invalid_code"}), 401
 
+    # A genuine code from a reader an admin has disabled: refused before
+    # anything else, whatever session is running. See
+    # terminal_rooms.ble_reader_disabled for why the signature alone isn't
+    # enough. The app shows this message as-is for a reason it doesn't
+    # know, so it's written for the student.
+    if terminal_rooms.ble_reader_disabled(terminal):
+        current_app.logger.warning("BLE check-in refused: code from disabled reader number %s", terminal)
+        return jsonify({
+            "error": "This reader has been taken out of service. Ask your lecturer to mark you present.",
+            "reason": "reader_disabled",
+        }), 403
+
     # RSSI is phone-reported and therefore spoofable -- logged for
     # diagnostics and calibration only, never used to decide anything.
     current_app.logger.info(

@@ -120,6 +120,20 @@ def terminal_for_ble(number):
     return Terminal.query.filter_by(ble_number=number, is_active=True).first()
 
 
+def ble_reader_disabled(number):
+    """True if Bluetooth number `number` belongs to a reader an admin has
+    DISABLED on the Terminals page.
+
+    A Bluetooth code is checked against BLE_BEACON_SECRET, which every
+    reader shares, so a disabled (lost, stolen, decommissioned) board keeps
+    broadcasting codes that verify. terminal_for_ble() skips disabled
+    readers, which made such a code look like one from an unregistered
+    reader: accepted, with no room check. This is the check that refuses
+    it. A number no reader is registered under is still accepted, for the
+    changeover -- the same rule as the shared NFC secret."""
+    return Terminal.query.filter_by(ble_number=number, is_active=False).first() is not None
+
+
 def normalize_room(room):
     return re.sub(r'[^A-Z0-9]', '', (room or '').upper())
 

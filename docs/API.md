@@ -48,7 +48,7 @@ end for completeness.
 - **Caller:** app. **Auth:** JWT (student). **Limit:** 10/min.
 - **Request:** `{"payload": "<28 hex chars = 14 bytes>", "rssi": -70}` (`rssi` is optional and only logged)
 - **200:** `{"success": true, "message": "...", "course_code": "..."}`. A single definite answer, so no polling.
-- **400** payload not hex · **401** `{"reason": "invalid_code"}` (forged, malformed or old) · **404** `{"reason": "no_active_session"}` · **409** `{"reason": "wrong_room"}` (enforce mode; the reader is found by the Bluetooth number inside the code) · **503** BLE disabled
+- **400** payload not hex · **401** `{"reason": "invalid_code"}` (forged, malformed or old) · **403** `{"reason": "reader_disabled"}` (the Bluetooth number inside the code belongs to a reader disabled on the Terminals page; a number no reader is registered under is still accepted) · **404** `{"reason": "no_active_session"}` · **409** `{"reason": "wrong_room"}` (enforce mode; the reader is found by the Bluetooth number inside the code) · **503** BLE disabled
 
 ### `POST /api/v1/student/checkin/backlog`: offline taps
 - **Caller:** terminal. **Auth:** Terminal. **Limit:** 30/min per IP. **Max** 50 records.

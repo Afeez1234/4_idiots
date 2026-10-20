@@ -199,14 +199,43 @@ class TerminalRoomsTestCase(unittest.TestCase):
         self.tap('T-02')
         self.assertIs(self.attendance().wrong_room, False)
 
-    def test_bluetooth_finds_its_reader_by_number(self):
-        payload = ble_beacon.build_payload(2, ble_beacon.current_slot())   # LT 2's code
+    def ble_checkin(self, number):
+        payload = ble_beacon.build_payload(number, ble_beacon.current_slot())
         token = create_access_token(identity=str(self.student.user_id), additional_claims={'role': 'student'})
-        resp = self.client.post('/api/v1/student/checkin/ble', json={'payload': payload.hex()},
+        return self.client.post('/api/v1/student/checkin/ble', json={'payload': payload.hex()},
                                 headers={'Authorization': f'Bearer {token}'})
+
+    def test_bluetooth_finds_its_reader_by_number(self):
+        resp = self.ble_checkin(2)   # LT 2's code
         self.assertEqual(resp.status_code, 200)
         record = self.attendance()
         self.assertEqual((record.terminal_id, record.wrong_room), (self.lt2.id, True))
+
+    def test_bluetooth_code_from_a_disabled_reader_is_refused(self):
+        # A lost or stolen board keeps broadcasting codes that verify
+        # (the Bluetooth secret is shared); disabling it must stop them,
+        # not turn them into unflagged check-ins from an "unknown" reader.
+        self.lt1.is_active = False
+        db.session.commit()
+        resp = self.ble_checkin(1)
+        self.assertEqual((resp.status_code, resp.get_json()['reason']), (403, 'reader_disabled'))
+        self.assertIsNone(self.attendance())
+
+    def test_bluetooth_works_again_once_the_reader_is_enabled(self):
+        self.lt1.is_active = False
+        db.session.commit()
+        self.ble_checkin(1)
+        self.lt1.is_active = True
+        db.session.commit()
+        self.assertEqual(self.ble_checkin(1).status_code, 200)
+
+    def test_bluetooth_number_no_reader_has_is_still_accepted(self):
+        # The changeover: a board on the shared secret whose number nobody
+        # has registered yet. Accepted, never room-flagged.
+        resp = self.ble_checkin(9)
+        self.assertEqual(resp.status_code, 200)
+        record = self.attendance()
+        self.assertEqual((record.terminal_id, record.wrong_room), (None, None))
 
     def test_offline_tap_carries_the_flag_through_review(self):
         expired = mint_beacon(self.student.id, self.session.id, ttl_seconds=-1)
