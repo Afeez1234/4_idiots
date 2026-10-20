@@ -72,6 +72,20 @@ Terminals page (or on the old shared secret) keeps the plain `TAP` screen,
 and its boot screen says `Room not set`. Needs the **ArduinoJson 7.x**
 library. The pre-tap warm-up stays on `/healthz`, which skips the database.
 
+**Diagnostic screen: press BOOT.** BOOT only matters while the chip starts
+up, so after boot it opens four pages (press again for the next; 15 s
+without a press returns to normal; a tap's result still shows over it).
+For a reader acting up in a hall, have someone read these out:
+
+| Page | Shows |
+|---|---|
+| 1 Wi-Fi | network, signal in dBm, IP, which listed network (and channel), no-internet strikes |
+| 2 Server | ON/OFF, last answer ago, last HTTP code (negative = no answer: -1 connect/TLS, -11 timeout), last check-in POST time, TLS error count |
+| 3 Reader | terminal ID, room (or `not set`), Bluetooth number on/off, PN532 firmware, build date, uptime, free and lowest heap |
+| 4 Taps | since boot: read, recorded, rejected, saved offline; queue now; last upload's code and age |
+
+No secrets or Wi-Fi passwords are shown.
+
 The top row is permanent, for a lecturer's glance: Wi-Fi signal bars (an x
 when not connected), `ON`/`OFF` for whether the **server** answered within
 the last ping interval plus a minute (being on Wi-Fi isn't enough), campus

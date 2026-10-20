@@ -180,6 +180,34 @@ struct DoorStatus {
 };
 DoorStatus door;
 
+// Counters for the diagnostic screen (press BOOT; oled_display.ino). Most
+// of this was only ever printed to the serial log, which needs a laptop at
+// the door; kept here so someone at the reader can read it out instead.
+// All since boot.
+struct Diagnostics {
+  uint32_t tapsRead = 0;     // a code was read off a phone
+  uint32_t recorded = 0;     // the server said recorded or already marked
+  uint32_t rejected = 0;     // the server gave any other answer
+  uint32_t queued = 0;       // saved offline for later upload
+  int lastServerCode = 0;    // last HTTP code from any request; <0 = no answer; 0 = none yet
+  unsigned long lastPostMs = 0;   // how long the last check-in POST took
+  uint16_t tlsErrors = 0;
+  uint8_t pn532Major = 0, pn532Minor = 0;
+  int lastFlushCode = 0;          // last offline-upload result; 0 = never tried
+  unsigned long lastFlushAt = 0;
+};
+Diagnostics diag;
+
+// The BOOT button (GPIO 0, low when pressed). It only matters to the chip
+// while it's starting up; after that it's an ordinary input, so it opens
+// the diagnostic screen without any extra wiring. An interrupt rather than
+// polling: inListPassiveTarget() can hold loop() for about a second, long
+// enough to miss a quick press.
+#define DIAG_BUTTON_PIN 0
+volatile bool diagButtonPressed = false;
+volatile unsigned long diagButtonLastEdge = 0;
+
+
 // How long a successful /healthz ping is trusted to mean "the next request
 // will be fast". Sits inside the 4-minute idle ping interval on purpose:
 // during an active demo the pre-flight check in ensureBackendWarmForPost()
@@ -653,6 +681,7 @@ void wifiStep() {
 // top of whatever outage is already happening -- including the server
 // itself being down, which looks the same from here.
 void noteServerReply(int httpCode) {
+  diag.lastServerCode = httpCode;
   if (httpCode > 0) {
     networkStrikes = 0;
     return;
@@ -832,6 +861,7 @@ void logTlsError(WiFiClientSecure& client, const char* tag) {
   char buf[100];
   int err = client.lastError(buf, sizeof(buf));
   if (err != 0) {
+    diag.tlsErrors++;
     Serial.printf("[%s] TLS error %d: %s\n", tag, err, buf);
   }
 }
@@ -899,6 +929,8 @@ bool flushBacklog() {
   int code = http.POST(payload);
   String body = http.getString();
   noteServerReply(code);
+  diag.lastFlushCode = code;
+  diag.lastFlushAt = millis();
   http.end();
 
   if (code < 0) {
@@ -1191,6 +1223,7 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
     // see a genuine tap happened even though it can't become attendance.
     Serial.println("[POST] No WiFi -- queuing capture for later sync");
     appendToBacklog(token, readAt);
+    diag.queued++;
     oledShowQueued();
     return;
   }
@@ -1255,6 +1288,7 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
     unsigned long postStart = millis();
     int httpResponseCode = http.POST(payload);
     unsigned long postDuration = millis() - postStart;
+    diag.lastPostMs = postDuration;
 
     String responseBody = http.getString();
 
@@ -1302,6 +1336,7 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
       logTlsError(client, "POST");
       appendToBacklog(token, readAt);
       noteServerReply(httpResponseCode);
+      diag.queued++;
       oledShowQueued();
       return;
     }
@@ -1314,6 +1349,7 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
     }
     // Any real HTTP status means the backend WAS reachable, so this isn't an
     // outage and must not be queued -- the server has given its answer.
+    if (httpResponseCode >= 200 && httpResponseCode < 300) diag.recorded++; else diag.rejected++;
     oledShowServerAnswer(httpResponseCode, responseBody);
     return;
   }
@@ -1325,10 +1361,23 @@ void submitBeaconToken(const String &token, unsigned long readAt) {
   // One strike for the whole tap, not one per retry: the retries exist to
   // ride out a marginal link, and shouldn't use up all the strikes at once.
   noteServerReply(-1);
+  diag.queued++;
   oledShowQueued();
 }
 
 // ---------------- Setup / loop ----------------
+
+// BOOT button interrupt (see DIAG_BUTTON_PIN). Defined down here rather than
+// beside its variables: the Arduino builder puts its generated prototypes
+// just before the FIRST function in the file, and up there they'd come
+// before the Bluetooth constants some of those prototypes use.
+void IRAM_ATTR onDiagButton() {
+  unsigned long now = millis();
+  if (now - diagButtonLastEdge > 250) {  // ignore contact bounce
+    diagButtonPressed = true;
+  }
+  diagButtonLastEdge = now;
+}
 
 void setup() {
   Serial.begin(115200);
@@ -1360,11 +1409,17 @@ void setup() {
     }
   }
   Serial.print("[BOOT] Found PN532, firmware v");
+  diag.pn532Major = (versiondata >> 16) & 0xFF;
+  diag.pn532Minor = (versiondata >> 8) & 0xFF;
   Serial.print((versiondata >> 16) & 0xFF, DEC);
   Serial.print('.');
   Serial.println((versiondata >> 8) & 0xFF, DEC);
 
   nfc.SAMConfig();
+
+  // BOOT opens the diagnostic screen from here on (see onDiagButton).
+  pinMode(DIAG_BUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(DIAG_BUTTON_PIN), onDiagButton, FALLING);
 
   // Restore any captures queued before the last power cycle, BEFORE going
   // live, so taps that happened during an outage aren't sitting in flash
@@ -1421,6 +1476,11 @@ void loop() {
   if (!targetInField) {
     // Screen redraws (~25 ms) only happen here, never with a phone in the
     // field. Returns at once when nothing on screen has changed.
+    // A BOOT press opens the diagnostic screen, or turns its page.
+    if (diagButtonPressed) {
+      diagButtonPressed = false;
+      oledDiagButton();
+    }
     oledUpdate();
 
     maybeKeepBackendWarm();
@@ -1464,6 +1524,7 @@ void loop() {
   Serial.println("ms");
 
   if (gotToken && token.length() > 0) {
+    diag.tapsRead++;
     if (token == lastSubmittedToken && millis() - lastSubmittedAt < SAME_CODE_WINDOW_MS) {
       // Same phone still on the reader -- already sent.
       Serial.println("[TAP] Same code as the last tap (phone still held) -- skipped");

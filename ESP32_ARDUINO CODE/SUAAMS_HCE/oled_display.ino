@@ -51,6 +51,7 @@ const uint8_t FACE_SLEEPY = 4;    // idle and dimmed
 
 const uint8_t OLED_IDLE = 0;
 const uint8_t OLED_RESULT = 1;  // a result or "checking", held for a while
+const uint8_t OLED_DIAG = 2;    // the diagnostic pages (BOOT button)
 uint8_t oledMode = OLED_IDLE;
 unsigned long oledResultUntil = 0;
 unsigned long oledLastActivity = 0;
@@ -476,11 +477,148 @@ void oledShowServerAnswer(int code, const String& body) {
   }
 }
 
+// ---- Diagnostic screen (press BOOT) ----
+// Four pages of what's otherwise only in the serial log, so a reader that
+// misbehaves in a lecture hall can be read out over the phone without a
+// laptop. BOOT opens page 1 and turns the page; 15 s without a press goes
+// back to the normal screen. A tap's result still replaces it, so a reader
+// left on this screen never misses a check-in. Nothing secret is shown:
+// no terminal secret, no Wi-Fi passwords.
+
+const unsigned long OLED_DIAG_TIMEOUT_MS = 15000;
+const uint8_t OLED_DIAG_PAGES = 4;
+uint8_t oledDiagPage = 0;
+unsigned long oledDiagUntil = 0;
+unsigned long oledDiagDrawnAt = 0;
+
+// "42s", "5m", "3h", "2d" -- short enough for a 21-character line.
+void formatAgo(char* out, size_t len, unsigned long ms) {
+  unsigned long s = ms / 1000;
+  if (s < 60) snprintf(out, len, "%lus", s);
+  else if (s < 3600) snprintf(out, len, "%lum", s / 60);
+  else if (s < 86400) snprintf(out, len, "%luh", s / 3600);
+  else snprintf(out, len, "%lud", s / 86400);
+}
+
+// One page: a header row, then up to six text rows of 21 characters.
+void oledDrawDiag() {
+  static const char* const titles[OLED_DIAG_PAGES] = {"Wi-Fi", "Server", "Reader", "Taps"};
+  char row[6][24];
+  for (uint8_t i = 0; i < 6; i++) row[i][0] = '\0';
+  char ago[8];
+
+  switch (oledDiagPage) {
+    case 0:  // Wi-Fi
+      if (wifiReady && WiFi.status() == WL_CONNECTED) {
+        snprintf(row[0], sizeof(row[0]), "%s", WiFi.SSID().c_str());
+        snprintf(row[1], sizeof(row[1]), "Signal %d dBm", (int)WiFi.RSSI());
+        snprintf(row[2], sizeof(row[2]), "IP %s", WiFi.localIP().toString().c_str());
+        snprintf(row[3], sizeof(row[3]), "Net %d of %u, ch %d",
+                 wifiCurrentNetwork + 1, KNOWN_NETWORK_COUNT, (int)WiFi.channel());
+      } else {
+        snprintf(row[0], sizeof(row[0]), "Not connected");
+        snprintf(row[1], sizeof(row[1]), "%u network(s) listed", KNOWN_NETWORK_COUNT);
+      }
+      snprintf(row[4], sizeof(row[4]), "No-internet %u/%u", networkStrikes, NETWORK_DEAD_STRIKES);
+      break;
+
+    case 1:  // Server
+      snprintf(row[0], sizeof(row[0]), "Server %s", serverReachable() ? "ON" : "OFF");
+      if (lastWarmPingOk) {
+        formatAgo(ago, sizeof(ago), millis() - lastWarmPingOk);
+        snprintf(row[1], sizeof(row[1]), "Last OK %s ago", ago);
+      } else {
+        snprintf(row[1], sizeof(row[1]), "Last OK never");
+      }
+      // Negative = no HTTP answer at all (-1 connect/TLS, -11 timeout).
+      if (diag.lastServerCode == 0) snprintf(row[2], sizeof(row[2]), "Code none yet");
+      else if (diag.lastServerCode < 0) snprintf(row[2], sizeof(row[2]), "Code %d (no answer)", diag.lastServerCode);
+      else snprintf(row[2], sizeof(row[2]), "Code %d", diag.lastServerCode);
+      if (diag.lastPostMs) snprintf(row[3], sizeof(row[3]), "Last post %lu ms", diag.lastPostMs);
+      else snprintf(row[3], sizeof(row[3]), "Last post none");
+      snprintf(row[4], sizeof(row[4]), "TLS errors %u", diag.tlsErrors);
+      break;
+
+    case 2: {  // This reader
+      snprintf(row[0], sizeof(row[0]), "%s", TERMINAL_ID);
+      snprintf(row[1], sizeof(row[1]), "Room %s",
+               !door.known ? "unknown" : (door.room[0] ? door.room : "not set"));
+      snprintf(row[2], sizeof(row[2]), "BT #%d %s  PN532 %u.%u", (int)BLE_TERMINAL_NUMBER,
+               bleAdvertising ? "on" : "off", diag.pn532Major, diag.pn532Minor);
+      snprintf(row[3], sizeof(row[3]), "Built %s", __DATE__);
+      unsigned long up = millis() / 1000;
+      snprintf(row[4], sizeof(row[4]), "Up %lud %02lu:%02lu:%02lu",
+               up / 86400, (up / 3600) % 24, (up / 60) % 60, up % 60);
+      snprintf(row[5], sizeof(row[5]), "Heap %uk, low %uk",
+               ESP.getFreeHeap() / 1024, ESP.getMinFreeHeap() / 1024);
+      break;
+    }
+
+    default:  // Taps
+      snprintf(row[0], sizeof(row[0]), "Read %lu", (unsigned long)diag.tapsRead);
+      snprintf(row[1], sizeof(row[1]), "Recorded %lu", (unsigned long)diag.recorded);
+      snprintf(row[2], sizeof(row[2]), "Rejected %lu", (unsigned long)diag.rejected);
+      snprintf(row[3], sizeof(row[3]), "Saved offline %lu", (unsigned long)diag.queued);
+      snprintf(row[4], sizeof(row[4]), "Queue now %u", backlogCount());
+      if (diag.lastFlushAt) {
+        formatAgo(ago, sizeof(ago), millis() - diag.lastFlushAt);
+        snprintf(row[5], sizeof(row[5]), "Upload %d, %s ago", diag.lastFlushCode, ago);
+      } else {
+        snprintf(row[5], sizeof(row[5]), "Upload none yet");
+      }
+      break;
+  }
+
+  xSemaphoreTake(oledLock, portMAX_DELAY);
+  oledWaitStart = 0;
+  oledSetDimmed(false);
+  oled.clearDisplay();
+  oled.setTextSize(1);
+  // Header in reverse video so it reads as "this isn't the normal screen".
+  oled.fillRect(0, 0, OLED_WIDTH, 9, SSD1306_WHITE);
+  oled.setTextColor(SSD1306_BLACK);
+  oled.setCursor(1, 1);
+  oled.printf("DIAG %u/%u %s", oledDiagPage + 1, OLED_DIAG_PAGES, titles[oledDiagPage]);
+  oled.setTextColor(SSD1306_WHITE);
+  for (uint8_t i = 0; i < 6; i++) {
+    oled.setCursor(0, 12 + i * 9);
+    oled.print(row[i]);
+  }
+  oled.display();
+  xSemaphoreGive(oledLock);
+  oledDiagDrawnAt = millis();
+}
+
+// Called from loop() on a BOOT press: open page 1, or turn the page.
+void oledDiagButton() {
+  if (!oledOk) return;
+  if (oledMode == OLED_DIAG) {
+    oledDiagPage = (oledDiagPage + 1) % OLED_DIAG_PAGES;
+  } else {
+    oledDiagPage = 0;
+    oledMode = OLED_DIAG;
+  }
+  oledDiagUntil = millis() + OLED_DIAG_TIMEOUT_MS;
+  oledLastActivity = millis();  // the button counts as activity: undim after
+  oledDrawDiag();
+}
+
 // Back to idle once a result has been up long enough, and keep the idle
 // screen current. Cheap when nothing changed. Only call this with no phone
 // in the field: a redraw takes ~25 ms.
 void oledUpdate() {
   if (!oledOk) return;
+
+  if (oledMode == OLED_DIAG) {
+    if (millis() >= oledDiagUntil) {
+      oledMode = OLED_IDLE;
+      oledIdleDrawn = 0xFFFFFFFF;  // fall through to a fresh idle screen
+    } else {
+      // Once a second, so uptime and "last answer Ns ago" keep moving.
+      if (millis() - oledDiagDrawnAt >= 1000) oledDrawDiag();
+      return;
+    }
+  }
 
   if (oledMode == OLED_RESULT) {
     if (oledResultUntil == 0 || millis() < oledResultUntil) return;
