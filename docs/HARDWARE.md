@@ -61,6 +61,17 @@ the Wi-Fi network for 4 s, to tell identical boards apart. `WAIT` has a
 progress bar filling over the 10 s code window, drawn by a small task on the
 other core because the main loop is blocked in the HTTPS request.
 
+**The class in its room.** Once a minute (when no phone is on the reader)
+the terminal asks `GET /api/v1/terminal/status`, which doubles as the
+keep-warm ping. While a class is live in the reader's room the idle screen
+shows the course code, `23 / 40 checked in`, `ends 11:00` and `TAP your
+phone`; with none, `NO CLASS` and the next class today (`Next: MCT 405`
+`at 14:00`). Its own NFC taps bump the count at once; the minute refresh
+corrects it for Bluetooth and hand marks. A reader with no room on the
+Terminals page (or on the old shared secret) keeps the plain `TAP` screen,
+and its boot screen says `Room not set`. Needs the **ArduinoJson 7.x**
+library. The pre-tap warm-up stays on `/healthz`, which skips the database.
+
 The top row is permanent, for a lecturer's glance: Wi-Fi signal bars (an x
 when not connected), `ON`/`OFF` for whether the **server** answered within
 the last ping interval plus a minute (being on Wi-Fi isn't enough), campus
@@ -102,6 +113,7 @@ only works with the right positions.
   old `secrets.h` without the BLE lines fails the build with a clear error.
 - **Libraries** (installed versions):
   - Adafruit SSD1306 **2.5.17** and Adafruit GFX **1.12.6**, for the OLED.
+  - ArduinoJson **7.4.3**, to read `/api/v1/terminal/status`.
     Needed to build even without a screen attached.
   - Adafruit PN532 **1.3.4**. In this version `inListPassiveTarget()` takes
     no arguments.
@@ -155,7 +167,7 @@ only works with the right positions.
 | BLE before NTP | Broadcasts nothing | A code from a 1970 clock would only be rejected |
 | BLE self-test | Known-answer check at boot; refuses to broadcast on mismatch | Proves firmware and server compute the same HMAC |
 | Offline queue | Up to 100 taps with their read time in NVS flash (survives power loss), oldest dropped when full, sent 25 at a time when the field is empty (every 30 s; 2 s between chunks). A server answer removes only that chunk | Stored as "pending verification". Expired codes must not become automatic attendance |
-| Keep-alive ping | At boot, every 4 minutes when idle, and before a POST if not confirmed warm in 60 s. Any real upload response also counts as "warm" | Render free tier sleeps and took 8.5 s to wake, longer than a code lasts |
+| Keep-alive ping | At boot and every minute when idle (`/api/v1/terminal/status`, which also feeds the screen), and `/healthz` before a POST if not confirmed warm in 60 s. Any real upload response also counts as "warm" | Render free tier sleeps and took 8.5 s to wake, longer than a code lasts |
 | TLS | Server certificate verified against the core's CA bundle (chain + hostname, not expiry) | Stops a fake server on the venue Wi-Fi collecting the terminal secret. Was `setInsecure()` |
 | Wi-Fi at boot | Waits 20 s at most, then carries on offline and retries every 5 s | Used to loop forever and wedge the board until a power cycle |
 | Which Wi-Fi | Background scan, joins the listed network with the strongest signal, falls back to the next if it refuses (10 s each). Never switches while connected | A blocking scan (the core's `WiFiMulti`) would freeze tap reading for 2–4 s on every retry during an outage |

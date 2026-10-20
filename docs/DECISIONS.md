@@ -140,9 +140,11 @@ if you know the date.
   measurement. A tap during a cold start is always rejected.
 - **Tried:** An external uptime pinger was considered. It needs another
   account and is easy to forget when the demo moves.
-- **Chose:** The terminal pings `/healthz` at boot, every 4 minutes when no
-  phone is in the field, and right before a POST if the server hasn't been
-  confirmed warm in the last 60 s.
+- **Chose:** The terminal pings the server at boot, every minute when no
+  phone is in the field (since 2026-10-20 that ping is `/api/v1/terminal/status`,
+  which also feeds the door screen; it was `/healthz` every 4 minutes), and
+  `/healthz` right before a POST if the server hasn't been confirmed warm in
+  the last 60 s.
 - **Trade-off:** It uses some terminal time and network. A paid tier would
   remove the problem.
 

@@ -57,8 +57,13 @@ end for completeness.
 - **200:** `{"success": true, "accepted": n, "received": n, "results": [{"beacon_token", "status": "pending_verification"|"superseded"|"rejected", "reason"?, "captured_at"?, ...}]}`
 - Creates rows in `offline_checkin_logs` and **never** in `attendance`. A lecturer turns them into attendance by reviewing them (see the lecturer `offline-taps` routes).
 
+### `GET /api/v1/terminal/status`: the reader's door screen
+- **Caller:** terminal, every 60 s when no phone is on the reader (it is also the keep-warm ping). **Auth:** Terminal. **Limit:** 10/min per terminal.
+- **200:** `{"room": "LT 1", "now": {"course_code", "ends": "HH:MM"|null, "present", "enrolled", "more"}|null, "next": {"course_code", "starts": "HH:MM"}|null}`
+- `now` is the live session in the reader's room (same loose room match as the wrong-room check); `present` counts present + late; `more` is other live classes in that room. `next` is today's earliest remaining published slot in that room, current semester only. All three null for a reader with no room, or one on the old shared secret. Course codes and counts only, never names. See `terminal_status.py`.
+
 ### `GET /healthz`
-- **Caller:** terminal keep-warm ping. **Auth:** none. **200:** `{"status": "ok"}`. It doesn't touch the database.
+- **Caller:** terminal, right before a check-in POST if the server isn't confirmed warm (the periodic keep-warm is `/terminal/status` since 2026-10-20). **Auth:** none. **200:** `{"status": "ok"}`. It doesn't touch the database.
 
 ---
 

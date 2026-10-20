@@ -56,6 +56,8 @@ unsigned long oledResultUntil = 0;
 unsigned long oledLastActivity = 0;
 // What the idle screen last drew, so it only redraws on a change.
 uint32_t oledIdleDrawn = 0xFFFFFFFF;
+// door.version the idle screen last drew (see DoorStatus in the main sketch).
+uint32_t oledIdleDoorDrawn = 0xFFFFFFFF;
 
 // Clock in the top line. The board's clock is UTC (configTime(0, 0) in the
 // main sketch, which the Bluetooth code needs); campus is Africa/Lagos,
@@ -296,6 +298,64 @@ void oledDraw(uint8_t face, const char* title, const char* line1, const char* li
   xSemaphoreGive(oledLock);
 }
 
+// The idle screen when the server has placed this reader in a room
+// (`door`, from /terminal/status). No face: the space goes to the class.
+//
+//   live:   MCT 401        +1      no class:  NO CLASS
+//           23 / 40 checked in                Next: MCT 405
+//           ends 11:00                        at 14:00
+//           TAP your phone                    (or "Nothing else today")
+void oledDrawDoor(int16_t dx, int16_t dy, bool dimmed) {
+  xSemaphoreTake(oledLock, portMAX_DELAY);
+  oledWaitStart = 0;
+  oledSetDimmed(dimmed);
+  oled.clearDisplay();
+  oled.setTextColor(SSD1306_WHITE);
+  oledDrawStatusLine(dx);
+
+  char line[24];
+  if (door.live) {
+    oled.setTextSize(2);
+    oled.setCursor(dx, 14 + dy);
+    oled.print(door.course);  // 7 characters fit; "MCT 401" is exactly 7
+    oled.setTextSize(1);
+    if (door.more) {
+      // Another class is live in the same room: say so rather than hide it.
+      snprintf(line, sizeof(line), "+%u", door.more);
+      oled.setCursor(OLED_WIDTH - 6 * strlen(line) - 1 + dx, 18 + dy);
+      oled.print(line);
+    }
+    snprintf(line, sizeof(line), "%u / %u checked in", door.present, door.enrolled);
+    oled.setCursor(dx, 33 + dy);
+    oled.print(line);
+    if (door.ends[0]) {
+      snprintf(line, sizeof(line), "ends %s", door.ends);
+      oled.setCursor(dx, 43 + dy);
+      oled.print(line);
+    }
+    oled.setCursor(dx, 55 + dy);
+    oled.print("TAP your phone");
+  } else {
+    oled.setTextSize(2);
+    oled.setCursor(dx, 14 + dy);
+    oled.print("NO CLASS");
+    oled.setTextSize(1);
+    if (door.hasNext) {
+      snprintf(line, sizeof(line), "Next: %s", door.nextCourse);
+      oled.setCursor(dx, 38 + dy);
+      oled.print(line);
+      snprintf(line, sizeof(line), "at %s", door.nextStarts);
+      oled.setCursor(dx, 49 + dy);
+      oled.print(line);
+    } else {
+      oled.setCursor(dx, 38 + dy);
+      oled.print("Nothing else today");
+    }
+  }
+  oled.display();
+  xSemaphoreGive(oledLock);
+}
+
 // A result or progress screen, held for OLED_RESULT_MS (holdMs = 0 holds
 // until the next call, for "checking").
 void oledShow(uint8_t face, const char* title, const char* line1, const char* line2,
@@ -314,16 +374,26 @@ void oledShowBoot(const char* line) {
   oledShow(FACE_THINKING, "HELLO", line, "", 0);
 }
 
-// Ends a held screen (the boot "HELLO") and lets oledUpdate() draw idle.
 // Shown for a few seconds at the end of boot: which terminal this is and
-// which network it joined. With several identical boards, it's how you tell
-// them apart while mounting them.
+// which room the server has it in (else the network it joined). With
+// several identical boards, it's how you tell them apart while mounting
+// them -- and "Room not set" is the cue to set it on the Terminals page.
 void oledShowReady() {
-  oledShow(FACE_HAPPY, "READY", TERMINAL_ID,
-           (wifiReady && wifiCurrentNetwork >= 0) ? KNOWN_NETWORKS[wifiCurrentNetwork].ssid : "no wifi yet",
-           4000);
+  char second[24];
+  if (door.known) {
+    if (door.room[0]) {
+      snprintf(second, sizeof(second), "Room %s", door.room);
+    } else {
+      strcpy(second, "Room not set");
+    }
+  } else {
+    copyField(second, sizeof(second),
+              (wifiReady && wifiCurrentNetwork >= 0) ? KNOWN_NETWORKS[wifiCurrentNetwork].ssid : "no wifi yet");
+  }
+  oledShow(FACE_HAPPY, "READY", TERMINAL_ID, second, 4000);
 }
 
+// Ends a held screen (the boot "HELLO") and lets oledUpdate() draw idle.
 void oledShowIdle() {
   oledMode = OLED_IDLE;
   oledIdleDrawn = 0xFFFFFFFF;
@@ -363,6 +433,16 @@ void oledShowServerAnswer(int code, const String& body) {
       char first[15];
       firstNameFromResponse(body, first, sizeof(first));
       oledShowRecorded(first);
+      if (door.live) {
+        // Count it now rather than waiting up to a minute for the refresh;
+        // the refresh then corrects it (Bluetooth and hand marks).
+        door.present++;
+        door.version++;
+      } else {
+        // A check-in landed while the screen said NO CLASS: a lecturer has
+        // started one since the last refresh. Refresh on the next idle pass.
+        lastWarmPing = 0;
+      }
     }
     return;
   }
@@ -387,6 +467,7 @@ void oledShowServerAnswer(int code, const String& body) {
         oledShowRejectionTwo("Wrong room.", "Check class");
       } else {
         oledShowRejectionTwo("Class has", "ended");
+        lastWarmPing = 0;  // the screen may still show it as live: refresh
       }
       return;
     default:
@@ -420,12 +501,20 @@ void oledUpdate() {
                  | ((uint32_t)step << 6)
                  | ((uint32_t)backlogCount() << 10)
                  | ((uint32_t)(campusMinuteOfDay() + 1) << 18);  // the clock
-  if (drawn == oledIdleDrawn) return;
+  if (drawn == oledIdleDrawn && door.version == oledIdleDoorDrawn) return;
   oledIdleDrawn = drawn;
+  oledIdleDoorDrawn = door.version;
 
-  // Bluetooth check-ins never show here: the phone posts the code to the
-  // server itself, so the terminal never learns about them.
-  oledDraw(dimmed ? FACE_SLEEPY : FACE_HAPPY, "TAP", "your phone", "here", dx, dy, dimmed, false);
+  // The class screen once the server has placed this reader in a room;
+  // until then (no answer yet, no room set, old shared secret) the plain
+  // TAP screen. Bluetooth check-ins never show on either: the phone posts
+  // the code to the server itself, so the terminal never learns about them
+  // -- the count catches up on the next refresh.
+  if (door.known && door.room[0]) {
+    oledDrawDoor(dx, dy, dimmed);
+  } else {
+    oledDraw(dimmed ? FACE_SLEEPY : FACE_HAPPY, "TAP", "your phone", "here", dx, dy, dimmed, false);
+  }
 }
 
 // The first word of the student's name from the check-in response, e.g.

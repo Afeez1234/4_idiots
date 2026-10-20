@@ -60,7 +60,7 @@ flowchart LR
 | Part | Talks to | How it authenticates |
 |---|---|---|
 | App → server | All `/api/v1/...` routes | JWT access token (30 min) + rotating refresh token (14 days) |
-| Terminal → server | `/api/v1/student/checkin`, `/checkin/backlog`, `/healthz` | `X-Terminal-Id` + `X-Terminal-Secret` headers |
+| Terminal → server | `/api/v1/student/checkin`, `/checkin/backlog`, `/api/v1/terminal/status`, `/healthz` | `X-Terminal-Id` + `X-Terminal-Secret` headers |
 | Phone → terminal (NFC) | PN532 reads the phone | None by itself. The code it carries is signed by the server |
 | Terminal → phone (BLE) | Phone listens to adverts | None by itself. The code is HMAC-signed with a secret shared by terminal and server |
 | Browser → server | Web dashboards | Flask session cookie, bcrypt password, CSRF tokens, `login_required(role)` |

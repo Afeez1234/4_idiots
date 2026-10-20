@@ -37,6 +37,7 @@
 #include <time.h>
 #include <NimBLEDevice.h>     // Library Manager: "NimBLE-Arduino" (2.x)
 #include "mbedtls/md.h"       // HMAC-SHA256, built into the ESP32 core
+#include <ArduinoJson.h>      // Library Manager: "ArduinoJson" (7.x), for /terminal/status
 
 #include "secrets.h"  // WiFi + terminal credentials. NOT in git.
 
@@ -149,8 +150,35 @@ const uint16_t HTTP_TIMEOUT_MS = 6000;
 // external uptime service: it is already powered and networked at the
 // venue, needs no account or third-party dependency, and can't be
 // forgotten when the demo moves somewhere new.
-const unsigned long WARM_PING_INTERVAL_MS = 4UL * 60UL * 1000UL;  // 4 minutes
+//
+// Since the door screen (oled_display.ino), the periodic ping IS the screen's
+// refresh: GET /api/v1/terminal/status keeps the backend awake and returns
+// the class in this reader's room. Every 60 s rather than the old 4 min, so
+// a class a lecturer has just started shows within a minute instead of the
+// screen saying "NO CLASS" for four. The pre-flight ping before a POST
+// (ensureBackendWarmForPost) stays on /healthz, which skips the database:
+// a tap's 10-second window shouldn't wait on a query.
+const unsigned long WARM_PING_INTERVAL_MS = 60UL * 1000UL;  // 1 minute
 const uint16_t WARM_PING_TIMEOUT_MS = 5000;
+
+// What the door screen shows, from the last /terminal/status answer. See
+// terminal_status.py on the server for the meaning of each field. `version`
+// changes whenever the contents do, so the idle screen knows to redraw.
+struct DoorStatus {
+  bool known = false;      // an answer has arrived since boot
+  char room[24] = "";      // "" = the server can't place this reader in a room
+  bool live = false;
+  char course[16] = "";
+  char ends[6] = "";
+  uint16_t present = 0;
+  uint16_t enrolled = 0;
+  uint8_t more = 0;        // other live classes in the same room
+  bool hasNext = false;
+  char nextCourse[16] = "";
+  char nextStarts[6] = "";
+  uint32_t version = 0;
+};
+DoorStatus door;
 
 // How long a successful /healthz ping is trusted to mean "the next request
 // will be fast". Sits inside the 4-minute idle ping interval on purpose:
@@ -897,23 +925,121 @@ bool flushBacklog() {
   return false;
 }
 
-// Pings /healthz on a timer to stop the backend spinning down.
+// The status URL, from CHECKIN_URL unless secrets.h names one: the same
+// server, so no existing secrets.h needs a new line.
+String statusUrl() {
+#ifdef STATUS_URL
+  return String(STATUS_URL);
+#else
+  String url = CHECKIN_URL;
+  url.replace("/student/checkin", "/terminal/status");
+  return url;
+#endif
+}
+
+void copyField(char* out, size_t outLen, const char* value) {
+  strncpy(out, value ? value : "", outLen - 1);
+  out[outLen - 1] = '\0';
+}
+
+// GET /api/v1/terminal/status: keeps the backend warm AND refreshes what the
+// door screen shows. Same headers as a check-in, because the answer depends
+// on which reader is asking (its room).
+void fetchDoorStatus() {
+  WiFiClientSecure client;
+  useVerifiedTls(client);
+
+  HTTPClient http;
+  http.begin(client, statusUrl());
+  http.setTimeout(WARM_PING_TIMEOUT_MS);
+  http.addHeader("X-Terminal-Id", TERMINAL_ID);
+  http.addHeader("X-Terminal-Secret", TERMINAL_SECRET);
+
+  unsigned long t0 = millis();
+  int code = http.GET();
+  String body = (code > 0) ? http.getString() : String();
+  unsigned long dur = millis() - t0;
+  http.end();
+  noteServerReply(code);
+
+  if (code != 200) {
+    Serial.printf("[STATUS] returned %d in %lums%s\n", code, dur,
+                  code == 401 ? " -- this reader's ID/secret isn't accepted" : "");
+    if (code == -1) logTlsError(client, "STATUS");
+    return;
+  }
+  lastWarmPingOk = millis();  // a 200 from here proves the backend is up
+
+  JsonDocument doc;
+  if (deserializeJson(doc, body)) {
+    Serial.println("[STATUS] Couldn't read the answer -- keeping the last one");
+    return;
+  }
+
+  DoorStatus next;
+  // Zeroed whole, padding included, so the memcmp below compares contents
+  // only. (All-zero is also every field's default.) `door` is a global, so
+  // it starts zeroed the same way.
+  memset(&next, 0, sizeof(next));
+  next.known = true;
+  copyField(next.room, sizeof(next.room), doc["room"] | "");
+  JsonVariant now = doc["now"];
+  if (!now.isNull()) {
+    next.live = true;
+    copyField(next.course, sizeof(next.course), now["course_code"] | "");
+    copyField(next.ends, sizeof(next.ends), now["ends"] | "");
+    next.present = now["present"] | 0;
+    next.enrolled = now["enrolled"] | 0;
+    next.more = now["more"] | 0;
+  }
+  JsonVariant upcoming = doc["next"];
+  if (!upcoming.isNull()) {
+    next.hasNext = true;
+    copyField(next.nextCourse, sizeof(next.nextCourse), upcoming["course_code"] | "");
+    copyField(next.nextStarts, sizeof(next.nextStarts), upcoming["starts"] | "");
+  }
+
+  // Bump the version only on a real change, so an unchanged answer every
+  // minute doesn't redraw the screen.
+  next.version = door.version;
+  if (memcmp(&next, &door, sizeof(DoorStatus)) != 0) {
+    next.version = door.version + 1;
+    door = next;
+  }
+  Serial.printf("[STATUS] %s in %lums: room %s, %s\n", "200", dur,
+                door.room[0] ? door.room : "(not set)",
+                door.live ? door.course : "no class");
+}
+
+// The periodic call, on a timer, to keep the backend awake and the door
+// screen current. lastWarmPing == 0 means "due now" (at boot, and after
+// joining a network).
 //
 // Only ever called when the NFC field is EMPTY (see loop()), so it can never
-// steal scan time from a student mid-tap. The ping is a synchronous TLS
-// request costing a few hundred ms, which is a fine trade for a field with
+// steal scan time from a student mid-tap. The request is a synchronous TLS
+// call costing a few hundred ms, which is a fine trade for a field with
 // nothing in it and a real problem when it has a student in it.
 void maybeKeepBackendWarm(bool force = false) {
-  // While requests on this network are getting no answer, ping every 30 s
-  // instead of every 4 min, so a network with no internet is confirmed
-  // (NETWORK_DEAD_STRIKES pings) in about a minute and a half rather than
-  // twelve, and the terminal moves on to another one.
+  // While requests on this network are getting no answer, ping every 30 s,
+  // so a network with no internet is confirmed (NETWORK_DEAD_STRIKES pings)
+  // in about a minute and a half and the terminal moves on to another one.
   unsigned long interval = networkStrikes > 0 ? 30000UL : WARM_PING_INTERVAL_MS;
-  if (!force && millis() - lastWarmPing < interval) {
+  if (!force && lastWarmPing != 0 && millis() - lastWarmPing < interval) {
     return;
   }
   lastWarmPing = millis();
 
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[WARM] Skipped: no WiFi");
+    return;
+  }
+  fetchDoorStatus();
+}
+
+// Pings /healthz, which doesn't touch the database: the pre-flight check
+// before a check-in POST, where every millisecond comes out of the
+// student's 10-second window.
+void pingHealthz() {
   if (WiFi.status() != WL_CONNECTED) {
     Serial.println("[WARM] Skipped: no WiFi");
     return;
@@ -983,7 +1109,7 @@ void ensureBackendWarmForPost() {
     return;
   }
   Serial.println("[WARM] Pre-flight ping before POST (backend not confirmed warm)");
-  maybeKeepBackendWarm(true);
+  pingHealthz();
 }
 
 // Runs SELECT and reads the beacon in a SINGLE exchange. Returns false for

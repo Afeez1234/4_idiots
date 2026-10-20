@@ -101,7 +101,7 @@ exposes it. Per-terminal secrets are the next step.
 **Q: What if the server is asleep?**
 Render's free tier sleeps, and we measured 8.5 s to wake, which is longer
 than a code lives. So the terminal keeps the server awake: it pings at boot,
-every 4 minutes while idle, and right before a check-in if it hasn't confirmed
+every minute while idle (the same request refreshes its door screen), and right before a check-in if it hasn't confirmed
 the server is warm in the last minute.
 *Limitation:* A paid tier would remove the problem. This is a workaround.
 

@@ -18,6 +18,7 @@ from api.auth import api_auth_bp, install_account_check
 from api.student import api_student_bp
 from api.lecturer import api_lecturer_bp
 from api.hardware import api_hardware_bp
+from api.terminal import api_terminal_bp
 
 # Gives the "suaams" logger (see extensions.py's log_exception/
 # api_error_response) an actual handler + format. Without this, exceptions
@@ -141,6 +142,7 @@ app.register_blueprint(api_auth_bp)
 app.register_blueprint(api_student_bp)
 app.register_blueprint(api_lecturer_bp)
 app.register_blueprint(api_hardware_bp)
+app.register_blueprint(api_terminal_bp)  # reader door-screen status
 
 # CSRFProtect covers the whole app by default -- exempt the JSON API
 # blueprints here rather than relying on per-route decorators, since every
@@ -155,6 +157,7 @@ csrf.exempt(api_auth_bp)
 csrf.exempt(api_student_bp)
 csrf.exempt(api_lecturer_bp)
 csrf.exempt(api_hardware_bp)
+csrf.exempt(api_terminal_bp)
 
 
 # Registered app-wide (not on hod_bp/lecturer_bp individually) because
