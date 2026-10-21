@@ -239,7 +239,7 @@ carry a captured code anywhere useful.
 | Server | Python, Flask, SQLAlchemy, Flask-JWT-Extended (app login tokens), Flask-Migrate, Flask-Limiter (rate limits), Flask-WTF (CSRF protection), bcrypt (password hashing) |
 | Web dashboards | Server-rendered HTML templates with Tailwind CSS |
 | Database | MySQL on Clever Cloud |
-| Hosting | Render |
+| Hosting | Render, at `portal.suaams.com.ng` (dashboards and API); landing page at `suaams.com.ng` |
 | Terminal | ESP32, PN532 NFC reader (I²C), NimBLE (Bluetooth), Arduino framework |
 
 Class times are handled in campus time (Africa/Lagos). Exact moments, such as

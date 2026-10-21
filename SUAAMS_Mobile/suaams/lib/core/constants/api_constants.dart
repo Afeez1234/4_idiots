@@ -3,8 +3,11 @@
 abstract final class ApiConstants {
   // Use 10.0.2.2 for Android Emulator connecting to local Flask server.
   // static const String baseUrl = 'http://10.0.2.2:5000/api/v1';//localhost for testing
-  static const String baseUrl =
-      'https://suaams.onrender.com/api/v1'; //for production
+  // Production. The custom domain points at the same Render service as
+  // suaams.onrender.com, which keeps working (no redirect) so older builds
+  // don't break. One domain serves the dashboards and the API alike -- see
+  // "Domains" in docs/ARCHITECTURE.md.
+  static const String baseUrl = 'https://portal.suaams.com.ng/api/v1';
 
   static const String loginEndpoint = '$baseUrl/auth/login';
   static const String studentDashboardEndpoint = '$baseUrl/student/dashboard';

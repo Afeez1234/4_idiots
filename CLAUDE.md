@@ -23,7 +23,10 @@ Explain the approach and tradeoffs, confirm direction, then implement.
   Flutter Secure Storage (hardware cryptographic key store)
 - **Backend**: Python/Flask, Flask-SQLAlchemy (ORM), Flask-JWT-Extended
   (stateless auth), Flask-Migrate (version tracking), MySQL (Clever Cloud),
-  deployed on Render
+  deployed on Render at `portal.suaams.com.ng` (dashboards and API alike;
+  `suaams.onrender.com` still answers, unredirected, for old builds and
+  unflashed terminals). Landing page at `suaams.com.ng`. See
+  `docs/ARCHITECTURE.md` section 11.
 - **Hardware**: ESP32 microcontrollers via NFC HCE (APDU ISO 7816-4) and BLE
   (RSSI proximity)
 

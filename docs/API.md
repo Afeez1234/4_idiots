@@ -4,7 +4,9 @@ The JSON endpoints that the mobile app and the terminal call. The web dashboards
 (`blueprints/`) are server-rendered pages, not an API. They are listed at the
 end for completeness.
 
-- **Base URL (production):** `https://suaams.onrender.com`
+- **Base URL (production):** `https://portal.suaams.com.ng`
+  (`https://suaams.onrender.com` is the same service and still answers, for
+  app builds and terminals flashed before 2026-10-21)
 - **App base path:** `/api/v1` (see
   [api_constants.dart](../SUAAMS_Mobile/suaams/lib/core/constants/api_constants.dart))
 - **Auth types:**

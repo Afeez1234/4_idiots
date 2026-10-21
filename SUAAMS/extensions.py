@@ -38,7 +38,10 @@ def client_ip():
       1. CF-Connecting-IP -- Cloudflare sets this to the visitor's address
          and overwrites any value the visitor sent, so it can't be faked
          through Cloudflare. (Every *.onrender.com request goes through
-         Cloudflare; the response headers show `Server: cloudflare`.)
+         Cloudflare; the response headers show `Server: cloudflare`. So
+         does portal.suaams.com.ng, a CNAME to the Render host -- checked
+         2026-10-21. A custom domain that bypassed Cloudflare would let a
+         visitor set this header themselves, so re-check any new one.)
          Confirmed on the live server on 2026-10-13: Render's logs showed
          the visitor's real public address in this header.
       2. The LAST X-Forwarded-For entry -- added by the nearest proxy.

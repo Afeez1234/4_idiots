@@ -9,7 +9,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:suaams/core/constants/api_constants.dart';
 import 'package:suaams/features/auth/models/auth_user.dart';
 
-// The backend (suaams.onrender.com) is on Render's free tier, which spins
+// The backend (portal.suaams.com.ng) is on Render's free tier, which spins
 // the dyno down after ~15 minutes idle -- the next request has to cold-start
 // it, commonly taking 20-40s. Long enough to tolerate a real cold start,
 // short enough that a genuinely dead/unreachable server fails within a

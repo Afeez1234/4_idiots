@@ -327,3 +327,27 @@ flowchart LR
   it.
 - The BLE slot is Unix time ÷ 5, so the terminal needs NTP. Until NTP answers,
   it broadcasts nothing.
+
+## 11. Domains
+
+| Address | What it is | Hosted on |
+|---|---|---|
+| `suaams.com.ng` | Public landing page (product info, app download, contact) | WhoGoHost |
+| `portal.suaams.com.ng` | The Flask server: web dashboards **and** the API the app and terminals call | Render (CNAME to `suaams.onrender.com`) |
+| `suaams.onrender.com` | The same Render service under its original name | Render |
+
+- **One domain for people and devices.** The app's `baseUrl` and the
+  terminal's `secrets.h` URLs use `portal.`. A separate `api.` name would
+  point at the same service and add nothing, and Render's plan allows only
+  two custom domains. See D36 in [DECISIONS.md](DECISIONS.md).
+- **`suaams.onrender.com` is not redirected.** App builds and terminals made
+  before 2026-10-21 still use it, and a redirect would break the terminal's
+  POSTs. The terminal has no over-the-air update, so each one moves when it
+  is reflashed.
+- **Cloudflare is still in front.** The rate limiter trusts
+  `CF-Connecting-IP` (`client_ip()` in
+  [extensions.py](../SUAAMS/extensions.py)). Before adding any custom
+  domain, check that its responses carry `Server: cloudflare`.
+- **The terminal needs no certificate change.** It checks the server against
+  the public root bundle, not a pinned certificate, so Render's certificate
+  for `portal.` verifies.

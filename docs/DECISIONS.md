@@ -497,3 +497,23 @@ if you know the date.
   so a busy minute is slower. The real fix is a bigger database plan. Then
   raise `DB_POOL_SIZE` on Render, keeping workers x size + 1 within the
   new limit.
+
+### D36. One custom domain, `portal.suaams.com.ng`, for dashboards and API (2026-10-21)
+
+- **Problem:** The app and terminals were hard-wired to
+  `suaams.onrender.com`, which can't move if hosting ever changes. A
+  terminal can't be updated remotely, so its address should be one we
+  control.
+- **Chose:** `suaams.com.ng` for a landing page on WhoGoHost, and
+  `portal.suaams.com.ng` (CNAME to Render) for everything the Flask server
+  does. The app and terminals call `portal.` too. `suaams.onrender.com` keeps
+  working, with no redirect, for older builds and unflashed terminals.
+- **Rejected:** a separate `api.` subdomain. It would point at the same
+  service and do nothing today, and Render's plan allows two custom
+  domains, so it would use the slot kept for a second university or an
+  official school alias. Also rejected: naming the deployment after the
+  school (`afit.`) without the school's permission.
+- **Trade-off:** If the API and dashboards ever split into separate
+  services, the devices on `portal.` need moving. Several universities
+  would each get their own deployment and subdomain, with their own
+  database and signing keys, which needs a bigger Render plan.

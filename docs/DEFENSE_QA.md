@@ -176,6 +176,13 @@ one level, repeaters can be excluded by CSV, and final-year students are only
 listed as due to graduate. It can't run twice for the same year, and it can be
 undone.
 
+**Q: Could another university use it?**
+Yes, as its own deployment: a separate server and database under its own
+subdomain of suaams.com.ng, with its own signing keys. One school's data can
+never show up in another's, and a leaked key affects one school only.
+*Limitation:* The app is built for one server today; a second school needs a
+"which university?" choice at first launch.
+
 ## Engineering
 
 **Q: Why the PN532 instead of the cheaper MFRC522?**
