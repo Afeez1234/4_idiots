@@ -1,5 +1,7 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+// Not package:http directly: api_client adds the app build header and
+// catches "update required" (see that file).
+import 'package:suaams/core/network/api_client.dart' as http;
 import 'package:suaams/core/constants/api_constants.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/features/student/models/today_protocol_entry.dart';

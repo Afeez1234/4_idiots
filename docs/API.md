@@ -19,6 +19,13 @@ end for completeness.
 - **Rate limits** are per user for JWT routes and per IP otherwise.
 - Errors come back as `{"error": "..."}`. Check-in errors are deliberately
   vague about *which* check failed.
+- **App build gate:** the app sends `X-App-Build: <build number>` on every
+  request. When `MIN_APP_BUILD` is set, any `/api/v1/auth`, `/student` or
+  `/lecturer` request from an older build, or with no header, gets
+  **426** `{"error": "UPDATE REQUIRED", "min_build": n, "message": "..."}`
+  before auth is checked (`message` only when `APP_UPDATE_MESSAGE` is set).
+  The readers' routes (`/student/checkin`, `/student/checkin/backlog`,
+  `/terminal/status`) are never gated. See `app_version.py`.
 
 ---
 

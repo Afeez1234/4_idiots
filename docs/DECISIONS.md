@@ -517,3 +517,31 @@ if you know the date.
   services, the devices on `portal.` need moving. Several universities
   would each get their own deployment and subdomain, with their own
   database and signing keys, which needs a bigger Render plan.
+
+### D37. A minimum app build the server enforces (2026-10-21)
+
+- **Problem:** The app/server wire format has changed before (the beacon
+  rebuild, D3), and an old build talking to a newer
+  server didn't get an error it could show. Taps just stopped working, or a
+  screen failed to parse a response. Nothing could tell a student to update.
+- **Chose:** The app sends `X-App-Build` (pubspec build number, read with
+  `package_info_plus`) on every request from one wrapper,
+  `core/network/api_client.dart`. When `MIN_APP_BUILD` is set, the server
+  answers older builds, and those sending no header, with 426
+  `UPDATE REQUIRED` (`app_version.py`), before auth so an expired token
+  doesn't send the app into a refresh loop. The wrapper throws rather than
+  returning the 426, so the refresh path treats it as "unreachable" and keeps
+  the session, and the router sends every route to a full-screen update page.
+  Where to get the update comes from `APP_UPDATE_MESSAGE` on the server,
+  because the app is sideloaded and the page ships in builds made before the
+  next download link exists.
+- **Rollout:** off by default. Builds from before this send no header, so
+  `MIN_APP_BUILD` can only be set once the first build that sends one is
+  installed; those older builds then get a plain error, not the update page.
+- **Rejected:** a "check version" endpoint the app polls at start. It only
+  runs at start, a new endpoint can forget to call it, and it's a second
+  round trip on a server that cold-starts. A header on every request can't
+  be skipped. Also rejected: gating the readers. They send no build and
+  can't be updated remotely.
+- **Trade-off:** The header is trivially forged, so this is a compatibility
+  check, not a security control.

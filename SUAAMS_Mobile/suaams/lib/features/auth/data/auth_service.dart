@@ -3,7 +3,9 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+// Not package:http directly: api_client adds the app build header and
+// catches "update required" (see that file).
+import 'package:suaams/core/network/api_client.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:suaams/core/constants/api_constants.dart';

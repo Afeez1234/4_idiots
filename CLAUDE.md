@@ -195,6 +195,18 @@ Three rules that are load-bearing:
   throttled, don't fire when backgrounded, and used to be skipped entirely
   when the provider was disposed mid-flow.
 
+### Minimum app build (added 2026-10-21)
+
+The app sends its build number (pubspec `version: x.y.z+BUILD`) as
+`X-App-Build` on every request, through `lib/core/network/api_client.dart`,
+which the services import **as `http` in place of `package:http`**. Use
+that import for any new service too, or its calls skip the gate. When
+`MIN_APP_BUILD` is set, older builds get 426 `UPDATE REQUIRED`
+(`SUAAMS/app_version.py`) and the router sends every route to
+`/update-required`. **Any change to the app/server wire format bumps the
+pubspec build and `MIN_APP_BUILD` in the same release.** Never gate the
+readers' routes: they send no app build.
+
 ## Core differentiator (production vision)
 Smart ID via Android NFC HCE, with PN532 replacing MFRC522 as reader hardware.
 Treat this as first-class whenever touching attendance/ID-related code.

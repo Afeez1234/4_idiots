@@ -32,6 +32,9 @@ void main() {
   group('internal exceptions become human text', () {
     const cases = <String, String>{
       'Server Error: 500': 'Something went wrong on our side. Please try again.',
+      // api_client.dart's UpdateRequired.toString().
+      'UPDATE REQUIRED':
+          'This version of the app is out of date. Install the latest version.',
       'Server Error: 404': 'Something went wrong on our side. Please try again.',
       'No refresh token available':
           'Your session has ended. Please sign in again.',

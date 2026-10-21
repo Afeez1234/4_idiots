@@ -42,6 +42,13 @@ String userFacingError(Object error, {String? fallback}) {
       'The radio could not be stopped cleanly. Close and reopen the app.',
     ),
     // --- auth / session -------------------------------------------------
+    // This build is older than the server's MIN_APP_BUILD (api_client.dart).
+    // The router is already moving to the update screen; this covers the
+    // moment a screen shows the failed call's error before it gets there.
+    (
+      RegExp(r'UPDATE REQUIRED', caseSensitive: false),
+      'This version of the app is out of date. Install the latest version.',
+    ),
     (
       RegExp(r'SECURITY LOCK', caseSensitive: false),
       'Your account is bound to another device. Visit IT Administration to '

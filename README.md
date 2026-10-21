@@ -361,7 +361,9 @@ The server refuses to start until `.env` has the database details,
 **Terminals** page (or, during the changeover, the old shared `TERMINAL_ID`
 and `TERMINAL_SECRET`). Bluetooth check-in needs `BLE_BEACON_SECRET`.
 `ROOM_CHECK` (flag / enforce / off) decides what a check-in at a reader in
-another room does. The comments in
+another room does. `MIN_APP_BUILD` (off when unset) makes older app builds
+show an "update required" screen instead of failing, and
+`APP_UPDATE_MESSAGE` tells them where to get the new one. The comments in
 [SUAAMS/.env.example](SUAAMS/.env.example) explain each one.
 
 ### Database backups

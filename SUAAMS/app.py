@@ -9,6 +9,7 @@ from flask_jwt_extended import JWTManager
 from models import db, HOD, Lecturer, Course, Semester, Student, User
 from utils import courses_taught_by, current_courses
 from extensions import limiter, csrf
+import app_version
 from blueprints.auth import auth_bp
 from blueprints.admin import admin_bp
 from blueprints.lecturer import lecturer_bp
@@ -131,6 +132,9 @@ install_account_check(jwt)
 # See extensions.py for the in-memory-vs-Redis storage tradeoff note.
 limiter.init_app(app)
 csrf.init_app(app)
+# Outdated app builds get 426 "UPDATE REQUIRED" once MIN_APP_BUILD is set.
+# See app_version.py for which routes are gated and why readers aren't.
+app_version.init_app(app)
 
 # Register blueprints
 app.register_blueprint(auth_bp)

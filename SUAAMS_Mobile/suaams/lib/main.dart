@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:suaams/core/network/api_client.dart';
 import 'package:suaams/core/router/app_router.dart';
 import 'package:suaams/core/services/notification_service.dart';
 import 'package:suaams/core/services/security_service.dart';
@@ -31,6 +32,9 @@ void main() async {
   } catch (e) {
     debugPrint('[main] RASP initialization failed: $e');
   }
+  // Before anything can make an API call: every request carries this build's
+  // number so the server can say "update required" (core/network/api_client.dart).
+  await loadAppBuild();
   await Firebase.initializeApp();
   // Must be registered before runApp -- this is what lets FCM invoke
   // firebaseMessagingBackgroundHandler in its own isolate for messages that

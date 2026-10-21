@@ -8,6 +8,8 @@ import 'package:suaams/features/auth/presentation/splash_screen.dart';
 import 'package:suaams/features/auth/presentation/login_screen.dart';
 import 'package:suaams/features/auth/presentation/change_password_screen.dart';
 import 'package:suaams/features/auth/presentation/web_portal_screen.dart';
+import 'package:suaams/features/auth/presentation/update_required_screen.dart';
+import 'package:suaams/core/network/api_client.dart';
 import 'package:suaams/core/router/home_route.dart';
 import 'package:suaams/core/providers/onboarding_provider.dart';
 import 'package:suaams/features/onboarding/presentation/onboarding_screen.dart';
@@ -64,9 +66,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     navigatorKey: rootNavigatorKey,
     initialLocation: '/splash',
     //3. Pass the bridge to GoRouter so it can listen for changes in the auth state
-    refreshListenable:
-        routerListener, // This allows the router to listen for changes in the auth state
+    // Auth changes, plus the server saying this build is too old.
+    refreshListenable: Listenable.merge([routerListener, updateRequired]),
     redirect: (context, state) {
+      // First, ahead of splash and sign-in: an outdated build can't reach
+      // the server at all, so every route goes to the update screen and
+      // stays there (see core/network/api_client.dart).
+      if (updateRequired.value) {
+        return state.matchedLocation == '/update-required'
+            ? null
+            : '/update-required';
+      }
+
       final authState = ref.read(authProvider);
       final isLoggingIn = state.matchedLocation == '/login';
       final isSplash = state.matchedLocation == '/splash';
@@ -113,6 +124,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const SplashScreen(),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: '/update-required',
+        builder: (context, state) => const UpdateRequiredScreen(),
+      ),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
