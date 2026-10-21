@@ -50,27 +50,41 @@ class StudentShellScreen extends ConsumerWidget {
       ),
     );
 
-    return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: AppBottomNav(
-        items: [
-          for (final item in _nav)
-            AppBottomNavItem(
-              icon: item.icon,
-              label: item.label,
-              // Dot rather than a count: "something is live" is a boolean,
-              // and a "1" would imply a quantity that doesn't exist -- and
-              // would paint it in the error red reserved for failures.
-              showDot: item.label == 'Home' && hasLiveSession,
-            ),
-        ],
-        currentIndex: navigationShell.currentIndex,
-        // initialLocation: true re-taps the tab back to its own root route
-        // instead of just restoring wherever it was left mid-stack -- matches
-        // the common "tap the active tab to go back to top" convention.
-        onTap: (index) => navigationShell.goBranch(
-          index,
-          initialLocation: index == navigationShell.currentIndex,
+    // Back from any other tab returns to Home; only back on Home leaves the
+    // app. Switching tabs isn't recorded as history, so without this, back
+    // at the top of e.g. Timetable closed the app outright. Back inside a
+    // tab's own stack (a course opened from Records) is handled by go_router
+    // before this is asked, so detail screens still pop normally first.
+    return PopScope(
+      canPop: navigationShell.currentIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) navigationShell.goBranch(0);
+      },
+      child: Scaffold(
+        body: navigationShell,
+        bottomNavigationBar: AppBottomNav(
+          items: [
+            for (final (i, item) in _nav.indexed)
+              AppBottomNavItem(
+                icon: item.icon,
+                label: item.label,
+                // Dot rather than a count: "something is live" is a boolean,
+                // and a "1" would imply a quantity that doesn't exist -- and
+                // would paint it in the error red reserved for failures.
+                // Keyed on position, not label, so renaming the tab can't
+                // silently drop it (the lecturer shell's did exactly that).
+                showDot: i == 0 && hasLiveSession,
+              ),
+          ],
+          currentIndex: navigationShell.currentIndex,
+          // initialLocation: true re-taps the tab back to its own root route
+          // instead of just restoring wherever it was left mid-stack --
+          // matches the common "tap the active tab to go back to top"
+          // convention.
+          onTap: (index) => navigationShell.goBranch(
+            index,
+            initialLocation: index == navigationShell.currentIndex,
+          ),
         ),
       ),
     );
