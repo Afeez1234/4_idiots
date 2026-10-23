@@ -4,7 +4,7 @@ import os
 from flask_jwt_extended import (
     jwt_required, get_jwt_identity, get_jwt,
 )
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timezone
 from sqlalchemy.exc import IntegrityError
 
 # Import db and our elegant SQLAlchemy models
@@ -778,6 +778,25 @@ def get_today_schedule():
             *[f for f in [current_slot_filter(semester)] if f is not None],
         ).order_by(Timetable.start_time.asc()).all()
 
+        # Two queries for the whole day, not two per class: today's sessions
+        # for these courses, then which of them this student attended. Every
+        # open app polls this every 30 s, so a student with five classes used
+        # to cost ~10 queries a poll -- 200 students in a hall competing with
+        # their own taps for the 4 pooled connections.
+        sessions_today = (SessionModel.query
+                          .filter(SessionModel.course_id.in_(courses_by_id.keys()),
+                                  SessionModel.session_date == today)
+                          .order_by(SessionModel.id.asc())
+                          .all())
+        # The newest session per course (ascending id, so the last one wins),
+        # as the per-slot query used to pick with ORDER BY id DESC.
+        latest_by_course = {s.course_id: s for s in sessions_today}
+        attended_ids = {sid for (sid,) in (
+            db.session.query(Attendance.session_id)
+            .filter(Attendance.student_id == student.id,
+                    Attendance.session_id.in_([s.id for s in sessions_today]))
+        )} if sessions_today else set()
+
         today_protocol = []
         # Courses already covered by a Timetable row above. Used below to
         # work out which active sessions are "ad-hoc" (no scheduled slot
@@ -789,9 +808,7 @@ def get_today_schedule():
                 continue
             covered_course_ids.add(entry.course_id)
 
-            session_today = SessionModel.query.filter_by(
-                course_id=entry.course_id, session_date=today
-            ).order_by(SessionModel.id.desc()).first()
+            session_today = latest_by_course.get(entry.course_id)
 
             status = 'PENDING'
             # Whether a check-in would actually succeed right now: a Session
@@ -824,9 +841,7 @@ def get_today_schedule():
                 start_time = session_today.planned_start or entry.start_time
                 end_time = session_today.planned_end or entry.end_time
 
-                attended = Attendance.query.filter_by(
-                    session_id=session_today.id, student_id=student.id
-                ).first()
+                attended = session_today.id in attended_ids
 
                 if attended:
                     status = 'PRESENT'
@@ -872,29 +887,21 @@ def get_today_schedule():
         # one. Scoped to the student's enrolled courses (same enrollment
         # join as _active_session_for_student), so this can't surface
         # someone else's class.
-        adhoc_sessions = (
-            SessionModel.query
-            .join(Enrollment, Enrollment.course_id == SessionModel.course_id)
-            .filter(
-                Enrollment.student_id == student.id,
-                SessionModel.session_date == today,
-                SessionModel.is_active.is_(True),
-                # Excluded above already -- otherwise a scheduled course
-                # with a live session would be appended twice.
-                SessionModel.course_id.notin_(covered_course_ids),
-            )
-            .order_by(SessionModel.start_time.asc())
-            .all()
+        #
+        # Taken from sessions_today, which is already limited to this
+        # student's current courses. Courses covered above are excluded --
+        # otherwise a scheduled course with a live session would be appended
+        # twice. Sorted by start time with missing ones first, as MySQL's
+        # ORDER BY start_time did when this was its own query.
+        adhoc_sessions = sorted(
+            (s for s in sessions_today
+             if s.is_active and s.course_id not in covered_course_ids),
+            key=lambda s: (s.start_time is not None, s.start_time or time.min),
         )
 
         for session in adhoc_sessions:
-            course = courses_by_id.get(session.course_id)
-            if course is None:
-                continue
-
-            attended = Attendance.query.filter_by(
-                session_id=session.id, student_id=student.id
-            ).first()
+            course = courses_by_id[session.course_id]
+            attended = session.id in attended_ids
 
             # An ad-hoc session that's still active and not yet attended is
             # exactly the "live, go check in" case. If the student somehow
