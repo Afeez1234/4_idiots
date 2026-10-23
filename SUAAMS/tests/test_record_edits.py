@@ -15,6 +15,8 @@ Pins:
   * delete is refused (nothing removed) for a course with sessions, a
     coordinator, a lecturer who ran a class, a student with attendance;
   * delete_blockers answers for a whole page in a fixed number of queries;
+  * "Reset password" sets a random one-time password (flashed, never
+    logged), forces a change, signs the app out and leaves the phone bound;
   * HODs: an edit is copied to a promoted lecturer's Lecturer row (and the
     reverse); one HOD per department; "remove as HOD" sends a promoted
     lecturer back to teaching, deletes a direct HOD with nothing on record,
@@ -174,6 +176,46 @@ class RecordEditsTestCase(unittest.TestCase):
         self.assertEqual(self.ada.user.username, 'MCT/20/0009')
         self.assertTrue(self.password_is(self.ada.user, 'MCT/20/0001'))    # unchanged
         self.assertEqual(self.ada.level, '400')                             # normalised
+
+    # ---- password reset (2026-10-23 audit, finding 5) ---------------------------
+
+    def reset(self, kind, record):
+        self.sign_in()
+        self.client.post(f'/admin/{kind}/{record.id}/reset-password')
+        with self.client.session_transaction() as s:
+            message = s['_flashes'][-1][1]
+        return message.split(': ', 1)[1].split(' ', 1)[0]     # the password in the flash
+
+    def test_reset_gives_a_one_time_password_and_keeps_the_phone(self):
+        user = self.ada.user
+        user.requires_password_change = False
+        user.current_refresh_jti = 'old-session'
+        self.ada.device_id = 'phone-1'
+        db.session.commit()
+        temp = self.reset('students', self.ada)
+        self.assertEqual(len(temp), 10)
+        self.assertTrue(self.password_is(user, temp))
+        self.assertFalse(self.password_is(user, 'MCT/20/0001'))
+        self.assertTrue(user.requires_password_change)         # must choose their own
+        self.assertIsNone(user.current_refresh_jti)            # app signed out
+        self.assertEqual(self.ada.device_id, 'phone-1')        # unbinding is separate
+        entry = AuditLog.query.filter_by(action='student.password_reset').one()
+        self.assertNotIn(temp, entry.summary + str(entry.details))
+
+    def test_lecturer_reset_and_two_resets_differ(self):
+        first = self.reset('lecturers', self.helper)
+        second = self.reset('lecturers', self.helper)
+        self.assertNotEqual(first, second)
+        self.assertTrue(self.password_is(self.helper.user, second))
+        self.assertFalse(self.password_is(self.helper.user, first))
+
+    def test_reset_is_only_for_students_and_lecturers(self):
+        self.sign_in()
+        before = self.mct.course_title
+        resp = self.client.post(f'/admin/courses/{self.mct.id}/reset-password')
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(db.session.get(Course, self.mct.id).course_title, before)
+        self.assertEqual(AuditLog.query.filter(AuditLog.action.like('%password_reset')).count(), 0)
 
     def test_an_id_already_used_as_a_login_is_refused(self):
         self.sign_in()

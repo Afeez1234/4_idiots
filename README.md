@@ -178,6 +178,9 @@ history, announcements), but the app is the main way students use SUAAMS.
   can also be added in bulk from a CSV file (lecturers and courses with a
   preview first). The roster has search, filters and pages.
 - **Unbind a student's phone** (see §5)
+- **Reset a forgotten password** for a student or lecturer (in their Edit
+  dialog): a random temporary password, shown to the admin once, which
+  they replace at their next sign-in. Their phone stays bound.
 - **Edit** any course, lecturer, student or HOD to fix a typo (a corrected
   staff ID or matric number becomes their login). **Delete** only works on
   records with no history yet, such as one created by mistake; otherwise use

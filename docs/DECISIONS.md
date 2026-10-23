@@ -564,3 +564,29 @@ if you know the date.
   job (there's no scheduler on the free plan).
 - **Trade-off:** A write rides on an ordinary request every 10 minutes. A
   failed sweep is logged and the request carries on.
+
+### D39. Password changes need the current password; admins can reset one (2026-10-23)
+
+- **Problem:** The app's password change didn't ask for the current
+  password, so anyone holding an unlocked phone could set one of their own
+  and, for a lecturer, use it on the web portal (no device binding). The
+  forced first change accepted the matric number again, so an account
+  could stay on its guessable first password. And there was no way back
+  in after a forgotten password, short of editing the database.
+- **Chose:** A change from the app's Profile sends `current_password`
+  (403 if missing or wrong); the forced first change doesn't, since the
+  user has just signed in with it. Web and app share one rule
+  (`utils.new_password_problem`): at least 6 characters, not the username,
+  not the current password. Admins get "Reset password" in the student and
+  lecturer Edit dialog: a random 10-character password from letters and
+  digits nobody misreads, shown once in the flash message and never
+  logged; it forces a change and revokes the app's refresh token. The
+  phone binding is left alone; unbinding stays its own step after an ID
+  check.
+- **Not done yet:** random first passwords for new accounts (audit finding
+  4). Until then the first password is still the matric number or staff
+  ID.
+- **Trade-off:** App builds from before this get a "current password"
+  error on a voluntary change until they update; the forced change still
+  works on them. The flashed password sits in the admin's signed session
+  cookie for one redirect.

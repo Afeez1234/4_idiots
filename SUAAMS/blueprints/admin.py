@@ -3,6 +3,7 @@ import os
 import io
 import json
 import re
+import secrets
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, Response
@@ -816,6 +817,53 @@ def edit_record(kind, record_id):
         db.session.rollback()
         log_exception("Record Edit Error")
         flash('Failed to save the changes. Nothing changed.', 'error')
+    return redirect(back)
+
+
+# Letters and digits nobody misreads when a temporary password is read out
+# or copied from paper: no 0/o, 1/l/i.
+_TEMP_PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789'
+_TEMP_PASSWORD_LENGTH = 10
+
+
+@admin_bp.route('/<kind>/<int:record_id>/reset-password', methods=['POST'])
+@limiter.limit("10 per minute")
+def reset_password(kind, record_id):
+    """Give a student or lecturer who forgot their password a new temporary
+    one. There was no way back in before: only editing the database.
+
+    The password is random, shown to the admin once (in the flash message,
+    never stored readable) and must be replaced at the next sign-in. The
+    app's refresh token is revoked, so a phone still signed in is signed out
+    within one access-token lifetime. The device binding is untouched:
+    unbinding stays its own action, done after checking the student's ID.
+    Admins reset their own through create_admin.py, not here.
+    """
+    if kind not in ('students', 'lecturers'):
+        return redirect(url_for('admin.dashboard'))
+    record, back = _edit_target(kind, record_id)
+    user = record.user if record else None
+    if user is None:
+        flash('That record no longer exists.', 'error')
+        return redirect(back)
+
+    label = _person_label(kind, record)
+    temp = ''.join(secrets.choice(_TEMP_PASSWORD_ALPHABET) for _ in range(_TEMP_PASSWORD_LENGTH))
+    try:
+        user.password_hash = bcrypt.hashpw(temp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        user.requires_password_change = True
+        user.current_refresh_jti = None
+        log_action(f"{kind[:-1]}.password_reset", f"Reset the password of {label}",
+                   kind[:-1], record.id)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        log_exception("Password Reset Error")
+        flash('Failed to reset the password. Nothing changed.', 'error')
+        return redirect(back)
+
+    flash(f"New temporary password for {label}: {temp} -- shown only now, so pass it on "
+          "privately. They must choose their own at their next sign-in.", 'success')
     return redirect(back)
 
 
@@ -2660,7 +2708,8 @@ def _activity_tone(action):
     if action.endswith('.delete') or action == 'admin.disable':
         return 'error'
     if action in ('auth.login_failed', 'student.unbind', 'semester.activate') \
-            or action.endswith('.status') or action.endswith('.bulk_status'):
+            or action.endswith('.status') or action.endswith('.bulk_status') \
+            or action.endswith('.password_reset'):
         return 'warning'
     if action.endswith('.create') or action.endswith('.bulk_import') or action == 'hod.promote':
         return 'success'

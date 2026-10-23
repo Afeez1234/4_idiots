@@ -11,9 +11,12 @@
 {# values: {form field name: current value}. tojson escapes quotes, so it
    is safe inside a single-quoted attribute. note: replaces the dialog's
    delete note for this row only (HODs: promoted lecturer or not). #}
-{% macro edit_button(edit_url, delete_url, name, values, blocker=None, note=None) -%}
+{# reset_url: students and lecturers only -- shows the dialog's "Reset
+   password" section for this row (admin.reset_password). #}
+{% macro edit_button(edit_url, delete_url, name, values, blocker=None, note=None, reset_url=None) -%}
     <button type="button" class="btn-link edit-open"
             data-edit="{{ edit_url }}" data-delete="{{ delete_url }}" data-name="{{ name }}"
+            data-reset="{{ reset_url or '' }}"
             data-blocker="{{ blocker or '' }}" data-note="{{ note or '' }}" data-values='{{ values|tojson }}'>
         Edit
     </button>
@@ -42,6 +45,15 @@
                 </div>
             </form>
 
+            {# Forgotten password. Hidden for rows without a reset_url. #}
+            <div id="reset-section" class="mt-6 hidden border-t border-divider pt-4">
+                <form id="reset-form" method="POST" class="space-y-3">
+                    {% include '_csrf_field.html' %}
+                    <p class="text-xs text-secondary">Gives them a new temporary password, shown to you once. They choose their own at their next sign-in and are signed out of the app. Their phone stays bound.</p>
+                    <button type="submit" class="btn-secondary w-full">Reset password</button>
+                </form>
+            </div>
+
             {# Delete only when nothing has happened to the record yet; otherwise
                the reason shows instead of the button. The server checks again. #}
             <div class="mt-6 border-t border-divider pt-4">
@@ -59,6 +71,8 @@
             var modal = document.getElementById('edit-modal');
             var form = document.getElementById('edit-form');
             var del = document.getElementById('delete-form');
+            var reset = document.getElementById('reset-form');
+            var resetSection = document.getElementById('reset-section');
             var blocker = document.getElementById('edit-blocker');
             var note = document.getElementById('delete-note');
             var defaultNote = note.textContent;
@@ -91,6 +105,8 @@
                     current = btn.dataset.name;
                     form.action = btn.dataset.edit;
                     del.action = btn.dataset.delete;
+                    reset.action = btn.dataset.reset;
+                    resetSection.classList.toggle('hidden', !btn.dataset.reset);
                     // textContent, not innerHTML: names are data, never markup.
                     document.getElementById('edit-name').textContent = current;
                     Object.keys(values).forEach(function (key) {
@@ -110,6 +126,9 @@
             });
             del.addEventListener('submit', function (e) {
                 if (!confirm(label + ': ' + current + '? This cannot be undone.')) e.preventDefault();
+            });
+            reset.addEventListener('submit', function (e) {
+                if (!confirm('Reset the password of ' + current + '? Their current password stops working at once.')) e.preventDefault();
             });
             document.getElementById('edit-close').addEventListener('click', close);
             document.getElementById('edit-cancel').addEventListener('click', close);

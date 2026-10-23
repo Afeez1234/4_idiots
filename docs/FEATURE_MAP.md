@@ -37,6 +37,7 @@ the feature.
 | Fingerprint / PIN gate | `local_auth` prompt before mint or scan | — | `nfc_provider.dart` `_verifyIdentity` | — | — |
 | Device integrity (RASP) | freeRASP startup check; blocks check-in if compromised | — | `core/services/security_service.dart`, `main.dart` | — | — |
 | Device binding | Locks account to phone and phone to account; rejects placeholders | `api/auth.py` `mobile_login` | `features/auth/providers/auth_provider.dart` (reads hardware ID) | — | `students.device_id` |
+| Reset password | Admin gives a student or lecturer a random temporary password (shown once, never logged), forces a change and revokes the app session; the phone stays bound | `blueprints/admin.py` `/<kind>/<id>/reset-password`; `admin/_edit.html` (Edit dialog) | — | — | `users` |
 | Unbind phone | Admin clears `device_id` | `blueprints/admin.py` `/students/unbind/<id>` | `features/student/presentation/views/linked_devices_screen.dart` (read-only view) | — | `students` |
 | Device info | Shows the bound device to the student | `api/student.py` `get_device_info` | `features/student/providers/device_info_provider.dart` | — | `students` |
 | Required secrets | Server refuses to boot without DB/session/JWT secrets | `app.py` `_require_env`, `.env.example` | — | `secrets.h.example` | — |
@@ -136,7 +137,7 @@ the feature.
 | Timetable import, publish + notifications, page view, copy | `SUAAMS/tests/test_timetable_import.py`, `test_timetable_publish.py`, `test_timetable_view.py`, `test_timetable_copy.py` |
 | Bulk lecturers / courses | `SUAAMS/tests/test_bulk_upload.py` |
 | Status, promotion, Organization counts | `SUAAMS/tests/test_people_status.py`, `test_promotion.py` |
-| Edit / delete, HOD removal | `SUAAMS/tests/test_record_edits.py` |
+| Edit / delete, password reset, HOD removal | `SUAAMS/tests/test_record_edits.py` |
 | Admin dashboard: slot status, session matching, reminders, query count | `SUAAMS/tests/test_dashboard_today.py` |
 | Analytics: eligibility rule, held vs timetabled, query count | `SUAAMS/tests/test_analytics.py` |
 | Flutter tests | `SUAAMS_Mobile/suaams/test/` |

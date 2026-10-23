@@ -11,7 +11,8 @@
                    lecturer.full_name ~ ' (' ~ lecturer.staff_id ~ ')',
                    {'full_name': lecturer.full_name, 'staff_id': lecturer.staff_id,
                     'department_id': lecturer.department_id},
-                   delete_blockers.get(lecturer.id)) }}
+                   delete_blockers.get(lecturer.id),
+                   reset_url=url_for('admin.reset_password', kind='lecturers', record_id=lecturer.id, **filter_args)) }}
 {%- endmacro %}
 
 {% block title %}Lecturers | SUAAMS Admin{% endblock %}

@@ -12,7 +12,8 @@
                    {'full_name': student.full_name, 'matric_number': student.matric_number,
                     'level': student.level, 'department_id': student.department_id,
                     'rfid_uid': student.rfid_uid},
-                   delete_blockers.get(student.id)) }}
+                   delete_blockers.get(student.id),
+                   reset_url=url_for('admin.reset_password', kind='students', record_id=student.id, page=pagination.page, **filter_args)) }}
 {%- endmacro %}
 
 {% block title %}Students | SUAAMS Admin{% endblock %}
