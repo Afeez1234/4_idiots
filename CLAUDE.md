@@ -9,6 +9,10 @@ SQLAlchemy backend, physical ESP32 terminal hardware.
 Repo layout:
 - `SUAAMS/` — Flask API
 - `SUAAMS_Mobile/` — Flutter mobile frontend
+- `landing/` — static landing page and privacy policy for `suaams.com.ng`
+  (plain HTML/CSS, uploaded to WhoGoHost by hand). Every claim on it must
+  be true of the shipped system; update `privacy.html` when the app starts
+  collecting something new.
 
 Changes to one side (e.g. an API response shape) often require corresponding
 changes on the other (e.g. a Flutter model). Always consider both sides when

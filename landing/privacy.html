@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy policy | SUAAMS</title>
+  <meta name="description" content="What the SUAAMS attendance app and portal collect, why, who else handles it, and your rights.">
+  <meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)">
+  <link rel="canonical" href="https://suaams.com.ng/privacy.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="./" aria-label="SUAAMS home">
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+          <g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9.5 29.5 C7 33.5 8 39.5 13 40.5 C18.5 41.5 22 33 26 22.5"/>
+            <path d="M19.5 41 C23 33.5 26 26 32 23.8 C37.5 21.8 40.5 27.5 39 37"/>
+          </g>
+          <circle cx="30.5" cy="15.5" r="3" fill="#2f6bee"/>
+          <g fill="none" stroke="#2f6bee" stroke-width="2.2" stroke-linecap="round">
+            <path d="M31.6 9.9 A5.7 5.7 0 0 1 36.1 16.6"/>
+            <path d="M32.3 6.6 A9.1 9.1 0 0 1 39.5 17.3" stroke-opacity=".5"/>
+          </g>
+        </svg>
+        SUAAMS
+      </a>
+      <a class="btn btn-ghost btn-sm" href="https://portal.suaams.com.ng/" style="margin-left:auto">Sign in</a>
+    </div>
+  </header>
+
+  <!-- Keep this page in step with what the code actually collects
+       (SUAAMS/models.py and the app's AndroidManifest permissions).
+       Change the date below whenever the content changes. -->
+  <main id="main" class="doc">
+    <h1>Privacy policy</h1>
+    <p class="updated">Last updated 23 October 2026</p>
+
+    <div class="summary">
+      <p>In short, SUAAMS records class attendance. It never collects your fingerprint or face, never tracks your location, and keeps only what attendance needs: who you are, which courses you take, when you checked in, and an ID for the phone your account is locked to. Your institution's administrators and your lecturers can see your attendance. We don't sell or share your data for advertising.</p>
+    </div>
+
+    <h2>Who we are</h2>
+    <p>SUAAMS, short for Smart Universal Automated Attendance Management System, is a class attendance system with a mobile app, door readers and a web portal at <strong>portal.suaams.com.ng</strong>. It's running as a pilot and was built as a final-year engineering project. Questions about this policy or your data go to <a href="mailto:contact@suaams.com.ng">contact@suaams.com.ng</a>.</p>
+    <p>Your institution creates your account and decides who is enrolled and who can see attendance. SUAAMS handles the data to run the attendance service for it.</p>
+
+    <h2>What we collect</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th scope="col">Data</th><th scope="col">Why</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Name, matric or staff number, department and level</strong></td><td>To know who you are and which classes are yours. Your institution provides these.</td></tr>
+          <tr><td><strong>Username and password</strong></td><td>To sign you in. We store only a one-way bcrypt hash of your password. Nobody can read the password from it, administrators included.</td></tr>
+          <tr><td><strong>Phone ID</strong></td><td>Your account is locked to one phone so nobody else can check in as you. This is the ID Android or iOS gives the app. It isn't your phone number or IMEI.</td></tr>
+          <tr><td><strong>Courses and timetable</strong></td><td>To show your classes and work out which class a check-in belongs to.</td></tr>
+          <tr><td><strong>Attendance records</strong></td><td>When you checked in, which reader you used, how you checked in and your status. How is an NFC tap, Bluetooth or a lecturer marking you. Status is present, late, absent or excused.</td></tr>
+          <tr><td><strong>Results</strong></td><td>If your department enters course scores and grades, we store them so you can see them.</td></tr>
+          <tr><td><strong>Notification token</strong></td><td>A code from Google or Apple that lets us send you push notifications, such as "you've been marked present". It identifies the app on your phone, not you.</td></tr>
+          <tr><td><strong>Staff activity</strong></td><td>When staff change something in the portal, we record who did it, what changed and their IP address, so every change can be traced.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>What we don't collect</h2>
+    <ul>
+      <li><strong>Fingerprints or face data.</strong> Your phone checks your fingerprint or PIN itself and only tells the app whether it matched. The fingerprint never reaches the app, let alone our servers.</li>
+      <li><strong>Your location.</strong> Tapping the reader proves you're in the room, so GPS isn't needed. Android 11 and older won't let any app scan for Bluetooth without the location permission, so SUAAMS asks for it on those phones for that reason only. It never reads your location. Newer versions of Android don't ask.</li>
+      <li><strong>Contacts, photos, messages or browsing.</strong> The app has no permission to read them.</li>
+    </ul>
+
+    <h2>Permissions the app asks for</h2>
+    <ul>
+      <li><strong>Fingerprint or face unlock.</strong> Confirms it's you before each check-in.</li>
+      <li><strong>NFC.</strong> Lets your phone pass its check-in code to the reader when you tap.</li>
+      <li><strong>Bluetooth.</strong> The fallback for phones without NFC. The app listens for the reader's short code.</li>
+      <li><strong>Notifications.</strong> Tells you when you've been marked, and about announcements.</li>
+    </ul>
+
+    <h2>Who can see your data</h2>
+    <ul>
+      <li><strong>You</strong> see your own attendance, courses, timetable and results.</li>
+      <li><strong>Your lecturers</strong> see attendance for the courses they teach.</li>
+      <li><strong>Your head of department</strong> sees attendance for students in the department.</li>
+      <li><strong>Your institution's administrators</strong> see what they need to run the system, including your phone binding, so they can unbind it when you change phones.</li>
+    </ul>
+    <p>We don't sell your data or use it for advertising.</p>
+
+    <h2>Services that handle data for us</h2>
+    <p>SUAAMS runs on these providers. Each handles data only to provide its service. Some of them store data outside Nigeria.</p>
+    <ul>
+      <li><strong>Render</strong> hosts the server and web portal in the United States.</li>
+      <li><strong>Clever Cloud</strong> hosts the database.</li>
+      <li><strong>Google Firebase Cloud Messaging</strong> delivers push notifications using the notification token. On iPhone, Apple's push service does the same job.</li>
+      <li><strong>Talsec's freeRASP</strong> runs the app's tamper check. It reports device-security signals, such as whether a phone is rooted, so the app can block tampered phones. It doesn't receive your name or attendance.</li>
+    </ul>
+
+    <h2>How we protect it</h2>
+    <ul>
+      <li>The app, readers and portal only talk to the server over encrypted HTTPS connections.</li>
+      <li>The server signs every check-in code. Each code belongs to one student and one class and expires after 10 seconds.</li>
+      <li>Database backups are encrypted.</li>
+      <li>The portal logs every change staff make, with their name.</li>
+    </ul>
+
+    <h2>How long we keep it</h2>
+    <p>Attendance is part of your academic record, so we keep it for as long as your institution keeps academic records. When you graduate or leave, your institution switches off your sign-in, but your attendance history stays so it can still be checked. We delete notification tokens when you sign out or when they stop working.</p>
+
+    <h2>Your rights</h2>
+    <p>Under the Nigeria Data Protection Act 2023 you can ask to see the data we hold about you, have it corrected, object to how it's used, or ask for it to be deleted where it isn't needed as part of your institution's records. Email <a href="mailto:contact@suaams.com.ng">contact@suaams.com.ng</a> or ask your department's administrator. If you're unhappy with our answer, you can complain to the Nigeria Data Protection Commission.</p>
+
+    <h2>Changes to this policy</h2>
+    <p>If what we collect changes, we'll update this page and the date at the top.</p>
+
+    <p style="margin-top:48px"><a href="./">← Back to suaams.com.ng</a></p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <p>© 2026 SUAAMS</p>
+      <nav aria-label="Footer">
+        <a href="./">Home</a>
+        <a href="https://portal.suaams.com.ng/">Sign in</a>
+        <a href="mailto:contact@suaams.com.ng">contact@suaams.com.ng</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SUAAMS | Class attendance with a phone tap</title>
+  <meta name="description" content="SUAAMS checks students into class with their fingerprint and a tap of their phone at the door. Nobody queues at a scanner, and nobody can sign in for a friend.">
+  <meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)">
+  <meta property="og:title" content="SUAAMS | Class attendance with a phone tap">
+  <meta property="og:description" content="Students confirm with their fingerprint and tap their phone on the reader at the door. Each check-in takes under half a second.">
+  <meta property="og:url" content="https://suaams.com.ng/">
+  <meta property="og:type" content="website">
+  <link rel="canonical" href="https://suaams.com.ng/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <!-- The SUAAMS mark, defined once and reused. Same geometry as
+       suaams_logo.dart and the suaams_mark macro in SUAAMS/templates/_macros.html. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="mark" viewBox="0 0 48 48">
+      <g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9.5 29.5 C7 33.5 8 39.5 13 40.5 C18.5 41.5 22 33 26 22.5"/>
+        <path d="M19.5 41 C23 33.5 26 26 32 23.8 C37.5 21.8 40.5 27.5 39 37"/>
+      </g>
+      <circle cx="30.5" cy="15.5" r="3" fill="#2f6bee"/>
+      <g fill="none" stroke="#2f6bee" stroke-width="2.2" stroke-linecap="round">
+        <path d="M31.6 9.9 A5.7 5.7 0 0 1 36.1 16.6"/>
+        <path d="M32.3 6.6 A9.1 9.1 0 0 1 39.5 17.3" stroke-opacity=".5"/>
+      </g>
+    </symbol>
+    <symbol id="check" viewBox="0 0 24 24">
+      <path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="android" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.87 3.23a11.4 11.4 0 0 0-9.82 0L5.22 5.92a.38.38 0 1 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52ZM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Z"/>
+    </symbol>
+    <symbol id="arrow" viewBox="0 0 24 24">
+      <path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </svg>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="./" aria-label="SUAAMS home">
+        <svg aria-hidden="true"><use href="#mark"/></svg>
+        SUAAMS
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="#how">How it works</a>
+        <a href="#security">Security</a>
+        <a href="#privacy">Privacy</a>
+        <a href="#download">Get the app</a>
+      </nav>
+      <a class="btn btn-ghost btn-sm" href="https://portal.suaams.com.ng/">Sign in</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap hero-grid">
+        <div>
+          <h1 id="hero-title">Tap your phone at the door. <em>You're marked present.</em></h1>
+          <p class="lede">SUAAMS checks students into class with their fingerprint and a tap of their phone. Nobody queues at a scanner, and nobody can sign in for a friend.</p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="#download">
+              <svg aria-hidden="true"><use href="#android"/></svg>
+              Get the Android app
+            </a>
+            <a class="btn btn-ghost" href="https://portal.suaams.com.ng/">
+              Sign in to the portal
+              <svg aria-hidden="true"><use href="#arrow"/></svg>
+            </a>
+          </div>
+          <p class="hero-note">Android now · iPhone coming later</p>
+        </div>
+
+        <!-- The real ID card screen, from a demo account (never a real
+             student's). Until img/app-id-card.webp is uploaded, the image
+             removes itself and the frame shows the placeholder text behind
+             it rather than a broken-image icon. See README "Screenshots". -->
+        <figure class="phone" style="margin:0">
+          <div class="phone-screen">
+            <p class="phone-placeholder">ID card screen</p>
+            <img src="img/app-id-card.webp" width="540" height="1085"
+                 alt="The SUAAMS app's digital ID card screen, with a Check in with this ID button"
+                 onerror="this.remove()">
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <!-- The problem, in numbers -->
+    <section class="section-alt" aria-labelledby="numbers-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="numbers-title">A 200-student hall shouldn't need a 7-minute queue.</h2>
+          <p>A fingerprint scanner on the door takes about two seconds a student. A phone tap takes under half a second, and the fingerprint check happens on the student's own phone before they reach the door.</p>
+        </div>
+        <div class="stats">
+          <div class="stat"><b>~7<small>min</small></b><span>to get 200 students through a door scanner</span></div>
+          <div class="stat win"><b>&lt;2<small>min</small></b><span>for the same 200 students with SUAAMS</span></div>
+          <div class="stat"><b>0.1<small>s</small></b><span>for the phone and reader to exchange the check-in code</span></div>
+          <div class="stat"><b>10<small>s</small></b><span>before a check-in code expires, so it can't be reused</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section id="how" aria-labelledby="how-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="how-title">Three steps at the door.</h2>
+          <p>The lecturer starts the class from the app or the web portal. Then each student does this:</p>
+        </div>
+        <ol class="steps">
+          <li class="step">
+            <h3>Confirm it's you</h3>
+            <p>Press <strong>Check in</strong> and touch the fingerprint sensor, or enter your phone's PIN. The app does nothing until your phone confirms it's you.</p>
+          </li>
+          <li class="step">
+            <h3>Tap the reader</h3>
+            <p>Hold your phone to the reader at the door. The phone hands over a one-time code that the server signed a moment earlier. It expires after 10 seconds.</p>
+          </li>
+          <li class="step">
+            <h3>You're marked</h3>
+            <p>The server checks the code and marks you present, or late if class started more than 10 minutes ago. You get a notification, and your name shows up on the lecturer's live list.</p>
+          </li>
+        </ol>
+        <p class="aside-note"><strong>No NFC on your phone?</strong> Every reader also broadcasts a short Bluetooth code that changes every 5 seconds, so phones without NFC can check in too. <strong>Reader lost its connection?</strong> It keeps the taps and sends them when it's back online, and the lecturer confirms them.</p>
+      </div>
+    </section>
+
+    <!-- In the app: a real screen, from the demo account -->
+    <section aria-labelledby="records-title">
+      <div class="wrap showcase">
+        <div>
+          <h2 id="records-title" style="margin-bottom:14px">Know where you stand before exams.</h2>
+          <p class="lede">Every course shows how many classes you've attended out of how many were held, so nobody finds out about a shortfall on exam day.</p>
+          <ul class="legend">
+            <li><span class="dot present"></span><span><strong>Green</strong> at 75% or more</span></li>
+            <li><span class="dot late"></span><span><strong>Amber</strong> from 50% up to 75%</span></li>
+            <li><span class="dot absent"></span><span><strong>Red</strong> under 50%</span></li>
+          </ul>
+        </div>
+        <figure class="phone" style="margin:0">
+          <div class="phone-screen">
+            <p class="phone-placeholder">Records screen</p>
+            <img src="img/app-records.webp" width="540" height="1085" loading="lazy"
+                 alt="The SUAAMS app's Records screen: attendance per course, such as 11 of 20 sessions for Embedded Systems"
+                 onerror="this.remove()">
+          </div>
+        </figure>
+      </div>
+    </section>
+
+    <!-- Security -->
+    <section id="security" class="section-alt" aria-labelledby="security-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="security-title">Signing in for a friend doesn't work.</h2>
+          <p>Here's each way someone might try to fake attendance, and what stops it.</p>
+        </div>
+        <div class="cards">
+          <article class="card">
+            <h3>A friend uses your phone</h3>
+            <p>The app won't make a check-in code until the phone confirms its owner's fingerprint or PIN. Holding your phone isn't enough.</p>
+          </article>
+          <article class="card">
+            <h3>You sign in on a friend's phone</h3>
+            <p>Your account locks to the first phone you sign in on, and that phone can't hold a second student's account. Moving to a new phone means seeing an admin with your school ID.</p>
+          </article>
+          <article class="card">
+            <h3>A check-in counts for the wrong class</h3>
+            <p>A code only works for the class you're enrolled in that's running right now. You can only be marked once per class.</p>
+          </article>
+          <article class="card">
+            <h3>A code gets passed to someone outside</h3>
+            <p>A code belongs to one student and one class and expires after 10 seconds. A tap also needs the phone within about 4 cm of the reader.</p>
+          </article>
+          <article class="card">
+            <h3>Someone makes up a code</h3>
+            <p>Only the server can sign a code, so it rejects any code that was changed or invented. Each reader also sends its own secret with every request, so a fake reader gets nowhere.</p>
+          </article>
+          <article class="card">
+            <h3>The phone is rooted</h3>
+            <p>When it starts, the app checks whether the phone has been rooted or tampered with. On a phone that fails, it won't check in.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Who it's for -->
+    <section aria-labelledby="who-title">
+      <div class="wrap">
+        <div class="section-head">
+          <h2 id="who-title">What each person gets.</h2>
+        </div>
+        <div class="cards four">
+          <article class="card">
+            <h3>Students</h3>
+            <p>Check in at the door, see today's classes and the week's timetable, and track attendance course by course.</p>
+          </article>
+          <article class="card">
+            <h3>Lecturers</h3>
+            <p>Start a class from your phone or the portal, watch students arrive live, mark anyone the reader couldn't, and export the register.</p>
+          </article>
+          <article class="card">
+            <h3>Heads of department</h3>
+            <p>See the department's attendance by level, and every student's attendance percentage in one list.</p>
+          </article>
+          <article class="card">
+            <h3>Administrators</h3>
+            <p>Import students, courses and timetables in bulk, manage readers by room, and see every change in the activity log.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Privacy summary -->
+    <section id="privacy" class="section-alt" aria-labelledby="privacy-title">
+      <div class="wrap privacy-band">
+        <div class="section-head" style="margin-bottom:0">
+          <h2 id="privacy-title">Your fingerprint never leaves your phone.</h2>
+          <p>SUAAMS doesn't collect fingerprints at all. Your phone checks your finger itself and only tells the app whether it matched. The server only ever sees attendance records.</p>
+          <p style="margin-top:20px"><a href="privacy.html">Read the full privacy policy →</a></p>
+        </div>
+        <ul class="checks">
+          <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>No fingerprint or face data.</strong> Nothing biometric is stored or sent anywhere.</span></li>
+          <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>No location tracking.</strong> The tap proves you're at the door, so the app never needs GPS.</span></li>
+          <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>Only what attendance needs.</strong> Your name, matric number, courses, attendance records and a phone ID.</span></li>
+          <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>Encrypted in transit.</strong> The app, readers and portal talk to the server over HTTPS only.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Download -->
+    <section id="download" aria-labelledby="download-title">
+      <div class="wrap download">
+        <div>
+          <h2 id="download-title" style="margin-bottom:14px">Download for Android.</h2>
+          <p class="lede" style="margin-bottom:28px">The app is still in testing, so you install it from this page. A Play Store release is planned.</p>
+          <!-- PLAY STORE: when the app is published, replace these two links
+               with a single Google Play badge pointing at the listing. -->
+          <div class="cta-row">
+            <a class="btn btn-primary" href="downloads/suaams-arm64.apk" download>
+              <svg aria-hidden="true"><use href="#android"/></svg>
+              Download the app
+            </a>
+          </div>
+          <!-- Update the version here with each upload. -->
+          <p class="download-meta">Version 0.1.0 · test build</p>
+          <p style="margin-top:14px;font-size:15px;color:var(--muted)">Older or budget phone and the install fails? Try the <a href="downloads/suaams-armv7.apk" download>version for older phones</a>.</p>
+        </div>
+        <div>
+          <ol class="install">
+            <li><span><strong>Download</strong> the app with the button and open the file when it finishes.</span></li>
+            <li><span><strong>Allow the install.</strong> Android asks once whether your browser may install apps. Tap <em>Settings</em>, turn on <em>Allow from this source</em>, then go back.</span></li>
+            <li><span><strong>Sign in</strong> with the username and password your department gave you, then set your own password.</span></li>
+          </ol>
+          <p class="warn"><strong>Sign in on your own phone.</strong> Your account locks to the first phone you use. Changing phones later means asking an admin, with your school ID.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div>
+        <a class="brand" href="./" aria-label="SUAAMS home" style="margin-bottom:12px">
+          <svg aria-hidden="true"><use href="#mark"/></svg>
+          SUAAMS
+        </a>
+        <p>Smart Universal Automated Attendance Management System.</p>
+        <p>A final-year Mechatronics Engineering project.</p>
+      </div>
+      <div>
+        <nav aria-label="Footer">
+          <a href="https://portal.suaams.com.ng/">Sign in</a>
+          <a href="#download">Get the app</a>
+          <a href="privacy.html">Privacy policy</a>
+          <a href="mailto:contact@suaams.com.ng">contact@suaams.com.ng</a>
+        </nav>
+        <p style="margin-top:14px">© 2026 SUAAMS</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

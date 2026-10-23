@@ -1,0 +1,2 @@
+# APKs are uploaded to the server, never committed (each is 40-120 MB).
+*.apk

@@ -296,6 +296,7 @@ when a student checked in, are stored in UTC and converted when displayed.
 ├── README.md                     ← this file
 ├── CLAUDE.md                     ← coding standards for this repo
 ├── docs/                         ← architecture, decisions, security, API, hardware
+├── landing/                      ← public page at suaams.com.ng + privacy policy (see its README)
 ├── SUAAMS/                       ← server
 │   ├── app.py                    ← starts the app, loads secrets, registers routes
 │   ├── models.py                 ← database tables
