@@ -28,7 +28,7 @@ the feature.
 | Offline queue | Stores up to 100 tokens with their read time in flash, uploads 25 at a time on reconnect. A token read more than 15 s after it was made is rejected at upload (a replay); only well-formed 32-character tokens are queued | `api/student.py` `sync_offline_checkin_backlog` | — | `HCE.ino` `appendToBacklog`, `flushBacklog` | `offline_checkin_logs` |
 | Keep server warm | Pings `/healthz` every 4 min and before a POST if not warm | `app.py` `healthz` | — | `HCE.ino` `maybeKeepBackendWarm`, `ensureBackendWarmForPost` | — |
 | Present vs late | `late` if > 10 min after `planned_start` (campus time) | `utils.py` `compute_attendance_status` | `shared/utils/attendance_status.dart` (display) | — | `attendance` |
-| Legacy RFID capture | **Removed 2026-10-12.** The old sketches remain for reference and would now get a 404 | — | — | `SUAAMS_ESP/`, `SUAAMS_/` (old sketches) | `students.rfid_uid` (unused) |
+| Legacy RFID capture | **Removed 2026-10-12.** The old sketches were deleted on 2026-10-23, and the RFID field left the admin forms, bulk upload, the student dashboard and the app's ID card | — | — | — | `students.rfid_uid` (unused, until a migration drops it) |
 
 ## Security
 

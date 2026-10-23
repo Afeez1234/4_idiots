@@ -251,8 +251,8 @@ def healthz():
 # RFID-card terminal's routes, POST /attendance and GET /sessions/active,
 # removed on 2026-10-12. Nothing called them, and /attendance credited "the
 # newest active session in any course", the mistake the signed check-in code
-# exists to prevent. The retired card sketches still point at /attendance
-# and get a 404.
+# exists to prevent. The card sketches themselves were deleted on
+# 2026-10-23.
 @app.route('/')
 def home():
     return redirect(url_for('auth.login'))

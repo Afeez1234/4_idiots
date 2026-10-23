@@ -192,15 +192,11 @@ def edit_student(student, form):
     level = normalize_level(form.get('level'))
     if level is None:
         raise EditError('Level must be one of 100, 200, 300, 400 or 500.')
-    rfid = (form.get('rfid_uid') or '').strip() or None
-    if rfid and Student.query.filter(Student.rfid_uid == rfid, Student.id != student.id).first():
-        raise EditError(f'RFID card {rfid} belongs to another student.')
     diff = _apply(student, {
         'full_name': _text(form, 'full_name', 'Full name', 150),
         'matric_number': matric,
         'level': level,
         'department_id': _ref(form, 'department_id', Department, 'department'),
-        'rfid_uid': rfid,
     })
     if 'matric_number' in diff:
         _rename_login(student.user, matric)

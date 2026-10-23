@@ -137,6 +137,9 @@ class Student(db.Model):
     # also switches the login off and releases the phone). A status, never a
     # delete: deleting a student cascades away their attendance and results.
     status = db.Column(db.String(20), nullable=False, default='active', server_default='active')
+    # Unused since 2026-10-23: the RFID card reader was retired on
+    # 2026-10-12 and nothing asks for or shows this any more. Kept until a
+    # migration drops it.
     rfid_uid = db.Column(db.String(50), unique=True, nullable=True)
     # unique: one phone binds at most one student (see mobile_login in
     # api/auth.py). NULL means unbound, and MySQL allows any number of NULLs

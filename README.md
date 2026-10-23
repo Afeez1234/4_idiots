@@ -54,9 +54,9 @@ there is no limit on how many students can enrol.
 | **Server** | Python/Flask API, plus web dashboards for admin, HOD, lecturer, student. MySQL database (20 tables) hosted on Clever Cloud, server hosted on Render | [SUAAMS/](SUAAMS/) |
 | **Terminal** | ESP32 microcontroller + PN532 NFC reader. Also broadcasts a Bluetooth signal for phones without NFC | [ESP32_ARDUINO CODE/SUAAMS_HCE/](ESP32_ARDUINO%20CODE/SUAAMS_HCE/) |
 
-The other sketches in `ESP32_ARDUINO CODE/` (`SUAAMS_ESP`, `SUAAMS_`) are the
-original prototype that read plastic RFID cards with an MFRC522 reader. They
-are kept for reference, but the phone-based system has replaced them.
+The original prototype read plastic RFID cards with an MFRC522 reader. The
+phone-based system replaced it, and its sketches were deleted on 2026-10-23
+(they're in git history before that).
 
 ---
 
@@ -321,8 +321,7 @@ when a student checked in, are stored in UTC and converted when displayed.
 │   └── android/.../SuaamsHceService.kt  ← native NFC card emulation
 └── ESP32_ARDUINO CODE/
     ├── SUAAMS_HCE/               ← current terminal firmware
-    ├── PN532_DetectTest/         ← reader bench-test sketch
-    └── SUAAMS_ESP/, SUAAMS_/     ← old RFID-card prototype
+    └── PN532_DetectTest/         ← reader bench-test sketch
 ```
 
 ---

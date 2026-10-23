@@ -226,9 +226,11 @@ class AuditTestCase(unittest.TestCase):
 
     def test_bad_csv_row_does_not_discard_the_rows_before_it(self):
         csv_text = (
+            # rfid_uid: an old template's column, ignored since the RFID
+            # field was removed (2026-10-23) -- the sheet still uploads.
             'matric_number,full_name,level,department_name,rfid_uid\n'
             'MCT/19/0010,First,400,Mechatronics,AAA\n'
-            'MCT/19/0011,Second,400,Mechatronics,AAA\n'   # duplicate RFID: skipped
+            'MCT/19/0010,Second,400,Mechatronics,BBB\n'   # duplicate matric: skipped
             'MCT/19/0012,Third,400,Mechatronics,\n'
         )
         self.upload(csv_text)

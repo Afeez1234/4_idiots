@@ -225,7 +225,6 @@ def get_student_dashboard():
                     "full_name": student.full_name or claims.get("username"),
                     "department": student.department.name if student.department else "Unknown", # FIX: extract .name string
                     "level": student.level,
-                    "rfid_uid": student.rfid_uid,
                     "matric_number": student.matric_number
                 },
                 "stats": {

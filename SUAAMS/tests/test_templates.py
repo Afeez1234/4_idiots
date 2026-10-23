@@ -221,6 +221,10 @@ VERIFIED_MATERIAL_SYMBOLS = {
     # an award) and Activity (was history, the same glyph as the two history
     # pages, for what is an audit log). Rendered and looked at that day.
     "supervisor_account", "manage_history",
+    # Student dashboard phone pill (replaced the RFID pill), 2026-10-23.
+    # In Google's MaterialSymbolsRounded codepoints file (smartphone e7ba,
+    # phonelink_off f7a5), and looked at rendered via tests/preview.py.
+    "smartphone", "phonelink_off",
 }
 
 # The icon passed positionally to the macros that take one: the second

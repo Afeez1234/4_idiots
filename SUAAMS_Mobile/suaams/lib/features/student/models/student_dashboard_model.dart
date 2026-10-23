@@ -29,15 +29,14 @@ class StudentProfile {
   final String fullName;
   final String department;
   final String level;
-  final String?
-  rfidUid; // Nullable in case a student hasn't been issued an RFID yet
+  // rfidUid was removed 2026-10-23: the RFID card reader was retired and
+  // the server no longer sends it.
   final String matricNumber;
 
   StudentProfile({
     required this.fullName,
     required this.department,
     required this.level,
-    this.rfidUid,
     required this.matricNumber,
   });
 
@@ -48,7 +47,6 @@ class StudentProfile {
       level:
           json['level']?.toString() ??
           'N/A', // .toString() protects us if DB sends an int
-      rfidUid: json['rfid_uid'],
       matricNumber: json['matric_number'] ?? '',
     );
   }

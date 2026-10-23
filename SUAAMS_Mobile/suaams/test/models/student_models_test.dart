@@ -43,7 +43,6 @@ void main() {
       expect(m.profile.fullName, 'Ada Okafor');
       expect(m.profile.department, 'Mechatronics Engineering');
       expect(m.profile.level, '400');
-      expect(m.profile.rfidUid, isNull);
       expect(m.profile.matricNumber, 'MCT/2022/014');
 
       expect(m.stats.overallRate, 66.7);

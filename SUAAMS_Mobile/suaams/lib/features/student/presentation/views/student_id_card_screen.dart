@@ -326,48 +326,10 @@ class _DigitalIdCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           AppLabelValueRow('LEVEL', profile.level, uppercaseValue: true),
-
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(height: 1, thickness: 1),
-          ),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'HARDWARE UID',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    revealed ? (profile.rfidUid ?? 'UNASSIGNED') : _mask,
-                    style: AppTheme.accent(
-                      size: 12,
-                      weight: FontWeight.w700,
-                      color: profile.rfidUid == null
-                          ? colorScheme.error
-                          : colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-              Icon(
-                Icons.contactless_rounded,
-                color: profile.rfidUid == null
-                    ? colorScheme.error.withValues(alpha: 0.5)
-                    : colorScheme.primary,
-              ),
-            ],
-          ),
+          // The "HARDWARE UID" (RFID card) row was here until 2026-10-23. The
+          // card reader was retired, so it read UNASSIGNED, in red, for
+          // every student. The phone is the ID now: the one showing this
+          // card is the bound one.
         ],
       ),
     );

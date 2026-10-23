@@ -1057,7 +1057,6 @@ def students_page():
         matric_number = request.form.get('matric_number')
         level = request.form.get('level')
         department_id = request.form.get('department_id')
-        rfid_uid = request.form.get('rfid_uid') or None
 
         if not all([full_name, matric_number, level, department_id]):
             flash('Please fill in all required fields.', 'error')
@@ -1092,7 +1091,6 @@ def students_page():
                 full_name=full_name.strip(),
                 matric_number=matric_number.strip(),
                 level=level,
-                rfid_uid=rfid_uid,
                 department_id=int(department_id),
                 user_id=new_user.id,
             )
@@ -1106,7 +1104,7 @@ def students_page():
             flash(f"Student profile created successfully for {full_name}.", 'success')
         except Exception:
             db.session.rollback()
-            flash('Database error occurred. Matric Number or RFID UID might already exist.', 'error')
+            flash('Database error occurred. Matric Number might already exist.', 'error')
             log_exception("Student Single Creation Error")
 
         return redirect(url_for('admin.students_page'))

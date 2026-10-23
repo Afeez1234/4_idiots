@@ -2,9 +2,7 @@
 ///
 /// Every avatar in the app was written by hand as `name[0].toUpperCase()`,
 /// which throws a `RangeError` on an empty string. `StudentProfile.fullName`
-/// is declared non-nullable but nothing stops the API sending `""` -- the
-/// model already has to think about this kind of thing (`rfidUid` is nullable
-/// precisely because a student might not have been issued one yet), so a
+/// is declared non-nullable but nothing stops the API sending `""`, so a
 /// blank name is a record state the client should survive rather than crash
 /// on. An avatar is decoration: failing to draw one is always preferable to
 /// taking the whole profile tab down with it.

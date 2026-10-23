@@ -18,8 +18,8 @@ hardware. Fill them in while it's on the desk.
 | Power supply | | **FILL IN:** source, voltage, current |
 | Enclosure / mounting | | **FILL IN** |
 
-The old prototype (MFRC522 reading RFID cards) lives in `SUAAMS_ESP/` and
-`SUAAMS_/`, for reference only.
+The old prototype (MFRC522 reading RFID cards) was deleted on 2026-10-23;
+its sketches are in git history before that.
 
 ## 2. Wiring
 

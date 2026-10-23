@@ -90,7 +90,9 @@ def dashboard():
             'full_name': student.full_name or session.get('username'),
             'department': student.department.name if student.department else None,
             'level': student.level,
-            'rfid_uid': student.rfid_uid,
+            # The phone binding, which replaced the RFID card (retired
+            # 2026-10-12) as the thing that lets a student check in.
+            'phone_linked': bool(student.device_id),
             'matric_number': student.matric_number,
         }
 

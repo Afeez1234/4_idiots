@@ -62,7 +62,9 @@ _CHUNK = 500            # rows per IN (...) lookup and per INSERT batch
 # new password is hashed at full cost.
 DEFAULT_PASSWORD_ROUNDS = 4
 
-STUDENT_COLUMNS = ('matric_number', 'full_name', 'level', 'department', 'rfid_uid')
+# No rfid_uid since 2026-10-23: the RFID reader was retired on 2026-10-12.
+# Old sheets that still have the column upload fine; it's ignored.
+STUDENT_COLUMNS = ('matric_number', 'full_name', 'level', 'department')
 LECTURER_COLUMNS = ('staff_id', 'full_name', 'department')
 COURSE_COLUMNS = ('course_code', 'course_title', 'department', 'credit_units', 'lecturers')
 COLUMNS = {'students': STUDENT_COLUMNS, 'lecturers': LECTURER_COLUMNS, 'courses': COURSE_COLUMNS}
@@ -265,14 +267,13 @@ def _existing(column, values):
 
 def plan_students(rows, filename):
     """The same rules the student upload always had: level 100-500 ("400"
-    or "400L"), an existing department, a matric number and RFID UID used
-    once. A matric number already registered is skipped, not changed."""
+    or "400L"), an existing department, a matric number used once. A matric
+    number already registered is skipped, not changed."""
     departments = _departments()
     matrics = [r.values['matric_number'] for r in rows]
     students = _existing(Student.matric_number, matrics)
     usernames = _existing(User.username, matrics)
-    rfids = _existing(Student.rfid_uid, [r.values['rfid_uid'] for r in rows])
-    seen_matric, seen_rfid = {}, {}
+    seen_matric = {}
 
     for r in rows:
         v = r.values
@@ -301,13 +302,6 @@ def plan_students(rows, filename):
         if not department:
             r.errors.append(f"No department \"{v['department']}\". Create it on the Organization page first.")
             continue
-        rfid = v['rfid_uid'].lower()
-        if rfid and (rfid in rfids or rfid in seen_rfid):
-            where = f"line {seen_rfid[rfid]}" if rfid in seen_rfid else 'another student'
-            r.errors.append(f"RFID UID {v['rfid_uid']} is already used by {where}.")
-            continue
-        if rfid:
-            seen_rfid[rfid] = r.line
         r.resolved.update(level=level, department_id=department.id)
 
     for r in rows:
@@ -492,7 +486,6 @@ def apply_students(plan):
         db.session.execute(sa_insert(Student), [{
             'full_name': r.values['full_name'], 'matric_number': r.values['matric_number'],
             'level': r.resolved['level'], 'department_id': r.resolved['department_id'],
-            'rfid_uid': r.values['rfid_uid'] or None,
             'user_id': user_ids[r.values['matric_number'].lower()],
         } for r in chunk])
     return len(rows)
@@ -548,8 +541,8 @@ def apply_courses(plan, semester):
 def template_csv(kind):
     """A header row plus one example, for the "Download template" links."""
     if kind == 'students':
-        return ('matric_number,full_name,level,department,rfid_uid\n'
-                'MCT/20/0001,Aisha Bello,400,Mechatronics Engineering,\n')
+        return ('matric_number,full_name,level,department\n'
+                'MCT/20/0001,Aisha Bello,400,Mechatronics Engineering\n')
     if kind == 'lecturers':
         return 'staff_id,full_name,department\nSTF/0001,Dr Jane Doe,Mechatronics Engineering\n'
     return ('course_code,course_title,department,credit_units,lecturers\n'

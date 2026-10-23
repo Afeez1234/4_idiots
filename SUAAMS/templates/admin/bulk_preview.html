@@ -78,7 +78,6 @@
                             <th class="th">Name</th>
                             <th class="th">Level</th>
                             <th class="th">Department</th>
-                            <th class="th">RFID UID</th>
                         {% elif plan.kind == 'lecturers' %}
                             <th class="th">Staff ID</th>
                             <th class="th">Name</th>
@@ -104,7 +103,6 @@
                                 <td class="td">{{ r.values.full_name }}</td>
                                 <td class="td td-muted">{{ r.resolved.level or r.values.level }}</td>
                                 <td class="td td-muted">{{ r.values.department }}</td>
-                                <td class="td td-muted mono">{{ r.values.rfid_uid or '—' }}</td>
                             {% elif plan.kind == 'lecturers' %}
                                 <td class="td mono">{{ r.values.staff_id }}</td>
                                 <td class="td">{{ r.values.full_name }}</td>
