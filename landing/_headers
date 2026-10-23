@@ -1,0 +1,19 @@
+# Netlify response headers for suaams.com.ng (replaces the old Apache
+# .htaccess). HTTPS and the www -> suaams.com.ng redirect are Netlify
+# settings, not rules here: Netlify forces HTTPS once its certificate is
+# issued, and redirects every domain alias to the primary one.
+#
+# Caching needs no rule: Netlify serves every file with
+# "max-age=0, must-revalidate", so a new upload shows at once and the page
+# never meets an old stylesheet.
+
+# Android only offers to install a download served with this type, and
+# "attachment" makes the browser save it rather than show it as text.
+/downloads/*
+  Content-Type: application/vnd.android.package-archive
+  Content-Disposition: attachment
+  Cache-Control: no-cache
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

@@ -560,6 +560,12 @@ if you know the date.
   services, the devices on `portal.` need moving. Several universities
   would each get their own deployment and subdomain, with their own
   database and signing keys, which needs a bigger Render plan.
+- **Later (2026-10-23):** the landing page moved to Netlify's free plan.
+  The WhoGoHost account held the domain but no hosting plan, and a static
+  site doesn't need one: Netlify gives HTTPS without setup and enough
+  bandwidth for the APK downloads. DNS stays at WhoGoHost (an `A` record
+  for the apex, a `CNAME` for `www`), so `portal.` is untouched. The Apache
+  `.htaccess` became Netlify's `_headers`.
 
 ### D37. A minimum app build the server enforces (2026-10-21)
 

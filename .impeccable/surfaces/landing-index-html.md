@@ -7,7 +7,7 @@ related_targets: ["landing/get/index.html","landing/get/poster.html","landing/pr
 
 # Surface brief: suaams.com.ng (story page) + /get (install)
 
-Mode: Persuade (both). Plain HTML/CSS, no build step, hand-uploaded to WhoGoHost.
+Mode: Persuade (both). Plain HTML/CSS, no build step, deployed to Netlify by drag-and-drop (domain DNS at WhoGoHost).
 
 ## Audience and job
 - `/`: capstone panel, lecturers, HODs sent the link; students who land here need one obvious path to /get.

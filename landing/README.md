@@ -1,6 +1,7 @@
 # Landing page — suaams.com.ng
 
-Plain HTML and CSS, no build step. Hosted on WhoGoHost (cPanel), separate
+Plain HTML and CSS, no build step. Hosted on Netlify (free plan, deployed
+by drag-and-drop); the domain stays registered at WhoGoHost, separate
 from the Flask server at `portal.suaams.com.ng`. See section 11 of
 [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md).
 
@@ -17,23 +18,41 @@ from the Flask server at `portal.suaams.com.ng`. See section 11 of
 | `fonts/` | IBM Plex Sans and Mono, cut down to Latin WOFF2 from the app's own TTFs |
 | `img/qr-get.svg` | QR code for `https://suaams.com.ng/get` |
 | `favicon.svg` | Tab icon, the SUAAMS mark |
-| `.htaccess` | APK download type, caching, www and HTTPS redirects |
-| `downloads/` | The APKs. Uploaded to the server only, never committed |
+| `_headers` | Netlify response headers: APKs download as Android installers; two security headers |
+| `downloads/` | The APKs. Added to the deploy folder only, never committed |
 
-## Publishing
+## Publishing (Netlify)
 
-1. cPanel → **File Manager** → `public_html`. Delete the host's
-   placeholder page if there is one.
-2. Upload `index.html`, `privacy.html`, `styles.css`, `hero.js`, `hall.js`, `steps.js`,
-   `favicon.svg`, `.htaccess` (turn on *Show Hidden Files* to see it), and
-   the `fonts/`, `img/` and `get/` folders with their contents.
-3. Create `public_html/downloads/` and upload the APKs there (below).
+The domain is registered at WhoGoHost but has no hosting plan there: the
+site is on Netlify's free plan. `portal.suaams.com.ng` (Render) is a
+separate DNS record and isn't affected by any of this.
 
-### HTTPS
+### Each deploy
 
-cPanel → **SSL/TLS Status** → *Run AutoSSL* for `suaams.com.ng` and
-`www.suaams.com.ng`. Once https://suaams.com.ng opens without a warning,
-uncomment the two HTTPS lines at the bottom of `.htaccess`.
+1. Make a deploy folder: everything in `landing/` **except** `README.md`,
+   `tools/`, `.gitignore` and the `img/*.json` provenance notes, plus
+   `downloads/` with the two APKs (see "Releasing a new app build").
+2. Netlify → the site → **Deploys** → drag the folder onto the drop area.
+   Each drop replaces the whole site, so always drop the full folder,
+   APKs included.
+
+### First-time setup (done once)
+
+1. Sign up at netlify.com, then drag the deploy folder onto
+   app.netlify.com/drop. Rename the site (Site configuration → Change site
+   name) to something like `suaams`, giving `suaams.netlify.app`.
+2. Domain management → **Add a domain** → `suaams.com.ng`. Choose
+   **external DNS** (keep DNS at WhoGoHost), and keep `suaams.com.ng` as the
+   **primary domain**: the QR code, canonical links and poster use it, and
+   `www` then redirects to it.
+3. WhoGoHost → DNS Management → `suaams.com.ng`:
+   - `A` record, host `@`, value `75.2.60.5` (remove any other `@` A
+     record, e.g. a parking page);
+   - `CNAME` record, host `www`, value `suaams.netlify.app`;
+   - leave the `portal` CNAME (Render) exactly as it is.
+4. Once DNS has spread (minutes to a day), Netlify issues the HTTPS
+   certificate by itself; turn on **Force HTTPS** under Domain management
+   → HTTPS if it isn't already on.
 
 ## Screenshots
 

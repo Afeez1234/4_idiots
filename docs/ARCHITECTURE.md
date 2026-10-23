@@ -332,7 +332,7 @@ flowchart LR
 
 | Address | What it is | Hosted on |
 |---|---|---|
-| `suaams.com.ng` | Public landing page, privacy policy and APK download ([landing/](../landing/)) | WhoGoHost |
+| `suaams.com.ng` | Public landing page, privacy policy and APK download ([landing/](../landing/)) | Netlify (free plan); domain and DNS at WhoGoHost (`A @ 75.2.60.5`, `CNAME www`) |
 | `portal.suaams.com.ng` | The Flask server: web dashboards **and** the API the app and terminals call | Render (CNAME to `suaams.onrender.com`) |
 | `suaams.onrender.com` | The same Render service under its original name | Render |
 
