@@ -862,8 +862,17 @@ photo at mid-height.
     stage is plain markup. Reduced motion plays the same beats as opacity
     fades only (no clip, travel or roll). Replay fades the stage out over
     150ms, then replays.
-- **Photo pending:** until the reader photo is uploaded, the centre shows
-  a hatched frame naming the shot it is waiting for.
+- **The reader's screen, drawn:** until the reader photo is uploaded, the
+  centre is a drawing of the reader's own 0.96" 128x64 OLED, made from the
+  firmware (`oled_display.ino`): an SVG on the OLED's pixel grid
+  (viewBox 0 0 128 64, text in Plex Mono at the GFX 6 px advance, faces
+  from `oledDrawFace()`), black glass and white pixels in both themes, in
+  a #050505 bezel with a "drawn (demo)" caption. It steps with the tap:
+  the class screen at 186, WAIT / "Checking..." (the bar creeps ~5%; it
+  fills over 10 s on the device) as the code reaches the reader, DONE with
+  the first name as the register updates (held 2.2 s, 3 s on the device),
+  then the class screen at 187. Never invent hardware beyond it: no
+  enclosure or antenna is drawn.
 
 ### The hall (site)
 The one quiet statement after the stage, and the page's second visual beat:
@@ -891,7 +900,7 @@ the stage shows one tap, the hall shows a whole lecture.
 
 ### Ruled rows (site)
 - **Timed sequence** ("how it works"): a 112px marker column with the time
-  in indigo Readout (`t = 0`, `within 10 s`, `+ 0.1 s`), then a title and
+  in indigo Readout (`t = 0`, `within 10 s`, `+ ~0.5 s`), then a title and
   muted body. The times are the markers; there are no step numbers.
   Beside it, on desktop, the sticky phone shows each step's real screen
   (ID card, "listening for terminal", "attendance verified" with its

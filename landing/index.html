@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SUAAMS | Class attendance with a phone tap</title>
-  <meta name="description" content="SUAAMS checks students into class with their fingerprint and a tap of their phone at the door. Nobody queues at a scanner, and nobody can check in for you without your phone and your fingerprint or PIN.">
+  <meta name="description" content="SUAAMS checks students into class with their fingerprint and a tap of their phone at the door. Nobody queues at a scanner, and nobody can check in for you without your phone, your fingerprint or PIN, and your help.">
   <meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)">
   <meta property="og:title" content="SUAAMS | Class attendance with a phone tap">
@@ -104,7 +104,7 @@
         <div class="stage-top">
           <h1 id="hero-title">Tap your phone at the door. <em>You're marked present.</em></h1>
           <div>
-            <p class="stage-lede">Your fingerprint unlocks a one-time code on your own phone. The reader takes it in a tenth of a second, and nobody can check in for you without your phone and your fingerprint or PIN.</p>
+            <p class="stage-lede">Your fingerprint unlocks a one-time code on your own phone. The reader takes it in a tenth of a second, and nobody can check in for you without your phone, your fingerprint or PIN, and your help.</p>
             <div class="cta-row">
               <a class="btn btn-primary" href="get/">
                 <svg aria-hidden="true"><use href="#android"/></svg>
@@ -146,12 +146,32 @@
                  broken-image icon). When img/reader-tap.webp (landscape, about
                  1600 x 1200) is added, uncomment the <img> below; the frame
                  then hides itself (styles.css, ".stage-photo img +
-                 .photo-pending"). test_landing_claims.py fails if the file and
+                 .reader-drawn"). test_landing_claims.py fails if the file and
                  this markup disagree.
             <img src="img/reader-tap.webp" width="1600" height="1200" data-optional
                  alt="A phone held to the SUAAMS reader at a lecture-hall door. The reader's screen shows the class and how many students have checked in.">
             -->
-            <div class="photo-pending"><div><b>Reader photo coming</b>a phone tapping the SUAAMS reader,<br>its screen showing the class and the count</div></div>
+            <!-- The reader's own screen, drawn (demo data) until the photo
+                 above is uncommented. It's the 0.96" 128x64 OLED from
+                 ESP32_ARDUINO CODE/SUAAMS_HCE/oled_display.ino, drawn on its
+                 own pixel grid with the firmware's coordinates: the status
+                 row, the live-class screen (oledDrawDoor), WAIT /
+                 "Checking..." with its progress bar while the server answers,
+                 and DONE with the student's first name (oledShowRecorded).
+                 hero.js steps through them with the tap; the markup's
+                 finished state is the class screen at 187. -->
+            <div class="reader-drawn">
+              <div class="oled">
+                <svg viewBox="0 0 128 64" role="img" aria-label="Drawing of the SUAAMS reader's screen (demo): MCT 402, 187 of 200 checked in">
+                  <g class="oled-status"><rect x="0" y="6" width="2" height="2"/><rect x="3" y="4" width="2" height="4"/><rect x="6" y="2" width="2" height="6"/><rect x="9" y="7" width="2" height="1"/><text x="15" y="7">ON</text><text x="49" y="7">08:04</text><text x="109" y="7">Q:0</text><rect x="0" y="10" width="128" height="1"/></g>
+                  <g class="oled-idle0"><text x="0" y="28" class="big">MCT 402</text><text x="0" y="40">186 / 200 checked in</text><text x="0" y="50">ends 10:00</text><text x="0" y="62">TAP your phone</text></g>
+                  <g class="oled-wait"><circle class="ln" cx="18" cy="38" r="14"/><circle cx="14" cy="32" r="2"/><circle cx="24" cy="32" r="2"/><line class="ln" x1="14" y1="45" x2="23" y2="43"/><text x="40" y="30" class="big">WAIT</text><text x="40" y="45">Checking...</text><rect class="ln" x="40.5" y="50.5" width="83" height="6"/><rect class="oled-bar" x="41" y="51" width="82" height="5"/></g>
+                  <g class="oled-done"><circle class="ln" cx="18" cy="38" r="14"/><circle cx="13" cy="34" r="2"/><circle cx="23" cy="34" r="2"/><path class="ln" d="M11 40 A7 7 0 0 0 25 40"/><text x="40" y="30" class="big">DONE</text><text x="40" y="45">Shang</text><text x="40" y="56">marked present</text></g>
+                  <g class="oled-idle1"><text x="0" y="28" class="big">MCT 402</text><text x="0" y="40">187 / 200 checked in</text><text x="0" y="50">ends 10:00</text><text x="0" y="62">TAP your phone</text></g>
+                </svg>
+              </div>
+              <p class="reader-cap">The reader's screen, drawn (demo)</p>
+            </div>
             <!-- The reader's "beep" when the phone taps: one indigo flash. -->
             <span class="photo-ring" aria-hidden="true"></span>
           </figure>
@@ -179,7 +199,7 @@
         </div>
 
         <div class="stage-foot">
-          <span>Demo code and demo check-ins, not real students.</span>
+          <span>Demo code, check-ins and reader screen, not real students.</span>
           <button class="text-btn" type="button" id="replay" hidden>
             <svg aria-hidden="true"><use href="#icon-replay"/></svg>
             Replay the tap
@@ -333,7 +353,7 @@
     <section id="security" class="section" aria-labelledby="security-title">
       <div class="wrap">
         <div class="section-head">
-          <h2 id="security-title">To check in for you, a friend needs your phone and your fingerprint or PIN.</h2>
+          <h2 id="security-title">To check in for you, a friend needs your phone, your fingerprint or&nbsp;PIN, and you to agree.</h2>
           <p>Here's each way someone might try to fake attendance, what stops it, and the one gap that's still open.</p>
         </div>
         <div class="threats">

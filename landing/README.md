@@ -88,8 +88,9 @@ shows a placeholder label instead of a broken image.
 The first screen's centre is a photo of the reader in use:
 `img/reader-tap.webp`, landscape, about 1600 x 1200. A phone mid-tap on
 the reader, the reader's screen showing the class and the live count,
-from a demo account. Until it's uploaded, a "Reader photo coming" frame
-shows. Don't publish the site to students with that frame still showing.
+from a demo account. Until it's uploaded, the centre shows a drawing of
+the reader's own OLED screen, made from `oled_display.ino` (labelled
+"drawn (demo)").
 When the file is in `img/`, uncomment the `<img>` above the frame in
 `index.html` (it waits there in a comment, alt text written) and push;
 `test_landing_claims.py` fails if the file and the markup disagree.

@@ -53,8 +53,27 @@
     newRow: q('.log li:first-child'),
     oldRow: q('.log li:last-child'),
     digit: q('.roll-strip'),
-    dot: q('.live')
+    dot: q('.live'),
+    // The reader's screen, drawn (index.html, .reader-drawn): its four
+    // screens as the firmware shows them.
+    idle0: q('.oled-idle0'),
+    wait: q('.oled-wait'),
+    bar: q('.oled-bar'),
+    done: q('.oled-done'),
+    idle1: q('.oled-idle1')
   };
+
+  // The reader holds DONE for 3 s (OLED_RESULT_MS in oled_display.ino);
+  // the page holds it 2.2 s so the sequence ends sooner. Screen changes are
+  // near-instant, like a real frame redraw.
+  var DONE_HOLD = 2200;
+
+  // Opacity keyframes for a screen shown from `start` for `hold` ms.
+  function shown(hold, edge) {
+    var total = hold + edge;
+    return [{ opacity: 0 }, { opacity: 1, offset: edge / total },
+            { opacity: 1, offset: hold / total }, { opacity: 0 }];
+  }
   var running = [];
 
   // [element, keyframes, start ms, duration ms, easing]
@@ -76,7 +95,16 @@
       [el.newRow, [{ opacity: 0 }, { opacity: 1 }], 1220, 200, EASE_OUT],
       [el.oldRow, [{ opacity: 1 }, { opacity: 0 }], 1220, 160, EASE_OUT],
       [el.digit, [{ transform: 'translateY(0)' }, { transform: 'translateY(-50%)' }], 1240, 220, EASE_OUT],
-      [el.dot, [{ opacity: .3 }, { opacity: 1 }], 1220, 200, 'ease']
+      [el.dot, [{ opacity: .3 }, { opacity: 1 }], 1220, 200, 'ease'],
+      // the reader's screen: class screen at 186, WAIT as the tap lands
+      // (with the ring), "Checking..." bar creeping (it fills over 10 s on
+      // the device, so half a second moves it ~5%), DONE as the register
+      // updates, then the class screen at 187.
+      [el.idle0, [{ opacity: 1 }, { opacity: 0 }], 960, 40, 'linear'],
+      [el.wait, shown(260, 40), 960, 300, 'linear'],
+      [el.bar, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(.06)' }], 1000, 220, 'linear'],
+      [el.done, shown(DONE_HOLD, 40), 1220, DONE_HOLD + 40, 'linear'],
+      [el.idle1, [{ opacity: 0 }, { opacity: 1 }], 1220 + DONE_HOLD, 40, 'linear']
     ];
   }
 
@@ -93,7 +121,10 @@
       [el.log, [{ transform: 'none' }, { transform: 'none' }], 450, 0, 'linear'],
       [el.newRow, [{ opacity: 0 }, { opacity: 1 }], 450, 200, 'ease'],
       [el.digit, [{ transform: 'translateY(-50%)' }, { transform: 'translateY(-50%)' }], 450, 0, 'linear'],
-      [el.dot, [{ opacity: .3 }, { opacity: 1 }], 450, 200, 'ease']
+      [el.dot, [{ opacity: .3 }, { opacity: 1 }], 450, 200, 'ease'],
+      [el.idle0, [{ opacity: 1 }, { opacity: 0 }], 450, 200, 'ease'],
+      [el.done, shown(1550, 200), 450, 1750, 'ease'],
+      [el.idle1, [{ opacity: 0 }, { opacity: 1 }], 2000, 200, 'ease']
     ];
   }
 
@@ -120,7 +151,7 @@
   // Replay: a short fade to the rewound state rather than a blank frame.
   function replayTap() {
     if (!stage.classList.contains('played') || reduce.matches) { play(); return; }
-    var dyn = [el.verify, el.payload, el.sig, el.leaderIn, el.leaderOut, el.newRow];
+    var dyn = [el.verify, el.payload, el.sig, el.leaderIn, el.leaderOut, el.newRow, el.idle1];
     var fades = dyn.filter(Boolean).map(function (d) {
       return d.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, easing: 'ease', fill: 'forwards' });
     });

@@ -78,7 +78,12 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  /* No movement at all: the press-scale and the threat "+" turn go too. */
+  .btn:active, .text-btn:active { transform: none; }
+  .threat summary svg { transition: none; }
+}
 
 body {
   margin: 0;
@@ -238,13 +243,26 @@ p { margin: 0; text-wrap: pretty; }
 /* Centre: the reader photo. */
 .stage-photo { position: relative; margin: 0; min-height: 100%; background: var(--panel); }
 .stage-photo img { width: 100%; height: 100%; object-fit: cover; aspect-ratio: 4 / 3; }
-.photo-pending {
-  position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px;
-  color: var(--faint); font: 13px/1.6 var(--mono);
-  background: repeating-linear-gradient(135deg, transparent 0 14px, var(--grid) 14px 15px);
-}
-.photo-pending b { display: block; color: var(--text-2); font-weight: 400; font-size: 14px; margin-bottom: 4px; }
-.stage-photo img + .photo-pending { display: none; }
+/* The reader's screen, drawn: the 128x64 OLED at the door (DESIGN.md,
+   "The stage"). Device colours in both themes: an OLED is black glass with
+   white pixels whatever the page does. The SVG uses the OLED's own pixel
+   grid, so 1 unit = 1 pixel and line work stays one pixel wide. */
+/* Side padding 20px = how far the leaders reach into this column
+   (.leader: 40px wide at -20px), so they meet the bezel exactly. */
+.reader-drawn { position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; gap: 14px; padding: 24px 20px; }
+/* align-content only: "place-content: center" also shrank the grid column
+   to the SVG's default 300px, so width: 100% below never meant the column. */
+.oled { width: min(100%, 420px); padding: 12px; border-radius: 10px; background: #050505; border: 1px solid #262626; }
+.oled svg { display: block; width: 100%; height: auto; background: #000; border-radius: 2px; overflow: visible; }
+.oled text { font-family: var(--mono); font-size: 10px; fill: #e8eefc; font-variant-numeric: tabular-nums; }
+.oled text.big { font-size: 20px; }
+.oled rect, .oled circle { fill: #e8eefc; shape-rendering: crispEdges; }
+.oled .ln { fill: none; stroke: #e8eefc; stroke-width: 1; shape-rendering: auto; }
+.oled-bar { transform-box: fill-box; transform-origin: left center; transform: scaleX(.06); }
+/* Finished state: the class screen at 187. The others wait at opacity 0. */
+.oled-idle0, .oled-wait, .oled-done { opacity: 0; }
+.reader-cap { margin: 0; color: var(--faint); font-size: 13px; }
+.stage-photo img + .reader-drawn { display: none; }
 /* The reader's "beep": an indigo ring that flashes once on the tap. */
 .photo-ring { position: absolute; inset: 0; box-shadow: inset 0 0 0 2px var(--accent); opacity: 0; pointer-events: none; }
 
@@ -280,7 +298,9 @@ p { margin: 0; text-wrap: pretty; }
    fallback) cancels the rewind, so content is never stuck hidden. */
 .motion:not(.motion-done) .stage:not(.played) .verify,
 .motion:not(.motion-done) .stage:not(.played) .verify .ok,
-.motion:not(.motion-done) .stage:not(.played) .photo-ring { opacity: 0; }
+.motion:not(.motion-done) .stage:not(.played) .photo-ring,
+.motion:not(.motion-done) .stage:not(.played) .oled-idle1 { opacity: 0; }
+.motion:not(.motion-done) .stage:not(.played) .oled-idle0 { opacity: 1; }
 .motion:not(.motion-done) .stage:not(.played) .token span { clip-path: inset(0 100% 0 0); }
 .motion:not(.motion-done) .stage:not(.played) .leader { transform: scaleX(0); }
 .motion:not(.motion-done) .stage:not(.played) .roll-strip { transform: translateY(0); }
@@ -462,7 +482,9 @@ p { margin: 0; text-wrap: pretty; }
 .more-link svg, .inline-arrow svg { width: 18px; height: 18px; }
 
 /* Closing band: the student's way in. */
-.install-band { padding: clamp(64px, 8vw, 104px) 0; border-top: 1px solid var(--rule); background: var(--panel); }
+/* --edge, not --rule: in dark, --rule is the same #1c1c1c as --panel, so
+   the band's top edge vanished. */
+.install-band { padding: clamp(64px, 8vw, 104px) 0; border-top: 1px solid var(--edge); background: var(--panel); }
 .install-band .wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 48px; align-items: center; }
 .install-band h2 { margin-bottom: 14px; }
 .install-band p { color: var(--muted); max-width: 40em; margin-bottom: 28px; }

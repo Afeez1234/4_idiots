@@ -81,10 +81,11 @@
 
     <h2>Permissions the app asks for</h2>
     <ul>
-      <li><strong>Fingerprint or face unlock.</strong> Confirms it's you before each check-in.</li>
+      <li><strong>Fingerprint or PIN.</strong> Confirms it's you before each check-in. Your phone does the check and only tells the app whether it matched.</li>
       <li><strong>NFC.</strong> Lets your phone pass its check-in code to the reader when you tap.</li>
       <li><strong>Bluetooth.</strong> The fallback for phones without NFC. The app listens for the reader's short code.</li>
       <li><strong>Notifications.</strong> Tells you when you've been marked, and about announcements.</li>
+      <li><strong>Location, on Android 11 and older only.</strong> Those versions won't let any app scan for Bluetooth without it. SUAAMS never reads your location, and newer Android doesn't ask.</li>
     </ul>
 
     <h2>Who can see your data</h2>
