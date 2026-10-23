@@ -307,7 +307,7 @@ when a student checked in, are stored in UTC and converted when displayed.
 │   ├── ble_beacon.py             ← Bluetooth rotating code: verify
 │   ├── campus_time.py            ← campus timezone helpers
 │   ├── api/                      ← JSON endpoints for the app and terminal
-│   │   ├── auth.py  student.py  lecturer.py  hardware.py
+│   │   ├── auth.py  student.py  lecturer.py  terminal.py
 │   ├── blueprints/               ← web dashboards (admin, hod, lecturer, student, auth)
 │   ├── templates/                ← HTML for the dashboards
 │   ├── migrations/               ← database version history

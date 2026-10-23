@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, session
+from flask import Flask, jsonify, redirect, request, session, url_for
 from datetime import timedelta
 from flask_migrate import Migrate
 from campus_time import campus_fmt
@@ -18,7 +18,6 @@ from blueprints.hod import hod_bp
 from api.auth import api_auth_bp, install_account_check
 from api.student import api_student_bp
 from api.lecturer import api_lecturer_bp
-from api.hardware import api_hardware_bp
 from api.terminal import api_terminal_bp
 
 # Gives the "suaams" logger (see extensions.py's log_exception/
@@ -145,14 +144,13 @@ app.register_blueprint(hod_bp)
 app.register_blueprint(api_auth_bp)
 app.register_blueprint(api_student_bp)
 app.register_blueprint(api_lecturer_bp)
-app.register_blueprint(api_hardware_bp)
 app.register_blueprint(api_terminal_bp)  # reader door-screen status
 
 # CSRFProtect covers the whole app by default -- exempt the JSON API
 # blueprints here rather than relying on per-route decorators, since every
 # route in these blueprints is either JWT-header-authenticated (the mobile
-# ones) or has no session/auth at all (api_hardware_bp, hit by the ESP32
-# firmware) -- never cookie-authenticated (see extensions.py's csrf comment
+# ones) or authenticated by reader headers (api_terminal_bp and the check-in
+# routes, hit by the ESP32 firmware) -- never cookie-authenticated (see extensions.py's csrf comment
 # for why that means they aren't CSRF-vulnerable in the first place).
 # Without this, every mobile request would fail with a CSRF error the
 # moment CSRFProtect went live, since neither the Flutter app nor the
@@ -160,7 +158,6 @@ app.register_blueprint(api_terminal_bp)  # reader door-screen status
 csrf.exempt(api_auth_bp)
 csrf.exempt(api_student_bp)
 csrf.exempt(api_lecturer_bp)
-csrf.exempt(api_hardware_bp)
 csrf.exempt(api_terminal_bp)
 
 
@@ -249,9 +246,16 @@ def healthz():
     return jsonify({"status": "ok"}), 200
 
 
-# The old RFID-card terminal's routes used to live here, then in
-# api/hardware.py; they were removed on 2026-10-12 (see that file). Only
-# the site-root redirect is left there.
+# The site root sends visitors to the login page. It had a blueprint of its
+# own (api/hardware.py) until 2026-10-23: all that was left of the old
+# RFID-card terminal's routes, POST /attendance and GET /sessions/active,
+# removed on 2026-10-12. Nothing called them, and /attendance credited "the
+# newest active session in any course", the mistake the signed check-in code
+# exists to prevent. The retired card sketches still point at /attendance
+# and get a 404.
+@app.route('/')
+def home():
+    return redirect(url_for('auth.login'))
 
 
 if __name__ == '__main__':

@@ -129,7 +129,7 @@ end for completeness.
 retired MFRC522 card prototype, were removed on 2026-10-12. Nothing called
 them, and `/attendance` credited "the newest active session in any course",
 the mistake the signed check-in code exists to prevent. Only `GET /`
-(redirect to the login page) is left in `api/hardware.py`.
+(redirect to the login page) is left, in `app.py`.
 
 ## Web dashboards (session cookie, not JSON)
 

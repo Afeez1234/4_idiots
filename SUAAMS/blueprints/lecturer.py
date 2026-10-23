@@ -717,8 +717,8 @@ def session_detail(course_id, session_id):
         # the departments table (a boolean per department row, one output
         # row per department, instead of one row per student). Join
         # Department explicitly and select Department.name, matching the
-        # pattern already used in api/student.py, blueprints/student.py,
-        # api/lecturer.py, and api/hardware.py. Column position kept the
+        # pattern already used in api/student.py, blueprints/student.py
+        # and api/lecturer.py. Column position kept the
         # same (index 2) since session_detail.html indexes this tuple by
         # position (record[2]).
         # Attendance.method appended at index 6 (positions 0-5 unchanged, so
