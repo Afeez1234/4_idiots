@@ -90,6 +90,9 @@ The first screen's centre is a photo of the reader in use:
 the reader, the reader's screen showing the class and the live count,
 from a demo account. Until it's uploaded, a "Reader photo coming" frame
 shows. Don't publish the site to students with that frame still showing.
+When the file is in `img/`, uncomment the `<img>` above the frame in
+`index.html` (it waits there in a comment, alt text written) and push;
+`test_landing_claims.py` fails if the file and the markup disagree.
 
 ### The QR code
 

@@ -140,10 +140,19 @@
     stage.classList.add('played');
     return;
   }
-  // Play when the stage is properly in view. On a phone it starts below the
-  // first screen, so a load-time play would finish before anyone saw it.
+  // Play when the parts that move are in view, not just the stage box.
+  // Wide (three columns in one row): 35% of the stage shows all of it.
+  // 1000px and narrower the photo comes first and the stage is taller than
+  // the screen, so "35% of the stage" was mostly photo and the tap played
+  // below the fold. There, wait for the count (the last moving part) to be
+  // fully in view, clear of the bottom edge: the IN column is above it, so
+  // verify, the code and the register are all on screen together.
+  var stacked = window.matchMedia('(max-width: 1000px)').matches;
+  var target = stacked ? stage.querySelector('.count') : stage;
   var io = new IntersectionObserver(function (entries) {
     if (entries[0].isIntersecting) { io.disconnect(); play(); }
-  }, { threshold: 0.35 });
-  io.observe(stage);
+  }, stacked
+    ? { threshold: 1, rootMargin: '0px 0px -10% 0px' }
+    : { threshold: 0.35 });
+  io.observe(target);
 })();

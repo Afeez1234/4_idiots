@@ -93,7 +93,9 @@ img, svg { display: block; max-width: 100%; }
    which silently un-hid the Replay button when there was no script). */
 [hidden] { display: none !important; }
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-a:not(.btn):hover { color: var(--accent-hover); }
+/* Not on buttons or the skip link: both sit on an accent fill, where the
+   hover colour measured 1.3:1. */
+a:not(.btn):not(.skip):hover { color: var(--accent-hover); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 ::selection { background: var(--accent); color: var(--on-accent); }
 ::placeholder { color: var(--faint); }
@@ -169,6 +171,11 @@ p { margin: 0; text-wrap: pretty; }
   .nav { display: none; }
   .header-actions { margin-left: auto; }
   .header-install { display: inline-flex; }
+  /* On phones the header stays put, so "Install" is one tap away anywhere
+     on a long page (the story page is ~8,000px tall at 390). Solid ground
+     so content doesn't show through; anchor jumps stop below it. */
+  .site-header { position: sticky; top: 0; z-index: 20; background: var(--bg); }
+  html { scroll-padding-top: 80px; }
 }
 
 /* ---------- Stage: the first screen of the story page ---------- */

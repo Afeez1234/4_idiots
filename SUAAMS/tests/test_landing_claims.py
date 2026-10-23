@@ -104,6 +104,21 @@ class LandingClaimsTest(unittest.TestCase):
         self.assertTrue(payload and sig, 'demo code markup changed')
         self.assertEqual((len(payload.group(1)), len(sig.group(1))), (16, 16))
 
+    def test_reader_photo_markup_matches_file(self):
+        """The stage links img/reader-tap.webp only once the file exists.
+        Linked before that, every visit makes a failed request and, without
+        JavaScript, shows a broken-image icon; left commented out after the
+        photo is added, the page keeps showing "Reader photo coming"."""
+        html = page_text('index.html')
+        # Strip HTML comments: the ready-to-use <img> waits inside one.
+        live = re.sub(r'<!--.*?-->', '', html, flags=re.S)
+        linked = 'src="img/reader-tap.webp"' in live
+        exists = (LANDING / 'img' / 'reader-tap.webp').exists()
+        if exists:
+            self.assertTrue(linked, 'img/reader-tap.webp exists: uncomment its <img> in index.html')
+        else:
+            self.assertFalse(linked, 'index.html links img/reader-tap.webp, which does not exist yet')
+
     def test_get_page_permissions_match_manifest(self):
         """/get lists what the app asks for. Location must be described as
         Android 11 and older only for as long as the manifest caps it there,

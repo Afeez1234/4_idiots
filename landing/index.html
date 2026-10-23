@@ -134,18 +134,23 @@
               </div>
               <div>
                 <dt><i class="sig" aria-hidden="true"></i>A signature only the server can make</dt>
-                <dd class="prose">Change one character and the reader is refused.</dd>
+                <dd class="prose">Change one character and the server refuses it.</dd>
               </div>
             </dl>
             <span class="leader" aria-hidden="true"></span>
           </div>
 
           <figure class="stage-photo">
-            <!-- PHOTO: save the reader shot as img/reader-tap.webp (landscape,
-                 about 1600 x 1200). Until it exists, the image removes itself
-                 (hero.js) and the frame below shows instead. -->
+            <!-- PHOTO: not linked until it exists, so visitors get the frame
+                 below instead of a failed request (and, without JavaScript, a
+                 broken-image icon). When img/reader-tap.webp (landscape, about
+                 1600 x 1200) is added, uncomment the <img> below; the frame
+                 then hides itself (styles.css, ".stage-photo img +
+                 .photo-pending"). test_landing_claims.py fails if the file and
+                 this markup disagree.
             <img src="img/reader-tap.webp" width="1600" height="1200" data-optional
                  alt="A phone held to the SUAAMS reader at a lecture-hall door. The reader's screen shows the class and how many students have checked in.">
+            -->
             <div class="photo-pending"><div><b>Reader photo coming</b>a phone tapping the SUAAMS reader,<br>its screen showing the class and the count</div></div>
             <!-- The reader's "beep" when the phone taps: one indigo flash. -->
             <span class="photo-ring" aria-hidden="true"></span>
@@ -277,7 +282,7 @@
               </div>
             </li>
             <li data-step="3">
-              <span class="t">+ 0.1 s</span>
+              <span class="t">+ ~0.5 s</span>
               <div>
                 <h3>You're marked</h3>
                 <p>The server checks the code and marks you present, or late if the timetable says class started more than 10 minutes ago. You get a notification, and your name shows up on the lecturer's live list.</p>
@@ -350,7 +355,7 @@
           </details>
           <details class="threat">
             <summary><h3>Someone makes up a code</h3><span class="stop">only the server can sign</span><svg aria-hidden="true"><use href="#plus"/></svg></summary>
-            <p>Only the server can sign a code, so it rejects any code that was changed or invented. Each reader also sends its own secret with every request, so a fake reader gets nowhere.</p>
+            <p>Only the server can sign a code, so it rejects any code that was changed or invented. Each reader also sends its own secret with every request, so a fake reader can't pass itself off as one of ours.</p>
           </details>
           <details class="threat">
             <summary><h3>The phone is rooted</h3><span class="stop">tampered phones refused</span><svg aria-hidden="true"><use href="#plus"/></svg></summary>
@@ -416,7 +421,7 @@
       <div class="wrap">
         <div>
           <h2 id="install-title">Students: install SUAAMS.</h2>
-          <p>The app is still in testing, so it installs from our own page rather than the Play Store. It takes about a minute, and the page walks you through it.</p>
+          <p>The app is still in testing, so it installs from our own page rather than the Play Store. The download is about 45 MB, so use Wi-Fi if you can; the page walks you through the rest.</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="get/">
               <svg aria-hidden="true"><use href="#android"/></svg>
