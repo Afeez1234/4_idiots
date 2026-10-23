@@ -1,2 +1,3 @@
-# APKs are uploaded to the server, never committed (each is 40-120 MB).
+# APKs are never committed (each is 40-120 MB): they're attached to GitHub
+# Releases, and landing/_redirects points /downloads/*.apk at the latest.
 *.apk

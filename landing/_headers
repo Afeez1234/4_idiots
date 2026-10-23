@@ -6,13 +6,9 @@
 # Caching needs no rule: Netlify serves every file with
 # "max-age=0, must-revalidate", so a new upload shows at once and the page
 # never meets an old stylesheet.
-
-# Android only offers to install a download served with this type, and
-# "attachment" makes the browser save it rather than show it as text.
-/downloads/*
-  Content-Type: application/vnd.android.package-archive
-  Content-Disposition: attachment
-  Cache-Control: no-cache
+#
+# The APKs aren't served from here any more: _redirects sends them to
+# GitHub Releases, which serves them as downloads itself.
 
 /*
   X-Content-Type-Options: nosniff

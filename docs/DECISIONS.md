@@ -565,7 +565,12 @@ if you know the date.
   site doesn't need one: Netlify gives HTTPS without setup and enough
   bandwidth for the APK downloads. DNS stays at WhoGoHost (an `A` record
   for the apex, a `CNAME` for `www`), so `portal.` is untouched. The Apache
-  `.htaccess` became Netlify's `_headers`.
+  `.htaccess` became Netlify's `_headers`. The site is linked to the repo, so
+  a push to `main` deploys it; the APKs stay out of git as GitHub Release
+  files, reached through `_redirects` (`releases/latest/download/...`), so
+  the download links never change. Rejected: APKs in git (40+ MB each,
+  forever in history) and drag-and-drop deploys (each one must carry the
+  APKs, and it's easy to forget a file).
 
 ### D37. A minimum app build the server enforces (2026-10-21)
 

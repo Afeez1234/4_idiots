@@ -1,0 +1,9 @@
+# The APKs are attached to GitHub Releases, not committed. These keep the
+# download links on the site (and in the QR flow) at suaams.com.ng/downloads/
+# while the files come from the newest release: "latest/download/<name>"
+# always means the most recent release's asset of that name, so shipping a
+# new app build needs no change here. 302, not 301, so browsers don't
+# remember the target. The release assets must be named exactly
+# suaams-arm64.apk and suaams-armv7.apk.
+/downloads/suaams-arm64.apk  https://github.com/Afeez1234/4_idiots/releases/latest/download/suaams-arm64.apk  302
+/downloads/suaams-armv7.apk  https://github.com/Afeez1234/4_idiots/releases/latest/download/suaams-armv7.apk  302

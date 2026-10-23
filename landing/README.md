@@ -18,41 +18,41 @@ from the Flask server at `portal.suaams.com.ng`. See section 11 of
 | `fonts/` | IBM Plex Sans and Mono, cut down to Latin WOFF2 from the app's own TTFs |
 | `img/qr-get.svg` | QR code for `https://suaams.com.ng/get` |
 | `favicon.svg` | Tab icon, the SUAAMS mark |
-| `_headers` | Netlify response headers: APKs download as Android installers; two security headers |
-| `downloads/` | The APKs. Added to the deploy folder only, never committed |
+| `_headers` | Netlify response headers: two security headers |
+| `downloads/` | Placeholder only. The APKs are attached to GitHub Releases; `_redirects` points `/downloads/*.apk` at the latest ones |
+| `_redirects` | Netlify: `/downloads/*.apk` → the latest GitHub Release's files |
+| `netlify.toml` | Netlify build: copies the public files into `dist/` and publishes that |
 
 ## Publishing (Netlify)
 
 The domain is registered at WhoGoHost but has no hosting plan there: the
-site is on Netlify's free plan. `portal.suaams.com.ng` (Render) is a
-separate DNS record and isn't affected by any of this.
+site is on Netlify's free plan, linked to this GitHub repo.
+`portal.suaams.com.ng` (Render) is a separate DNS record and isn't affected
+by any of this.
 
-### Each deploy
+**To update the site, push to `main`.** Netlify builds from `landing/`
+(`netlify.toml`): it copies the site into `dist/`, leaving out this README,
+`tools/`, `downloads/` and the `img/*.json` notes, and publishes that. A
+push that doesn't touch `landing/` is skipped. Deploy log: Netlify → the
+site → Deploys.
 
-1. Make a deploy folder: everything in `landing/` **except** `README.md`,
-   `tools/`, `.gitignore` and the `img/*.json` provenance notes, plus
-   `downloads/` with the two APKs (see "Releasing a new app build").
-2. Netlify → the site → **Deploys** → drag the folder onto the drop area.
-   Each drop replaces the whole site, so always drop the full folder,
-   APKs included.
+The APKs are **not** in git or on Netlify: they're files attached to a
+GitHub Release (see "Releasing a new app build"), and `_redirects` sends
+`/downloads/suaams-arm64.apk` and `/downloads/suaams-armv7.apk` to the
+latest release's files. The links on the site and the QR code never
+change.
 
-### First-time setup (done once)
+### How it's set up (done once, 2026-10-23)
 
-1. Sign up at netlify.com, then drag the deploy folder onto
-   app.netlify.com/drop. Rename the site (Site configuration → Change site
-   name) to something like `suaams`, giving `suaams.netlify.app`.
-2. Domain management → **Add a domain** → `suaams.com.ng`. Choose
-   **external DNS** (keep DNS at WhoGoHost), and keep `suaams.com.ng` as the
-   **primary domain**: the QR code, canonical links and poster use it, and
-   `www` then redirects to it.
-3. WhoGoHost → DNS Management → `suaams.com.ng`:
-   - `A` record, host `@`, value `75.2.60.5` (remove any other `@` A
-     record, e.g. a parking page);
-   - `CNAME` record, host `www`, value `suaams.netlify.app`;
-   - leave the `portal` CNAME (Render) exactly as it is.
-4. Once DNS has spread (minutes to a day), Netlify issues the HTTPS
-   certificate by itself; turn on **Force HTTPS** under Domain management
-   → HTTPS if it isn't already on.
+1. Netlify site, renamed or not, linked under Site configuration → Build &
+   deploy → Link repository: `Afeez1234/4_idiots`, branch `main`, base
+   directory `landing` (build command and publish directory come from
+   `netlify.toml`).
+2. Domain management: `suaams.com.ng` is the primary domain, `www`
+   redirects to it, HTTPS is Netlify's own certificate (renews itself).
+3. WhoGoHost → DNS Management → `suaams.com.ng`: `A` record `@` →
+   `75.2.60.5`; `CNAME` `www` → the Netlify site's `*.netlify.app` name. The
+   `portal` CNAME (Render) is left as it is.
 
 ## Screenshots
 
@@ -111,14 +111,21 @@ phone type. Build one per type instead:
 flutter build apk --release --split-per-abi
 ```
 
-From `build/app/outputs/flutter-apk/`, upload and rename:
+From `build/app/outputs/flutter-apk/`, rename:
 
-| Built file | Upload as | For |
+| Built file | Rename to | For |
 |---|---|---|
-| `app-arm64-v8a-release.apk` | `downloads/suaams-arm64.apk` | Nearly every phone from the last several years |
-| `app-armeabi-v7a-release.apk` | `downloads/suaams-armv7.apk` | Older and budget 32-bit phones |
+| `app-arm64-v8a-release.apk` | `suaams-arm64.apk` | Nearly every phone from the last several years |
+| `app-armeabi-v7a-release.apk` | `suaams-armv7.apk` | Older and budget 32-bit phones |
 
-Then, in `get/index.html`:
+Then publish them as a GitHub Release: github.com/Afeez1234/4_idiots →
+**Releases** → **Draft a new release** → tag `v<version>-<build>` (e.g.
+`v0.1.0-2`) → drag both renamed files into the attachments box →
+**Publish release**. The names must be exact: `_redirects` asks for
+`releases/latest/download/suaams-arm64.apk`. The site picks up the new
+release at once, with no deploy.
+
+Then, in `get/index.html` (and push):
 
 - update the version line (`Version 0.1.0 · test build`) to match
   `pubspec.yaml`, and add the size and date;

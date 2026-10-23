@@ -1,0 +1,16 @@
+# Netlify build for suaams.com.ng. The site is linked to the GitHub repo
+# with base directory "landing", so every push to main deploys it.
+#
+# There's nothing to compile: the "build" only copies the site into dist/,
+# leaving out what lives here but mustn't be public (this README, tools/,
+# the img/*.json provenance notes, the downloads/ placeholder). A new file
+# in landing/ is published unless it's excluded below.
+#
+# The APKs aren't in git: they're attached to GitHub Releases, and
+# _redirects sends /downloads/*.apk to the latest release's files.
+
+[build]
+  command = "rm -rf dist && mkdir dist && tar --exclude=./dist --exclude=./README.md --exclude=./tools --exclude=./downloads --exclude=./netlify.toml --exclude='*.json' --exclude='.gitignore' -cf - . | tar -xf - -C dist"
+  publish = "dist"
+  # Skip the deploy when a push didn't touch landing/ (API or app commits).
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- ."
