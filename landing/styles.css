@@ -81,11 +81,14 @@ a:hover { text-decoration: underline; }
 
 .mono { font-family: var(--mono); }
 
-h1, h2, h3 { line-height: 1.15; letter-spacing: -0.02em; margin: 0; }
+/* balance / pretty: the browser evens out line lengths so a heading or
+   paragraph never ends on one stranded word ("PIN." alone on a line).
+   Older browsers ignore both and wrap as before. */
+h1, h2, h3 { line-height: 1.15; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
 h1 { font-size: clamp(38px, 6.2vw, 64px); font-weight: 800; }
 h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 800; }
 h3 { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
-p { margin: 0; }
+p { margin: 0; text-wrap: pretty; }
 .lede { color: var(--muted); font-size: 19px; max-width: 34em; }
 
 /* ---------- Header ---------- */

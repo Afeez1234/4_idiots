@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SUAAMS | Class attendance with a phone tap</title>
-  <meta name="description" content="SUAAMS checks students into class with their fingerprint and a tap of their phone at the door. Nobody queues at a scanner, and nobody can sign in for a friend.">
+  <meta name="description" content="SUAAMS checks students into class with their fingerprint and a tap of their phone at the door. Nobody queues at a scanner, and nobody can check in for you without your phone and your fingerprint or PIN.">
   <meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)">
   <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)">
   <meta property="og:title" content="SUAAMS | Class attendance with a phone tap">
-  <meta property="og:description" content="Students confirm with their fingerprint and tap their phone on the reader at the door. Each check-in takes under half a second.">
+  <meta property="og:description" content="Students confirm with their fingerprint and tap their phone on the reader at the door. The tap at the reader takes under half a second.">
   <meta property="og:url" content="https://suaams.com.ng/">
   <meta property="og:type" content="website">
   <link rel="canonical" href="https://suaams.com.ng/">
@@ -68,7 +68,7 @@
       <div class="wrap hero-grid">
         <div>
           <h1 id="hero-title">Tap your phone at the door. <em>You're marked present.</em></h1>
-          <p class="lede">SUAAMS checks students into class with their fingerprint and a tap of their phone. Nobody queues at a scanner, and nobody can sign in for a friend.</p>
+          <p class="lede">SUAAMS checks students into class with their fingerprint and a tap of their phone. Nobody queues at a scanner, and nobody can check in for you without your phone and your fingerprint or PIN.</p>
           <div class="cta-row">
             <a class="btn btn-primary" href="#download">
               <svg aria-hidden="true"><use href="#android"/></svg>
@@ -102,11 +102,11 @@
       <div class="wrap">
         <div class="section-head">
           <h2 id="numbers-title">A 200-student hall shouldn't need a 7-minute queue.</h2>
-          <p>A fingerprint scanner on the door takes about two seconds a student. A phone tap takes under half a second, and the fingerprint check happens on the student's own phone before they reach the door.</p>
+          <p>A fingerprint scanner on the door takes about two seconds a student. A phone tap takes under half a second, and the fingerprint check happens on the student's own phone, a few seconds before they tap.</p>
         </div>
         <div class="stats">
-          <div class="stat"><b>~7<small>min</small></b><span>to get 200 students through a door scanner</span></div>
-          <div class="stat win"><b>&lt;2<small>min</small></b><span>for the same 200 students with SUAAMS</span></div>
+          <div class="stat"><b>~7<small>min</small></b><span>to get 200 students through a door scanner, at 2 s each</span></div>
+          <div class="stat win"><b>&lt;2<small>min</small></b><span>for the same 200 students with SUAAMS, at under half a second a tap</span></div>
           <div class="stat"><b>0.1<small>s</small></b><span>for the phone and reader to exchange the check-in code</span></div>
           <div class="stat"><b>10<small>s</small></b><span>before a check-in code expires, so it can't be reused</span></div>
         </div>
@@ -131,7 +131,7 @@
           </li>
           <li class="step">
             <h3>You're marked</h3>
-            <p>The server checks the code and marks you present, or late if class started more than 10 minutes ago. You get a notification, and your name shows up on the lecturer's live list.</p>
+            <p>The server checks the code and marks you present, or late if the timetable says class started more than 10 minutes ago. You get a notification, and your name shows up on the lecturer's live list.</p>
           </li>
         </ol>
         <p class="aside-note"><strong>No NFC on your phone?</strong> Every reader also broadcasts a short Bluetooth code that changes every 5 seconds, so phones without NFC can check in too. <strong>Reader lost its connection?</strong> It keeps the taps and sends them when it's back online, and the lecturer confirms them.</p>
@@ -165,13 +165,13 @@
     <section id="security" class="section-alt" aria-labelledby="security-title">
       <div class="wrap">
         <div class="section-head">
-          <h2 id="security-title">Signing in for a friend doesn't work.</h2>
-          <p>Here's each way someone might try to fake attendance, and what stops it.</p>
+          <h2 id="security-title">To check in for you, a friend needs your phone and your fingerprint or PIN.</h2>
+          <p>Here's each way someone might try to fake attendance, what stops it, and the one gap that's still open.</p>
         </div>
         <div class="cards">
           <article class="card">
             <h3>A friend uses your phone</h3>
-            <p>The app won't make a check-in code until the phone confirms its owner's fingerprint or PIN. Holding your phone isn't enough.</p>
+            <p>The app won't make a check-in code until the phone confirms its owner's fingerprint or PIN. Holding your phone isn't enough without your fingerprint or PIN.</p>
           </article>
           <article class="card">
             <h3>You sign in on a friend's phone</h3>
@@ -194,6 +194,10 @@
             <p>When it starts, the app checks whether the phone has been rooted or tampered with. On a phone that fails, it won't check in.</p>
           </article>
         </div>
+        <!-- The open gap from docs/SECURITY.md ("Biometric invalidation not
+             built", "Device PIN accepted"). Remove this note only when the
+             biometric-bound check-in key actually ships. -->
+        <p class="aside-note"><strong>Not stopped yet:</strong> a student who unlocks their phone for a friend, or adds a friend's fingerprint to it, can still get that friend checked in. The planned fix is a check-in key tied to the fingerprints already on the phone, so adding a new one breaks it.</p>
       </div>
     </section>
 
@@ -235,7 +239,7 @@
         <ul class="checks">
           <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>No fingerprint or face data.</strong> Nothing biometric is stored or sent anywhere.</span></li>
           <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>No location tracking.</strong> The tap proves you're at the door, so the app never needs GPS.</span></li>
-          <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>Only what attendance needs.</strong> Your name, matric number, courses, attendance records and a phone ID.</span></li>
+          <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>Only what attendance needs.</strong> Your name, matric number, department and level, courses, attendance records, a phone ID, and a token for push notifications.</span></li>
           <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>Encrypted in transit.</strong> The app, readers and portal talk to the server over HTTPS only.</span></li>
         </ul>
       </div>
@@ -263,7 +267,7 @@
           <ol class="install">
             <li><span><strong>Download</strong> the app with the button and open the file when it finishes.</span></li>
             <li><span><strong>Allow the install.</strong> Android asks once whether your browser may install apps. Tap <em>Settings</em>, turn on <em>Allow from this source</em>, then go back.</span></li>
-            <li><span><strong>Sign in</strong> with the username and password your department gave you, then set your own password.</span></li>
+            <li><span><strong>Sign in</strong> with your matric number. Your first password is your matric number too, and the app makes you choose a new one straight away.</span></li>
           </ol>
           <p class="warn"><strong>Sign in on your own phone.</strong> Your account locks to the first phone you use. Changing phones later means asking an admin, with your school ID.</p>
         </div>
