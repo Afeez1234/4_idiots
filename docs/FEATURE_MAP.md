@@ -79,7 +79,7 @@ the feature.
 |---|---|---|---|---|---|
 | Dashboard + schedule | Today and week | `api/lecturer.py` `/dashboard`, `/schedule/week`; `blueprints/lecturer.py` | `lecturer_provider.dart`, `lecturer_week_schedule_provider.dart`, `lecturer_home_screen.dart` | — | `courses`, `timetable` |
 | Several lecturers per course | One coordinator (`courses.lecturer_id`) plus co-lecturers (`course_lecturers`), all with the same powers. Admin manages them on the Courses page by staff ID; each session records who started it | `utils.py` `teaches`, `courses_taught_by`, `taught_course`; `blueprints/admin.py` `_manage_course_lecturer`; `models.py` `Course.co_lecturers` | — | — | `course_lecturers`, `sessions.started_by` |
-| Start / end session | Opens or closes check-in for a course | `api/lecturer.py` `start_session`, `end_session`; `blueprints/lecturer.py` | `course_workspace_provider.dart`, `course_workspace_screen.dart` | — | `sessions` |
+| Start / end session | Opens or closes check-in for a course. A session nobody ended is closed once its day is over (`utils.close_stale_sessions`, run before requests at most every 10 minutes, and by Start) | `api/lecturer.py` `start_session`, `end_session`; `blueprints/lecturer.py` | `course_workspace_provider.dart`, `course_workspace_screen.dart` | — | `sessions` |
 | Live attendance | Who has checked in so far. On the web course page the rows and Present Now count refresh in place every 10 s while the tab is visible (`live_attendance` JSON, rows from `lecturer/_live_rows.html`); the page links to the session page (Mark present, offline taps) and End Session asks first | `api/lecturer.py` `/course/<id>/session/<id>`; `blueprints/lecturer.py` `/lecturer/sessions/active` | `session_detail_provider.dart`, `active_sessions_screen.dart`, `lecturer_session_detail_screen.dart` | — | `attendance` |
 | Session history | Past sessions per course | `api/lecturer.py` `/course/<id>/history` | `session_history_provider.dart`, `lecturer_session_history_screen.dart` | — | `sessions` |
 | Analytics | Attendance rates per course | `api/lecturer.py` `/course/<id>/analytics`; `blueprints/lecturer.py` `/lecturer/analytics` | `course_analytics_provider.dart`, `course_analytics_screen.dart` | — | `attendance` |
@@ -125,7 +125,7 @@ the feature.
 | Manual marking / offline-tap review | `SUAAMS/tests/test_manual_marking.py`, `test_offline_tap_review.py` |
 | Admin logins, activity log, bulk upload | `SUAAMS/tests/test_audit.py` |
 | Rate-limit keys (per person, per terminal) | `SUAAMS/tests/test_rate_limits.py` |
-| Start/end session | `SUAAMS/tests/test_class_sessions.py` |
+| Start/end session, closing sessions nobody ended | `SUAAMS/tests/test_class_sessions.py` |
 | Bulk notifications and announcement audience | `SUAAMS/tests/test_notifications.py` |
 | Disabled accounts, dropping courses, level rule | `SUAAMS/tests/test_account_rules.py` |
 | Query counts: HOD, student dashboard, analytics | `SUAAMS/tests/test_hod_attendance.py`, `test_page_queries.py` |

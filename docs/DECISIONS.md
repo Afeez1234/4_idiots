@@ -545,3 +545,22 @@ if you know the date.
   can't be updated remotely.
 - **Trade-off:** The header is trivially forged, so this is a compatibility
   check, not a security control.
+
+### D38. Sessions nobody ended are closed by a sweep (2026-10-23)
+
+- **Problem:** A session only ends when a lecturer presses End. One left
+  open on Monday stayed "active" into Tuesday: the dashboards showed it
+  live, Start refused ("already active"), check-in refused it (it isn't
+  today's), and it never counted as held, so nobody's percentage
+  included it.
+- **Chose:** `utils.close_stale_sessions` ends every open session dated
+  before today on campus, with one UPDATE. It runs before requests
+  (`app.py`), doing real work at most every 10 minutes per process, and
+  Start ends the course's own leftovers in its own transaction. Closed
+  sessions get no `stop_time`, since nobody knows when the class ended.
+- **Rejected:** a date filter on every query that reads `is_active` (too
+  many places, and the next query would forget it); closing only on Start
+  (a session nobody restarts would stay live and uncounted); a scheduled
+  job (there's no scheduler on the free plan).
+- **Trade-off:** A write rides on an ordinary request every 10 minutes. A
+  failed sweep is logged and the request carries on.

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, session
+from flask import Flask, jsonify, request, session
 from datetime import timedelta
 from flask_migrate import Migrate
 from campus_time import campus_fmt
@@ -7,7 +7,7 @@ import os
 import logging
 from flask_jwt_extended import JWTManager
 from models import db, HOD, Lecturer, Course, Semester, Student, User
-from utils import courses_taught_by, current_courses
+from utils import courses_taught_by, current_courses, close_stale_sessions
 from extensions import limiter, csrf
 import app_version
 from blueprints.auth import auth_bp
@@ -162,6 +162,20 @@ csrf.exempt(api_student_bp)
 csrf.exempt(api_lecturer_bp)
 csrf.exempt(api_hardware_bp)
 csrf.exempt(api_terminal_bp)
+
+
+# End sessions left open from earlier days (utils.close_stale_sessions; does
+# real work at most every 10 minutes). Guarded: a failed sweep is logged and
+# the request carries on, rather than every page failing with it.
+@app.before_request
+def _close_stale_sessions():
+    if request.endpoint in (None, 'static', 'healthz'):
+        return
+    try:
+        close_stale_sessions()
+    except Exception:
+        db.session.rollback()
+        logging.getLogger('suaams').exception('Stale session sweep failed')
 
 
 # Registered app-wide (not on hod_bp/lecturer_bp individually) because

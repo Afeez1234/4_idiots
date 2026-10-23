@@ -450,6 +450,43 @@ def _lock_owned_course(lecturer, course_id):
             .first())
 
 
+# Sessions only end when a lecturer presses End. One forgotten on Monday
+# stayed "active" into Tuesday: dashboards showed it live, Start refused
+# ("already active"), check-in refused it (it isn't today's), and it never
+# counted as held, so nobody's percentage included it. Ending leftovers
+# from earlier days fixes all four in one place, instead of a date filter
+# on every query that reads is_active.
+_STALE_SWEEP_EVERY = timedelta(minutes=10)
+_last_stale_sweep = None
+
+
+def close_stale_sessions(force=False):
+    """End every session still open from an earlier campus day. Returns how
+    many were closed.
+
+    Called before each request (app.py), but does real work at most every
+    _STALE_SWEEP_EVERY per process -- one indexed UPDATE, usually matching
+    nothing. Two threads racing past the time check just run the same
+    harmless UPDATE twice. stop_time stays empty: nobody knows when the
+    class really ended, and the session page then shows no "Ended" time.
+    """
+    global _last_stale_sweep
+    from models import db, Session as SessionModel
+    from campus_time import campus_today
+
+    now = datetime.now(timezone.utc)
+    if not force and _last_stale_sweep and now - _last_stale_sweep < _STALE_SWEEP_EVERY:
+        return 0
+    _last_stale_sweep = now
+
+    closed = (SessionModel.query
+              .filter(SessionModel.is_active.is_(True),
+                      SessionModel.session_date < campus_today())
+              .update({'is_active': False}, synchronize_session=False))
+    db.session.commit()
+    return closed
+
+
 def start_class_session(lecturer, course_id, planned_start=None, planned_end=None, room=None):
     """Start a session for one of the lecturer's courses.
 
@@ -481,6 +518,14 @@ def start_class_session(lecturer, course_id, planned_start=None, planned_end=Non
     if not in_current_semester(course):
         db.session.rollback()
         return 'past_semester', None
+
+    # A leftover from an earlier day isn't "already running"; end it here,
+    # in this transaction, so Start works even before the next sweep. (Not
+    # close_stale_sessions(): its commit would release the course lock.)
+    (SessionModel.query
+     .filter(SessionModel.course_id == course_id, SessionModel.is_active.is_(True),
+             SessionModel.session_date < campus_today())
+     .update({'is_active': False}, synchronize_session=False))
 
     running = SessionModel.query.filter_by(course_id=course_id, is_active=True).first()
     if running:
