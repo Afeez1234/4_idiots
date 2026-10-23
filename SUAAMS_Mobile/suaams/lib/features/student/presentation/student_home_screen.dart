@@ -782,12 +782,21 @@ class _StatsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppStatRow([
       AppStatValue('${stats.overallRate}%', 'OVERALL'),
-      AppStatValue('${stats.attendanceCount}', 'SESSIONS'),
-      // Was `final isWarning = label == 'MISSED'` inside the old private
-      // _StatBox -- the warning styling was keyed off this display string,
-      // so renaming the label would have silently dropped it. See
-      // AppStatTone in shared/widgets/app_stat_box.dart.
-      AppStatValue.warning('${stats.atRiskCount}', 'MISSED'),
+      // Attended out of held, so the three tiles add up: these two are what
+      // the OVERALL percentage is made of. This read "13 / SESSIONS" before,
+      // which looked like sessions held. The total sits in the label, not
+      // the value: a semester's "124/180" would ellipsise at titleLarge in
+      // a third of a 360dp screen, and the label has two lines to spare.
+      AppStatValue(
+        '${stats.attendanceCount}',
+        'OF ${stats.totalSessions} ATTENDED',
+      ),
+      // at_risk_count is the number of COURSES under the 75% exam
+      // threshold (api/student.py), not missed sessions. It was labelled
+      // MISSED, so 13 attended of 24 showed "3 missed" next to it. The
+      // warning tone comes from AppStatValue.warning, not this string (see
+      // AppStatTone in shared/widgets/app_stat_box.dart).
+      AppStatValue.warning('${stats.atRiskCount}', 'BELOW 75%'),
     ]);
   }
 }
