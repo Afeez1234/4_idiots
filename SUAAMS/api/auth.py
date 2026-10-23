@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from models import db, User, Student, DeviceToken
 from extensions import limiter, jwt_identity_or_ip, api_error_response, login_username_key, client_ip
 from push_notifications import send_push_notification
+from utils import new_password_problem
 
 # Create the API blueprint for mobile authentication
 api_auth_bp = Blueprint('api_auth', __name__, url_prefix='/api/v1/auth')
@@ -225,16 +226,12 @@ def mobile_login():
 @limiter.limit("5 per minute", key_func=jwt_identity_or_ip)
 @jwt_required()
 def mobile_change_password():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     new_password = data.get('new_password')
-    
+
     if not new_password:
         return jsonify({"error": "New password is required"}), 400
-    # Same minimum as the web form (blueprints/auth.py) and the app's own
-    # screen; the app's check alone could be skipped by any other client.
-    if not isinstance(new_password, str) or len(new_password) < 6:
-        return jsonify({"error": "Password must be at least 6 characters long."}), 400
-        
+
     current_user_id = get_jwt_identity()
 
     # BUG FIX: the old code was `try: User.query.get(current_user_id) except
@@ -265,7 +262,26 @@ def mobile_change_password():
 
     if not user:
         return jsonify({"error": "User not found"}), 404
-    
+
+    # A change the user chose to make needs the current password. Without
+    # it, anyone holding an unlocked phone could set a password of their
+    # own -- and a lecturer's then opens the web portal, which has no device
+    # binding. The forced first change skips it: the user has just signed
+    # in with that password. 403 rather than 401, so the app doesn't read
+    # it as an expired session and refresh. The 5/minute limit above caps
+    # guessing.
+    if not user.requires_password_change:
+        current = data.get('current_password')
+        if not isinstance(current, str) or not bcrypt.checkpw(
+                current.encode('utf-8'), user.password_hash.encode('utf-8')):
+            return jsonify({"error": "Your current password is incorrect."}), 403
+
+    # Same rules as the web form (utils.new_password_problem); the app's
+    # own checks could be skipped by any other client.
+    problem = new_password_problem(user, new_password)
+    if problem:
+        return jsonify({"error": problem}), 400
+
     # Hash the new password securely
     hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     

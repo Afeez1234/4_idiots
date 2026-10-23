@@ -117,6 +117,19 @@ class LoginPageTestCase(unittest.TestCase):
         self.assertIn('Too many attempts', html)
         self.assertIn('id="new_password"', html)
 
+    def test_forced_change_refuses_the_username_and_the_current_password(self):
+        # Same rules as the app (utils.new_password_problem): the first
+        # password is the matric number, so typing it again mustn't pass.
+        u = self.user('CPE/20/5000', fresh=True)
+        with self.client.session_transaction() as s:
+            s['user_id'], s['username'], s['role'] = u.id, u.username, 'student'
+        for new, message in (('cpe/20/5000', 'username or matric number'),
+                             ('right-password', 'different from your current one')):
+            html = self.client.post('/change-password', data={
+                'new_password': new, 'confirm_password': new}).get_data(as_text=True)
+            self.assertIn(message, html)
+        self.assertTrue(db.session.get(User, u.id).requires_password_change)
+
     # ---- HEAD requests ------------------------------------------------------------------
     # Flask runs the GET view for HEAD with request.method == 'HEAD'. The
     # views checked `== 'GET'` then `== 'POST'`, matched neither, returned

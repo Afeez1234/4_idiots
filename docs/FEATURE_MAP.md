@@ -49,7 +49,7 @@ the feature.
 |---|---|---|---|---|---|
 | Mobile login | Password + device binding, issues JWT pair; the response says `has_lecturer_profile`. Where each user lands is one rule (`homeRouteFor`): a promoted HOD gets the lecturer screens; an admin or an HOD without a Lecturer profile gets the "use the web portal" screen (HOD and admin work is web-only) | `api/auth.py` `mobile_login` | `features/auth/data/auth_service.dart`, `presentation/login_screen.dart`, `core/router/home_route.dart`, `presentation/web_portal_screen.dart` | — | `users`, `students` |
 | Token refresh / logout | Rotating refresh token; logout revokes it | `api/auth.py` `/refresh`, `/logout` | `core/network/auth_retry.dart`, `auth_service.dart` | — | `users.current_refresh_jti` |
-| Forced password change | First-login change. On the web it's enforced on every request (`enforce_account_state`), so it can't be skipped | `api/auth.py` `/change-password`, `blueprints/auth.py` | `features/auth/presentation/change_password_screen.dart` | — | `users.requires_password_change` |
+| Forced password change | First-login change. On the web it's enforced on every request (`enforce_account_state`), so it can't be skipped. Web and app refuse the username (matric number) or the current password as the new one (`utils.new_password_problem`); a change from the app's Profile also needs the current password | `api/auth.py` `/change-password`, `blueprints/auth.py` | `features/auth/presentation/change_password_screen.dart` | — | `users.requires_password_change` |
 | Web login | Session-cookie login for dashboards; a disabled account is signed out mid-session. A failed attempt keeps the typed username (never the password); a switched-off account is told to ask the admin office; the 5-per-minute limit (and the password-change one) renders the page with a "wait a minute" message, still a 429 | `blueprints/auth.py` (`too_many_attempts`), `utils.py` `login_required` | `auth/login.html`, `auth/change_password.html` | — | `users` |
 | Personal admin logins | One login per person who runs the dashboard; create or disable from the command line | `create_admin.py` | — | — | `users` |
 | Activity log (audit trail) | Who changed what on the admin dashboard, plus admin sign-ins; filter by person and type at `/admin/activity` | `audit.py` `log_action`; `blueprints/admin.py` `activity_page`; `templates/admin/activity.html` | — | — | `audit_logs` |
@@ -127,7 +127,7 @@ the feature.
 | Rate-limit keys (per person, per terminal) | `SUAAMS/tests/test_rate_limits.py` |
 | Start/end session, closing sessions nobody ended | `SUAAMS/tests/test_class_sessions.py` |
 | Bulk notifications and announcement audience | `SUAAMS/tests/test_notifications.py` |
-| Disabled accounts, dropping courses, level rule | `SUAAMS/tests/test_account_rules.py` |
+| Disabled accounts, password-change rules, dropping courses, level rule | `SUAAMS/tests/test_account_rules.py` |
 | Query counts: HOD, student dashboard, analytics | `SUAAMS/tests/test_hod_attendance.py`, `test_page_queries.py` |
 | One attendance rule (finished classes, present or late) across student app, HOD, register, Reports | `SUAAMS/tests/test_attendance_rule.py` |
 | Readers' own secrets, room check (flag / enforce / off), Terminals page | `SUAAMS/tests/test_terminal_rooms.py` |

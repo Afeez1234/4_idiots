@@ -216,7 +216,12 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
     }
   }
 
-  Future<bool> changePassword(String newPassword) async {
+  /// [currentPassword] is needed for a change the user chose to make; the
+  /// forced first change leaves it null (see mobile_change_password).
+  Future<bool> changePassword(
+    String newPassword, {
+    String? currentPassword,
+  }) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     notifyListeners();
 
@@ -234,8 +239,11 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
       // a method on that notifier -- so it calls refreshSession()/logout()
       // directly on itself instead, which also avoids a circular import
       // (auth_retry.dart already imports this file for `authProvider`).
-      Future<String> attempt() =>
-          _authService.changePassword(newPassword, state.user!.token);
+      Future<String> attempt() => _authService.changePassword(
+        newPassword,
+        state.user!.token,
+        currentPassword: currentPassword,
+      );
 
       // The backend rotates the session on a successful password change
       // (see mobile_change_password in api/auth.py), so `attempt()`

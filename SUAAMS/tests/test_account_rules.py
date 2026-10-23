@@ -2,6 +2,8 @@
 audit (findings 10, 19 and 21):
 
   * a disabled account can't get new app tokens,
+  * a password change the user chose needs the current password, and no
+    change may reuse the username (matric number) or the current password,
   * a student can drop a current-semester course but not a past one,
   * the HOD pages accept the same levels as the admin pages.
 
@@ -13,6 +15,8 @@ import os
 import sys
 import unittest
 from datetime import date
+
+import bcrypt
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -92,6 +96,41 @@ class AccountRulesTestCase(unittest.TestCase):
     def auth(self):
         token = create_access_token(identity=str(self.user.id), additional_claims={'role': 'student'})
         return {'Authorization': f'Bearer {token}'}
+
+    # ---- password changes (2026-10-23 audit, finding 3) ----------------------
+
+    def set_password(self, password, forced):
+        self.user.password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt(4)).decode()
+        self.user.requires_password_change = forced
+        db.session.commit()
+
+    def change(self, **body):
+        return self.client.post('/api/v1/auth/change-password', json=body, headers=self.auth())
+
+    def test_chosen_change_needs_the_current_password(self):
+        self.set_password('old-secret', forced=False)
+        self.assertEqual(self.change(new_password='new-secret').status_code, 403)
+        self.assertEqual(self.change(new_password='new-secret',
+                                     current_password='wrong').status_code, 403)
+        resp = self.change(new_password='new-secret', current_password='old-secret')
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(bcrypt.checkpw(b'new-secret', self.user.password_hash.encode()))
+
+    def test_forced_first_change_needs_no_current_password(self):
+        self.set_password('MCT/20/0001', forced=True)
+        self.assertEqual(self.change(new_password='new-secret').status_code, 200)
+        self.assertFalse(self.user.requires_password_change)
+
+    def test_new_password_cannot_be_the_matric_number_or_the_current_one(self):
+        # The first password is the matric number, so "changing" it to the
+        # same thing used to pass the forced change and stay guessable.
+        self.set_password('MCT/20/0001', forced=True)
+        resp = self.change(new_password='mct/20/0001')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('username', resp.get_json()['error'])
+        self.set_password('kept-secret', forced=True)
+        self.assertEqual(self.change(new_password='kept-secret').status_code, 400)
+        self.assertEqual(self.change(new_password='abc').status_code, 400)
 
     # ---- finding 10 ----------------------------------------------------------
 

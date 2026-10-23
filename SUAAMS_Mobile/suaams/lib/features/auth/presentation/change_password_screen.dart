@@ -29,6 +29,10 @@ class ChangePasswordScreen extends ConsumerStatefulWidget {
 }
 
 class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
+  // Voluntary changes only: the server asks for the current password, so
+  // whoever holds an unlocked phone can't set a password of their own.
+  final TextEditingController _currentPasswordController =
+      TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
@@ -38,6 +42,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
   @override
   void dispose() {
+    _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -50,7 +55,12 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
       final success = await ref
           .read(authProvider.notifier)
-          .changePassword(_newPasswordController.text);
+          .changePassword(
+            _newPasswordController.text,
+            currentPassword: widget.isMandatory
+                ? null
+                : _currentPasswordController.text,
+          );
 
       if (mounted) {
         if (success) {
@@ -147,7 +157,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                         ),
                         const SizedBox(height: 24),
                         Text(
-                          'PASSWORD UPDATE REQUIRED',
+                          widget.isMandatory
+                              ? 'PASSWORD UPDATE REQUIRED'
+                              : 'CHANGE PASSWORD',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
@@ -158,7 +170,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'PLEASE UPDATE YOUR DEFAULT PASSWORD',
+                          widget.isMandatory
+                              ? 'PLEASE UPDATE YOUR DEFAULT PASSWORD'
+                              : 'ENTER YOUR CURRENT PASSWORD FIRST',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
@@ -169,6 +183,25 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                         ),
 
                         SizedBox(height: screenHeight * 0.06),
+
+                        if (!widget.isMandatory) ...[
+                          _buildInputLabel('CURRENT PASSWORD', colorScheme),
+                          const SizedBox(height: 8),
+                          RepaintBoundary(
+                            child: _buildTextField(
+                              controller: _currentPasswordController,
+                              hintText: 'Enter current password',
+                              icon: Icons.key_rounded,
+                              isPassword: true,
+                              colorScheme: colorScheme,
+                              validator: (value) =>
+                                  (value == null || value.isEmpty)
+                                  ? 'CURRENT PASSWORD REQUIRED'
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
 
                         _buildInputLabel('NEW PASSWORD', colorScheme),
                         const SizedBox(height: 8),

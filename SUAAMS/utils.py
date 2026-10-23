@@ -1,4 +1,5 @@
 import re
+import bcrypt
 from datetime import datetime, timedelta, timezone
 from flask import session,redirect,url_for,flash
 from functools import wraps
@@ -67,6 +68,29 @@ def login_required(role):
             return func(*args, **kwargs)
         return wrapper
     return decorator
+
+
+MIN_PASSWORD_LENGTH = 6
+
+
+def new_password_problem(user, new_password):
+    """Why `new_password` can't replace `user`'s password, or None if it can.
+
+    Shared by the web form (blueprints/auth.py) and the app
+    (api/auth.py), so both refuse the same things:
+      * shorter than MIN_PASSWORD_LENGTH;
+      * the username -- for a student that's the matric number, which is
+        also the first password, so the forced change could be "passed" by
+        typing the same thing again and the account stayed guessable;
+      * the password they already have, for the same reason.
+    """
+    if not isinstance(new_password, str) or len(new_password) < MIN_PASSWORD_LENGTH:
+        return f'Password must be at least {MIN_PASSWORD_LENGTH} characters long.'
+    if new_password.strip().lower() == (user.username or '').strip().lower():
+        return 'Your new password must be different from your username or matric number.'
+    if bcrypt.checkpw(new_password.encode('utf-8'), user.password_hash.encode('utf-8')):
+        return 'Your new password must be different from your current one.'
+    return None
 
 
 def session_status_for_course(course_id, on_date):

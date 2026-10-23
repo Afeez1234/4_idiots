@@ -396,7 +396,8 @@ class CheckinTestCase(unittest.TestCase):
 
     def test_app_password_change_needs_six_characters(self):
         token = self.login('MCT/20/0001', 'phone-1').get_json()['token']
-        resp = self.client.post('/api/v1/auth/change-password', json={'new_password': 'abc'},
+        resp = self.client.post('/api/v1/auth/change-password',
+                                json={'new_password': 'abc', 'current_password': 'pw'},
                                 headers={'Authorization': f'Bearer {token}'})
         self.assertEqual(resp.status_code, 400)
 

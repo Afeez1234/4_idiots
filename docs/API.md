@@ -81,7 +81,7 @@ end for completeness.
 | Method | Path | Auth | Limit | Request → Response |
 |---|---|---|---|---|
 | POST | `/login` | none | 5/min/IP | `{username, password, device_id}` → `{success, token, refresh_token, user: {id, username, role, requires_password_change}}`. **401** `Invalid username or password` for an unknown username *and* a wrong password (same answer, same timing, so it doesn't reveal which accounts exist). **403** `Account is disabled` only after the right password; `SECURITY LOCK` / `DEVICE IN USE` / `DEVICE UNVERIFIED` for students (see [ARCHITECTURE §5](ARCHITECTURE.md#5-login-and-device-binding)) |
-| POST | `/change-password` | JWT | 5/min | `{new_password}`, at least 6 characters (400 otherwise; the web form has the same rule) |
+| POST | `/change-password` | JWT | 5/min | `{new_password, current_password}`. `current_password` is required unless the change is the forced first one (**403** if missing or wrong). The new password must be at least 6 characters and not the username or the current password (**400**; the web form has the same rules) |
 | POST | `/refresh` | JWT-refresh | 10/min | → `{success, token, refresh_token}`. The old refresh token is now dead |
 | POST | `/logout` | JWT-refresh | 10/min | Revokes the refresh token and removes the user's push tokens (the app registers again at its next login) |
 

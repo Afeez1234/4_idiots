@@ -108,7 +108,14 @@ class AuthService {
   // otherwise the caller (AuthNotifier.changePassword) would keep using
   // the pre-rotation token, which the server no longer recognizes as the
   // "current" one for refresh purposes.
-  Future<String> changePassword(String newPassword, String token) async {
+  //
+  // currentPassword: required by the server for a change the user chose to
+  // make (Profile > Account Security), not for the forced first change.
+  Future<String> changePassword(
+    String newPassword,
+    String token, {
+    String? currentPassword,
+  }) async {
     try {
       final response = await http
           .post(
@@ -117,7 +124,10 @@ class AuthService {
               'Content-Type': 'application/json',
               'Authorization': 'Bearer $token',
             },
-            body: jsonEncode({'new_password': newPassword}),
+            body: jsonEncode({
+              'new_password': newPassword,
+              'current_password': ?currentPassword,
+            }),
           )
           .timeout(_kNetworkTimeout);
 
@@ -139,14 +149,19 @@ class AuthService {
         return newAccessToken;
       }
 
+      // The server's own message ("Your current password is incorrect.",
+      // "...different from your username...") is the useful part. This used
+      // to throw it inside a try whose catch replaced it with "Server
+      // Error: <code>", so every refusal read "Something went wrong on our
+      // side". Only an unreadable body falls back to the status code.
+      String? serverMessage;
       try {
-        final Map<String, dynamic> errorData = jsonDecode(response.body);
-        throw Exception(
-          errorData['error'] ?? errorData['msg'] ?? 'Failed to update code.',
-        );
-      } catch (e) {
-        throw Exception('Server Error: ${response.statusCode}');
-      }
+        final errorData = jsonDecode(response.body);
+        if (errorData is Map) {
+          serverMessage = (errorData['error'] ?? errorData['msg'])?.toString();
+        }
+      } catch (_) {}
+      throw Exception(serverMessage ?? 'Server Error: ${response.statusCode}');
     } on TimeoutException {
       throw Exception(
         'The server took too long to respond.',

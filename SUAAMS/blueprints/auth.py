@@ -4,6 +4,7 @@ from models import db, User  # Imported 'db' to allow committing password change
 from extensions import limiter, login_username_key, client_ip
 from audit import log_action
 from api.auth import _DUMMY_HASH
+from utils import new_password_problem
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -170,8 +171,11 @@ def web_change_password():
             flash('Passwords do not match.', 'error')
             return render_template('auth/change_password.html')
 
-        if len(new_password) < 6:
-            flash('Password must be at least 6 characters long.', 'error')
+        # Same rules as the app (utils.new_password_problem): long enough,
+        # and not the username or the current (first) password again.
+        problem = new_password_problem(user, new_password)
+        if problem:
+            flash(problem, 'error')
             return render_template('auth/change_password.html')
 
         # Hash new password and clear the flag using ORM
