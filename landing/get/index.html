@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install SUAAMS on Android</title>
+  <meta name="description" content="Install the SUAAMS attendance app on your Android phone: download, allow the install, sign in with your matric number.">
+  <meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)">
+  <meta property="og:title" content="Install SUAAMS on Android">
+  <meta property="og:description" content="Download, allow the install, sign in with your matric number. About a minute.">
+  <meta property="og:url" content="https://suaams.com.ng/get/">
+  <link rel="canonical" href="https://suaams.com.ng/get/">
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="../fonts/IBMPlexSans-Bold.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="mark" viewBox="0 0 48 48">
+      <g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9.5 29.5 C7 33.5 8 39.5 13 40.5 C18.5 41.5 22 33 26 22.5"/>
+        <path d="M19.5 41 C23 33.5 26 26 32 23.8 C37.5 21.8 40.5 27.5 39 37"/>
+      </g>
+      <circle cx="30.5" cy="15.5" r="3" fill="#2f6bee"/>
+      <g fill="none" stroke="#2f6bee" stroke-width="2.2" stroke-linecap="round">
+        <path d="M31.6 9.9 A5.7 5.7 0 0 1 36.1 16.6"/>
+        <path d="M32.3 6.6 A9.1 9.1 0 0 1 39.5 17.3" stroke-opacity=".5"/>
+      </g>
+    </symbol>
+    <symbol id="android" viewBox="0 0 24 24">
+      <path fill="currentColor" d="M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.87 3.23a11.4 11.4 0 0 0-9.82 0L5.22 5.92a.38.38 0 1 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52ZM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Z"/>
+    </symbol>
+  </svg>
+
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href="../" aria-label="SUAAMS home">
+        <svg aria-hidden="true"><use href="#mark"/></svg>
+        SUAAMS
+      </a>
+      <nav class="nav" aria-label="Main">
+        <a href="../">About SUAAMS</a>
+        <a href="../privacy.html">Privacy</a>
+      </nav>
+      <div class="header-actions">
+        <a class="btn btn-ghost btn-sm" href="https://portal.suaams.com.ng/">Sign in</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="wrap get">
+    <h1>Install SUAAMS on Android.</h1>
+    <!-- Update with each upload. SIZE and DATE: fill in from the APK
+         (e.g. "18.4 MB · 23 Oct 2026"). -->
+    <p class="get-meta">Version 0.1.0 · test build</p>
+    <p class="get-lede">The app is still in testing, so it installs from this page rather than the Play Store. It takes about a minute.</p>
+
+    <div class="prereq">
+      <p><strong>You need</strong> an Android phone and your matric number. Phones with NFC check in with a tap; phones without NFC use Bluetooth instead.</p>
+      <p><strong>On an iPhone?</strong> The iPhone app isn't out yet. Your lecturer can mark you present by hand until it is.</p>
+    </div>
+
+    <ol class="steps">
+      <li>
+        <h2>Download the app</h2>
+        <a class="btn btn-primary" href="../downloads/suaams-arm64.apk" download>
+          <svg aria-hidden="true"><use href="#android"/></svg>
+          Download SUAAMS
+        </a>
+        <p class="small">Open the file when the download finishes. Older or budget phone and the install fails? Try the <a href="../downloads/suaams-armv7.apk" download>version for older phones</a>.</p>
+      </li>
+      <li>
+        <h2>Allow the install</h2>
+        <p>Android asks once whether your browser may install apps. Tap <em>Settings</em>, turn on <em>Allow from this source</em>, then go back and tap <em>Install</em>.</p>
+        <p>If Play Protect says the app is unknown, tap <em>More details</em>, then <em>Install anyway</em>. It warns about any app that doesn't come from the Play Store.</p>
+      </li>
+      <li>
+        <h2>Sign in</h2>
+        <p>Sign in with your matric number. Your first password is your matric number too, and the app makes you choose a new one straight away.</p>
+      </li>
+    </ol>
+    <p class="warn"><strong>Sign in on your own phone.</strong> Your account locks to the first phone you use, and a phone holds one student's account. Changing phones later means asking an admin, with your school ID.</p>
+
+    <h2 class="block">What the app asks for</h2>
+    <!-- From SUAAMS_Mobile/suaams/android/app/src/main/AndroidManifest.xml.
+         Keep in step with the manifest and privacy.html. -->
+    <dl class="facts">
+      <div><dt>Fingerprint or PIN</dt><dd>To confirm it's you before each check-in. The fingerprint stays on your phone.</dd></div>
+      <div><dt>NFC</dt><dd>To pass your check-in code to the reader when you tap.</dd></div>
+      <div><dt>Bluetooth</dt><dd>The fallback for phones without NFC: the app listens for the reader's short code.</dd></div>
+      <div><dt>Location</dt><dd>Android 11 and older only. Those versions make any app that scans for Bluetooth ask for it. SUAAMS never reads your location.</dd></div>
+      <div><dt>Notifications</dt><dd>To tell you when you've been marked, and about announcements.</dd></div>
+    </dl>
+
+    <h2 class="block">Who makes it</h2>
+    <dl class="facts">
+      <div><dt>Publisher</dt><dd>SUAAMS, a final-year Mechatronics Engineering project. Questions: <a href="mailto:contact@suaams.com.ng">contact@suaams.com.ng</a></dd></div>
+      <!-- CHECKSUMS: add these two rows with each upload, from the release
+           APK (see landing/README.md, "Publishing a build"):
+      <div><dt>SHA-256</dt><dd class="mono">…</dd></div>
+      <div><dt>Signing certificate</dt><dd class="mono">SHA-256 …</dd></div>
+      -->
+      <div><dt>Privacy</dt><dd>No fingerprints, no location tracking. <a href="../privacy.html">Read the privacy policy</a>.</dd></div>
+    </dl>
+
+    <h2 class="block">If something goes wrong</h2>
+    <dl class="facts">
+      <div><dt>"App not installed"</dt><dd>Try the <a href="../downloads/suaams-armv7.apk" download>version for older phones</a>.</dd></div>
+      <div><dt>"Device in use"</dt><dd>This phone already holds another student's account. Sign in on your own phone, or ask an admin.</dd></div>
+      <div><dt>New phone</dt><dd>Your account is locked to your old one. Take your school ID to an admin to have it moved.</dd></div>
+      <div><dt>"Update required"</dt><dd>Your version is too old to check in. Come back to this page and install the new one over it.</dd></div>
+    </dl>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div>
+        <a class="brand" href="../" aria-label="SUAAMS home">
+          <svg aria-hidden="true"><use href="#mark"/></svg>
+          SUAAMS
+        </a>
+        <p>A final-year Mechatronics Engineering project.</p>
+      </div>
+      <div>
+        <nav aria-label="Footer">
+          <a href="../">About SUAAMS</a>
+          <a href="https://portal.suaams.com.ng/">Sign in</a>
+          <a href="../privacy.html">Privacy policy</a>
+          <a href="mailto:contact@suaams.com.ng">contact@suaams.com.ng</a>
+        </nav>
+        <p class="copyright">© 2026 SUAAMS</p>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

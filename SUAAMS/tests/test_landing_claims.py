@@ -51,9 +51,14 @@ CLAIMS = [
      python_constant('beacon.py', 'BEACON_TOKEN_TTL_SECONDS'),
      r'expires? after (\d+) seconds',
      ['index.html', 'privacy.html']),
-    ('check-in code lifetime, stat band',
+    # The decoded demo code in the first screen ("IN" column).
+    ('check-in code lifetime, decoded demo code',
      python_constant('beacon.py', 'BEACON_TOKEN_TTL_SECONDS'),
-     r'<b>(\d+)<small>s</small></b><span>before a check-in code expires',
+     r'expires (\d+) s after minting',
+     ['index.html']),
+    ('check-in code lifetime, security list',
+     python_constant('beacon.py', 'BEACON_TOKEN_TTL_SECONDS'),
+     r'dead in (\d+) s',
      ['index.html']),
     ('Bluetooth code rotation',
      python_constant('ble_beacon.py', 'SLOT_SECONDS'),
@@ -82,7 +87,38 @@ CLAIMS = [
 ]
 
 
+def manifest_text():
+    return (REPO / 'SUAAMS_Mobile' / 'suaams' / 'android' / 'app' / 'src'
+            / 'main' / 'AndroidManifest.xml').read_text(encoding='utf-8')
+
+
 class LandingClaimsTest(unittest.TestCase):
+
+    def test_demo_code_is_a_real_format_token(self):
+        """The first screen shows a demo check-in code split into payload
+        and signature. It must stay the real shape: 16 + 16 base64url
+        characters (12-byte payload, 12-byte signature, beacon.py)."""
+        html = page_text('index.html')
+        payload = re.search(r'<span class="payload">([A-Za-z0-9_-]+)</span>', html)
+        sig = re.search(r'<span class="sig">([A-Za-z0-9_-]+)</span>', html)
+        self.assertTrue(payload and sig, 'demo code markup changed')
+        self.assertEqual((len(payload.group(1)), len(sig.group(1))), (16, 16))
+
+    def test_get_page_permissions_match_manifest(self):
+        """/get lists what the app asks for. Location must be described as
+        Android 11 and older only for as long as the manifest caps it there,
+        and every listed permission must be one the manifest declares."""
+        manifest = manifest_text()
+        page = page_text('get/index.html')
+        self.assertIn('ACCESS_FINE_LOCATION" android:maxSdkVersion="30"', manifest)
+        self.assertIn('Android 11 and older only', page)
+        for label, permission in [('NFC', 'android.permission.NFC'),
+                                  ('Bluetooth', 'BLUETOOTH_SCAN'),
+                                  ('Notifications', 'POST_NOTIFICATIONS'),
+                                  ('Fingerprint or PIN', 'USE_BIOMETRIC')]:
+            with self.subTest(permission=label):
+                self.assertIn(f'<dt>{label}</dt>', page)
+                self.assertIn(permission, manifest)
 
     def test_app_has_two_thresholds(self):
         self.assertEqual(len(app_thresholds()), 2,

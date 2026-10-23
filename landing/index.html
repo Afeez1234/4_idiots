@@ -13,10 +13,10 @@
   <meta property="og:type" content="website">
   <link rel="canonical" href="https://suaams.com.ng/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="preload" href="fonts/IBMPlexSans-Bold.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/IBMPlexMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
+  <script src="hero.js" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -44,6 +44,12 @@
     <symbol id="arrow" viewBox="0 0 24 24">
       <path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </symbol>
+    <symbol id="plus" viewBox="0 0 24 24">
+      <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="replay" viewBox="0 0 24 24">
+      <path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
   </svg>
 
   <header class="site-header">
@@ -56,220 +62,267 @@
         <a href="#how">How it works</a>
         <a href="#security">Security</a>
         <a href="#privacy">Privacy</a>
-        <a href="#download">Get the app</a>
+        <a href="get/">For students</a>
       </nav>
-      <a class="btn btn-ghost btn-sm" href="https://portal.suaams.com.ng/">Sign in</a>
+      <div class="header-actions">
+        <a class="btn btn-primary btn-sm header-install" href="get/">Install</a>
+        <a class="btn btn-ghost btn-sm" href="https://portal.suaams.com.ng/">Sign in</a>
+      </div>
     </div>
   </header>
 
   <main id="main">
-    <!-- Hero -->
-    <section class="hero" aria-labelledby="hero-title">
-      <div class="wrap hero-grid">
-        <div>
-          <h1 id="hero-title">Tap your phone at the door. <em>You're marked present.</em></h1>
-          <p class="lede">SUAAMS checks students into class with their fingerprint and a tap of their phone. Nobody queues at a scanner, and nobody can check in for you without your phone and your fingerprint or PIN.</p>
-          <div class="cta-row">
-            <a class="btn btn-primary" href="#download">
-              <svg aria-hidden="true"><use href="#android"/></svg>
-              Get the Android app
-            </a>
-            <a class="btn btn-ghost" href="https://portal.suaams.com.ng/">
-              Sign in to the portal
-              <svg aria-hidden="true"><use href="#arrow"/></svg>
-            </a>
-          </div>
-          <p class="hero-note">Android now · iPhone coming later</p>
-        </div>
-
-        <!-- The real ID card screen, from a demo account (never a real
-             student's). Until img/app-id-card.webp is uploaded, the image
-             removes itself and the frame shows the placeholder text behind
-             it rather than a broken-image icon. See README "Screenshots". -->
-        <figure class="phone" style="margin:0">
-          <div class="phone-screen">
-            <p class="phone-placeholder">ID card screen</p>
-            <img src="img/app-id-card.webp" width="540" height="1085"
-                 alt="The SUAAMS app's digital ID card screen, with a Check in with this ID button"
-                 onerror="this.remove()">
-          </div>
-        </figure>
-      </div>
-    </section>
-
-    <!-- The problem, in numbers -->
-    <section class="section-alt" aria-labelledby="numbers-title">
+    <!-- The stage: what goes into the reader (the code), the reader
+         itself (the photo), what comes out (the register). The code and the
+         check-ins are demo data, labelled under the stage. The code is a
+         real-format token (12-byte payload + 12-byte HMAC, base64url, see
+         SUAAMS/beacon.py) signed with a throwaway key. -->
+    <section class="stage-wrap" aria-labelledby="hero-title">
       <div class="wrap">
-        <div class="section-head">
-          <h2 id="numbers-title">A 200-student hall shouldn't need a 7-minute queue.</h2>
-          <p>A fingerprint scanner on the door takes about two seconds a student. A phone tap takes under half a second, and the fingerprint check happens on the student's own phone, a few seconds before they tap.</p>
+        <div class="stage-top">
+          <h1 id="hero-title">Tap your phone at the door. <em>You're marked present.</em></h1>
+          <div>
+            <p class="stage-lede">Your fingerprint unlocks a one-time code on your own phone. The reader takes it in a tenth of a second, and nobody can check in for you without your phone and your fingerprint or PIN.</p>
+            <div class="cta-row">
+              <a class="btn btn-primary" href="get/">
+                <svg aria-hidden="true"><use href="#android"/></svg>
+                I'm a student: install the app
+              </a>
+              <a class="btn btn-ghost" href="#how">How it works</a>
+            </div>
+            <p class="platform-note">Android now · iPhone coming later</p>
+          </div>
         </div>
-        <div class="stats">
-          <div class="stat"><b>~7<small>min</small></b><span>to get 200 students through a door scanner, at 2 s each</span></div>
-          <div class="stat win"><b>&lt;2<small>min</small></b><span>for the same 200 students with SUAAMS, at under half a second a tap</span></div>
-          <div class="stat"><b>0.1<small>s</small></b><span>for the phone and reader to exchange the check-in code</span></div>
-          <div class="stat"><b>10<small>s</small></b><span>before a check-in code expires, so it can't be reused</span></div>
+
+        <div class="stage" id="stage">
+          <div class="stage-col">
+            <span class="col-label">In · from the phone</span>
+            <p class="token" aria-label="Demo check-in code, 32 characters"><span class="payload">AAAEEgAAAT5pSj39</span><span class="sig">3V4BJ6kGWbueNNGq</span></p>
+            <dl class="decode">
+              <div>
+                <dt><i aria-hidden="true"></i>Who, which class, until when</dt>
+                <dd>student 1042 · session 318 · expires 10 s after minting</dd>
+              </div>
+              <div>
+                <dt><i class="sig" aria-hidden="true"></i>A signature only the server can make</dt>
+                <dd class="prose">Change one character and the reader is refused.</dd>
+              </div>
+            </dl>
+          </div>
+
+          <figure class="stage-photo">
+            <!-- PHOTO: save the reader shot as img/reader-tap.webp (landscape,
+                 about 1600 x 1200). Until it exists, the image removes itself
+                 (hero.js) and the frame below shows instead. -->
+            <img src="img/reader-tap.webp" width="1600" height="1200" data-optional
+                 alt="A phone held to the SUAAMS reader at a lecture-hall door. The reader's screen shows the class and how many students have checked in.">
+            <div class="photo-pending"><div><b>Reader photo coming</b>a phone tapping the SUAAMS reader,<br>its screen showing the class and the count</div></div>
+          </figure>
+
+          <div class="stage-col">
+            <span class="col-label"><span class="live" aria-hidden="true"></span>Out · to the lecturer</span>
+            <p class="count"><span class="count-now">187</span><small> / 200</small></p>
+            <p class="count-sub">checked in to MCT 402 Embedded Systems</p>
+            <ol class="log" aria-label="Latest check-ins">
+              <li><span>08:04:12</span><span>••••7731</span><span class="st">PRESENT</span></li>
+              <li><span>08:04:11</span><span>••••0458</span><span class="st">PRESENT</span></li>
+              <li><span>08:04:11</span><span>••••2210</span><span class="st">PRESENT</span></li>
+              <li><span>08:04:10</span><span>••••6095</span><span class="st">PRESENT</span></li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="stage-foot">
+          <span>Demo code and demo check-ins, not real students.</span>
+          <button class="text-btn" type="button" id="replay" hidden>
+            <svg aria-hidden="true"><use href="#replay"/></svg>
+            Replay the tap
+          </button>
         </div>
       </div>
     </section>
 
     <!-- How it works -->
-    <section id="how" aria-labelledby="how-title">
-      <div class="wrap">
-        <div class="section-head">
-          <h2 id="how-title">Three steps at the door.</h2>
-          <p>The lecturer starts the class from the app or the web portal. Then each student does this:</p>
+    <section id="how" class="section" aria-labelledby="how-title">
+      <div class="wrap split">
+        <figure class="phone phone-sticky">
+          <div class="phone-screen">
+            <img src="img/app-id-card.webp" width="540" height="1085" loading="lazy" data-optional
+                 alt="The SUAAMS app's digital ID card screen, with a Check in with this ID button">
+          </div>
+          <figcaption>Step one, in the app (demo account)</figcaption>
+        </figure>
+        <div>
+          <div class="section-head">
+            <h2 id="how-title">One check-in, start to finish.</h2>
+            <p>The lecturer starts the class from the app or the web portal. Then each student does this at the door.</p>
+          </div>
+          <ol class="sequence">
+            <li>
+              <span class="t">t = 0</span>
+              <div>
+                <h3>Confirm it's you</h3>
+                <p>Press <strong>Check in</strong> and touch the fingerprint sensor, or enter your phone's PIN. The app does nothing until your phone confirms it's you, then it asks the server for a signed code.</p>
+              </div>
+            </li>
+            <li>
+              <span class="t">within 10 s</span>
+              <div>
+                <h3>Tap the reader</h3>
+                <p>Hold your phone to the reader at the door, within about 4 cm. The phone hands over its 32-character code in one exchange of about a tenth of a second. The code belongs to you and this class only, and it expires after 10 seconds.</p>
+              </div>
+            </li>
+            <li>
+              <span class="t">+ 0.1 s</span>
+              <div>
+                <h3>You're marked</h3>
+                <p>The server checks the code and marks you present, or late if the timetable says class started more than 10 minutes ago. You get a notification, and your name shows up on the lecturer's live list.</p>
+              </div>
+            </li>
+          </ol>
+          <div class="fallbacks">
+            <div>
+              <h3>No NFC on your phone?</h3>
+              <p>Every reader also broadcasts a short Bluetooth code that changes every 5 seconds, so phones without NFC can check in too.</p>
+            </div>
+            <div>
+              <h3>Reader lost its connection?</h3>
+              <p>It keeps the taps and sends them when it's back online, and the lecturer confirms them.</p>
+            </div>
+          </div>
         </div>
-        <ol class="steps">
-          <li class="step">
-            <h3>Confirm it's you</h3>
-            <p>Press <strong>Check in</strong> and touch the fingerprint sensor, or enter your phone's PIN. The app does nothing until your phone confirms it's you.</p>
-          </li>
-          <li class="step">
-            <h3>Tap the reader</h3>
-            <p>Hold your phone to the reader at the door. The phone hands over a one-time code that the server signed a moment earlier. It expires after 10 seconds.</p>
-          </li>
-          <li class="step">
-            <h3>You're marked</h3>
-            <p>The server checks the code and marks you present, or late if the timetable says class started more than 10 minutes ago. You get a notification, and your name shows up on the lecturer's live list.</p>
-          </li>
-        </ol>
-        <p class="aside-note"><strong>No NFC on your phone?</strong> Every reader also broadcasts a short Bluetooth code that changes every 5 seconds, so phones without NFC can check in too. <strong>Reader lost its connection?</strong> It keeps the taps and sends them when it's back online, and the lecturer confirms them.</p>
       </div>
     </section>
 
-    <!-- In the app: a real screen, from the demo account -->
-    <section aria-labelledby="records-title">
-      <div class="wrap showcase">
+    <!-- Records: a real screen from the demo account -->
+    <section class="section" aria-labelledby="records-title">
+      <div class="wrap split flip">
         <div>
-          <h2 id="records-title" style="margin-bottom:14px">Know where you stand before exams.</h2>
-          <p class="lede">Every course shows how many classes you've attended out of how many were held, so nobody finds out about a shortfall on exam day.</p>
-          <ul class="legend">
-            <li><span class="dot present"></span><span><strong>Green</strong> at 75% or more</span></li>
-            <li><span class="dot late"></span><span><strong>Amber</strong> from 50% up to 75%</span></li>
-            <li><span class="dot absent"></span><span><strong>Red</strong> under 50%</span></li>
-          </ul>
-        </div>
-        <figure class="phone" style="margin:0">
-          <div class="phone-screen">
-            <p class="phone-placeholder">Records screen</p>
-            <img src="img/app-records.webp" width="540" height="1085" loading="lazy"
-                 alt="The SUAAMS app's Records screen: attendance per course, such as 11 of 20 sessions for Embedded Systems"
-                 onerror="this.remove()">
+          <div class="section-head">
+            <h2 id="records-title">Know where you stand before exams.</h2>
+            <p>Every course shows how many classes you've attended out of how many were held, so nobody finds out about a shortfall on exam day.</p>
           </div>
+          <h3>How the app colours a course</h3>
+          <ul class="standing">
+            <li><span class="swatch hi" aria-hidden="true"></span><span><strong>Green</strong> at 75% or more</span></li>
+            <li><span class="swatch mid" aria-hidden="true"></span><span><strong>Amber</strong> from 50% up to 75%</span></li>
+            <li><span class="swatch lo" aria-hidden="true"></span><span><strong>Red</strong> under 50%</span></li>
+          </ul>
+          <p class="aside">Late check-ins count as attended.</p>
+        </div>
+        <figure class="phone">
+          <div class="phone-screen">
+            <img src="img/app-records.webp" width="540" height="1085" loading="lazy" data-optional
+                 alt="The SUAAMS app's Records screen: attendance per course, such as 11 of 20 sessions for Embedded Systems">
+          </div>
+          <figcaption>The Records screen (demo account)</figcaption>
         </figure>
       </div>
     </section>
 
     <!-- Security -->
-    <section id="security" class="section-alt" aria-labelledby="security-title">
+    <section id="security" class="section" aria-labelledby="security-title">
       <div class="wrap">
         <div class="section-head">
           <h2 id="security-title">To check in for you, a friend needs your phone and your fingerprint or PIN.</h2>
           <p>Here's each way someone might try to fake attendance, what stops it, and the one gap that's still open.</p>
         </div>
-        <div class="cards">
-          <article class="card">
-            <h3>A friend uses your phone</h3>
+        <div class="threats">
+          <details class="threat">
+            <summary><h3>A friend uses your phone</h3><span class="stop">needs your fingerprint or PIN</span><svg aria-hidden="true"><use href="#plus"/></svg></summary>
             <p>The app won't make a check-in code until the phone confirms its owner's fingerprint or PIN. Holding your phone isn't enough without your fingerprint or PIN.</p>
-          </article>
-          <article class="card">
-            <h3>You sign in on a friend's phone</h3>
+          </details>
+          <details class="threat">
+            <summary><h3>You sign in on a friend's phone</h3><span class="stop">one phone, one account</span><svg aria-hidden="true"><use href="#plus"/></svg></summary>
             <p>Your account locks to the first phone you sign in on, and that phone can't hold a second student's account. Moving to a new phone means seeing an admin with your school ID.</p>
-          </article>
-          <article class="card">
-            <h3>A check-in counts for the wrong class</h3>
+          </details>
+          <details class="threat">
+            <summary><h3>A check-in counts for the wrong class</h3><span class="stop">bound to one class, once</span><svg aria-hidden="true"><use href="#plus"/></svg></summary>
             <p>A code only works for the class you're enrolled in that's running right now. You can only be marked once per class.</p>
-          </article>
-          <article class="card">
-            <h3>A code gets passed to someone outside</h3>
+          </details>
+          <details class="threat">
+            <summary><h3>A code gets passed to someone outside</h3><span class="stop">dead in 10 s, needs ~4 cm</span><svg aria-hidden="true"><use href="#plus"/></svg></summary>
             <p>A code belongs to one student and one class and expires after 10 seconds. A tap also needs the phone within about 4 cm of the reader.</p>
-          </article>
-          <article class="card">
-            <h3>Someone makes up a code</h3>
+          </details>
+          <details class="threat">
+            <summary><h3>Someone makes up a code</h3><span class="stop">only the server can sign</span><svg aria-hidden="true"><use href="#plus"/></svg></summary>
             <p>Only the server can sign a code, so it rejects any code that was changed or invented. Each reader also sends its own secret with every request, so a fake reader gets nowhere.</p>
-          </article>
-          <article class="card">
-            <h3>The phone is rooted</h3>
+          </details>
+          <details class="threat">
+            <summary><h3>The phone is rooted</h3><span class="stop">tampered phones refused</span><svg aria-hidden="true"><use href="#plus"/></svg></summary>
             <p>When it starts, the app checks whether the phone has been rooted or tampered with. On a phone that fails, it won't check in.</p>
-          </article>
+          </details>
+          <!-- The open gap from docs/SECURITY.md ("Biometric invalidation not
+               built", "Device PIN accepted"). Remove this row only when the
+               biometric-bound check-in key actually ships. -->
+          <details class="threat open-gap">
+            <summary><h3><span class="gap-label">Not stopped yet</span>A lent phone</h3><span class="stop">fix planned, not built</span><svg aria-hidden="true"><use href="#plus"/></svg></summary>
+            <p>A student who unlocks their phone for a friend, or adds a friend's fingerprint to it, can still get that friend checked in. The planned fix is a check-in key tied to the fingerprints already on the phone, so adding a new one breaks it.</p>
+          </details>
         </div>
-        <!-- The open gap from docs/SECURITY.md ("Biometric invalidation not
-             built", "Device PIN accepted"). Remove this note only when the
-             biometric-bound check-in key actually ships. -->
-        <p class="aside-note"><strong>Not stopped yet:</strong> a student who unlocks their phone for a friend, or adds a friend's fingerprint to it, can still get that friend checked in. The planned fix is a check-in key tied to the fingerprints already on the phone, so adding a new one breaks it.</p>
       </div>
     </section>
 
     <!-- Who it's for -->
-    <section aria-labelledby="who-title">
+    <section class="section" aria-labelledby="who-title">
       <div class="wrap">
         <div class="section-head">
           <h2 id="who-title">What each person gets.</h2>
         </div>
-        <div class="cards four">
-          <article class="card">
+        <div class="roles">
+          <div>
             <h3>Students</h3>
             <p>Check in at the door, see today's classes and the week's timetable, and track attendance course by course.</p>
-          </article>
-          <article class="card">
+          </div>
+          <div>
             <h3>Lecturers</h3>
             <p>Start a class from your phone or the portal, watch students arrive live, mark anyone the reader couldn't, and export the register.</p>
-          </article>
-          <article class="card">
+          </div>
+          <div>
             <h3>Heads of department</h3>
             <p>See the department's attendance by level, and every student's attendance percentage in one list.</p>
-          </article>
-          <article class="card">
+          </div>
+          <div>
             <h3>Administrators</h3>
             <p>Import students, courses and timetables in bulk, manage readers by room, and see every change in the activity log.</p>
-          </article>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- Privacy summary -->
-    <section id="privacy" class="section-alt" aria-labelledby="privacy-title">
-      <div class="wrap privacy-band">
-        <div class="section-head" style="margin-bottom:0">
+    <section id="privacy" class="section" aria-labelledby="privacy-title">
+      <div class="wrap split">
+        <div>
           <h2 id="privacy-title">Your fingerprint never leaves your phone.</h2>
-          <p>SUAAMS doesn't collect fingerprints at all. Your phone checks your finger itself and only tells the app whether it matched. The server only ever sees attendance records.</p>
-          <p style="margin-top:20px"><a href="privacy.html">Read the full privacy policy →</a></p>
+          <p class="section-lede">SUAAMS doesn't collect fingerprints at all. Your phone checks your finger itself and only tells the app whether it matched. The server only ever sees attendance records.</p>
+          <p class="more-link"><a href="privacy.html">Read the full privacy policy <svg aria-hidden="true"><use href="#arrow"/></svg></a></p>
         </div>
         <ul class="checks">
           <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>No fingerprint or face data.</strong> Nothing biometric is stored or sent anywhere.</span></li>
-          <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>No location tracking.</strong> The tap proves you're at the door, so the app never needs GPS.</span></li>
+          <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>No location tracking.</strong> The tap proves you're at the door, so the app never reads your location. Android 11 and older make any Bluetooth app ask for the location permission; SUAAMS asks there for that reason only.</span></li>
           <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>Only what attendance needs.</strong> Your name, matric number, department and level, courses, attendance records, a phone ID, and a token for push notifications.</span></li>
           <li><svg aria-hidden="true"><use href="#check"/></svg><span><strong>Encrypted in transit.</strong> The app, readers and portal talk to the server over HTTPS only.</span></li>
         </ul>
       </div>
     </section>
 
-    <!-- Download -->
-    <section id="download" aria-labelledby="download-title">
-      <div class="wrap download">
+    <!-- The student's way in -->
+    <section class="install-band" aria-labelledby="install-title">
+      <div class="wrap">
         <div>
-          <h2 id="download-title" style="margin-bottom:14px">Download for Android.</h2>
-          <p class="lede" style="margin-bottom:28px">The app is still in testing, so you install it from this page. A Play Store release is planned.</p>
-          <!-- PLAY STORE: when the app is published, replace these two links
-               with a single Google Play badge pointing at the listing. -->
+          <h2 id="install-title">Students: install SUAAMS.</h2>
+          <p>The app is still in testing, so it installs from our own page rather than the Play Store. It takes about a minute, and the page walks you through it.</p>
           <div class="cta-row">
-            <a class="btn btn-primary" href="downloads/suaams-arm64.apk" download>
+            <a class="btn btn-primary" href="get/">
               <svg aria-hidden="true"><use href="#android"/></svg>
-              Download the app
+              Go to the install page
             </a>
           </div>
-          <!-- Update the version here with each upload. -->
-          <p class="download-meta">Version 0.1.0 · test build</p>
-          <p style="margin-top:14px;font-size:15px;color:var(--muted)">Older or budget phone and the install fails? Try the <a href="downloads/suaams-armv7.apk" download>version for older phones</a>.</p>
         </div>
-        <div>
-          <ol class="install">
-            <li><span><strong>Download</strong> the app with the button and open the file when it finishes.</span></li>
-            <li><span><strong>Allow the install.</strong> Android asks once whether your browser may install apps. Tap <em>Settings</em>, turn on <em>Allow from this source</em>, then go back.</span></li>
-            <li><span><strong>Sign in</strong> with your matric number. Your first password is your matric number too, and the app makes you choose a new one straight away.</span></li>
-          </ol>
-          <p class="warn"><strong>Sign in on your own phone.</strong> Your account locks to the first phone you use. Changing phones later means asking an admin, with your school ID.</p>
+        <div class="qr">
+          <img src="img/qr-get.svg" width="168" height="168" alt="QR code that opens suaams.com.ng/get">
+          <span>suaams.com.ng/get</span>
         </div>
       </div>
     </section>
@@ -278,7 +331,7 @@
   <footer class="site-footer">
     <div class="wrap">
       <div>
-        <a class="brand" href="./" aria-label="SUAAMS home" style="margin-bottom:12px">
+        <a class="brand" href="./" aria-label="SUAAMS home">
           <svg aria-hidden="true"><use href="#mark"/></svg>
           SUAAMS
         </a>
@@ -287,12 +340,12 @@
       </div>
       <div>
         <nav aria-label="Footer">
+          <a href="get/">Install the app</a>
           <a href="https://portal.suaams.com.ng/">Sign in</a>
-          <a href="#download">Get the app</a>
           <a href="privacy.html">Privacy policy</a>
           <a href="mailto:contact@suaams.com.ng">contact@suaams.com.ng</a>
         </nav>
-        <p style="margin-top:14px">© 2026 SUAAMS</p>
+        <p class="copyright">© 2026 SUAAMS</p>
       </div>
     </div>
   </footer>

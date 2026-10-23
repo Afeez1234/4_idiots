@@ -1,0 +1,1584 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-23T10:16:58+00:00",
+  "title": "Design System: SUAAMS",
+  "extensions": {
+    "colorMeta": {
+      "brand-blue": {
+        "role": "primary",
+        "displayName": "Brand Blue",
+        "canonical": "oklch(56.7% 0.207 263.0)",
+        "tonalRamp": [
+          "#00052C",
+          "#021C5F",
+          "#0132A3",
+          "#1953D4",
+          "#3B78FC",
+          "#77A3FA",
+          "#AECAFE",
+          "#E7EFFE"
+        ]
+      },
+      "app-midnight": {
+        "role": "neutral",
+        "displayName": "Midnight",
+        "canonical": "oklch(16.8% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-graphite-card": {
+        "role": "neutral",
+        "displayName": "Graphite Card",
+        "canonical": "oklch(22.6% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-graphite-edge": {
+        "role": "neutral",
+        "displayName": "App Graphite Edge",
+        "canonical": "oklch(28.5% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-hairline-dark": {
+        "role": "neutral",
+        "displayName": "App Hairline Dark",
+        "canonical": "oklch(17.8% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-text-dark": {
+        "role": "neutral",
+        "displayName": "App Text Dark",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-text-secondary-dark": {
+        "role": "neutral",
+        "displayName": "App Text Secondary Dark",
+        "canonical": "oklch(87.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-text-muted-dark": {
+        "role": "neutral",
+        "displayName": "App Text Muted Dark",
+        "canonical": "oklch(75.7% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-contactless-indigo-dark": {
+        "role": "primary",
+        "displayName": "Contactless Indigo (dark)",
+        "canonical": "oklch(68.0% 0.158 276.9)",
+        "tonalRamp": [
+          "#070031",
+          "#1C046F",
+          "#322F93",
+          "#4E52B8",
+          "#6C75DF",
+          "#8F9BFD",
+          "#BCC5FB",
+          "#EAEDFF"
+        ]
+      },
+      "app-on-indigo-dark": {
+        "role": "primary",
+        "displayName": "App On Indigo Dark",
+        "canonical": "oklch(16.8% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-present-dark": {
+        "role": "status",
+        "displayName": "App Present Dark",
+        "canonical": "oklch(69.6% 0.149 162.5)",
+        "tonalRamp": [
+          "#010F07",
+          "#002D1C",
+          "#074F35",
+          "#1A7250",
+          "#25986C",
+          "#25C189",
+          "#59E7AC",
+          "#C4FEE0"
+        ]
+      },
+      "app-present-fill-dark": {
+        "role": "status",
+        "displayName": "App Present Fill Dark",
+        "canonical": "oklch(19.8% 0.038 144.0)",
+        "tonalRamp": [
+          "#020F03",
+          "#192A19",
+          "#364735",
+          "#546754",
+          "#758974",
+          "#97AC96",
+          "#BBD0BA",
+          "#E0F6DF"
+        ]
+      },
+      "app-present-edge-dark": {
+        "role": "status",
+        "displayName": "App Present Edge Dark",
+        "canonical": "oklch(31.5% 0.067 143.8)",
+        "tonalRamp": [
+          "#001001",
+          "#0D2D0D",
+          "#2B4B2A",
+          "#4A6B49",
+          "#6A8D69",
+          "#8CB08B",
+          "#B0D5AE",
+          "#D4FBD3"
+        ]
+      },
+      "app-late-dark": {
+        "role": "status",
+        "displayName": "App Late Dark",
+        "canonical": "oklch(83.7% 0.164 84.4)",
+        "tonalRamp": [
+          "#110A00",
+          "#312302",
+          "#533E0B",
+          "#7B5C0B",
+          "#A47B12",
+          "#D09C00",
+          "#FBBF23",
+          "#FFECC8"
+        ]
+      },
+      "app-late-fill-dark": {
+        "role": "status",
+        "displayName": "App Late Fill Dark",
+        "canonical": "oklch(19.5% 0.024 84.0)",
+        "tonalRamp": [
+          "#100A02",
+          "#2B2418",
+          "#484134",
+          "#686052",
+          "#898172",
+          "#ACA494",
+          "#D1C8B8",
+          "#F6EEDD"
+        ]
+      },
+      "app-late-edge-dark": {
+        "role": "status",
+        "displayName": "App Late Edge Dark",
+        "canonical": "oklch(35.7% 0.062 87.5)",
+        "tonalRamp": [
+          "#100A00",
+          "#2F2303",
+          "#504016",
+          "#705F37",
+          "#928057",
+          "#B5A378",
+          "#DAC79B",
+          "#FEEDC5"
+        ]
+      },
+      "app-absent-dark": {
+        "role": "status",
+        "displayName": "App Absent Dark",
+        "canonical": "oklch(71.1% 0.166 22.2)",
+        "tonalRamp": [
+          "#1E0102",
+          "#4A060D",
+          "#7F0419",
+          "#AC2933",
+          "#D35053",
+          "#FC7474",
+          "#FEB3AF",
+          "#FDE9E8"
+        ]
+      },
+      "app-absent-fill-dark": {
+        "role": "status",
+        "displayName": "App Absent Fill Dark",
+        "canonical": "oklch(17.0% 0.028 20.5)",
+        "tonalRamp": [
+          "#150606",
+          "#32201F",
+          "#503C3C",
+          "#715B5A",
+          "#937C7B",
+          "#B69E9E",
+          "#DBC2C1",
+          "#FEE9E8"
+        ]
+      },
+      "app-absent-edge-dark": {
+        "role": "status",
+        "displayName": "App Absent Edge Dark",
+        "canonical": "oklch(28.3% 0.081 23.8)",
+        "tonalRamp": [
+          "#1E0002",
+          "#441011",
+          "#662F2C",
+          "#894E4B",
+          "#AE6F6B",
+          "#D3918D",
+          "#FAB5B0",
+          "#FEE9E7"
+        ]
+      },
+      "app-error-edge": {
+        "role": "status",
+        "displayName": "App Error Edge",
+        "canonical": "oklch(67.9% 0.209 24.7)",
+        "tonalRamp": [
+          "#1E0001",
+          "#4B0509",
+          "#800112",
+          "#B41623",
+          "#E5373C",
+          "#FE746E",
+          "#FFB3AC",
+          "#FEE9E7"
+        ]
+      },
+      "app-paper": {
+        "role": "neutral",
+        "displayName": "App Paper",
+        "canonical": "oklch(96.7% 0.001 286.4)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#252526",
+          "#424243",
+          "#616162",
+          "#828283",
+          "#A5A5A6",
+          "#C9C9CA",
+          "#EEEEEF"
+        ]
+      },
+      "app-card-light": {
+        "role": "neutral",
+        "displayName": "App Card Light",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-edge-light": {
+        "role": "neutral",
+        "displayName": "App Edge Light",
+        "canonical": "oklch(89.8% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-hairline-light": {
+        "role": "neutral",
+        "displayName": "App Hairline Light",
+        "canonical": "oklch(95.5% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-ink": {
+        "role": "neutral",
+        "displayName": "App Ink",
+        "canonical": "oklch(21.8% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-action-black": {
+        "role": "neutral",
+        "displayName": "App Action Black",
+        "canonical": "oklch(0.0% 0.000 0.0)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-text-secondary-light": {
+        "role": "neutral",
+        "displayName": "App Text Secondary Light",
+        "canonical": "oklch(44.2% 0.015 285.8)",
+        "tonalRamp": [
+          "#0A0A11",
+          "#24242C",
+          "#41414A",
+          "#606069",
+          "#81818B",
+          "#A4A4AE",
+          "#C8C8D3",
+          "#EDEDF8"
+        ]
+      },
+      "app-text-muted-light": {
+        "role": "neutral",
+        "displayName": "App Text Muted Light",
+        "canonical": "oklch(52.4% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-contactless-indigo-light": {
+        "role": "primary",
+        "displayName": "Contactless Indigo (light)",
+        "canonical": "oklch(51.1% 0.230 277.0)",
+        "tonalRamp": [
+          "#07012F",
+          "#1B096B",
+          "#3406B7",
+          "#4B40DF",
+          "#686DFA",
+          "#909CF9",
+          "#BBC5FE",
+          "#EAEEFE"
+        ]
+      },
+      "app-on-indigo-light": {
+        "role": "primary",
+        "displayName": "App On Indigo Light",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "app-present-light": {
+        "role": "status",
+        "displayName": "App Present Light",
+        "canonical": "oklch(43.2% 0.086 166.9)",
+        "tonalRamp": [
+          "#000F08",
+          "#032D20",
+          "#104E3A",
+          "#237157",
+          "#499377",
+          "#6CB79A",
+          "#91DCBD",
+          "#C2FEE5"
+        ]
+      },
+      "app-present-fill-light": {
+        "role": "status",
+        "displayName": "App Present Fill Light",
+        "canonical": "oklch(97.9% 0.021 166.1)",
+        "tonalRamp": [
+          "#040E09",
+          "#1B2823",
+          "#38463F",
+          "#57655E",
+          "#77867F",
+          "#9AA9A2",
+          "#BDCEC6",
+          "#E2F3EB"
+        ]
+      },
+      "app-present-edge-light": {
+        "role": "status",
+        "displayName": "App Present Edge Light",
+        "canonical": "oklch(95.0% 0.051 163.1)",
+        "tonalRamp": [
+          "#000F07",
+          "#062D1E",
+          "#274B3A",
+          "#466B59",
+          "#678C7A",
+          "#89AF9C",
+          "#ACD4C0",
+          "#D1FAE5"
+        ]
+      },
+      "app-late-light": {
+        "role": "status",
+        "displayName": "App Late Light",
+        "canonical": "oklch(47.3% 0.125 46.2)",
+        "tonalRamp": [
+          "#190500",
+          "#411600",
+          "#6B2D06",
+          "#984616",
+          "#BE683C",
+          "#E58B5F",
+          "#FBB797",
+          "#FEEAE0"
+        ]
+      },
+      "app-late-fill-light": {
+        "role": "status",
+        "displayName": "App Late Fill Light",
+        "canonical": "oklch(98.7% 0.021 95.3)",
+        "tonalRamp": [
+          "#0E0B03",
+          "#282519",
+          "#454235",
+          "#656154",
+          "#868274",
+          "#A9A596",
+          "#CDC9BA",
+          "#F3EFDF"
+        ]
+      },
+      "app-late-edge-light": {
+        "role": "status",
+        "displayName": "App Late Edge Light",
+        "canonical": "oklch(92.4% 0.115 95.7)",
+        "tonalRamp": [
+          "#0F0B00",
+          "#2C2504",
+          "#4E4104",
+          "#716014",
+          "#97811E",
+          "#BBA448",
+          "#E0C96D",
+          "#FDEFB5"
+        ]
+      },
+      "app-absent-light": {
+        "role": "status",
+        "displayName": "App Absent Light",
+        "canonical": "oklch(44.4% 0.161 26.9)",
+        "tonalRamp": [
+          "#1F0000",
+          "#4C0104",
+          "#7E0C0F",
+          "#AA2E2A",
+          "#D1534B",
+          "#FA786C",
+          "#FCB4AB",
+          "#FFE9E6"
+        ]
+      },
+      "app-absent-fill-light": {
+        "role": "status",
+        "displayName": "App Absent Fill Light",
+        "canonical": "oklch(97.1% 0.013 17.4)",
+        "tonalRamp": [
+          "#100909",
+          "#2B2323",
+          "#493F3F",
+          "#685E5E",
+          "#8A7F7F",
+          "#ADA2A2",
+          "#D1C6C6",
+          "#F7EBEB"
+        ]
+      },
+      "app-absent-edge-light": {
+        "role": "status",
+        "displayName": "App Absent Edge Light",
+        "canonical": "oklch(88.5% 0.059 18.3)",
+        "tonalRamp": [
+          "#1E0003",
+          "#3D171A",
+          "#5E3536",
+          "#805354",
+          "#A37475",
+          "#C89797",
+          "#EEBABA",
+          "#FEE9E9"
+        ]
+      },
+      "portal-mist": {
+        "role": "neutral",
+        "displayName": "Mist",
+        "canonical": "oklch(96.6% 0.006 255.5)",
+        "tonalRamp": [
+          "#090B0E",
+          "#232528",
+          "#404245",
+          "#5F6165",
+          "#808286",
+          "#A2A5A9",
+          "#C6C9CD",
+          "#ECEFF3"
+        ]
+      },
+      "portal-card": {
+        "role": "neutral",
+        "displayName": "Portal Card",
+        "canonical": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "portal-raised": {
+        "role": "neutral",
+        "displayName": "Portal Raised",
+        "canonical": "oklch(98.8% 0.003 264.5)",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242526",
+          "#414243",
+          "#606163",
+          "#818284",
+          "#A4A5A7",
+          "#C8C9CB",
+          "#EDEEF0"
+        ]
+      },
+      "portal-navy-rail": {
+        "role": "neutral",
+        "displayName": "Navy Rail",
+        "canonical": "oklch(20.2% 0.018 274.9)",
+        "tonalRamp": [
+          "#090B13",
+          "#22242E",
+          "#3F414C",
+          "#5E616C",
+          "#7F828E",
+          "#A1A4B1",
+          "#C5C8D5",
+          "#EBEEFB"
+        ]
+      },
+      "portal-navy-rail-hover": {
+        "role": "neutral",
+        "displayName": "Portal Navy Rail Hover",
+        "canonical": "oklch(25.2% 0.029 275.4)",
+        "tonalRamp": [
+          "#080A17",
+          "#212433",
+          "#3D4152",
+          "#5C6072",
+          "#7D8194",
+          "#A0A4B8",
+          "#C3C8DC",
+          "#EAEEFF"
+        ]
+      },
+      "portal-hairline": {
+        "role": "neutral",
+        "displayName": "Portal Hairline",
+        "canonical": "oklch(93.6% 0.009 264.5)",
+        "tonalRamp": [
+          "#090B0F",
+          "#232529",
+          "#404247",
+          "#5F6166",
+          "#808288",
+          "#A2A5AB",
+          "#C6C9CF",
+          "#EBEEF5"
+        ]
+      },
+      "portal-divider": {
+        "role": "neutral",
+        "displayName": "Portal Divider",
+        "canonical": "oklch(96.4% 0.006 264.5)",
+        "tonalRamp": [
+          "#0A0B0E",
+          "#242528",
+          "#404245",
+          "#5F6165",
+          "#808286",
+          "#A3A5A9",
+          "#C7C9CD",
+          "#ECEEF2"
+        ]
+      },
+      "portal-accent": {
+        "role": "primary",
+        "displayName": "Records Blue",
+        "canonical": "oklch(56.7% 0.207 263.0)",
+        "tonalRamp": [
+          "#00052C",
+          "#021C5F",
+          "#0132A3",
+          "#1953D4",
+          "#3B78FC",
+          "#77A3FA",
+          "#AECAFE",
+          "#E7EFFE"
+        ]
+      },
+      "portal-accent-hover": {
+        "role": "primary",
+        "displayName": "Portal Accent Hover",
+        "canonical": "oklch(49.3% 0.192 262.6)",
+        "tonalRamp": [
+          "#00062A",
+          "#001C61",
+          "#05359C",
+          "#1E56CC",
+          "#3F7AF3",
+          "#75A3FD",
+          "#AFCAFB",
+          "#E6EFFF"
+        ]
+      },
+      "portal-accent-soft": {
+        "role": "primary",
+        "displayName": "Portal Accent Soft",
+        "canonical": "oklch(95.7% 0.019 263.0)",
+        "tonalRamp": [
+          "#070B13",
+          "#20252F",
+          "#3D424C",
+          "#5C616C",
+          "#7C838E",
+          "#9FA5B1",
+          "#C3C9D6",
+          "#E8EFFC"
+        ]
+      },
+      "portal-accent-line": {
+        "role": "primary",
+        "displayName": "Portal Accent Line",
+        "canonical": "oklch(88.7% 0.050 260.4)",
+        "tonalRamp": [
+          "#010A20",
+          "#16253D",
+          "#32425D",
+          "#51627E",
+          "#7183A1",
+          "#93A6C5",
+          "#B7CAEB",
+          "#E6EFFE"
+        ]
+      },
+      "portal-ink": {
+        "role": "neutral",
+        "displayName": "Portal Ink",
+        "canonical": "oklch(21.1% 0.025 270.0)",
+        "tonalRamp": [
+          "#070B16",
+          "#202531",
+          "#3D424F",
+          "#5C6170",
+          "#7C8292",
+          "#9FA5B5",
+          "#C3C9DA",
+          "#E8EEFE"
+        ]
+      },
+      "portal-secondary": {
+        "role": "neutral",
+        "displayName": "Portal Secondary",
+        "canonical": "oklch(50.1% 0.028 259.8)",
+        "tonalRamp": [
+          "#050B17",
+          "#1D2533",
+          "#394251",
+          "#586272",
+          "#788394",
+          "#9BA6B7",
+          "#BFCADC",
+          "#E6EFFE"
+        ]
+      },
+      "portal-muted": {
+        "role": "neutral",
+        "displayName": "Portal Muted",
+        "canonical": "oklch(53.1% 0.028 265.4)",
+        "tonalRamp": [
+          "#060B17",
+          "#1E2533",
+          "#3B4252",
+          "#596172",
+          "#7A8294",
+          "#9CA5B8",
+          "#C0C9DC",
+          "#E7EFFF"
+        ]
+      },
+      "portal-on-rail": {
+        "role": "neutral",
+        "displayName": "Portal On Rail",
+        "canonical": "oklch(94.0% 0.010 267.4)",
+        "tonalRamp": [
+          "#090B0F",
+          "#23252A",
+          "#404247",
+          "#5F6167",
+          "#808288",
+          "#A2A5AB",
+          "#C6C9D0",
+          "#EBEEF5"
+        ]
+      },
+      "portal-on-rail-muted": {
+        "role": "neutral",
+        "displayName": "Portal On Rail Muted",
+        "canonical": "oklch(61.4% 0.035 269.6)",
+        "tonalRamp": [
+          "#060A1A",
+          "#1E2436",
+          "#3B4155",
+          "#596175",
+          "#7A8298",
+          "#9CA5BB",
+          "#C0C9E1",
+          "#E8EEFE"
+        ]
+      },
+      "portal-on-rail-line": {
+        "role": "neutral",
+        "displayName": "Portal On Rail Line",
+        "canonical": "oklch(28.7% 0.026 272.3)",
+        "tonalRamp": [
+          "#080A16",
+          "#202432",
+          "#3D4150",
+          "#5C6171",
+          "#7D8293",
+          "#9FA4B6",
+          "#C3C9DB",
+          "#E9EEFD"
+        ]
+      },
+      "portal-success": {
+        "role": "status",
+        "displayName": "Portal Success",
+        "canonical": "oklch(62.2% 0.163 151.0)",
+        "tonalRamp": [
+          "#001003",
+          "#012E12",
+          "#095026",
+          "#027537",
+          "#029C4C",
+          "#44C16E",
+          "#6DE791",
+          "#C9FED4"
+        ]
+      },
+      "portal-success-soft": {
+        "role": "status",
+        "displayName": "Portal Success Soft",
+        "canonical": "oklch(96.0% 0.019 162.9)",
+        "tonalRamp": [
+          "#040E09",
+          "#1D2822",
+          "#39453F",
+          "#58655E",
+          "#79867F",
+          "#9BA9A2",
+          "#BFCDC6",
+          "#E4F3EB"
+        ]
+      },
+      "portal-success-ink": {
+        "role": "status",
+        "displayName": "Portal Success Ink",
+        "canonical": "oklch(50.8% 0.133 151.0)",
+        "tonalRamp": [
+          "#010F04",
+          "#002E12",
+          "#085025",
+          "#1B743C",
+          "#389857",
+          "#5EBC79",
+          "#84E29C",
+          "#C9FED4"
+        ]
+      },
+      "portal-warning": {
+        "role": "status",
+        "displayName": "Portal Warning",
+        "canonical": "oklch(64.2% 0.144 65.0)",
+        "tonalRamp": [
+          "#140800",
+          "#371E03",
+          "#603700",
+          "#89530E",
+          "#B66F15",
+          "#E29030",
+          "#FEB975",
+          "#FFEBD8"
+        ]
+      },
+      "portal-warning-soft": {
+        "role": "status",
+        "displayName": "Portal Warning Soft",
+        "canonical": "oklch(96.7% 0.025 81.1)",
+        "tonalRamp": [
+          "#100A02",
+          "#2B2417",
+          "#494133",
+          "#696052",
+          "#8A8172",
+          "#ADA494",
+          "#D2C8B7",
+          "#F7EDDC"
+        ]
+      },
+      "portal-warning-ink": {
+        "role": "status",
+        "displayName": "Portal Warning Ink",
+        "canonical": "oklch(50.1% 0.113 64.2)",
+        "tonalRamp": [
+          "#140800",
+          "#391E00",
+          "#603704",
+          "#895315",
+          "#B17230",
+          "#D69554",
+          "#FDB978",
+          "#FEEBD9"
+        ]
+      },
+      "portal-error": {
+        "role": "status",
+        "displayName": "Portal Error",
+        "canonical": "oklch(59.0% 0.195 24.0)",
+        "tonalRamp": [
+          "#1F0001",
+          "#4C0208",
+          "#7D0E18",
+          "#B60922",
+          "#DF4044",
+          "#F87873",
+          "#FCB4AF",
+          "#FEE9E7"
+        ]
+      },
+      "portal-error-hover": {
+        "role": "status",
+        "displayName": "Portal Error Hover",
+        "canonical": "oklch(51.7% 0.174 24.1)",
+        "tonalRamp": [
+          "#1F0001",
+          "#4C0309",
+          "#7C0F18",
+          "#AF242B",
+          "#D74C4C",
+          "#F87974",
+          "#FBB4AF",
+          "#FEE9E7"
+        ]
+      },
+      "portal-error-soft": {
+        "role": "status",
+        "displayName": "Portal Error Soft",
+        "canonical": "oklch(95.8% 0.016 17.4)",
+        "tonalRamp": [
+          "#110809",
+          "#2D2222",
+          "#4A3F3F",
+          "#6A5E5E",
+          "#8C7F7F",
+          "#AFA1A1",
+          "#D4C5C5",
+          "#F9EAEA"
+        ]
+      },
+      "portal-error-ink": {
+        "role": "status",
+        "displayName": "Portal Error Ink",
+        "canonical": "oklch(50.2% 0.180 25.3)",
+        "tonalRamp": [
+          "#1E0102",
+          "#4D0106",
+          "#7E0A13",
+          "#B11F25",
+          "#D94A47",
+          "#FA776F",
+          "#FDB4AD",
+          "#FFE9E6"
+        ]
+      },
+      "site-sunk-dark": {
+        "role": "neutral",
+        "displayName": "Sunk (dark)",
+        "canonical": "oklch(19.1% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "site-sunk-light": {
+        "role": "neutral",
+        "displayName": "Sunk (light)",
+        "canonical": "oklch(98.5% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "site-faint-dark": {
+        "role": "neutral",
+        "displayName": "Faint (dark)",
+        "canonical": "oklch(63.3% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "site-indigo-hover-dark": {
+        "role": "primary",
+        "displayName": "Contactless Indigo Hover (dark)",
+        "canonical": "oklch(78.5% 0.104 274.7)",
+        "tonalRamp": [
+          "#060032",
+          "#191B56",
+          "#333B78",
+          "#505B9C",
+          "#707DC1",
+          "#92A0E6",
+          "#B9C6FF",
+          "#E9EEFF"
+        ]
+      },
+      "site-indigo-hover-light": {
+        "role": "primary",
+        "displayName": "Contactless Indigo Hover (light)",
+        "canonical": "oklch(45.7% 0.215 277.0)",
+        "tonalRamp": [
+          "#070031",
+          "#1C076D",
+          "#3317AF",
+          "#4B45D6",
+          "#686BFF",
+          "#8F9BFC",
+          "#BCC5FD",
+          "#EAEDFE"
+        ]
+      },
+      "site-indigo-soft-dark": {
+        "role": "primary",
+        "displayName": "Contactless Indigo Soft (dark)",
+        "canonical": "oklch(68.0% 0.158 276.9 / 0.12)",
+        "tonalRamp": [
+          "#07012F",
+          "#1C046F",
+          "#322F93",
+          "#4E52B8",
+          "#6C75DF",
+          "#8F9BFF",
+          "#BBC5FE",
+          "#EAEDFF"
+        ]
+      },
+      "site-indigo-soft-light": {
+        "role": "primary",
+        "displayName": "Contactless Indigo Soft (light)",
+        "canonical": "oklch(96.2% 0.018 272.3)",
+        "tonalRamp": [
+          "#090B13",
+          "#22252E",
+          "#3F424C",
+          "#5D616C",
+          "#7E828D",
+          "#A1A5B1",
+          "#C5C9D5",
+          "#EAEEFB"
+        ]
+      },
+      "site-grid-dark": {
+        "role": "neutral",
+        "displayName": "Measuring Grid (dark)",
+        "canonical": "oklch(100.0% 0.000 89.9 / 0.035)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "site-grid-light": {
+        "role": "neutral",
+        "displayName": "Measuring Grid (light)",
+        "canonical": "oklch(0.0% 0.000 0.0 / 0.04)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "site-phone-bezel": {
+        "role": "neutral",
+        "displayName": "Phone Bezel",
+        "canonical": "oklch(11.5% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "site-poster-body": {
+        "role": "neutral",
+        "displayName": "Poster Body",
+        "canonical": "oklch(37.0% 0.012 285.8)",
+        "tonalRamp": [
+          "#0B0A10",
+          "#24242B",
+          "#414148",
+          "#606068",
+          "#818189",
+          "#A4A4AC",
+          "#C8C8D1",
+          "#EDEDF6"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "app-headline": {
+        "displayName": "App Headline",
+        "purpose": "The one or two words a screen is about."
+      },
+      "app-title-large": {
+        "displayName": "App Title Large",
+        "purpose": "Section heads and stat values."
+      },
+      "app-label-small": {
+        "displayName": "App Label Small",
+        "purpose": "The 11sp floor: nav labels, stat captions, status pills."
+      },
+      "app-eyebrow": {
+        "displayName": "App Eyebrow",
+        "purpose": "Uppercase run-in above a block, always paired with a real title."
+      },
+      "app-machine": {
+        "displayName": "App Machine (Plex Mono)",
+        "purpose": "Times, codes, terminal strings only; inherits size."
+      },
+      "portal-stat-value": {
+        "displayName": "Portal Stat Value",
+        "purpose": "Dashboard figures."
+      },
+      "portal-micro": {
+        "displayName": "Portal Micro",
+        "purpose": "Pills, chips, captions, help text."
+      },
+      "site-display": {
+        "displayName": "Site Display",
+        "purpose": "The story page headline only; one phrase may take Contactless Indigo."
+      },
+      "site-headline": {
+        "displayName": "Site Headline",
+        "purpose": "Section heads on the story page."
+      },
+      "site-page-title": {
+        "displayName": "Site Page Title",
+        "purpose": "The /get title (privacy runs clamp 34-48)."
+      },
+      "site-title": {
+        "displayName": "Site Title",
+        "purpose": "Row and block titles: threats, roles, fallbacks."
+      },
+      "site-lede": {
+        "displayName": "Site Lede",
+        "purpose": "Muted section and page ledes."
+      },
+      "site-body": {
+        "displayName": "Site Body",
+        "purpose": "Body copy, 17px on a 1.6 line."
+      },
+      "site-caption": {
+        "displayName": "Site Caption",
+        "purpose": "Demo labels, platform note, footnotes; faint, never body."
+      },
+      "site-button": {
+        "displayName": "Site Button",
+        "purpose": "Button labels."
+      },
+      "site-code": {
+        "displayName": "Site Code (Plex Mono)",
+        "purpose": "The 32-character check-in code on the stage."
+      },
+      "site-count": {
+        "displayName": "Site Count (Plex Mono Bold)",
+        "purpose": "The register count; tabular figures."
+      },
+      "site-readout": {
+        "displayName": "Site Readout (Plex Mono)",
+        "purpose": "Decoded values, register rows, times, masked IDs, version, printed URL."
+      }
+    },
+    "shadows": [
+      {
+        "name": "portal-card",
+        "value": "0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06)",
+        "purpose": "Every portal card, under its hairline border."
+      },
+      {
+        "name": "portal-pop",
+        "value": "0 8px 24px rgb(16 24 40 / 0.10), 0 2px 6px rgb(16 24 40 / 0.06)",
+        "purpose": "Menus, skip link, anything floating above the page."
+      }
+    ],
+    "motion": [
+      {
+        "name": "app-ease",
+        "value": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "purpose": "Curves.easeOutCubic: default for app state changes."
+      },
+      {
+        "name": "app-tab-switch",
+        "value": "180ms",
+        "purpose": "Bottom-nav active pill and 0.96 to 1.0 scale lift."
+      },
+      {
+        "name": "app-range",
+        "value": "120-280ms",
+        "purpose": "Functional confirmation only; never decorative."
+      },
+      {
+        "name": "portal-transition",
+        "value": "150ms",
+        "purpose": "Tailwind transition-colors default on buttons and links."
+      },
+      {
+        "name": "site-ease",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Exponential ease-out for every site transition and the tap sequence."
+      },
+      {
+        "name": "site-press",
+        "value": "120ms scale(0.98)",
+        "purpose": "Button press."
+      },
+      {
+        "name": "site-color",
+        "value": "180ms",
+        "purpose": "Button background, border and colour changes."
+      },
+      {
+        "name": "site-tap-type",
+        "value": "22ms per character, 250ms lead-in",
+        "purpose": "The check-in code typing in behind an indigo block cursor (about 0.7s for 32 characters)."
+      },
+      {
+        "name": "site-tap-leaders",
+        "value": "450ms scaleX, second leader +250ms",
+        "purpose": "Indigo leaders drawing into and out of the reader photo."
+      },
+      {
+        "name": "site-tap-register",
+        "value": "500ms, +550ms delay, translateY(-8px) to 0",
+        "purpose": "Newest register row lands as the count ticks up by one."
+      },
+      {
+        "name": "site-tap-trigger",
+        "value": "once, at 35% in view; Replay the tap reruns",
+        "purpose": "Never on a loop. Reduced motion or no script shows the finished state."
+      },
+      {
+        "name": "site-disclosure",
+        "value": "250ms rotate(45deg)",
+        "purpose": "Threat row plus turning to a cross when open."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "portal-lg",
+        "value": "1024px",
+        "purpose": "Rail becomes fixed; form/directory grid splits 1/3 + 2/3."
+      },
+      {
+        "name": "portal-max",
+        "value": "1400px",
+        "purpose": "Content column cap."
+      },
+      {
+        "name": "site-max",
+        "value": "1240px",
+        "purpose": "Site content column (reading pages: /get 720px, privacy 760px)."
+      },
+      {
+        "name": "site-1100",
+        "value": "1100px",
+        "purpose": "Above it the hero buttons never wrap."
+      },
+      {
+        "name": "site-1000",
+        "value": "1000px",
+        "purpose": "Stage drops to two columns, photo spans the top at 4:3, leaders hide; hero stacks."
+      },
+      {
+        "name": "site-900",
+        "value": "900px",
+        "purpose": "Text/screenshot splits stack; sticky phone releases."
+      },
+      {
+        "name": "site-860",
+        "value": "860px",
+        "purpose": "Header nav hides; header Install button appears."
+      },
+      {
+        "name": "site-760",
+        "value": "760px",
+        "purpose": "Install band QR hides."
+      },
+      {
+        "name": "site-640",
+        "value": "640px",
+        "purpose": "Stage one column, full bleed; primary buttons full width; role rows stack."
+      }
+    ],
+    "scope": {
+      "covered": [
+        "SUAAMS_Mobile (Flutter app)",
+        "SUAAMS/templates + static/src/input.css (web portal)",
+        "landing/ (public site: index.html + hero.js, get/, privacy.html on styles.css; get/poster.html print styles)"
+      ],
+      "excluded": []
+    }
+  },
+  "components": [
+    {
+      "name": "App Primary Button (dark)",
+      "kind": "button",
+      "refersTo": "app-button-primary-dark",
+      "description": "Full-width 56dp primary action on the midnight ground; inverse of the surface.",
+      "html": "<div class=\"ds-app-ground\"><button class=\"ds-app-btn\">Sign in</button></div>",
+      "css": ".ds-app-ground { background:#0F0F0F; padding:24px; width:320px; } .ds-app-btn { width:100%; height:56px; border:none; border-radius:12px; background:#FFFFFF; color:#000000; font:700 16px 'IBM Plex Sans', system-ui, sans-serif; cursor:pointer; transition:transform .12s ease-out, background .18s; } .ds-app-btn:hover { background:#E6E6E6; } .ds-app-btn:active { transform:scale(.98); } .ds-app-btn:focus-visible { outline:2px solid #818CF8; outline-offset:3px; }"
+    },
+    {
+      "name": "App Check-in CTA",
+      "kind": "button",
+      "refersTo": "app-button-checkin-dark",
+      "description": "The one primary action that wears Contactless Indigo.",
+      "html": "<div class=\"ds-app-ground\"><button class=\"ds-app-checkin\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M8.5 8.5a5 5 0 0 1 0 7\"/><path d=\"M12 6a8.5 8.5 0 0 1 0 12\"/><path d=\"M15.5 3.5a12 12 0 0 1 0 17\"/></svg>Tap to check in</button></div>",
+      "css": ".ds-app-ground { background:#0F0F0F; padding:24px; width:320px; } .ds-app-checkin { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; height:56px; border:none; border-radius:12px; background:#818CF8; color:#0F0F0F; font:700 16px 'IBM Plex Sans', system-ui, sans-serif; cursor:pointer; transition:transform .12s ease-out, background .18s; } .ds-app-checkin:hover { background:#9AA3FA; } .ds-app-checkin:active { transform:scale(.98); } .ds-app-checkin:focus-visible { outline:2px solid #FFFFFF; outline-offset:3px; }"
+    },
+    {
+      "name": "App Text Field (dark)",
+      "kind": "input",
+      "refersTo": "app-input-dark",
+      "description": "Filled graphite field; borderless at rest, 1dp primary border on focus.",
+      "html": "<div class=\"ds-app-ground\"><input class=\"ds-app-input\" placeholder=\"Matric number\"></div>",
+      "css": ".ds-app-ground { background:#0F0F0F; padding:24px; width:320px; } .ds-app-input { width:100%; padding:16px; border:1px solid transparent; border-radius:12px; background:#1C1C1C; color:#FFFFFF; font:400 16px 'IBM Plex Sans', system-ui, sans-serif; outline:none; transition:border-color .18s; } .ds-app-input::placeholder { color:#6E6E6E; } .ds-app-input:focus { border-color:#FFFFFF; }"
+    },
+    {
+      "name": "App Status Pills",
+      "kind": "chip",
+      "refersTo": "app-status-present-dark",
+      "description": "Status triple (fill, edge, text) with its uppercase label, never colour alone.",
+      "html": "<div class=\"ds-app-ground\"><span class=\"ds-app-pill\" data-tone=\"present\">PRESENT</span><span class=\"ds-app-pill\" data-tone=\"late\">LATE</span><span class=\"ds-app-pill\" data-tone=\"absent\">ABSENT</span><span class=\"ds-app-pill\" data-tone=\"excused\">EXCUSED</span></div>",
+      "css": ".ds-app-ground { background:#0F0F0F; padding:24px; display:flex; gap:8px; flex-wrap:wrap; } .ds-app-pill { padding:4px 10px; border-radius:6px; border:1px solid; font:600 11px 'IBM Plex Sans', system-ui, sans-serif; letter-spacing:.4px; } .ds-app-pill[data-tone=present] { background:#0A1A0A; border-color:#1A3A1A; color:#10B981; } .ds-app-pill[data-tone=late] { background:#1A1408; border-color:#4A3A10; color:#FBBF24; } .ds-app-pill[data-tone=absent] { background:#1A0A0A; border-color:#4A1515; color:#F87171; } .ds-app-pill[data-tone=excused] { background:rgba(212,212,212,.10); border-color:#111111; color:#D4D4D4; }"
+    },
+    {
+      "name": "App Stat Row",
+      "kind": "custom",
+      "refersTo": "app-stat-box",
+      "description": "Equal-width value-over-caption boxes; tone is explicit, success/warning tint the box.",
+      "html": "<div class=\"ds-app-ground\"><div class=\"ds-stat\"><b>92%</b><span>ATTENDANCE</span></div><div class=\"ds-stat\" data-tone=\"success\"><b>23</b><span>ATTENDED</span></div><div class=\"ds-stat\" data-tone=\"warning\"><b>2</b><span>MISSED</span></div></div>",
+      "css": ".ds-app-ground { background:#0F0F0F; padding:24px; display:grid; grid-template-columns:repeat(3,1fr); gap:12px; width:340px; } .ds-stat { display:flex; flex-direction:column; align-items:center; gap:2px; padding:14px 6px; border-radius:12px; background:rgba(28,28,28,.78); border:1px solid rgba(42,42,42,.14); font-family:'IBM Plex Sans', system-ui, sans-serif; } .ds-stat b { font-size:20px; font-weight:700; color:#FFFFFF; } .ds-stat span { font-size:10px; font-weight:600; letter-spacing:.6px; color:rgba(255,255,255,.55); } .ds-stat[data-tone=success] { background:rgba(16,185,129,.12); border-color:rgba(16,185,129,.35); } .ds-stat[data-tone=success] b, .ds-stat[data-tone=success] span { color:#10B981; } .ds-stat[data-tone=warning] { background:rgba(248,113,113,.12); border-color:rgba(248,113,113,.35); } .ds-stat[data-tone=warning] b, .ds-stat[data-tone=warning] span { color:#F87171; }"
+    },
+    {
+      "name": "App Bottom Nav",
+      "kind": "nav",
+      "refersTo": "app-bottom-nav",
+      "description": "Five equal tiles; active tile wears the accent and lifts from 0.96 to 1.0.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-tab is-active\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z\"/></svg>Home</a><a class=\"ds-tab\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"16\" rx=\"2\"/><path d=\"M3 10h18M8 3v4M16 3v4\"/></svg>Week</a><a class=\"ds-tab\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 19V9M10 19V5M16 19v-7M22 19H2\"/></svg>Records</a><a class=\"ds-tab\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"2\"/><circle cx=\"9\" cy=\"12\" r=\"2\"/><path d=\"M14 10h4M14 14h4\"/></svg>ID Card</a></nav>",
+      "css": ".ds-nav { display:flex; width:340px; padding:6px 4px; background:#1C1C1C; border-top:1px solid rgba(42,42,42,.4); font-family:'IBM Plex Sans', system-ui, sans-serif; } .ds-tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:12px 2px; border-radius:12px; border:1px solid transparent; color:rgba(255,255,255,.55); font-size:11px; font-weight:600; letter-spacing:.4px; transform:scale(.96); transition:all .18s cubic-bezier(.33,1,.68,1); cursor:pointer; } .ds-tab:hover { color:rgba(255,255,255,.8); } .ds-tab.is-active { color:#818CF8; font-weight:700; background:rgba(255,255,255,.10); border-color:rgba(255,255,255,.28); transform:scale(1); }"
+    },
+    {
+      "name": "Portal Buttons",
+      "kind": "button",
+      "refersTo": "portal-button-primary",
+      "description": "Primary, secondary and danger on the mist page.",
+      "html": "<div class=\"ds-portal-ground\"><button class=\"ds-pbtn ds-pbtn-primary\">Publish timetable</button><button class=\"ds-pbtn ds-pbtn-secondary\">Export CSV</button><button class=\"ds-pbtn ds-pbtn-danger\">Unbind phone</button></div>",
+      "css": ".ds-portal-ground { background:#F1F4F8; padding:24px; display:flex; gap:10px; flex-wrap:wrap; } .ds-pbtn { display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:9px; border:1px solid transparent; font:600 14px 'Plus Jakarta Sans', system-ui, sans-serif; cursor:pointer; transition:background-color .15s, color .15s, border-color .15s; } .ds-pbtn:focus-visible { outline:2px solid #2F6BEE; outline-offset:2px; } .ds-pbtn-primary { background:#2F6BEE; color:#FFFFFF; } .ds-pbtn-primary:hover { background:#1E56CC; } .ds-pbtn-secondary { background:#FAFBFD; color:#141824; border-color:#E7EAF0; } .ds-pbtn-secondary:hover { background:#EAF1FE; color:#2F6BEE; border-color:#C7DBFC; } .ds-pbtn-danger { background:#D93A3F; color:#FFFFFF; } .ds-pbtn-danger:hover { background:#B72D32; }"
+    },
+    {
+      "name": "Portal Input",
+      "kind": "input",
+      "refersTo": "portal-input",
+      "description": "Raised field with hairline border; blue border and ring on focus.",
+      "html": "<div class=\"ds-portal-ground\"><label class=\"ds-plabel\">Course code<input class=\"ds-pinput\" placeholder=\"MCT 512\"></label></div>",
+      "css": ".ds-portal-ground { background:#FFFFFF; padding:24px; width:320px; } .ds-plabel { display:block; font:500 12px 'Plus Jakarta Sans', system-ui, sans-serif; color:#5A6474; } .ds-pinput { display:block; width:100%; margin-top:6px; padding:10px 16px; border:1px solid #E7EAF0; border-radius:9px; background:#FAFBFD; color:#141824; font:400 14px 'Plus Jakarta Sans', system-ui, sans-serif; outline:none; transition:border-color .15s, box-shadow .15s; } .ds-pinput::placeholder { color:#646C7D; } .ds-pinput:focus { border-color:#2F6BEE; box-shadow:0 0 0 1px #2F6BEE; }"
+    },
+    {
+      "name": "Portal Card with Status Pills",
+      "kind": "card",
+      "refersTo": "portal-card",
+      "description": "White hairline card, whisper shadow; status pills via data-tone.",
+      "html": "<div class=\"ds-portal-ground\"><div class=\"ds-pcard\"><div class=\"ds-pcard-title\">MCT 512 &middot; Today</div><div class=\"ds-prow\"><span>A. Bello</span><span class=\"ds-ppill\" data-tone=\"success\">Present</span></div><div class=\"ds-prow\"><span>C. Okafor</span><span class=\"ds-ppill\" data-tone=\"warning\">Late</span></div><div class=\"ds-prow\"><span>E. Musa</span><span class=\"ds-ppill\" data-tone=\"error\">Absent</span></div></div></div>",
+      "css": ".ds-portal-ground { background:#F1F4F8; padding:24px; } .ds-pcard { width:300px; background:#FFFFFF; border:1px solid #E7EAF0; border-radius:14px; box-shadow:0 1px 2px rgb(16 24 40 / .04), 0 1px 3px rgb(16 24 40 / .06); padding:20px; font-family:'Plus Jakarta Sans', system-ui, sans-serif; } .ds-pcard-title { font-size:14px; font-weight:700; color:#141824; margin-bottom:8px; } .ds-prow { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #F1F3F7; font-size:14px; color:#141824; } .ds-prow:last-child { border-bottom:0; } .ds-ppill { padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:600; } .ds-ppill[data-tone=success] { background:#E7F6EE; color:#0B7A3B; } .ds-ppill[data-tone=warning] { background:#FDF3E2; color:#8F5300; } .ds-ppill[data-tone=error] { background:#FCEDED; color:#B42328; }"
+    },
+    {
+      "name": "Portal Navy Rail",
+      "kind": "nav",
+      "refersTo": "portal-nav-link-active",
+      "description": "The one dark mass on the portal; active link filled Records Blue.",
+      "html": "<nav class=\"ds-rail\"><div class=\"ds-rail-sec\">RECORDS</div><a class=\"ds-rail-link is-active\">Dashboard</a><a class=\"ds-rail-link\">Students</a><a class=\"ds-rail-link\">Timetable</a><a class=\"ds-rail-link\">Terminals</a></nav>",
+      "css": ".ds-rail { width:240px; background:#14161F; padding:16px 12px; font-family:'Plus Jakarta Sans', system-ui, sans-serif; display:flex; flex-direction:column; gap:2px; } .ds-rail-sec { padding:0 12px; margin-bottom:8px; font-size:11px; font-weight:700; letter-spacing:.1em; color:#7C849A; } .ds-rail-link { padding:6px 12px; border-radius:9px; font-size:14px; font-weight:500; color:#7C849A; cursor:pointer; transition:background-color .15s, color .15s; } .ds-rail-link:hover { background:#1E2130; color:#E8EBF2; } .ds-rail-link.is-active { background:#2F6BEE; color:#FFFFFF; }"
+    },
+    {
+      "name": "Site Buttons",
+      "kind": "button",
+      "refersTo": "site-button-primary",
+      "description": "Indigo primary, edge-bordered ghost, and the quiet text button, on the midnight ground.",
+      "html": "<div class=\"ds-site ds-site-row\"><a class=\"ds-sbtn ds-sbtn-primary\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path fill=\"currentColor\" d=\"M17.6 9.48l1.84-3.18a.38.38 0 0 0-.66-.38l-1.87 3.23a11.4 11.4 0 0 0-9.82 0L5.22 5.92a.38.38 0 1 0-.66.38L6.4 9.48A10.8 10.8 0 0 0 1 18h22a10.8 10.8 0 0 0-5.4-8.52ZM7 15.25a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Zm10 0a1.25 1.25 0 1 1 0-2.5 1.25 1.25 0 0 1 0 2.5Z\"/></svg>I'm a student: install the app</a><a class=\"ds-sbtn ds-sbtn-ghost\" href=\"#\">How it works</a><button class=\"ds-stext\" type=\"button\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>Replay the tap</button></div>",
+      "css": ".ds-site { background:#0F0F0F; color:#FFFFFF; font:400 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; padding:24px; } .ds-site-row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; } .ds-sbtn { display:inline-flex; align-items:center; gap:10px; min-height:52px; padding:0 22px; border-radius:12px; border:1px solid transparent; font:600 16px/1.2 'IBM Plex Sans', system-ui, sans-serif; text-decoration:none; transition:background-color .18s, border-color .18s, color .18s, transform .12s cubic-bezier(.16,1,.3,1); } .ds-sbtn svg { width:20px; height:20px; } .ds-sbtn:active { transform:scale(.98); } .ds-sbtn:focus-visible, .ds-stext:focus-visible { outline:2px solid #818CF8; outline-offset:3px; } .ds-sbtn-primary { background:#818CF8; color:#0F0F0F; } .ds-sbtn-primary:hover { background:#A5B4FC; } .ds-sbtn-ghost { border-color:#2A2A2A; color:#FFFFFF; } .ds-sbtn-ghost:hover { border-color:#B0B0B0; } .ds-stext { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0; background:none; border:0; color:#818CF8; font:600 14px/1 'IBM Plex Sans', system-ui, sans-serif; cursor:pointer; } .ds-stext svg { width:16px; height:16px; } .ds-stext:hover { color:#A5B4FC; }"
+    },
+    {
+      "name": "Site Stage",
+      "kind": "custom",
+      "refersTo": "site-stage-column",
+      "description": "IN (decoded code) | reader photo | OUT (register), sunk side columns, indigo leaders; demo label beneath.",
+      "html": "<div class=\"ds-site\"><div class=\"ds-stage\"><div class=\"ds-col\"><p class=\"ds-token\"><span class=\"ds-pay\">AAAEEgAAAT5pSj39</span><span class=\"ds-sig\">3V4BJ6kGWbueNNGq</span></p><dl class=\"ds-decode\"><dt><i></i>Who, which class, until when</dt><dd>student 1042 &middot; session 318 &middot; expires 10 s</dd><dt><i class=\"s\"></i>A signature only the server can make</dt><dd class=\"ds-prose\">Change one character and the reader is refused.</dd></dl></div><div class=\"ds-photo\">reader photo</div><div class=\"ds-col\"><p class=\"ds-count\">187<small> / 200</small></p><p class=\"ds-sub\">checked in to MCT 402</p><ol class=\"ds-log\"><li><span>08:04:12</span><span>&bull;&bull;&bull;&bull;7731</span><b>PRESENT</b></li><li><span>08:04:11</span><span>&bull;&bull;&bull;&bull;0458</span><b>PRESENT</b></li></ol></div></div><p class=\"ds-foot\">Demo code and demo check-ins, not real students.</p></div>",
+      "css": ".ds-site { background:#0F0F0F; color:#FFFFFF; font:400 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; padding:24px; } .ds-stage { display:grid; grid-template-columns:1fr 1.3fr 1fr; width:760px; border-top:1px solid #1C1C1C; border-bottom:1px solid #1C1C1C; } .ds-col { position:relative; padding:24px 20px; background:#141414; } .ds-col:first-child { border-right:1px solid #1C1C1C; } .ds-col:last-child { border-left:1px solid #1C1C1C; } .ds-col::after { content:''; position:absolute; top:50%; width:40px; height:2px; background:#818CF8; } .ds-col:first-child::after { right:-20px; } .ds-col:last-child::after { left:-20px; } .ds-photo { display:grid; place-items:center; background:#1C1C1C; color:#8A8A8A; font-size:14px; } .ds-token { margin:0 0 18px; font:400 20px/1.5 'IBM Plex Mono', ui-monospace, monospace; letter-spacing:.02em; word-break:break-all; } .ds-token span { display:block; width:fit-content; } .ds-pay { box-shadow:inset 0 -2px 0 #818CF8; } .ds-sig { margin-top:6px; color:#D4D4D4; box-shadow:inset 0 -2px 0 #2A2A2A; } .ds-decode { margin:0; } .ds-decode dt { display:grid; grid-template-columns:18px 1fr; align-items:baseline; font-weight:600; font-size:14px; } .ds-decode dt i { display:block; width:10px; height:2px; align-self:center; background:#818CF8; } .ds-decode dt i.s { background:#B0B0B0; } .ds-decode dd { margin:2px 0 12px 18px; color:#B0B0B0; font:13px/1.55 'IBM Plex Mono', ui-monospace, monospace; } .ds-decode dd.ds-prose { font:14px/1.5 'IBM Plex Sans', system-ui, sans-serif; } .ds-count { margin:0; font:700 56px/1 'IBM Plex Mono', ui-monospace, monospace; letter-spacing:-.04em; font-variant-numeric:tabular-nums; } .ds-count small { font-size:20px; font-weight:400; letter-spacing:0; color:#8A8A8A; } .ds-sub { margin:8px 0 16px; color:#B0B0B0; font-size:14px; } .ds-log { list-style:none; margin:0; padding:0; font:13px/1 'IBM Plex Mono', ui-monospace, monospace; } .ds-log li { display:grid; grid-template-columns:auto 1fr auto; gap:10px; padding:11px 0; border-top:1px solid #1C1C1C; color:#B0B0B0; } .ds-log li:first-child { color:#FFFFFF; } .ds-log b { font-weight:400; color:#10B981; } .ds-foot { margin:10px 0 0; color:#8A8A8A; font-size:14px; }"
+    },
+    {
+      "name": "Site Threat List",
+      "kind": "custom",
+      "refersTo": "site-threat-row",
+      "description": "Ruled <details> rows: the attempt, what stops it, a plus that turns to a cross; the open gap marked by type, not tint.",
+      "html": "<div class=\"ds-site\"><div class=\"ds-threats\"><details class=\"ds-threat\"><summary><h3>A friend uses your phone</h3><span class=\"ds-stop\">needs your fingerprint or PIN</span><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg></summary><p>The app won't make a check-in code until the phone confirms its owner's fingerprint or PIN.</p></details><details class=\"ds-threat ds-gap\"><summary><h3><span class=\"ds-gap-label\">Not stopped yet</span>A lent phone</h3><span class=\"ds-stop\">fix planned, not built</span><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg></summary><p>A student who unlocks their phone for a friend can still get that friend checked in.</p></details></div></div>",
+      "css": ".ds-site { background:#0F0F0F; color:#FFFFFF; font:400 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; padding:24px; } .ds-threats { width:640px; border-top:1px solid #1C1C1C; } .ds-threat { border-bottom:1px solid #1C1C1C; } .ds-threat summary { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 24px; gap:24px; align-items:center; min-height:64px; padding:14px 0; cursor:pointer; list-style:none; } .ds-threat summary::-webkit-details-marker { display:none; } .ds-threat summary:focus-visible { outline:2px solid #818CF8; outline-offset:3px; } .ds-threat h3 { margin:0; font-size:17px; font-weight:600; line-height:1.3; } .ds-threat summary:hover h3 { color:#818CF8; } .ds-stop { color:#B0B0B0; font-size:15px; } .ds-threat svg { width:20px; height:20px; color:#8A8A8A; transition:transform .25s cubic-bezier(.16,1,.3,1); } .ds-threat[open] svg { transform:rotate(45deg); } .ds-threat p { max-width:62ch; margin:0; padding:0 0 22px; color:#B0B0B0; } .ds-gap-label { display:block; margin-bottom:2px; color:#D4D4D4; font-size:13px; font-weight:600; } .ds-gap .ds-stop { color:#FFFFFF; }"
+    },
+    {
+      "name": "Site Role Rows",
+      "kind": "custom",
+      "refersTo": "site-role-row",
+      "description": "One ruled row per role, role left and what it gets right; students lead at a larger size.",
+      "html": "<div class=\"ds-site\"><div class=\"ds-roles\"><div><h3>Students</h3><p>Check in at the door, see today's classes, and track attendance course by course.</p></div><div><h3>Lecturers</h3><p>Start a class, watch students arrive live, and export the register.</p></div><div><h3>Administrators</h3><p>Import students and timetables in bulk and manage readers by room.</p></div></div></div>",
+      "css": ".ds-site { background:#0F0F0F; color:#FFFFFF; font:400 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; padding:24px; } .ds-roles { width:680px; border-top:1px solid #1C1C1C; } .ds-roles > div { display:grid; grid-template-columns:minmax(160px,220px) minmax(0,1fr); gap:8px 40px; padding:22px 0; border-bottom:1px solid #1C1C1C; align-items:baseline; } .ds-roles h3 { margin:0; font-size:18px; font-weight:600; line-height:1.3; } .ds-roles p { margin:0; color:#B0B0B0; font-size:16.5px; } .ds-roles > div:first-child { padding:30px 0; } .ds-roles > div:first-child h3 { font-size:24px; letter-spacing:-.015em; } .ds-roles > div:first-child p { color:#D4D4D4; font-size:19px; }"
+    },
+    {
+      "name": "Site Install Steps (/get)",
+      "kind": "custom",
+      "refersTo": "site-step-marker",
+      "description": "Numbered steps with hairline circles and a connecting rule; the download button sits inside step 1; ruled facts follow.",
+      "html": "<div class=\"ds-site\"><ol class=\"ds-steps\"><li><h2>Download the app</h2><a class=\"ds-sbtn\" href=\"#\">Download SUAAMS</a><p>Open the file when the download finishes.</p></li><li><h2>Allow the install</h2><p>Tap <em>Settings</em>, turn on <em>Allow from this source</em>, then tap <em>Install</em>.</p></li><li><h2>Sign in</h2><p>Sign in with your matric number.</p></li></ol><dl class=\"ds-facts\"><div><dt>NFC</dt><dd>To pass your check-in code to the reader when you tap.</dd></div><div><dt>Version</dt><dd class=\"ds-mono\">0.1.0 &middot; test build</dd></div></dl></div>",
+      "css": ".ds-site { background:#0F0F0F; color:#FFFFFF; font:400 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; padding:24px; } .ds-site { width:560px; } .ds-steps { list-style:none; margin:0; padding:0; counter-reset:s; } .ds-steps > li { counter-increment:s; position:relative; padding:0 0 32px 64px; } .ds-steps > li::before { content:counter(s); position:absolute; left:0; top:-2px; width:40px; height:40px; border-radius:50%; display:grid; place-items:center; border:1px solid #2A2A2A; color:#818CF8; font:700 15px/1 'IBM Plex Sans', system-ui, sans-serif; } .ds-steps > li::after { content:''; position:absolute; left:20px; top:46px; bottom:6px; width:1px; background:#1C1C1C; } .ds-steps > li:last-child::after { display:none; } .ds-steps h2 { margin:4px 0 10px; font-size:22px; letter-spacing:-.01em; line-height:1.08; } .ds-steps p { margin:0; color:#B0B0B0; } .ds-steps em { font-style:normal; color:#FFFFFF; font-weight:600; } .ds-sbtn { display:inline-flex; align-items:center; min-height:52px; margin:14px 0 10px; padding:0 22px; border-radius:12px; background:#818CF8; color:#0F0F0F; font:600 16px/1.2 'IBM Plex Sans', system-ui, sans-serif; text-decoration:none; transition:background-color .18s; } .ds-sbtn:hover { background:#A5B4FC; } .ds-sbtn:focus-visible { outline:2px solid #818CF8; outline-offset:3px; } .ds-facts { margin:8px 0 0; border-top:1px solid #1C1C1C; } .ds-facts > div { display:grid; grid-template-columns:140px 1fr; gap:20px; padding:14px 0; border-bottom:1px solid #1C1C1C; } .ds-facts dt { font-weight:600; } .ds-facts dd { margin:0; color:#B0B0B0; } .ds-facts .ds-mono { font:13.5px/1.6 'IBM Plex Mono', ui-monospace, monospace; color:#D4D4D4; }"
+    },
+    {
+      "name": "Site Install Band",
+      "kind": "card",
+      "refersTo": "site-install-band",
+      "description": "Closing graphite band: headline, line and install button left; QR on a white plate with its URL right (hidden on phones).",
+      "html": "<div class=\"ds-band\"><div><h2>Students: install SUAAMS.</h2><p>It installs from our own page rather than the Play Store, in about a minute.</p><a class=\"ds-sbtn\" href=\"#\">Go to the install page</a></div><div class=\"ds-qr\"><svg viewBox=\"0 0 21 21\" aria-hidden=\"true\"><path fill=\"#000\" d=\"M0 0h7v7H0zM14 0h7v7h-7zM0 14h7v7H0zM2 2v3h3V2zM16 2v3h3V2zM2 16v3h3v-3zM9 1h2v2H9zM9 5h3v3H9zM13 9h3v2h-3zM9 13h2v4H9zM14 14h3v3h-3zM18 18h3v3h-3zM12 18h2v3h-2z\"/></svg><span>suaams.com.ng/get</span></div></div>",
+      "css": ".ds-band { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:40px; align-items:center; width:680px; padding:48px 32px; background:#1C1C1C; border-top:1px solid #1C1C1C; color:#FFFFFF; font:400 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; } .ds-band h2 { margin:0 0 12px; font-size:32px; font-weight:700; line-height:1.08; letter-spacing:-.022em; } .ds-band p { margin:0 0 24px; color:#B0B0B0; } .ds-sbtn { display:inline-flex; align-items:center; min-height:52px; padding:0 22px; border-radius:12px; background:#818CF8; color:#0F0F0F; font:600 16px/1.2 'IBM Plex Sans', system-ui, sans-serif; text-decoration:none; transition:background-color .18s; } .ds-sbtn:hover { background:#A5B4FC; } .ds-sbtn:focus-visible { outline:2px solid #818CF8; outline-offset:3px; } .ds-qr { display:grid; justify-items:center; gap:12px; } .ds-qr svg { width:148px; height:148px; padding:10px; border-radius:12px; background:#FFFFFF; box-sizing:content-box; } .ds-qr span { color:#8A8A8A; font:13px/1 'IBM Plex Mono', ui-monospace, monospace; }"
+    },
+    {
+      "name": "Site Install Poster (print)",
+      "kind": "custom",
+      "refersTo": "site-poster-sheet",
+      "description": "The print exception: a light A4 sheet with a large QR, three steps under indigo-ringed numerals, and the one-phone footnote.",
+      "html": "<div class=\"ds-desk\"><div class=\"ds-sheet\"><h1>Scan to install<br><span>SUAAMS.</span></h1><div class=\"ds-pqr\"><div class=\"ds-pqr-box\"></div><p>suaams.com.ng/get</p></div><ol><li><b>Scan and download</b>Point your camera at the code.</li><li><b>Allow the install</b>Android asks once.</li><li><b>Sign in</b>With your matric number.</li></ol><div class=\"ds-pfoot\">Sign in on your own phone: your account locks to it.</div></div></div>",
+      "css": ".ds-desk { background:#E4E4E7; padding:20px; } .ds-sheet { width:315px; height:445px; margin:0 auto; padding:26px 26px 22px; background:#FFFFFF; color:#1A1A1A; font-family:'IBM Plex Sans', system-ui, sans-serif; display:grid; align-content:space-between; } .ds-sheet h1 { margin:0; font-size:34px; line-height:1; letter-spacing:-.025em; } .ds-sheet h1 span { color:#4F46E5; } .ds-pqr { display:grid; justify-items:center; } .ds-pqr-box { width:150px; height:150px; background:repeating-conic-gradient(#1A1A1A 0 25%, #FFFFFF 0 50%) 0 0 / 15px 15px; } .ds-pqr p { margin:4px 0 0; font:12px 'IBM Plex Mono', monospace; } .ds-sheet ol { margin:0; padding:0; list-style:none; counter-reset:s; display:grid; grid-template-columns:repeat(3,1fr); gap:10px; } .ds-sheet li { counter-increment:s; display:grid; gap:4px; font-size:9px; line-height:1.4; color:#3F3F46; } .ds-sheet li::before { content:counter(s); width:18px; height:18px; border-radius:50%; border:1.5px solid #4F46E5; color:#4F46E5; display:grid; place-items:center; font:700 9px 'IBM Plex Sans', sans-serif; } .ds-sheet li b { display:block; color:#1A1A1A; font-size:11px; } .ds-pfoot { border-top:1px solid #DDDDDD; padding-top:8px; font-size:10px; color:#3F3F46; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Midnight Instrument",
+    "overview": "SUAAMS is a precision tool. In the student's hand it is an instrument on a black ground: graphite surfaces, white type, a faint measuring grid behind everything, and one indigo signal, Contactless Indigo, marking the place to act. Anything a machine says (a time range, a course code, a terminal status) is set in monospace, so the student can tell at a glance what the system reports and what the interface just labels. The check-in moment happens in a queue at a lecture-hall door, so everything on the screen must be readable in one glance and every control must respond the moment it is touched.\n\nThe system has two worlds that share one set of meanings. The **app** is dark by default, with a light mode that follows the same rules. The **web portal** is where admins, lecturers and HODs keep records at a desk. It uses a light page, white cards and a dark navy sidebar, with a blue accent for emphasis. The two look different on purpose: one is held in a hand at a door, the other is worked at a desk all day. They share the brand blue in the logo, the four attendance status meanings, and the rule that no status is ever shown by colour alone.\n\nThe **public site** at suaams.com.ng is not a third world. It is the app's Midnight Instrument opened up to page width: the same #0F0F0F ground and graphite panels, the same Plex pair, the same one indigo signal, and the same faint 28px measuring grid behind the first screen. Dark is the default and light follows the visitor's system setting, as in the app, so the app's own screenshots sit on the page in their native colours. The only thing that leaves the dark world is the A4 install poster, which is printed on paper and so is light.\n\nComponents are **tactile and confident**: full-width 56dp buttons, 48dp+ tap targets, visible press feedback, and a small scale lift on the active item. Motion is short (120-280ms, ease-out-cubic) and only confirms a change. It is never decoration.",
+    "keyCharacteristics": [
+      "App: midnight surfaces (#0F0F0F / #1C1C1C), one indigo accent, IBM Plex Sans + Plex Mono.",
+      "Portal: mist page, white hairline cards, navy rail, one blue accent, Plus Jakarta Sans + JetBrains Mono.",
+      "Status meanings are identical everywhere: present green, late amber, absent red, excused grey. A text label is always shown.",
+      "Every text/surface pair is contrast-measured; values are chosen for AA, not by eye.",
+      "Flat surfaces separated by hairline borders; depth comes from tone, not shadow.",
+      "Site: the app's world at page width. Ruled rows instead of card grids, Plex self-hosted, indigo the one accent, sample data always labelled demo."
+    ],
+    "rules": [
+      {
+        "name": "The One Signal Rule",
+        "body": "Each world has exactly one accent, and it marks where to act or where you are. In the app that is Contactless Indigo, and it always goes on the same few elements so students learn to find it. It never colours a status value. The site is in the app's world, so its one accent is Contactless Indigo too; Brand Blue stays inside the logo.",
+        "section": "colors"
+      },
+      {
+        "name": "The Green Is Sacred Rule",
+        "body": "Green means \"you're registered.\" Never spend it on branding, success toasts for unrelated actions, or decoration. A student reads green in well under a second, so that meaning must stay unambiguous. On the site green appears in two places only: the PRESENT label on the register, and the \"75% or more\" key that explains the app's Records colours. Both carry their words.",
+        "section": "colors"
+      },
+      {
+        "name": "The Measured, Not Eyeballed Rule",
+        "body": "Any new text/surface pair is contrast-checked to WCAG AA (4.5:1 body) before it ships. Status text is checked against the tinted fill it actually sits on, not the opaque colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The 11sp Floor Rule",
+        "body": "Nothing in the app renders below 11sp. The only exception is the numeric count inside the notification badge, a single glyph inside a pill. Sub-11 text is a bug, not a style.",
+        "section": "typography"
+      },
+      {
+        "name": "The Mono Means Machine Rule",
+        "body": "Monospace is only for data the system emits (times, session and course codes, terminal states). Never use it for labels, buttons or prose. On the site that means the check-in code, the decoded values, times, masked student IDs, the register count, the build version and the printed URL. Where a machine readout is followed by an explanation, the explanation drops back to the sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The Theme Scale Rule",
+        "body": "Text styles come from the theme's text scale (`Theme.of(context).textTheme`, the portal's Tailwind scale). Never hand-roll a font size per screen. That is how the app once had 15 sizes.",
+        "section": "typography"
+      },
+      {
+        "name": "The Own Fonts Rule",
+        "body": "The app and the site ship their own Plex files. No Google Fonts or other third-party font host on anything a student opens on campus Wi-Fi.",
+        "section": "typography"
+      },
+      {
+        "name": "The Borders Separate Rule",
+        "body": "Hairline borders do the separating, not shadows. If a surface needs more distinction, step its tone. Don't deepen its shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** use Contactless Indigo only on the active tab, the check-in action, contactless glyphs and live dots.",
+      "**Do** pair every status colour with its text label, from the one shared map on each side.",
+      "**Do** read colours from `AppTerminal` / `colorScheme` (app) or the `@theme` tokens (portal). Never retype a hex at a call site.",
+      "**Do** keep app tap targets at 48dp or more, and full-width primary buttons at 56dp tall.",
+      "**Do** set times, codes and terminal strings in the mono face, and everything else in the sans.",
+      "**Do** contrast-check new pairs against the surface they actually sit on, including tinted fills.",
+      "**Do** build site pages from the app's tokens and the `styles.css` custom properties; dark by default, light by `prefers-color-scheme`.",
+      "**Do** label every piece of sample data as demo, next to it: the stage's code and check-ins, and every screenshot caption.",
+      "**Do** separate site lists with ruled rows (hairline top and bottom), not cards.",
+      "**Do** make every site animation finish into the page's static markup, so no script or reduced motion shows the complete state.",
+      "**Do** self-host fonts for anything a student opens (Plex WOFF2, `font-display: swap`)."
+    ],
+    "donts": [
+      "**Don't** use green for anything except \"present / success\".",
+      "**Don't** render app text below 11sp, or hand-roll a `TextStyle` font size outside the theme scale.",
+      "**Don't** use the raw status hues (#10B981, #F59E0B, #EF4444) as text. They are fills only.",
+      "**Don't** add drop shadows to app surfaces. Step the tone instead.",
+      "**Don't** build portal tone classes by string interpolation (`bg-{{ tone }}`). Use `data-tone`.",
+      "**Don't** load Google Fonts or any third-party font on the app or the site.",
+      "**Don't** add a second accent to the site, or use Brand Blue anywhere but the logo mark.",
+      "**Don't** set prose, headings, labels or buttons in Plex Mono on the site; explanations under a readout go back to the sans.",
+      "**Don't** add box shadows to the site. Step from Midnight to Sunk to Graphite instead.",
+      "**Don't** carry the poster's light sheet onto screen pages; it is the print exception."
+    ]
+  }
+}

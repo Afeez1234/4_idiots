@@ -9,9 +9,6 @@
   <meta name="theme-color" content="#f4f4f5" media="(prefers-color-scheme: light)">
   <link rel="canonical" href="https://suaams.com.ng/privacy.html">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -33,7 +30,13 @@
         </svg>
         SUAAMS
       </a>
-      <a class="btn btn-ghost btn-sm" href="https://portal.suaams.com.ng/" style="margin-left:auto">Sign in</a>
+      <nav class="nav" aria-label="Main">
+        <a href="./">About SUAAMS</a>
+        <a href="get/">Install the app</a>
+      </nav>
+      <div class="header-actions">
+        <a class="btn btn-ghost btn-sm" href="https://portal.suaams.com.ng/">Sign in</a>
+      </div>
     </div>
   </header>
 
@@ -119,14 +122,15 @@
     <h2>Changes to this policy</h2>
     <p>If what we collect changes, we'll update this page and the date at the top.</p>
 
-    <p style="margin-top:48px"><a href="./">← Back to suaams.com.ng</a></p>
+    <p class="back"><a href="./">Back to suaams.com.ng</a></p>
   </main>
 
   <footer class="site-footer">
     <div class="wrap">
-      <p>© 2026 SUAAMS</p>
+      <p class="copyright">© 2026 SUAAMS</p>
       <nav aria-label="Footer">
         <a href="./">Home</a>
+        <a href="get/">Install the app</a>
         <a href="https://portal.suaams.com.ng/">Sign in</a>
         <a href="mailto:contact@suaams.com.ng">contact@suaams.com.ng</a>
       </nav>
