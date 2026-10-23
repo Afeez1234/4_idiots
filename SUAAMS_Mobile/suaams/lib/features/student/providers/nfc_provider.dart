@@ -122,23 +122,23 @@ final nfcAvailabilityProvider = FutureProvider.autoDispose<NfcAvailability>(
   (ref) => ref.read(nfcServiceProvider).getAvailability(),
 );
 
+/// The OS fingerprint / face / PIN prompt. A provider only so tests can
+/// replace it; the app always gets the real one.
+final localAuthProvider = Provider<LocalAuthentication>(
+  (ref) => LocalAuthentication(),
+);
+
 // OPTIMIZATION: Leveraged absolute type inference to prevent generic bound mismatch on Riverpod 3.x
 final nfcCheckInProvider = NotifierProvider.autoDispose(NfcCheckInNotifier.new);
 
 class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
-  // BUG FIX: was `late final LocalAuthentication _localAuth;` assigned
-  // inside build() (`_localAuth = LocalAuthentication();`). late final
-  // permits exactly one assignment per INSTANCE, but build() isn't
-  // guaranteed to run only once per instance -- Riverpod can re-invoke it
-  // on the same Notifier object (e.g. on hot reload during active
-  // development, which re-runs build() without necessarily reconstructing
-  // a fresh instance first). The second call hit the second assignment and
-  // threw LateInitializationError. A field initializer runs exactly once,
-  // at object construction -- a genuinely different, earlier event than
-  // build() -- which sidesteps the whole problem. No `late` needed either:
-  // LocalAuthentication() doesn't depend on anything only available inside
-  // build() (no `ref`, no per-build state).
-  final LocalAuthentication _localAuth = LocalAuthentication();
+  // The fingerprint check, read from localAuthProvider in build() so a test
+  // can stand in for the OS prompt (test/features/nfc_check_in_test.dart).
+  // Nullable and not `late final`, like _nfcService below: build() can
+  // re-run on the same instance (hot reload), and a second assignment to a
+  // late final threw LateInitializationError -- the bug that once moved
+  // this to a field initializer.
+  LocalAuthentication? _localAuth;
 
   // Hoisted so the cleanup path never has to touch `ref`.
   //
@@ -204,9 +204,6 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
   @override
   NfcCheckInState build() {
-    // _localAuth assignment removed from here -- it's a field initializer
-    // now (see the field declaration above for why).
-
     // Captured here, NOT inside onDispose below -- calling ref.read() from
     // inside an onDispose callback trips Riverpod's reentrancy guard
     // ("Cannot use Ref or modify other providers inside life-cycles/
@@ -218,6 +215,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     // the reference here is safe as well as necessary.
     _nfcService = ref.read(nfcServiceProvider);
     _bleScanner = ref.read(bleScanServiceProvider);
+    _localAuth = ref.read(localAuthProvider);
 
     // Register auto-cleanup to prevent memory leaks when sheet is closed
     ref.onDispose(() {
@@ -393,9 +391,10 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   /// minted, broadcast or submitted -- on both channels. Returns false if
   /// the sheet was dismissed meanwhile; throws if verification failed.
   Future<bool> _verifyIdentity() async {
+    final localAuth = _localAuth!; // set in build(), before any check-in
     // 1. Check OS hardware capability
-    final canAuthenticateWithBiometrics = await _localAuth.canCheckBiometrics;
-    final isDeviceSupported = await _localAuth.isDeviceSupported();
+    final canAuthenticateWithBiometrics = await localAuth.canCheckBiometrics;
+    final isDeviceSupported = await localAuth.isDeviceSupported();
 
     // The sheet can be dismissed (drag, back gesture, CANCEL) while any
     // of these platform calls are in flight, which disposes this
@@ -412,7 +411,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
     // 2. Cross-Version Safe Biometric Call
     // This call is structurally supported on all versions of local_auth to prevent compile crashes
-    final authenticated = await _localAuth.authenticate(
+    final authenticated = await localAuth.authenticate(
       localizedReason: 'Verify identity to activate attendance beacon',
     );
 

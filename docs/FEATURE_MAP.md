@@ -130,6 +130,7 @@ the feature.
 | Bulk notifications and announcement audience | `SUAAMS/tests/test_notifications.py` |
 | Disabled accounts, password-change rules, dropping courses, level rule | `SUAAMS/tests/test_account_rules.py` |
 | Query counts: HOD, student dashboard, analytics | `SUAAMS/tests/test_hod_attendance.py`, `test_page_queries.py` |
+| Check-in flow in the app: closing the sheet mid-prompt, starting twice | `SUAAMS_Mobile/suaams/test/features/nfc_check_in_test.dart` |
 | One attendance rule (finished classes, present or late) across student app, HOD, register, Reports | `SUAAMS/tests/test_attendance_rule.py` |
 | Readers' own secrets, room check (flag / enforce / off), Terminals page | `SUAAMS/tests/test_terminal_rooms.py` |
 | Several lecturers per course | `SUAAMS/tests/test_course_lecturers.py` |
