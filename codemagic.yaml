@@ -1,0 +1,34 @@
+# Codemagic CI: builds the iOS app on a hosted Mac, since the project has
+# no Mac of its own. See README "Mobile app" and docs/DECISIONS.md D34.
+#
+# Only ios-check exists for now. It builds WITHOUT code signing, so it proves
+# the iOS app compiles (Swift packages resolve, plugins link, iOS 15 target
+# holds) but produces nothing installable. A signed TestFlight workflow comes
+# once the Apple Developer account exists: it needs the App Store Connect API
+# key added under Codemagic Teams > Integrations, and freeRASP's iosConfig
+# teamId (lib/core/services/security_service.dart) set to the real Team ID.
+
+workflows:
+  ios-check:
+    name: iOS compile check (unsigned)
+    instance_type: mac_mini_m2
+    # A clean build with Swift package resolution takes ~10-15 minutes; this
+    # caps a hung build so it can't eat the free plan's 500 monthly minutes.
+    max_build_duration: 30
+    # The Flutter app lives two levels down, not at the repo root.
+    working_directory: SUAAMS_Mobile/suaams
+    environment:
+      # Pinned to the version the app is developed on, so a new stable
+      # release can't break CI without the code having changed.
+      flutter: 3.47.5
+      xcode: latest
+    # No triggering block: builds start by hand from the Codemagic dashboard
+    # ("Start new build"). Most pushes here are backend or firmware commits,
+    # and building iOS on each one would spend the free minutes on nothing.
+    scripts:
+      - name: Get packages
+        script: flutter pub get
+      - name: Build iOS (no code signing)
+        # Release mode so the same optimisations a TestFlight build gets are
+        # compiled; --no-codesign because there's no certificate yet.
+        script: flutter build ios --release --no-codesign

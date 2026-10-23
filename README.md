@@ -252,7 +252,7 @@ when a student checked in, are stored in UTC and converted when displayed.
 
 ## 7. Current status and known gaps
 
-*As of 16 October 2026. Update this date whenever a line below changes.*
+*As of 20 October 2026. Update this date whenever a line below changes.*
 
 **Working and tested**
 - NFC tap check-in, end to end, on real hardware
@@ -272,7 +272,10 @@ when a student checked in, are stored in UTC and converted when displayed.
   class that hasn't started and the admin can remind the lecturer, but
   nothing starts or ends sessions automatically yet.
 - **iPhone Bluetooth check-in**: should work, but nobody has tested it on an
-  iPhone yet.
+  iPhone yet. There's no Apple Developer account yet, so iOS builds are
+  unsigned compile checks on Codemagic. The app is set up for push on
+  iPhones; Firebase still needs an APNs key uploaded, and the App ID needs
+  Push Notifications enabled.
 - **HOD sign-offs**: placeholder page only.
 - **Wrong-room check-ins are only flagged by default**: each terminal now
   has its own secret and a room, but `ROOM_CHECK` starts at `flag`, so a tap
@@ -420,6 +423,15 @@ project lead's backup; the build refuses to run without them. Never replace
 the key: the app's integrity check expects this certificate, and Android
 gives every phone a new device ID under a new key, which locks every
 student out of their bound account.
+
+**iOS builds** run on Codemagic, a hosted Mac, configured in
+[codemagic.yaml](codemagic.yaml). The `ios-check` workflow builds the app
+unsigned to prove it compiles; start it by hand from the Codemagic
+dashboard. It can't produce an installable app until there is an Apple
+Developer account. The app targets iOS 15 or later, because the Firebase
+packages require it. `ios/Runner/GoogleService-Info.plist` is the iOS twin
+of `android/app/google-services.json`: both identify the `suaams-b968a`
+Firebase project and neither is a secret.
 
 ### Terminal
 

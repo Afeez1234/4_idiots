@@ -51,6 +51,13 @@
     <string>SUAAMS requires secure FaceID access to verify your student identity before transmitting check-in credentials.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>SUAAMS listens for the attendance terminal over Bluetooth so you can check in. It does not track your location.</string>
+	<!-- Lets FCM wake the app for data messages (e.g. a timetable change)
+	     while it's in the background. Pairs with aps-environment in
+	     Runner.entitlements. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

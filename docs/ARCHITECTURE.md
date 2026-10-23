@@ -206,7 +206,7 @@ sequenceDiagram
     participant F as Flask /auth/login
     participant D as MySQL
 
-    A->>A: Read hardware ID (Android ID / iOS identifierForVendor)<br/>No placeholder if this fails
+    A->>A: Read hardware ID (Android ID / iOS identifierForVendor, saved in the Keychain)<br/>No placeholder if this fails
     A->>F: POST {username, password, device_id}
     F->>D: Find user, check is_active, bcrypt password
     alt Student, device_id is a known placeholder

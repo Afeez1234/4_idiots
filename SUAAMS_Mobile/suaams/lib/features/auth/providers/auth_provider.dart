@@ -7,6 +7,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:suaams/features/auth/data/auth_service.dart';
 import 'package:suaams/features/auth/models/auth_user.dart';
@@ -78,10 +79,7 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
     String? id;
     try {
       if (Platform.isIOS) {
-        // identifierForVendor can be nil briefly after a restart, before
-        // the first unlock -- a retry a moment later normally succeeds.
-        final iosInfo = await DeviceInfoPlugin().iosInfo;
-        id = iosInfo.identifierForVendor;
+        id = await _iosDeviceId();
       } else if (Platform.isAndroid) {
         // DEVICE-BINDING FIX: androidInfo.id (device_info_plus) is
         // Build.ID -- an OS build/firmware string, identical across every
@@ -101,6 +99,55 @@ class AuthNotifier extends Notifier<AuthState> with ChangeNotifier {
     }
     if (id == null || id.isEmpty) {
       throw Exception('Device identity unavailable');
+    }
+    return id;
+  }
+
+  // REINSTALL FIX: identifierForVendor is regenerated when the app is
+  // deleted and reinstalled (it only survives while at least one app from
+  // this vendor stays installed), so a student who reinstalled was seen as
+  // a new device and locked out until an admin unbound them. Android's
+  // ANDROID_ID doesn't have this problem; it only changes with the signing
+  // key.
+  //
+  // The Keychain, unlike the app's files, survives uninstall. So the first
+  // ID this install reads is saved there and reused from then on.
+  // - first_unlock_this_device: readable once the phone has been unlocked
+  //   after boot, and "this device" keeps it out of iCloud Keychain and out
+  //   of backups restored to a different iPhone, so a binding can't move to
+  //   a new phone with the student's data.
+  // - Its own accountName keeps it apart from the sign-in keys: the
+  //   onboarding readAll() never sees it, and a logout that clears storage
+  //   can't take the binding with it.
+  static const _deviceIdKey = 'device_id';
+  static const _deviceIdStorage = FlutterSecureStorage(
+    iOptions: IOSOptions(
+      accountName: 'suaams_device_identity',
+      accessibility: KeychainAccessibility.first_unlock_this_device,
+      synchronizable: false,
+    ),
+  );
+
+  Future<String?> _iosDeviceId() async {
+    try {
+      final saved = await _deviceIdStorage.read(key: _deviceIdKey);
+      if (saved != null && saved.isNotEmpty) return saved;
+    } catch (e) {
+      // Fall through to the live ID: a Keychain fault shouldn't block login.
+      debugPrint('[auth] keychain device ID read failed: $e');
+    }
+
+    // identifierForVendor can be nil briefly after a restart, before the
+    // first unlock -- a retry a moment later normally succeeds. Nothing is
+    // saved in that case, so the next attempt tries again.
+    final id = (await DeviceInfoPlugin().iosInfo).identifierForVendor;
+    if (id == null || id.isEmpty) return null;
+
+    try {
+      await _deviceIdStorage.write(key: _deviceIdKey, value: id);
+    } catch (e) {
+      // Still a real per-phone ID, just not reinstall-proof this time.
+      debugPrint('[auth] keychain device ID write failed: $e');
     }
     return id;
   }

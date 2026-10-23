@@ -499,6 +499,48 @@ if you know the date.
   raise `DB_POOL_SIZE` on Render, keeping workers x size + 1 within the
   new limit.
 
+### D34. iOS builds on Codemagic, unsigned until there's an Apple account (2026-10-20)
+
+- **Problem:** Building an iPhone app needs Xcode, which only runs on a Mac,
+  and the project has none. The iOS side had never been built: there was no
+  Firebase config for iOS, so `Firebase.initializeApp()` would crash on
+  launch, and the minimum version was iOS 13 while firebase_core's Swift
+  package requires 15.
+- **Chose:** Codemagic's hosted Macs (`codemagic.yaml`, free plan's 500
+  minutes a month). The first workflow, `ios-check`, builds unsigned with
+  the same Flutter version used for development (3.47.5) and starts only by
+  hand, because most commits here don't touch the app. Added
+  `GoogleService-Info.plist` to the Runner target and raised the target to
+  iOS 15.0. Plugins come in through Swift Package Manager, so there's no
+  committed Podfile; Flutter writes one if a plugin ever needs CocoaPods.
+- **Trade-off:** An unsigned build proves the app compiles, not that it
+  runs. Signing, TestFlight, and push to iPhones all wait for the $99/year
+  Apple Developer account. The app side of push is in place
+  (`Runner.entitlements` with `aps-environment`, and the
+  `remote-notification` background mode, added 2026-10-23); what's left is
+  enabling Push Notifications on the App ID and uploading an APNs key to
+  Firebase. freeRASP's iOS `teamId` waits on the account too and is still a
+  placeholder. iPhones that can't update to iOS 15
+  (the iPhone 6 and older) can't install the app.
+
+### D35. The iPhone's device ID is kept in the Keychain (2026-10-20)
+
+- **Problem:** Device binding on iOS used `identifierForVendor`, which iOS
+  regenerates when the app is deleted and reinstalled. A student who
+  reinstalled would show up as a new phone and be locked out until an admin
+  unbound them, which Android students don't face (`ANDROID_ID` survives a
+  reinstall).
+- **Chose:** The app saves the first ID it reads in the Keychain, which iOS
+  keeps after uninstall, and reuses it from then on (`_iosDeviceId` in
+  `auth_provider.dart`). It's stored as `first_unlock_this_device`, never
+  synchronised, so it can't travel to another iPhone via iCloud Keychain or
+  a restored backup, and under its own account name, apart from the sign-in
+  keys. If the Keychain errors, login uses the live ID rather than failing.
+  No server change: the ID is the same kind of UUID.
+- **Trade-off:** A factory reset still clears the Keychain, so that student
+  still needs an unbind, the same as on Android. Untested on a real iPhone
+  until there's an Apple Developer account.
+
 ### D36. One custom domain, `portal.suaams.com.ng`, for dashboards and API (2026-10-21)
 
 - **Problem:** The app and terminals were hard-wired to

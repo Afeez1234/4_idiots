@@ -68,7 +68,7 @@ one an examiner finds.
 | **Terminal doesn't check certificate expiry** | The ESP32 core is built without time support, so it checks the certificate chain and hostname but not the dates | Chain + hostname is what stops an impostor; accepted so an unsynced clock at boot can't break check-in |
 | **Stateless NFC code** | Not strictly single-use inside its 10 s | Harmless: replay can only re-mark the same student/session |
 | **Rate limiter is in-memory** | Limits are per worker process and reset on restart | Set a Redis `storage_uri` if scaled past one worker (see `extensions.py`) |
-| **Device ID can change** | Android ID changes on factory reset; iOS `identifierForVendor` changes if the app is uninstalled. That student then needs an admin unbind | Accepted; failure is safe (locks out, doesn't let in) |
+| **Device ID can change** | Android ID changes on factory reset. iOS `identifierForVendor` changes on uninstall, so the app saves the first one it reads in the Keychain (`first_unlock_this_device`, never synced or restored to another phone) and a reinstall keeps the binding. A factory reset on either platform still needs an admin unbind | Accepted; failure is safe (locks out, doesn't let in) |
 | **Old credentials in git history** | DB password and signing keys from before the env-var fix are public | Treat as burned; rotate if not already done |
 | **Manual marking trusts the lecturer** | A lecturer can mark any enrolled student present without them being there | By design: limited to the lecturer's own courses, recorded as `method = manual` with `marked_by`, and never overwrites a real check-in |
 | **iOS BLE untested** | Unknown | Needs an iPhone test |
