@@ -32,6 +32,15 @@ Rules:
     never be told to update. The two student ones are listed by name in
     _TERMINAL_ENDPOINTS because they share the student blueprint.
   * Any change to the wire format bumps MIN_APP_BUILD in the same deploy.
+  * The header is read modulo 1000. The app sends Android's versionCode
+    (PackageInfo.buildNumber), and `flutter build apk --split-per-abi` --
+    the per-phone-type APKs the landing page hands out -- adds 1000 x the
+    ABI number to it: build 2 is 1002 for armv7 and 2002 for arm64. Read
+    raw, every split-APK phone would clear any minimum below 1000, so the
+    gate would never ask them to update. The pubspec build number must stay
+    below 1000 for this to hold, so a MIN_APP_BUILD of 1000 or more is
+    treated like a malformed one: logged, gate off (it could never be met,
+    and would lock every phone out).
 
 This is a compatibility check, not a security control: the header is
 trivially forged. Its job is to turn silent breakage into a clear message.
@@ -45,6 +54,10 @@ from flask import jsonify, request
 log = logging.getLogger(__name__)
 
 HEADER = 'X-App-Build'
+
+# Flutter's --split-per-abi versionCode is ABI x 1000 + build (see the
+# module docstring), so the real build is the remainder.
+ABI_OFFSET = 1000
 
 # Blueprints the Flutter app talks to.
 _GATED_BLUEPRINTS = frozenset({'api_auth', 'api_student', 'api_lecturer'})
@@ -62,17 +75,27 @@ def min_app_build():
     if not raw:
         return 0
     try:
-        return max(int(raw), 0)
+        minimum = max(int(raw), 0)
     except ValueError:
         log.error('MIN_APP_BUILD=%r is not a whole number; version gate is off', raw)
         return 0
+    if minimum >= ABI_OFFSET:
+        log.error('MIN_APP_BUILD=%r is %d or more, which no build can reach once '
+                  'split-APK offsets are removed; version gate is off', raw, ABI_OFFSET)
+        return 0
+    return minimum
 
 
 def _client_build():
+    """The app's real build number: split-APK offsets removed, None if the
+    header is missing, garbled or negative."""
     try:
-        return int(request.headers.get(HEADER, ''))
+        build = int(request.headers.get(HEADER, ''))
     except ValueError:
         return None
+    if build < 0:
+        return None
+    return build % ABI_OFFSET
 
 
 def check_app_build():

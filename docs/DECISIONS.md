@@ -588,6 +588,15 @@ if you know the date.
   can't be updated remotely.
 - **Trade-off:** The header is trivially forged, so this is a compatibility
   check, not a security control.
+- **Later (2026-10-23):** the APKs on suaams.com.ng are built with
+  `--split-per-abi`, whose versionCode is 1000 x ABI + build, and
+  `PackageInfo.buildNumber` reports that code. Read raw, every split-APK
+  phone (1002, 2002) cleared any minimum, so the gate never fired for them.
+  The server now reads the header modulo 1000, which works for phones
+  already installed, with no app release; a minimum of 1000 or more is
+  treated as malformed (it could never be met). Fixing it in the app
+  instead was rejected: it would only reach phones after they updated,
+  which is what the gate exists to make them do.
 
 ### D38. Sessions nobody ended are closed by a sweep (2026-10-23)
 

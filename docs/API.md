@@ -25,7 +25,9 @@ end for completeness.
   **426** `{"error": "UPDATE REQUIRED", "min_build": n, "message": "..."}`
   before auth is checked (`message` only when `APP_UPDATE_MESSAGE` is set).
   The readers' routes (`/student/checkin`, `/student/checkin/backlog`,
-  `/terminal/status`) are never gated. See `app_version.py`.
+  `/terminal/status`) are never gated. The header is read modulo 1000:
+  split-per-ABI APKs send Android's versionCode, which is 1000 x ABI +
+  build (2002 is build 2 on arm64). See `app_version.py`.
 
 ---
 

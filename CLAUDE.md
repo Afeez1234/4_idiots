@@ -216,6 +216,15 @@ that import for any new service too, or its calls skip the gate. When
 pubspec build and `MIN_APP_BUILD` in the same release.** Never gate the
 readers' routes: they send no app build.
 
+The header is Android's versionCode, and the sideloaded APKs are built
+with `--split-per-abi`, which adds 1000 x the ABI (build 2 arrives as 1002
+on armv7, 2002 on arm64). The server reads it modulo 1000
+(`ABI_OFFSET` in `app_version.py`), so the pubspec build must stay below
+1000. Publish split APKs only: a phone on a split build (2002) can't install
+a universal one (2) over it. When the app moves to the Play Store (an App
+Bundle, no offset), start the build number above the highest split code
+(e.g. 3000) so Play can update sideloaded phones.
+
 ## Core differentiator (production vision)
 Smart ID via Android NFC HCE, with PN532 replacing MFRC522 as reader hardware.
 Treat this as first-class whenever touching attendance/ID-related code.

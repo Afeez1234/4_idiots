@@ -123,6 +123,26 @@ class AppVersionTestCase(unittest.TestCase):
         self.assertEqual(resp.status_code, 426)
         self.assertEqual(resp.get_json()['message'], 'Download it at suaams.com.ng/app')
 
+    def test_split_apk_offsets_are_removed(self):
+        # --split-per-abi adds 1000 x ABI to the versionCode the app sends:
+        # build 4 arrives as 1004 (armv7), 2004 (arm64), 4004 (x86_64).
+        # Read raw, they'd all clear a minimum of 5.
+        with self.gate('5'):
+            for sent in (1004, 2004, 4004):
+                self.assertUpdateRequired(self.login(build=sent), 5)
+            for sent in (5, 1005, 2005, 2006):
+                self.assertNotEqual(self.login(build=sent).status_code, 426, sent)
+
+    def test_negative_build_is_told_to_update(self):
+        with self.gate('5'):
+            self.assertUpdateRequired(self.login(build=-995), 5)
+
+    def test_unreachable_minimum_turns_gate_off(self):
+        # 1000+ can never be met once offsets are removed: it would lock
+        # every phone out, so it's treated like a typo.
+        with self.gate('1000'), self.assertLogs('app_version', 'ERROR'):
+            self.assertNotEqual(self.login(build=2002).status_code, 426)
+
     def test_malformed_minimum_turns_gate_off(self):
         with self.gate('v2'), self.assertLogs('app_version', 'ERROR'):
             self.assertNotEqual(self.login().status_code, 426)

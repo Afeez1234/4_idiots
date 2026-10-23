@@ -112,6 +112,19 @@ Always build with the release signing key. A build signed with any other
 key can't install over the existing app, and changing the key gives every
 phone a new device ID (see CLAUDE.md).
 
+Split builds number themselves 1000 x phone type + build: build 2 is 1002
+(armv7) and 2002 (arm64). The server strips that for the update gate
+(`SUAAMS/app_version.py`), but Android doesn't: it refuses to install a
+lower number over a higher one. So:
+
+- **Publish split APKs only.** A phone on 2002 can't take a universal
+  build (2, or 3 later) over it.
+- **Keep the pubspec build number below 1000.**
+- **Moving to the Play Store:** upload an App Bundle (Play splits it, with
+  no offset) and set the build number above 2002 first, e.g.
+  `version: 1.0.0+3000`, so Play can update phones that installed from
+  here.
+
 ## Content rules
 
 - Every claim must be true of the shipped system. Check the README and
