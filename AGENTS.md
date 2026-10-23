@@ -90,12 +90,17 @@ Verify new code and flows against these anti-spoofing vectors:
   (`device_id`) at first login. Logging in from a different device is an
   instant lockout. Resetting requires an admin manually nulling the value via
   the Admin Web Dashboard (student presents physical school ID to request it).
-- **Biometric invalidation**: biometric keys bind to the OS's current
-  biometric set (`invalidateByBiometricEnrollment: true` on Android,
-  `kSecAccessControlBiometryCurrentSet` on iOS). Adding/deleting a fingerprint
-  in system settings must instantly invalidate the key, forcing a master
-  passcode check — defends against the "add a classmate's print, let them
-  check in, then delete it" exploit.
+- **Biometric invalidation — PLANNED, NOT BUILT.** Check-in today uses
+  `local_auth.authenticate()`: a yes/no prompt that also accepts the device
+  PIN, with no key behind it. So the "add a classmate's print, let them
+  check in, then delete it" exploit is still open (`docs/SECURITY.md` lists
+  it as a known gap). The plan: a check-in key in the phone's secure
+  hardware, bound to the current biometric set
+  (`setInvalidatedByBiometricEnrollment(true)` on Android,
+  `.biometryCurrentSet` on iOS), that signs each beacon mint and BLE
+  submit. Changing the enrolled prints breaks the key; registering a new
+  one needs the SUAAMS password and a 24-hour wait the lecturer can see.
+  Until it ships, don't describe this defence as existing.
 - **Relay attacks**: HCE and BLE proximity tokens carry short-lived,
   cryptographically signed timestamps. **10 seconds is the current strict
   server-side acceptance window** — ESP32 and backend reject any handshake
