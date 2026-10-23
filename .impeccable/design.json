@@ -1270,12 +1270,12 @@
       {
         "name": "site-ease",
         "value": "cubic-bezier(0.16, 1, 0.3, 1)",
-        "purpose": "Exponential ease-out for every site transition and the tap sequence."
+        "purpose": "Exponential ease-out: every site entrance and the tap sequence's reveals."
       },
       {
         "name": "site-press",
-        "value": "120ms scale(0.98)",
-        "purpose": "Button press."
+        "value": "140ms scale(0.97)",
+        "purpose": "Press feedback on buttons and text buttons; hover colours only for (hover: hover) and (pointer: fine)."
       },
       {
         "name": "site-color",
@@ -1283,29 +1283,59 @@
         "purpose": "Button background, border and colour changes."
       },
       {
-        "name": "site-tap-type",
-        "value": "22ms per character, 250ms lead-in",
-        "purpose": "The check-in code typing in behind an indigo block cursor (about 0.7s for 32 characters)."
-      },
-      {
         "name": "site-tap-leaders",
-        "value": "450ms scaleX, second leader +250ms",
-        "purpose": "Indigo leaders drawing into and out of the reader photo."
+        "value": "180ms scaleX with site-ease-move; IN at 860ms, OUT at 1040ms",
+        "purpose": "The fastest beat: the tap crossing to the reader and on to the register."
       },
       {
         "name": "site-tap-register",
-        "value": "500ms, +550ms delay, translateY(-8px) to 0",
-        "purpose": "Newest register row lands as the count ticks up by one."
+        "value": "list translateY(-36px to 0) 240ms; new row fade-in 200ms; oldest row fade-out 160ms; at 1220ms",
+        "purpose": "The register grows by pushing rows down inside a four-row window."
       },
       {
         "name": "site-tap-trigger",
-        "value": "once, at 35% in view; Replay the tap reruns",
-        "purpose": "Never on a loop. Reduced motion or no script shows the finished state."
+        "value": "once, at 35% in view; Replay fades out 150ms then reruns",
+        "purpose": "Rewound before first paint (.motion); 3s .motion-done fallback; reduced motion plays opacity fades only."
       },
       {
         "name": "site-disclosure",
-        "value": "250ms rotate(45deg)",
-        "purpose": "Threat row plus turning to a cross when open."
+        "value": "200ms rotate(45deg); answer fades in 200ms (translateY -4px), closes instantly",
+        "purpose": "Threat rows: opening is when the visitor reads; nobody waits for a panel to leave."
+      },
+      {
+        "name": "site-ease-move",
+        "value": "cubic-bezier(0.77, 0, 0.175, 1)",
+        "purpose": "Strong ease-in-out for the two transfers (the leaders) in the tap sequence."
+      },
+      {
+        "name": "site-tap-verify",
+        "value": "220ms fade + scale(.96 to 1) at 120ms; check 160ms at 380ms",
+        "purpose": "Beat 1: the fingerprint-verified line, then its indigo check. The deliberate beat."
+      },
+      {
+        "name": "site-tap-mint",
+        "value": "clip-path inset(0 100% 0 0) to inset(0), 220ms; payload at 540ms, signature at 600ms",
+        "purpose": "The signed code arrives whole, left to right (not typed)."
+      },
+      {
+        "name": "site-tap-beep",
+        "value": "300ms opacity 0 to 1 to 0 at 960ms",
+        "purpose": "A 2px indigo ring flashes once on the reader photo."
+      },
+      {
+        "name": "site-tap-count",
+        "value": "220ms roll of the last digit (6 to 7) at 1240ms; live dot blinks once (200ms)",
+        "purpose": "The count goes up, not just changes; tabular figures keep the width steady."
+      },
+      {
+        "name": "site-hall",
+        "value": "per dot 560ms ease-out from scale(.8) and opacity .5, 7ms stagger in reading order (200 dots in about 2s); turns present green in the last third",
+        "purpose": "The hall: 200 scattered students snapping into the register when the grid is 40% in view; once; reduced motion shows the grid."
+      },
+      {
+        "name": "site-steps",
+        "value": "200ms opacity crossfade between step screens; marker colour 200ms; active band is the middle 10% of the window",
+        "purpose": "How it works on desktop: the sticky phone follows the step being read. Off below 901px; instant with reduced motion."
       }
     ],
     "breakpoints": [

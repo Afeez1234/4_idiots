@@ -47,7 +47,8 @@
   --gutter: clamp(20px, 4.4vw, 64px);
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
-  --ease-out: cubic-bezier(.16, 1, .3, 1); /* exponential ease-out */
+  --ease-out: cubic-bezier(.16, 1, .3, 1);    /* exponential ease-out: entrances */
+  --ease-move: cubic-bezier(.77, 0, .175, 1);  /* strong ease-in-out: the two transfers */
   color-scheme: dark;
 }
 
@@ -88,6 +89,9 @@ body {
   text-rendering: optimizeLegibility;
 }
 img, svg { display: block; max-width: 100%; }
+/* `hidden` must win over component display rules (.text-btn sets inline-flex,
+   which silently un-hid the Replay button when there was no script). */
+[hidden] { display: none !important; }
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 a:not(.btn):hover { color: var(--accent-hover); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
@@ -101,6 +105,9 @@ h2 { font-size: clamp(30px, 3.6vw, 44px); }
 h3 { font-size: 18px; letter-spacing: -.01em; line-height: 1.3; font-weight: 600; }
 p { margin: 0; text-wrap: pretty; }
 .mono { font-family: var(--mono); }
+/* Read by screen readers, not shown (e.g. the settled count behind the
+   rolling digit). */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .wrap { width: 100%; max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); }
 
 .skip {
@@ -117,22 +124,28 @@ p { margin: 0; text-wrap: pretty; }
   border-radius: var(--radius); border: 1px solid transparent;
   font: 600 16px/1.2 var(--sans); text-decoration: none; white-space: nowrap;
   cursor: pointer;
-  transition: background-color .18s, border-color .18s, color .18s, transform .12s var(--ease-out);
+  transition: background-color .18s, border-color .18s, color .18s, transform .14s var(--ease-out);
 }
-.btn:active { transform: scale(.98); }
+/* Press feedback on every pressable thing: it confirms the tap landed. */
+.btn:active, .text-btn:active { transform: scale(.97); }
 .btn svg { width: 20px; height: 20px; flex: none; }
 .btn-primary { background: var(--accent); color: var(--on-accent); }
-.btn-primary:hover { background: var(--accent-hover); color: var(--on-accent); }
+/* Hover colours only where hover exists: on a phone a tap would leave the
+   hover colour stuck on the button. */
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover { background: var(--accent-hover); color: var(--on-accent); }
+  .btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+  .text-btn:hover { color: var(--accent-hover); }
+}
 .btn-ghost { border-color: var(--edge); color: var(--text); background: transparent; }
-.btn-ghost:hover { border-color: var(--muted); color: var(--text); }
 .btn-sm { min-height: 44px; padding: 0 16px; font-size: 15px; }
 /* A text button: replay, and other quiet actions. */
 .text-btn {
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0;
   background: none; border: 0; color: var(--accent); cursor: pointer;
   font: 600 14px/1 var(--sans);
+  transition: color .18s, transform .14s var(--ease-out);
 }
-.text-btn:hover { color: var(--accent-hover); }
 .text-btn svg { width: 16px; height: 16px; }
 
 /* ---------- Header ---------- */
@@ -189,6 +202,12 @@ p { margin: 0; text-wrap: pretty; }
 .col-label { display: block; margin-bottom: 20px; color: var(--faint); font: 12px/1.4 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
 .col-label .live { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 1px; }
 
+/* IN, beat 1: the phone confirms its owner. Machine status, so mono. */
+.verify { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; color: var(--muted); font: 13px/1.4 var(--mono); }
+.verify svg { width: 20px; height: 20px; flex: none; }
+.verify .fp { color: var(--text-2); }
+.verify .ok { width: 16px; height: 16px; color: var(--accent); }
+
 /* IN: the code the phone hands over. */
 .token {
   margin: 0 0 22px; font: 400 clamp(20px, 1.85vw, 28px)/1.5 var(--mono);
@@ -219,36 +238,48 @@ p { margin: 0; text-wrap: pretty; }
 }
 .photo-pending b { display: block; color: var(--text-2); font-weight: 400; font-size: 14px; margin-bottom: 4px; }
 .stage-photo img + .photo-pending { display: none; }
+/* The reader's "beep": an indigo ring that flashes once on the tap. */
+.photo-ring { position: absolute; inset: 0; box-shadow: inset 0 0 0 2px var(--accent); opacity: 0; pointer-events: none; }
 
-/* Leaders: the indigo lines joining IN to the photo and the photo to OUT. */
-.stage-col::after {
-  content: ""; position: absolute; top: 50%; width: 40px; height: 2px; background: var(--accent);
-  transform-origin: left center; transition: transform .45s var(--ease-out);
-}
-.stage-col:first-child::after { right: -20px; }
-.stage-col:last-child::after { left: -20px; }
+/* Leaders: the indigo lines joining IN to the photo and the photo to OUT.
+   Real elements (not ::after) so the Web Animations timeline can drive them. */
+.leader { position: absolute; top: 50%; width: 40px; height: 2px; background: var(--accent); transform-origin: left center; z-index: 1; }
+.stage-col:first-child .leader { right: -20px; }
+.stage-col:last-child .leader { left: -20px; }
 
 /* OUT: the register. */
 .count { margin: 0; font: 700 clamp(56px, 6.2vw, 96px)/1 var(--mono); letter-spacing: -.04em; color: var(--text); font-variant-numeric: tabular-nums; }
 .count small { font-size: clamp(20px, 2vw, 30px); font-weight: 400; letter-spacing: 0; color: var(--faint); }
+/* The last digit is a two-digit strip (6 over 7) in a one-digit window;
+   the finished state shows the 7. */
+.roll { display: inline-block; height: 1em; overflow: hidden; vertical-align: top; }
+.roll-strip { display: block; transform: translateY(-50%); }
+.roll-strip span { display: block; height: 1em; }
 .count-sub { margin: 10px 0 22px; color: var(--muted); font-size: 15px; }
+/* Rows are a fixed 36px so the window is exactly four rows and the list
+   can slide by one row with a transform (no height animation). */
+.log-window { height: calc(4 * 36px); overflow: hidden; }
 .log { list-style: none; margin: 0; padding: 0; font: 13px/1 var(--mono); }
-.log li { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; padding: 11px 0; border-top: 1px solid var(--rule); color: var(--muted); }
+.log li { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; height: 36px; border-top: 1px solid var(--rule); color: var(--muted); }
 .log li:first-child { color: var(--text); }
 .log .st { color: var(--present); }
-.log li { transition: opacity .5s var(--ease-out), transform .5s var(--ease-out); }
 
 .stage-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; margin-top: 10px; color: var(--faint); font-size: 14px; }
 
-/* The tap, played (hero.js). Content is visible by default; the script
-   adds .is-ready to set the start state, then .is-played to run it. With
-   reduced motion or no script, the finished state is all there is. */
-.stage.is-ready .stage-col::after { transform: scaleX(0); }
-.stage.is-ready .log li:first-child { opacity: 0; transform: translateY(-8px); }
-.stage.is-played .stage-col::after { transform: scaleX(1); }
-.stage.is-played .stage-col:last-child::after { transition-delay: .25s; }
-.stage.is-played .log li:first-child { opacity: 1; transform: none; transition-delay: .55s; }
-.token.is-typing .cursor { display: inline-block; width: .55em; height: 1.1em; vertical-align: -.2em; background: var(--accent); }
+/* The tap: verify, then tap, then recorded (hero.js plays it once the stage
+   is in view). The markup is the finished state. ".motion" (set by the
+   inline script in <head> before first paint) shows the rewound state
+   below until hero.js marks the stage .played; ".motion-done" (the 3 s
+   fallback) cancels the rewind, so content is never stuck hidden. */
+.motion:not(.motion-done) .stage:not(.played) .verify,
+.motion:not(.motion-done) .stage:not(.played) .verify .ok,
+.motion:not(.motion-done) .stage:not(.played) .photo-ring { opacity: 0; }
+.motion:not(.motion-done) .stage:not(.played) .token span { clip-path: inset(0 100% 0 0); }
+.motion:not(.motion-done) .stage:not(.played) .leader { transform: scaleX(0); }
+.motion:not(.motion-done) .stage:not(.played) .roll-strip { transform: translateY(0); }
+.motion:not(.motion-done) .stage:not(.played) .live { opacity: .3; }
+.motion:not(.motion-done) .stage:not(.played) .log { transform: translateY(-36px); }
+.motion:not(.motion-done) .stage:not(.played) .log li:first-child { opacity: 0; }
 
 @media (max-width: 1000px) {
   .stage-top { grid-template-columns: 1fr; }
@@ -258,13 +289,44 @@ p { margin: 0; text-wrap: pretty; }
   .stage-photo { grid-column: 1 / -1; grid-row: 1; aspect-ratio: 4 / 3; min-height: 0; }
   .stage-col:first-child { border-right: 1px solid var(--rule); }
   .stage-col:last-child { border-left: 0; }
-  .stage-col::after { display: none; }
+  .leader { display: none; }
 }
 @media (max-width: 640px) {
   .stage { grid-template-columns: 1fr; margin-left: calc(var(--gutter) * -1); margin-right: calc(var(--gutter) * -1); }
   .stage-col { padding: 24px var(--gutter); }
   .stage-col:first-child { border-right: 0; border-bottom: 1px solid var(--rule); }
   .cta-row .btn { flex: 1 1 100%; }
+}
+
+/* ---------- The hall: 200 students, one dot each ----------
+   The one quiet statement after the stage: a headline at display size and
+   the hall as a 20 x 10 register. hall.js scatters the dots, then snaps
+   them into the grid in reading order when the section comes into view;
+   green, because each dot ends as a "present" check-in (keyed below). */
+/* overflow-x: clip, not hidden: scattered dots that spill past the edge
+   must not widen the page on a phone, and clip doesn't create a scroll
+   container. */
+.hall { padding: clamp(80px, 11vw, 144px) 0; border-top: 1px solid var(--rule); overflow-x: clip; }
+.hall-inner { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 48px clamp(40px, 6vw, 96px); align-items: center; }
+.hall h2 { font-size: clamp(32px, 4.2vw, 56px); line-height: 1.04; letter-spacing: -.026em; margin-bottom: 20px; }
+.hall-copy p { color: var(--muted); font-size: 18px; max-width: 34em; }
+.hall-copy .hall-note { margin-top: 14px; color: var(--faint); font-size: 14px; }
+.hall-figure { margin: 0; --d: clamp(9px, 1.05vw, 15px); --g: clamp(6px, .75vw, 11px); }
+/* position: relative so each dot's offsetLeft/Top (hall.js) is measured
+   from the grid, not the page. */
+.hall-grid { position: relative; display: grid; grid-template-columns: repeat(20, var(--d)); gap: var(--g); }
+.hall-grid i { display: block; width: var(--d); height: var(--d); border-radius: 50%; background: var(--present); }
+.hall-count { margin-top: 22px; color: var(--faint); font: 14px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.hall-n { color: var(--text); font-weight: 700; }
+.hall-key { margin-left: 18px; display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); }
+.hall-key i { width: 8px; height: 8px; border-radius: 50%; background: var(--present); }
+/* Until hall.js has scattered them, the dots stay hidden, so nobody sees
+   the finished grid blink into a scatter. The 3 s fallback (.motion-done)
+   shows the grid if the script never arrives. */
+.motion:not(.motion-done) .hall:not(.ready) .hall-grid i { opacity: 0; }
+@media (max-width: 900px) {
+  .hall-inner { grid-template-columns: 1fr; }
+  .hall-figure { --d: clamp(8px, 2.6vw, 14px); --g: clamp(5px, 1.6vw, 10px); }
 }
 
 /* ---------- Sections ---------- */
@@ -283,6 +345,36 @@ p { margin: 0; text-wrap: pretty; }
 /* Fixed, not --faint: the caption sits on the bezel, dark in both themes. */
 .phone figcaption { margin-top: 14px; text-align: center; color: #8a8a8a; font-size: 13px; }
 @media (min-width: 901px) { .phone-sticky { position: sticky; top: 32px; } }
+/* Per-step screens (steps.js): later screens sit over step 1 and fade in
+   when their step is active. Without the script only step 1 shows. */
+.phone-screen img[data-step] { transition: opacity .2s ease; }
+.phone-screen img[data-step]:not([data-step="1"]) { opacity: 0; }
+.phone-screen[data-active="2"] img[data-step="2"],
+.phone-screen[data-active="3"] img[data-step="3"] { opacity: 1; }
+.step-cap:not([data-step="1"]) { display: none; }
+#step-phone[data-active="2"] .step-cap, #step-phone[data-active="3"] .step-cap { display: none; }
+#step-phone[data-active="2"] .step-cap[data-step="2"],
+#step-phone[data-active="3"] .step-cap[data-step="3"] { display: inline; }
+/* The active step's time marker stays indigo; the others go quiet. */
+.sequence[data-active] .t { color: var(--faint); transition: color .2s ease; }
+.sequence[data-active="1"] li[data-step="1"] .t,
+.sequence[data-active="2"] li[data-step="2"] .t,
+.sequence[data-active="3"] li[data-step="3"] .t { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .phone-screen img[data-step], .sequence .t { transition: none; }
+}
+/* Narrow screens: three small phones in a row, one per step, replace the
+   sticky switching phone (which only has room beside the steps). */
+.step-strip { display: none; }
+@media (max-width: 900px) {
+  #step-phone { display: none; }
+  .step-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; list-style: none; margin: 0 0 36px; padding: 0; max-width: 520px; }
+  .step-strip figure { margin: 0; }
+  .step-strip .mini { padding: 4px; border-radius: 18px; background: #050505; border: 1px solid var(--edge); }
+  .step-strip .phone-screen { border-radius: 14px; }
+  .step-strip figcaption { margin-top: 10px; text-align: center; color: var(--muted); font-size: 13px; line-height: 1.35; }
+  .step-strip figcaption span { display: block; margin-bottom: 2px; color: var(--accent); font: 700 12px/1 var(--mono); }
+}
 
 /* How a check-in works: a timed sequence, so the times are the markers. */
 .sequence { list-style: none; margin: 0; padding: 0; }
@@ -319,9 +411,17 @@ p { margin: 0; text-wrap: pretty; }
 .threat summary::-webkit-details-marker { display: none; }
 .threat summary h3 { font-size: 17px; font-weight: 600; }
 .threat .stop { color: var(--muted); font-size: 15px; }
-.threat summary svg { width: 20px; height: 20px; color: var(--faint); transition: transform .25s var(--ease-out); }
+.threat summary svg { width: 20px; height: 20px; color: var(--faint); transition: transform .2s var(--ease-out); }
+/* Opening is when the visitor reads, so the answer eases in; closing is
+   instant (nobody should wait for a panel to leave). */
+.threat[open] p { animation: reveal .2s var(--ease-out); }
+@keyframes reveal { from { opacity: 0; transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) {
+  .threat[open] p { animation-name: reveal-fade; }
+}
+@keyframes reveal-fade { from { opacity: 0; } }
 .threat[open] summary svg { transform: rotate(45deg); }
-.threat summary:hover h3 { color: var(--accent); }
+@media (hover: hover) and (pointer: fine) { .threat summary:hover h3 { color: var(--accent); } }
 .threat p { max-width: 62ch; padding: 0 0 22px; color: var(--muted); }
 /* The open gap is marked by type, not a tint: a bold label in the row. */
 .threat.open-gap .gap-label { display: block; margin-bottom: 2px; color: var(--text-2); font-size: 13px; font-weight: 600; letter-spacing: .02em; }

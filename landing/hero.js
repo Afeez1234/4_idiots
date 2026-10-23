@@ -1,17 +1,27 @@
-// The one piece of motion on the site: the tap, played once on load.
+// The one piece of motion on the site: the tap, in three beats.
 //
-// The finished state is the page's default markup, so with no script, a
-// failed load or reduced motion, visitors see the complete stage. This
-// script only rewinds it and plays it forward:
-//   1. the 32-character code fills in, payload then signature;
-//   2. the indigo leaders draw into and out of the photo (CSS);
-//   3. the newest line lands on the register as the count ticks 186 -> 187.
-// "Replay the tap" runs it again (handy when presenting the page).
+//   verify   the phone confirms its owner (fingerprint line, then its check)
+//   tap      the signed code arrives whole, then crosses to the reader:
+//            leader IN -> photo, and the reader's indigo "beep"
+//   recorded leader photo -> OUT, the register slides down one row, the
+//            count's last digit rolls 6 -> 7, the live dot blinks once
+//
+// Pacing: slow where the person acts (verify), fast where the system
+// responds (tap, record). The tap leader is the quickest beat on screen
+// because the real exchange is about 0.1 s.
+//
+// The markup is the finished state. The inline script in <head> adds
+// .motion before first paint, and styles.css shows the rewound state until
+// this script marks the stage .played. One Web Animations timeline drives
+// it, so Replay can cancel it cleanly. With reduced motion the same beats
+// play as opacity fades only: no movement, no clip, no roll.
 
 (function () {
+  window.suaamsHero = true; // tells the <head> fallback this script arrived
+
   // Optional images (the reader photo before it's uploaded, screenshots)
   // remove themselves when missing, so the frame behind them shows instead
-  // of a broken-image icon. Replaces the old inline onerror handlers.
+  // of a broken-image icon.
   document.querySelectorAll('img[data-optional]').forEach(function (img) {
     if (img.complete && img.naturalWidth === 0) { img.remove(); return; }
     img.addEventListener('error', function () { img.remove(); });
@@ -19,81 +29,121 @@
 
   var stage = document.getElementById('stage');
   if (!stage) return;
+  var root = document.documentElement;
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-
-  var token = stage.querySelector('.token');
-  var parts = [token.querySelector('.payload'), token.querySelector('.sig')];
-  var full = parts.map(function (el) { return el.textContent; });
-  var count = stage.querySelector('.count-now');
-  var finalCount = parseInt(count.textContent, 10);
   var replay = document.getElementById('replay');
-  var timers = [];
 
-  function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
-  function clear() { timers.forEach(clearTimeout); timers = []; }
+  // If the 3 s fallback already showed the finished stage, leave it; Replay
+  // can still play it.
+  var autoplay = !root.classList.contains('motion-done');
 
-  function finish() {
-    clear();
-    parts.forEach(function (el, i) { el.textContent = full[i]; });
-    token.classList.remove('is-typing');
-    count.textContent = finalCount;
-    stage.classList.remove('is-ready');
-    stage.classList.add('is-played');
+  var EASE_OUT = 'cubic-bezier(.16, 1, .3, 1)';
+  var EASE_MOVE = 'cubic-bezier(.77, 0, .175, 1)';
+
+  var q = function (sel) { return stage.querySelector(sel); };
+  var el = {
+    verify: q('.verify'),
+    ok: q('.verify .ok'),
+    payload: q('.token .payload'),
+    sig: q('.token .sig'),
+    leaderIn: q('.stage-col:first-child .leader'),
+    ring: q('.photo-ring'),
+    leaderOut: q('.stage-col:last-child .leader'),
+    log: q('.log'),
+    newRow: q('.log li:first-child'),
+    oldRow: q('.log li:last-child'),
+    digit: q('.roll-strip'),
+    dot: q('.live')
+  };
+  var running = [];
+
+  // [element, keyframes, start ms, duration ms, easing]
+  function fullTimeline() {
+    var shut = 'inset(0 100% 0 0)', open = 'inset(0 0 0 0)';
+    return [
+      // verify
+      [el.verify, [{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }], 120, 220, EASE_OUT],
+      [el.ok, [{ opacity: 0, transform: 'scale(.9)' }, { opacity: 1, transform: 'none' }], 380, 160, EASE_OUT],
+      // the code arrives whole: payload, then signature 60 ms behind
+      [el.payload, [{ clipPath: shut }, { clipPath: open }], 540, 220, EASE_OUT],
+      [el.sig, [{ clipPath: shut }, { clipPath: open }], 600, 220, EASE_OUT],
+      // tap: the fastest beat
+      [el.leaderIn, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], 860, 180, EASE_MOVE],
+      [el.ring, [{ opacity: 0 }, { opacity: 1, offset: .3 }, { opacity: 0 }], 960, 300, 'ease'],
+      // recorded
+      [el.leaderOut, [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], 1040, 180, EASE_MOVE],
+      [el.log, [{ transform: 'translateY(-36px)' }, { transform: 'none' }], 1220, 240, EASE_OUT],
+      [el.newRow, [{ opacity: 0 }, { opacity: 1 }], 1220, 200, EASE_OUT],
+      [el.oldRow, [{ opacity: 1 }, { opacity: 0 }], 1220, 160, EASE_OUT],
+      [el.digit, [{ transform: 'translateY(0)' }, { transform: 'translateY(-50%)' }], 1240, 220, EASE_OUT],
+      [el.dot, [{ opacity: .3 }, { opacity: 1 }], 1220, 200, 'ease']
+    ];
+  }
+
+  // Reduced motion: the same order, as fades, with nothing travelling.
+  function gentleTimeline() {
+    var open = 'inset(0 0 0 0)';
+    return [
+      [el.verify, [{ opacity: 0 }, { opacity: 1 }], 0, 200, 'ease'],
+      [el.ok, [{ opacity: 0 }, { opacity: 1 }], 0, 200, 'ease'],
+      [el.payload, [{ clipPath: open, opacity: 0 }, { clipPath: open, opacity: 1 }], 150, 200, 'ease'],
+      [el.sig, [{ clipPath: open, opacity: 0 }, { clipPath: open, opacity: 1 }], 150, 200, 'ease'],
+      [el.leaderIn, [{ transform: 'none', opacity: 0 }, { transform: 'none', opacity: 1 }], 300, 200, 'ease'],
+      [el.leaderOut, [{ transform: 'none', opacity: 0 }, { transform: 'none', opacity: 1 }], 300, 200, 'ease'],
+      [el.log, [{ transform: 'none' }, { transform: 'none' }], 450, 0, 'linear'],
+      [el.newRow, [{ opacity: 0 }, { opacity: 1 }], 450, 200, 'ease'],
+      [el.digit, [{ transform: 'translateY(-50%)' }, { transform: 'translateY(-50%)' }], 450, 0, 'linear'],
+      [el.dot, [{ opacity: .3 }, { opacity: 1 }], 450, 200, 'ease']
+    ];
+  }
+
+  function cancelAll() {
+    running.forEach(function (a) { a.cancel(); });
+    running = [];
   }
 
   function play() {
-    if (reduce.matches) { finish(); return; }
-    clear();
-    // Rewind: empty code, leaders retracted, newest line and count held back.
-    stage.classList.remove('is-played');
-    stage.classList.add('is-ready');
-    parts.forEach(function (el) { el.textContent = ''; });
-    count.textContent = finalCount - 1;
-    token.classList.add('is-typing');
-    var cursor = document.createElement('span');
-    cursor.className = 'cursor';
-    cursor.setAttribute('aria-hidden', 'true');
+    cancelAll();
+    root.classList.remove('motion-done');
+    stage.classList.remove('played'); // CSS rewinds the stage
+    var beats = reduce.matches ? gentleTimeline() : fullTimeline();
+    running = beats.filter(function (b) { return b[0]; }).map(function (b) {
+      return b[0].animate(b[1], { delay: b[2], duration: b[3], easing: b[4], fill: 'both' });
+    });
+    Promise.all(running.map(function (a) { return a.finished; })).then(function () {
+      // Hand the end state back to CSS, then drop the animations.
+      stage.classList.add('played');
+      cancelAll();
+    }, function () { /* cancelled by a replay: the new run takes over */ });
+  }
 
-    // 32 characters at 22 ms each: about 0.7 s for the whole code.
-    var i = 0, step = 22, total = full[0].length + full[1].length;
-    for (var n = 1; n <= total; n++) {
-      later(function () {
-        i++;
-        var a = Math.min(i, full[0].length);
-        parts[0].textContent = full[0].slice(0, a);
-        parts[1].textContent = full[1].slice(0, Math.max(0, i - full[0].length));
-        (i < full[0].length ? parts[0] : parts[1]).after(cursor);
-      }, 250 + n * step);
-    }
-    var done = 250 + total * step;
-    later(function () {
-      cursor.remove();
-      token.classList.remove('is-typing');
-      // Force the rewound state to paint before the transition starts.
-      void stage.offsetWidth;
-      stage.classList.add('is-played');
-    }, done + 80);
-    // The count ticks as the new log line lands (its CSS delay is .55 s).
-    later(function () {
-      count.textContent = finalCount;
-      stage.classList.remove('is-ready');
-    }, done + 80 + 650);
+  // Replay: a short fade to the rewound state rather than a blank frame.
+  function replayTap() {
+    if (!stage.classList.contains('played') || reduce.matches) { play(); return; }
+    var dyn = [el.verify, el.payload, el.sig, el.leaderIn, el.leaderOut, el.newRow];
+    var fades = dyn.filter(Boolean).map(function (d) {
+      return d.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 150, easing: 'ease', fill: 'forwards' });
+    });
+    fades[0].finished.then(function () {
+      play();
+      fades.forEach(function (f) { f.cancel(); });
+    });
   }
 
   if (replay) {
     replay.hidden = false;
-    replay.addEventListener('click', play);
+    replay.addEventListener('click', replayTap);
   }
-  reduce.addEventListener && reduce.addEventListener('change', finish);
-  // Play when the stage first comes into view, not on load: on a phone the
-  // stage starts below the first screen, and a load-time play would finish
-  // before anyone scrolled to it. Until then it shows its finished state.
-  if ('IntersectionObserver' in window) {
-    var io = new IntersectionObserver(function (entries) {
-      if (entries[0].isIntersecting) { io.disconnect(); play(); }
-    }, { threshold: 0.35 });
-    io.observe(stage);
-  } else {
-    play();
+
+  if (!autoplay || !('IntersectionObserver' in window)) {
+    // No autoplay: show the finished stage (Replay still works).
+    stage.classList.add('played');
+    return;
   }
+  // Play when the stage is properly in view. On a phone it starts below the
+  // first screen, so a load-time play would finish before anyone saw it.
+  var io = new IntersectionObserver(function (entries) {
+    if (entries[0].isIntersecting) { io.disconnect(); play(); }
+  }, { threshold: 0.35 });
+  io.observe(stage);
 })();

@@ -839,19 +839,68 @@ photo at mid-height.
   PRESENT in green), the newest in full white and the rest muted.
 - **Demo label:** a faint caption under the stage says it is demo data;
   "Replay the tap" sits opposite it.
-- **The tap, played once:** when the stage first comes 35% into view, the
-  code types in at 22ms a character behind an indigo block cursor, the
-  leaders draw (scaleX, 450ms, the second 250ms later), the newest register
-  row drops in (500ms, 550ms delay) and the count ticks up by one. The
-  finished state is the page's markup: with no script, a failed load or
-  reduced motion, visitors see the complete stage. Replay reruns it.
+- **The tap, played once (verify → tap → recorded):** when the stage first
+  comes 35% into view, about 1.5s in total, from one Web Animations
+  timeline in `hero.js`:
+  - *Verify* (deliberate): the "fingerprint verified" line fades and
+    scales in from .96 (220ms, ease-out, at 120ms), its indigo check
+    follows (160ms, at 380ms).
+  - *Tap* (fast): the code arrives whole with a left-to-right clip reveal,
+    payload then signature 60ms behind (220ms each, from 540ms); the IN
+    leader draws in 180ms with the strong ease-in-out (at 860ms); the photo
+    flashes a 2px indigo ring once, the reader's "beep" (300ms, at 960ms).
+  - *Recorded* (fast): the OUT leader draws (180ms, at 1040ms); the
+    register slides down one 36px row inside a four-row window, the new row
+    fading in and the oldest fading out (240 / 200 / 160ms, at 1220ms); the
+    count's last digit rolls 6 → 7 (220ms); the live dot blinks once.
+  - Slow where the person acts, fast where the system responds: the tap
+    leader is the quickest beat because the real exchange is about 0.1s.
+  - The markup is the finished state. An inline script in `<head>` adds
+    `.motion` before first paint so the stage starts rewound (no flash of
+    the finished stage); a 3s fallback (`.motion-done`) shows the finished
+    stage if `hero.js` never arrives. With no script at all the finished
+    stage is plain markup. Reduced motion plays the same beats as opacity
+    fades only (no clip, travel or roll). Replay fades the stage out over
+    150ms, then replays.
 - **Photo pending:** until the reader photo is uploaded, the centre shows
   a hatched frame naming the shot it is waiting for.
+
+### The hall (site)
+The one quiet statement after the stage, and the page's second visual beat:
+the stage shows one tap, the hall shows a whole lecture.
+- **Layout:** a display-size headline ("A 200-student hall, checked in
+  without a queue.", clamp(32px, 4.2vw, 56px)) with the worked-out timings
+  and a faint "worked out, not timed with a crowd" note, beside a 20 x 10
+  grid of dots, one per student, in Present green (each dot ends as a
+  present check-in, keyed "present" under the grid with the count
+  "200 / 200" in Readout). Stacks below 900px.
+- **Motion (hall.js):** before the trigger the dots sit scattered and grey,
+  spilling a little past the grid (a hall arriving). When the grid is 40% in
+  view they snap to their seats in reading order, 7ms apart (200 in 1.4s),
+  each a 560ms ease-out travel from scale .8 and half opacity, turning green
+  in the last third of its travel; the count ticks with the dots. About 2s,
+  once. A fixed pseudo-random scatter, so it looks the same on every visit.
+- **Never decoration:** every dot is one student. Don't change the number
+  of dots without changing the copy, and keep the timings labelled as
+  worked out.
+- The finished grid is the markup; until hall.js has scattered it the dots
+  are hidden under `.motion` (the same 3s fallback as the stage). Reduced
+  motion, no IntersectionObserver or no script: the grid simply shows.
+  `overflow-x: clip` on the section keeps spilled dots from widening the
+  page.
 
 ### Ruled rows (site)
 - **Timed sequence** ("how it works"): a 112px marker column with the time
   in indigo Readout (`t = 0`, `within 10 s`, `+ 0.1 s`), then a title and
   muted body. The times are the markers; there are no step numbers.
+  Beside it, on desktop, the sticky phone shows each step's real screen
+  (ID card, "listening for terminal", "attendance verified" with its
+  notification), crossfading in 200ms as that step crosses the middle of
+  the window (steps.js); the active step's time stays indigo and the others
+  go faint. At 900px and below the sticky phone is replaced by a row of
+  three small phones (4px bezel, 18px corners), one per step, labelled
+  with the step number in indigo Readout, under the section heading;
+  nothing switches or dims there.
 - **Threat list:** one `<details>` per attempt. The summary row (64px
   minimum) holds the attempt as a title, what stops it in muted text, and a
   plus that rotates 45 degrees to a cross when open (250ms). Hovering turns

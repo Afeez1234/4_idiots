@@ -16,7 +16,21 @@
   <link rel="preload" href="fonts/IBMPlexSans-Bold.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/IBMPlexMono-Regular.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="styles.css">
+  <!-- Rewind the stage before first paint, so a visitor never sees it
+       finished and then blank itself when the tap starts, and the hall's
+       dots never blink from grid to scatter (styles.css, ".motion"). If
+       hero.js or hall.js hasn't taken over within 3 s (slow network,
+       blocked script), "motion-done" shows the finished stage instead:
+       the content is never left hidden. -->
+  <script>
+    document.documentElement.classList.add('motion');
+    setTimeout(function () {
+      if (!window.suaamsHero || !window.suaamsHall) document.documentElement.classList.add('motion-done');
+    }, 3000);
+  </script>
   <script src="hero.js" defer></script>
+  <script src="hall.js" defer></script>
+  <script src="steps.js" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -47,7 +61,15 @@
     <symbol id="plus" viewBox="0 0 24 24">
       <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </symbol>
-    <symbol id="replay" viewBox="0 0 24 24">
+    <symbol id="fingerprint" viewBox="0 0 24 24">
+      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+        <path d="M5 13v-1a7 7 0 0 1 14 0v1"/>
+        <path d="M8 16v-4a4 4 0 0 1 8 0v2.5c0 1.6.4 3.1 1.2 4.4"/>
+        <path d="M12 12v3.5c0 2 .6 3.8 1.6 5.3"/>
+        <path d="M8.8 19.2A9.6 9.6 0 0 1 8 16"/>
+      </g>
+    </symbol>
+    <symbol id="icon-replay" viewBox="0 0 24 24">
       <path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </symbol>
   </svg>
@@ -97,6 +119,13 @@
         <div class="stage" id="stage">
           <div class="stage-col">
             <span class="col-label">In · from the phone</span>
+            <!-- Beat 1 of the tap (hero.js): the phone confirms its owner
+                 before it will ask for a code. -->
+            <p class="verify">
+              <svg class="fp" aria-hidden="true"><use href="#fingerprint"/></svg>
+              <span>fingerprint verified</span>
+              <svg class="ok" aria-hidden="true"><use href="#check"/></svg>
+            </p>
             <p class="token" aria-label="Demo check-in code, 32 characters"><span class="payload">AAAEEgAAAT5pSj39</span><span class="sig">3V4BJ6kGWbueNNGq</span></p>
             <dl class="decode">
               <div>
@@ -108,6 +137,7 @@
                 <dd class="prose">Change one character and the reader is refused.</dd>
               </div>
             </dl>
+            <span class="leader" aria-hidden="true"></span>
           </div>
 
           <figure class="stage-photo">
@@ -117,62 +147,136 @@
             <img src="img/reader-tap.webp" width="1600" height="1200" data-optional
                  alt="A phone held to the SUAAMS reader at a lecture-hall door. The reader's screen shows the class and how many students have checked in.">
             <div class="photo-pending"><div><b>Reader photo coming</b>a phone tapping the SUAAMS reader,<br>its screen showing the class and the count</div></div>
+            <!-- The reader's "beep" when the phone taps: one indigo flash. -->
+            <span class="photo-ring" aria-hidden="true"></span>
           </figure>
 
           <div class="stage-col">
+            <span class="leader" aria-hidden="true"></span>
             <span class="col-label"><span class="live" aria-hidden="true"></span>Out · to the lecturer</span>
-            <p class="count"><span class="count-now">187</span><small> / 200</small></p>
+            <!-- Only the last digit rolls (6 to 7) when the new check-in
+                 lands; screen readers get the settled number. -->
+            <p class="count"><span class="sr-only">187 of 200</span><span class="count-now" aria-hidden="true">18<span class="roll"><span class="roll-strip"><span>6</span><span>7</span></span></span></span><small aria-hidden="true"> / 200</small></p>
             <p class="count-sub">checked in to MCT 402 Embedded Systems</p>
-            <ol class="log" aria-label="Latest check-ins">
-              <li><span>08:04:12</span><span>••••7731</span><span class="st">PRESENT</span></li>
-              <li><span>08:04:11</span><span>••••0458</span><span class="st">PRESENT</span></li>
-              <li><span>08:04:11</span><span>••••2210</span><span class="st">PRESENT</span></li>
-              <li><span>08:04:10</span><span>••••6095</span><span class="st">PRESENT</span></li>
-            </ol>
+            <!-- A four-row window onto the register. The fifth (oldest) row is
+                 what the window shows before the tap; the newest row slides in
+                 from the top and pushes it out of the bottom. -->
+            <div class="log-window">
+              <ol class="log" aria-label="Latest check-ins">
+                <li><span>08:04:12</span><span>••••7731</span><span class="st">PRESENT</span></li>
+                <li><span>08:04:11</span><span>••••0458</span><span class="st">PRESENT</span></li>
+                <li><span>08:04:11</span><span>••••2210</span><span class="st">PRESENT</span></li>
+                <li><span>08:04:10</span><span>••••6095</span><span class="st">PRESENT</span></li>
+                <li aria-hidden="true"><span>08:04:09</span><span>••••1183</span><span class="st">PRESENT</span></li>
+              </ol>
+            </div>
           </div>
         </div>
 
         <div class="stage-foot">
           <span>Demo code and demo check-ins, not real students.</span>
           <button class="text-btn" type="button" id="replay" hidden>
-            <svg aria-hidden="true"><use href="#replay"/></svg>
+            <svg aria-hidden="true"><use href="#icon-replay"/></svg>
             Replay the tap
           </button>
         </div>
       </div>
     </section>
 
+    <!-- The hall: 200 dots, one per student, scattered as they arrive,
+         snapping into the register as they check in (hall.js). The
+         finished grid is the markup, so with no script or reduced motion
+         it simply shows. The figures are worked out from per-student
+         timings (0.5 s a tap, about 2 s at a door scanner), labelled so. -->
+    <section class="hall" aria-labelledby="hall-title">
+      <div class="wrap hall-inner">
+        <div class="hall-copy">
+          <h2 id="hall-title">A 200-student hall, checked in without a queue.</h2>
+          <p>Each dot is one student. A tap takes under half a second, so the whole hall is through in under 2 minutes. A fingerprint scanner on the door, at about 2 seconds a student, would take about 7.</p>
+          <p class="hall-note">Worked out from per-student timings, not timed with a crowd.</p>
+        </div>
+        <figure class="hall-figure">
+          <div class="hall-grid" id="hall" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+          <figcaption class="hall-count"><span class="hall-n">200</span> / 200 <span class="hall-key"><i aria-hidden="true"></i>present</span></figcaption>
+        </figure>
+      </div>
+    </section>
+
     <!-- How it works -->
     <section id="how" class="section" aria-labelledby="how-title">
       <div class="wrap split">
-        <figure class="phone phone-sticky">
+        <!-- One screen per step, real captures from the demo account. Step 1
+             shows by default (and is all that shows without script or on a
+             phone); steps.js crossfades to each step's screen as that step
+             reaches the middle of the window. The fingerprint prompt itself
+             can't be captured (Android blocks screenshots of it), so step 1
+             is the ID card's Check in button that opens it. -->
+        <figure class="phone phone-sticky" id="step-phone">
           <div class="phone-screen">
-            <img src="img/app-id-card.webp" width="540" height="1085" loading="lazy" data-optional
-                 alt="The SUAAMS app's digital ID card screen, with a Check in with this ID button">
+            <img src="img/app-id-card.webp" width="540" height="1085" loading="lazy" data-optional data-step="1"
+                 alt="Step 1: the SUAAMS app's digital ID card, with a Check in with this ID button">
+            <img src="img/app-tap.webp" width="540" height="1085" loading="lazy" data-optional data-step="2" aria-hidden="true"
+                 alt="Step 2: the app listening for the terminal while the phone is held to the reader">
+            <img src="img/app-marked.webp" width="540" height="1085" loading="lazy" data-optional data-step="3" aria-hidden="true"
+                 alt="Step 3: Attendance verified, checked in for MCT 402, with the Attendance recorded notification">
           </div>
-          <figcaption>Step one, in the app (demo account)</figcaption>
+          <figcaption><span class="step-cap" data-step="1">Step one: confirm it's you</span><span class="step-cap" data-step="2">Step two: at the reader</span><span class="step-cap" data-step="3">Step three: marked present</span> (demo account)</figcaption>
         </figure>
         <div>
           <div class="section-head">
             <h2 id="how-title">One check-in, start to finish.</h2>
             <p>The lecturer starts the class from the app or the web portal. Then each student does this at the door.</p>
           </div>
-          <ol class="sequence">
+          <!-- Phones and narrow windows: the sticky switching phone (steps.js)
+               needs room beside the steps, so here all three screens sit in
+               a row instead, each labelled with its step. Hidden above 900px. -->
+          <ol class="step-strip">
             <li>
+              <figure>
+                <div class="mini"><div class="phone-screen"><img src="img/app-id-card.webp" width="540" height="1085" loading="lazy" data-optional alt="Step 1: the SUAAMS app's digital ID card, with a Check in with this ID button"></div></div>
+                <figcaption><span>1</span> Confirm it's you</figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <div class="mini"><div class="phone-screen"><img src="img/app-tap.webp" width="540" height="1085" loading="lazy" data-optional alt="Step 2: the app listening for the terminal while the phone is held to the reader"></div></div>
+                <figcaption><span>2</span> At the reader</figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure>
+                <div class="mini"><div class="phone-screen"><img src="img/app-marked.webp" width="540" height="1085" loading="lazy" data-optional alt="Step 3: Attendance verified, checked in for MCT 402, with the Attendance recorded notification"></div></div>
+                <figcaption><span>3</span> Marked present</figcaption>
+              </figure>
+            </li>
+          </ol>
+          <ol class="sequence" id="steps">
+            <li data-step="1">
               <span class="t">t = 0</span>
               <div>
                 <h3>Confirm it's you</h3>
                 <p>Press <strong>Check in</strong> and touch the fingerprint sensor, or enter your phone's PIN. The app does nothing until your phone confirms it's you, then it asks the server for a signed code.</p>
               </div>
             </li>
-            <li>
+            <li data-step="2">
               <span class="t">within 10 s</span>
               <div>
                 <h3>Tap the reader</h3>
                 <p>Hold your phone to the reader at the door, within about 4 cm. The phone hands over its 32-character code in one exchange of about a tenth of a second. The code belongs to you and this class only, and it expires after 10 seconds.</p>
               </div>
             </li>
-            <li>
+            <li data-step="3">
               <span class="t">+ 0.1 s</span>
               <div>
                 <h3>You're marked</h3>

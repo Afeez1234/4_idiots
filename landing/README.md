@@ -11,7 +11,9 @@ from the Flask server at `portal.suaams.com.ng`. See section 11 of
 | `get/poster.html` | Printable A4 poster with the QR code (print from the browser, A4, no margins) |
 | `privacy.html` | Privacy policy (needed for the Play Store) |
 | `styles.css` | All styling for the three pages; dark by default, light follows the system |
-| `hero.js` | The one animation (the tap, played on load, with "Replay the tap"), and hides missing images |
+| `hero.js` | The one animation: the tap (verify, tap, recorded) when the stage comes into view, with "Replay the tap"; also hides missing images. Motion timings are in DESIGN.md, "The stage" |
+| `hall.js` | The hall: 200 dots, one per student, snapping from a scatter into the register when the section comes into view |
+| `steps.js` | "How it works": on desktop the phone beside the steps shows each step's screen as that step reaches the middle of the window (narrow screens show all three in a row instead, no script needed) |
 | `fonts/` | IBM Plex Sans and Mono, cut down to Latin WOFF2 from the app's own TTFs |
 | `img/qr-get.svg` | QR code for `https://suaams.com.ng/get` |
 | `favicon.svg` | Tab icon, the SUAAMS mark |
@@ -22,7 +24,7 @@ from the Flask server at `portal.suaams.com.ng`. See section 11 of
 
 1. cPanel → **File Manager** → `public_html`. Delete the host's
    placeholder page if there is one.
-2. Upload `index.html`, `privacy.html`, `styles.css`, `hero.js`,
+2. Upload `index.html`, `privacy.html`, `styles.css`, `hero.js`, `hall.js`, `steps.js`,
    `favicon.svg`, `.htaccess` (turn on *Show Hidden Files* to see it), and
    the `fonts/`, `img/` and `get/` folders with their contents.
 3. Create `public_html/downloads/` and upload the APKs there (below).
@@ -46,6 +48,8 @@ python landing/tools/shots.py id-card
 python landing/tools/shots.py records --from shot.jpg   # a screenshot you already have
 ```
 
+Android won't screenshot the fingerprint prompt (it comes out black), so step one uses the ID card's Check in button instead. With `--from`, pass `--top 120 --bottom 50` (Galaxy S24) yourself: the crop is off by default there, and the status bar shows your own notification icons.
+
 It crops the status and gesture bars, trims to the phone frame's shape and
 writes a ~20 KB WebP to `img/`. The crop defaults suit a Galaxy S24; pass
 `--top` / `--bottom` for another phone.
@@ -54,6 +58,8 @@ writes a ~20 KB WebP to `img/`. The crop defaults suit a Galaxy S24; pass
 |---|---|---|
 | `img/app-id-card.webp` | ID Card tab | "How it works", step one |
 | `img/app-records.webp` | Records tab | "Know where you stand" |
+| `img/app-tap.webp` | "Listening for terminal" sheet, mid check-in | "How it works", step two |
+| `img/app-marked.webp` | "Attendance verified" sheet with the "Attendance recorded" notification | "How it works", step three |
 
 Upload into `public_html/img/`. Until a file is there, its phone frame
 shows a placeholder label instead of a broken image.
