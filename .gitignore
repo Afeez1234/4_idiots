@@ -17,3 +17,6 @@ SUAAMS/_shot_*.png
 
 .claude
 .codex
+# Android Studio / IntelliJ settings and caches (SUAAMS_Mobile/.idea was
+# tracked: 3,000+ lines that change per machine and only add diff noise).
+.idea/
