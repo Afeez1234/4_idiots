@@ -288,6 +288,23 @@ def attended_by_course(course_ids):
                 .group_by(SessionModel.course_id))
 
 
+def attended_by_session(course_ids):
+    """{session_id: attendances} for every held class of these courses. A
+    held class nobody attended is absent from the dict (read it with
+    .get(id, 0)). For per-class trends (lecturer analytics, web and app),
+    which each had their own copy of this query, the web page one per
+    course."""
+    from models import db, Session as SessionModel, Attendance
+    if not course_ids:
+        return {}
+    return dict(db.session.query(Attendance.session_id, db.func.count(Attendance.id))
+                .join(SessionModel, Attendance.session_id == SessionModel.id)
+                .filter(SessionModel.course_id.in_(list(course_ids)),
+                        SessionModel.is_active.is_(False),
+                        Attendance.status.in_(ATTENDED_STATUSES))
+                .group_by(Attendance.session_id))
+
+
 def attended_by_student(course_ids, student_ids=None):
     """{(student_id, course_id): held classes attended}. student_ids limits
     it to those students (one student's dashboard); None means everyone."""

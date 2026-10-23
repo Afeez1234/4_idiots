@@ -1,6 +1,7 @@
 import csv
 import io
 import re
+from collections import defaultdict
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response, jsonify
 from datetime import date, datetime, timezone
 from utils import (login_required, resolve_timetable_slot_for_course, notify_announcement,
@@ -8,7 +9,7 @@ from utils import (login_required, resolve_timetable_slot_for_course, notify_ann
                    taught_course, courses_taught_by, teaches, current_courses,
                    build_course_register_csv, students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps,
-                   course_attendance, ATTENDED_STATUSES)
+                   course_attendance, ATTENDED_STATUSES, attended_by_session)
 from models import db, Lecturer, Course, Session as SessionModel, Attendance, Student, Enrollment, Department, Semester, Announcement
 from extensions import log_exception, limiter
 
@@ -429,17 +430,26 @@ def analytics():
         # courses with at least one completed session (an all-zero flat
         # line for a brand-new course isn't a trend, it's noise).
         trend_series = []
-        for i, row in enumerate(course_reports[:len(ANALYTICS_PALETTE)]):
+        # Two queries for all the charted courses, not one per course: their
+        # held classes, and the shared per-class attendance count
+        # (utils.attended_by_session, also used by the app's analytics).
+        charted = course_reports[:len(ANALYTICS_PALETTE)]
+        held_by_course = defaultdict(list)
+        for sess_id, course_id, sess_date in (
+                db.session.query(SessionModel.id, SessionModel.course_id, SessionModel.session_date)
+                .filter(SessionModel.course_id.in_([r['course'].id for r in charted]),
+                        SessionModel.is_active.is_(False))
+                .order_by(SessionModel.session_date.asc(), SessionModel.id.asc())):
+            held_by_course[course_id].append((sess_id, sess_date))
+        present_by_session = attended_by_session([r['course'].id for r in charted])
+
+        for i, row in enumerate(charted):
             course = row['course']
             enrolled = row['enrolled_count']
 
-            sessions_data = db.session.query(
-                SessionModel.session_date,
-                db.func.count(Attendance.id)
-            ).outerjoin(Attendance, (Attendance.session_id == SessionModel.id) & Attendance.status.in_(ATTENDED_STATUSES))\
-             .filter(SessionModel.course_id == course.id, SessionModel.is_active == False)\
-             .group_by(SessionModel.id)\
-             .order_by(SessionModel.session_date.asc()).all()
+            # A held class nobody attended still plots, at 0.
+            sessions_data = [(sess_date, present_by_session.get(sess_id, 0))
+                             for sess_id, sess_date in held_by_course[course.id]]
 
             if not sessions_data:
                 continue

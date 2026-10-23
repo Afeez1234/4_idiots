@@ -9,6 +9,7 @@ from utils import (build_course_register_csv, start_class_session, end_class_ses
                    students_not_checked_in, mark_student_present,
                    pending_offline_taps, review_offline_tap, accept_all_offline_taps,
                    notify_announcement, course_attendance, ATTENDED_STATUSES,
+                   attended_by_session, attended_by_student,
                    resolve_timetable_slot_for_course)
 import terminal_rooms
 
@@ -738,14 +739,10 @@ def get_course_analytics(course_id):
         )
         total_sessions = len(sessions)
 
-        # Present count per completed session, in one grouped query.
-        present_by_session = dict(
-            db.session.query(Attendance.session_id, db.func.count(Attendance.id))
-            .join(SessionModel, Attendance.session_id == SessionModel.id)
-            .filter(SessionModel.course_id == course_id, SessionModel.is_active == False,  # noqa: E712
-                    Attendance.status.in_(ATTENDED_STATUSES))
-            .group_by(Attendance.session_id)
-        )
+        # Present count per completed session. The shared attendance rule
+        # (utils), not a copy of it: this endpoint used to write both of
+        # these queries out by hand.
+        present_by_session = attended_by_session([course_id])
 
         # Chronological trend -- one point per completed session.
         trend = []
@@ -767,17 +764,11 @@ def get_course_analytics(course_id):
         avg_attendance = round(pct_sum / total_sessions, 1) if total_sessions else 0
 
         # Completed sessions attended per student, in one grouped query.
-        attended_by_student = dict(
-            db.session.query(Attendance.student_id, db.func.count(Attendance.id))
-            .join(SessionModel, Attendance.session_id == SessionModel.id)
-            .filter(SessionModel.course_id == course_id, SessionModel.is_active == False,  # noqa: E712
-                    Attendance.status.in_(ATTENDED_STATUSES))
-            .group_by(Attendance.student_id)
-        )
+        attended_map = attended_by_student([course_id])
 
         students = []
         for student in enrolled_students:
-            attended = attended_by_student.get(student.id, 0)
+            attended = attended_map.get((student.id, course_id), 0)
             pct = round((attended / total_sessions * 100) if total_sessions else 0, 1)
             students.append({
                 'student_id': student.id,

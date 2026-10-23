@@ -6,6 +6,7 @@
   * a running class links to its session page (Mark present, offline taps),
     and End Session asks first;
   * Session History rows carry a real link, not only an onclick;
+  * the Analytics trend has a point for every held class, 0 included;
   * Reports has a semester picker -- since the "now" screens were scoped it
     could show only the current semester -- and the CSV follows it.
 
@@ -13,7 +14,9 @@ Run with:  python tests/test_lecturer_portal.py
 (also collected by pytest if it is installed)
 """
 
+import json
 import os
+import re
 import sys
 import unittest
 from datetime import date, datetime, timezone
@@ -146,6 +149,21 @@ class LecturerPortalTestCase(unittest.TestCase):
         db.session.commit()
         html = self.client.get('/lecturer/sessions/history').get_data(as_text=True)
         self.assertIn(f'<a href="/lecturer/course/{self.new401.id}/session/{self.live.id}"', html)
+
+    # ---- analytics trend -------------------------------------------------------------------
+
+    def test_analytics_trend_counts_each_held_class(self):
+        # Built from utils.attended_by_session since 2026-10-23 (one query
+        # for every charted course, not one per course). A held class nobody
+        # attended still plots at 0; a course with no held class is left out.
+        self.live.is_active = False                                 # Ada attended (late)
+        db.session.add(SessionModel(course_id=self.new401.id, session_date=date(2026, 10, 20),
+                                    is_active=False))               # nobody came
+        db.session.commit()
+        html = self.client.get('/lecturer/analytics').get_data(as_text=True)
+        trend = json.loads(re.search(r'const trendData = (.*?);\n', html).group(1))
+        self.assertEqual([(s['code'], [(p['date'], p['pct']) for p in s['points']]) for s in trend],
+                         [('NEW401', [('2026-10-19', 100.0), ('2026-10-20', 0.0)])])
 
     # ---- reports ---------------------------------------------------------------------------
 
