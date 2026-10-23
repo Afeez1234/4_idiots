@@ -39,7 +39,9 @@ import calendar
 import os
 import sys
 import time
+import types
 import unittest
+from datetime import datetime, timezone
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -288,6 +290,38 @@ class CheckinTestCase(unittest.TestCase):
                                 json={'records': [record]})
         self.assertEqual(resp.status_code, 200)
         return OfflineCheckinLog.query.one()
+
+    def test_duplicate_in_a_backlog_chunk_does_not_lose_the_others(self):
+        # The reader drops a chunk on any answer, so a 500 lost every tap in
+        # it. Simulates the race: another reader's upload of the same tap
+        # lands between this route's duplicate check and its save.
+        db.session.add(OfflineCheckinLog(student_id=self.student.id, session_id=self.session_a.id,
+                                         terminal_id='terminal-02', status='pending_verification',
+                                         captured_at=datetime.now(timezone.utc)))
+        _, other = self.make_student('MCT/20/0002', 'pw2')
+        db.session.add(Enrollment(student_id=other.id, course_id=self.session_a.course_id))
+        db.session.commit()
+        records = [{'beacon_token': mint_beacon(self.student.id, self.session_a.id)},
+                   {'beacon_token': mint_beacon(other.id, self.session_a.id)}]
+
+        real_query = OfflineCheckinLog.query
+        blind = {'once': True}
+
+        class Lookup:   # the first duplicate lookup misses, as in the race
+            @staticmethod
+            def filter_by(**kw):
+                if blind.pop('once', False):
+                    return types.SimpleNamespace(first=lambda: None)
+                return real_query.filter_by(**kw)
+
+        with mock.patch.object(OfflineCheckinLog, 'query', Lookup):
+            resp = self.client.post('/api/v1/student/checkin/backlog', headers=TERMINAL,
+                                    json={'records': records})
+        self.assertEqual(resp.status_code, 200)
+        first, second = resp.get_json()['results']
+        self.assertEqual(first['reason'], 'already recorded')
+        self.assertEqual(second['status'], 'pending_verification')
+        self.assertEqual(OfflineCheckinLog.query.filter_by(student_id=other.id).count(), 1)
 
     def test_offline_tap_read_promptly_is_reviewed_at_its_read_time(self):
         read_at = int(time.time()) + 3

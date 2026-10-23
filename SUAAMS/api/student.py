@@ -1488,7 +1488,24 @@ def sync_offline_checkin_backlog():
             reason=reason,
             wrong_room=wrong_room,
         )
+        # Saved one record at a time. The reader drops a chunk on ANY answer
+        # from the server (it keeps it only when there's no answer), so the
+        # one shared commit this used to end with turned a single duplicate
+        # -- the same tap uploaded by two readers at once, past the
+        # `existing` check above -- into a 500 that lost every other tap in
+        # the chunk. Now only the duplicate is rolled back.
         db.session.add(log)
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            other = OfflineCheckinLog.query.filter_by(
+                student_id=student_id, session_id=session_id
+            ).first()
+            entry.update(status=other.status if other else 'rejected',
+                         reason="already recorded", captured_at=captured_at.isoformat())
+            results.append(entry)
+            continue
         accepted += 1
 
         entry.update(
@@ -1502,8 +1519,6 @@ def sync_offline_checkin_backlog():
         if reason:
             entry['reason'] = reason
         results.append(entry)
-
-    db.session.commit()
 
     current_app.logger.info(
         "Offline backlog sync from terminal %s: %d record(s), %d newly stored",
