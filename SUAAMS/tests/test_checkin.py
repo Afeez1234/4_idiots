@@ -300,7 +300,9 @@ class CheckinTestCase(unittest.TestCase):
     def test_offline_token_replayed_later_is_rejected_not_reviewed(self):
         # Minted now, read 85 minutes later: no unmodified app serves a token
         # that long, so "Accept all" must never see it.
-        log = self.sync(int(time.time()) + 85 * 60)
+        # +30 s of slack: the token is minted inside sync(), a moment after
+        # this line, and a lag of 85 min minus a second reads "84 min".
+        log = self.sync(int(time.time()) + 85 * 60 + 30)
         self.assertEqual(log.status, 'rejected')
         self.assertIn('85 min', log.reason)
         from utils import pending_offline_taps
