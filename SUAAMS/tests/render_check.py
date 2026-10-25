@@ -172,8 +172,8 @@ def _timetable_import_plan():
     shared = PlannedSlot("GST212", "L", 1, time(15), time(17), "MAIN HALL",
                          course=SimpleNamespace(id=2, course_title="Logic", course_code="GST212"),
                          shared_with=["Electrical · 200 level"])
-    bad = PlannedSlot("NOPE999", "T", 3, time(9), time(10), "",
-                      errors=["No course NOPE999 in 2025/2026 Second Semester. Create it on the Courses page, then upload again."])
+    bad = PlannedSlot("NOPE999", "T", 3, time(9), time(10), "", missing=True,
+                      errors=["No course NOPE999 in 2025/2026 Second Semester. Add it on the Courses page, then Check again."])
     sheet = SheetPlan("acc200.pdf", "Accounting", 200, "Second Semester 2025/2026",
                       slots=[ok, shared, bad],
                       notes=["Mon 09:00: couldn't read \"X\" -- skipped."])
@@ -738,6 +738,9 @@ CONTEXTS = {
         plan=_timetable_import_plan(),
         semester={"id": 1, "name": "2025/2026 Second Semester"},
         plan_json="{}",
+        # The missing-courses box and a "Just added" pill (2026-10-25).
+        missing=[{"course_code": "NOPE999", "department": "Accounting"}],
+        just_added={"GST212"},
         day_names=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
         kind_names={"L": "Lecture", "T": "Tutorial", "P": "Practical"},
     ),

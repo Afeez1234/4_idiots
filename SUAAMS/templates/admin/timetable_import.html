@@ -32,6 +32,12 @@
         {% endif %}
 
         {% if plan.ok %}
+            {% if just_added %}
+                <p class="text-sm text-secondary">
+                    {{ just_added|length }} course{{ '' if just_added|length == 1 else 's' }} added since the last check
+                    now match{{ 'es' if just_added|length == 1 }} (marked <em>Just added</em> below).
+                </p>
+            {% endif %}
             <p class="text-sm text-secondary">
                 Everything checks out. Saving stores these classes as a <strong>draft</strong>:
                 students and lecturers won't see them until the timetable is published.
@@ -48,11 +54,55 @@
                 <span>
                     {{ plan.problem_count }} problem{{ '' if plan.problem_count == 1 else 's' }} below must be fixed before
                     anything can be saved{% if plan.copied_from %} &mdash; fix them on this semester's timetable or
-                    courses, then copy again{% else %} &mdash; in the sheet, or by creating missing courses on the
-                    Courses page. Then upload the sheets again{% endif %}. Nothing has been saved.
+                    courses, then check again{% else %} &mdash; in the sheet (then upload it again), or by adding the
+                    missing courses or fixing a clash, then <strong>Check again</strong>{% endif %}. Nothing has been saved.
                 </span>
             </div>
-            <a href="{{ url_for('admin.timetable_page') }}" class="btn-secondary">Back to the timetable</a>
+
+            {# Missing courses (2026-10-25). The sheet has no title or lecturer,
+               so SUAAMS can't create them; it hands over a ready-made upload
+               file instead, and Check again re-reads this same preview -- no
+               need to upload the PDFs again. The Courses page opens in a new
+               tab so this preview stays open behind it. #}
+            {% if missing %}
+                <div class="rounded-lg border border-divider p-4 space-y-3">
+                    <p class="text-sm text-ink">
+                        <strong>{{ missing|length }} course{{ '' if missing|length == 1 else 's' }}</strong>
+                        on these sheets {{ "isn't" if missing|length == 1 else "aren't" }} in SUAAMS yet:
+                        <span class="mono text-xs">{{ missing|map(attribute='course_code')|join(', ') }}</span>
+                    </p>
+                    <ol class="list-decimal pl-5 text-sm text-secondary space-y-1">
+                        <li>Download {{ 'it' if missing|length == 1 else 'them' }} as Excel. The codes and departments are filled in; add each course's
+                            <strong>title</strong> and its lecturers' <strong>staff IDs</strong>.</li>
+                        <li>Upload that file on the Courses page (it opens in a new tab, with {{ semester.name }} picked).</li>
+                        <li>Come back to this tab and click <strong>Check again</strong>.</li>
+                    </ol>
+                    <div class="flex flex-wrap gap-2">
+                        <form action="{{ url_for('admin.timetable_import_missing_courses') }}" method="POST">
+                            {% include '_csrf_field.html' %}
+                            <input type="hidden" name="semester_id" value="{{ semester.id }}">
+                            <input type="hidden" name="plan" value="{{ plan_json }}">
+                            <button type="submit" class="btn-secondary btn-sm">
+                                {{ icon_svg('download', 'h-3.5 w-3.5 shrink-0') }}
+                                Download missing courses (.xlsx)
+                            </button>
+                        </form>
+                        <a href="{{ url_for('admin.courses_page', semester=semester.id) }}#bulk-courses-file"
+                           target="_blank" rel="noopener" class="btn-ghost btn-sm">Open the Courses page</a>
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="flex flex-wrap gap-2">
+                <form action="{{ url_for('admin.timetable_import_recheck') }}" method="POST">
+                    {% include '_csrf_field.html' %}
+                    <input type="hidden" name="semester_id" value="{{ semester.id }}">
+                    <input type="hidden" name="plan" value="{{ plan_json }}">
+                    <input type="hidden" name="was_missing" value="{{ missing|map(attribute='course_code')|join(',') }}">
+                    <button type="submit" class="btn-primary">Check again</button>
+                </form>
+                <a href="{{ url_for('admin.timetable_page') }}" class="btn-ghost">Back to the timetable</a>
+            </div>
         {% endif %}
     </div>
 
@@ -91,6 +141,8 @@
                                 <td class="td">
                                     <span class="font-medium mono">{{ s.code }}</span>
                                     {% if s.course %}<span class="text-2xs text-muted"> {{ s.course.course_title }}</span>{% endif %}
+                                    {# Missing at the last check, matched now: added since. #}
+                                    {% if s.code in just_added %} {{ pill('Just added', 'accent') }}{% endif %}
                                 </td>
                                 <td class="td td-muted">{{ kind_names[s.kind] if s.kind in kind_names else (s.kind or '—') }}</td>
                                 <td class="td td-muted">{{ s.room or '—' }}</td>

@@ -2253,9 +2253,10 @@ def timetable_import():
     return _render_import_preview(plan, semester)
 
 
-@admin_bp.route('/timetable/import/confirm', methods=['POST'])
-@limiter.limit("10 per minute")
-def timetable_import_confirm():
+def _posted_import_plan():
+    """(semester, payload) from a preview's form, or (None, None) when it
+    isn't a valid preview -- confirm, Check again and the missing-courses
+    download all post the same hidden fields."""
     semester = db.session.get(Semester, request.form.get('semester_id', type=int) or 0)
     try:
         payload = json.loads(request.form.get('plan') or '{}')
@@ -2263,6 +2264,60 @@ def timetable_import_confirm():
         payload = None
     if not semester or not payload or payload.get('semester_id') != semester.id:
         flash('That preview is no longer valid. Upload the sheets again.', 'error')
+        return None, None
+    return semester, payload
+
+
+@admin_bp.route('/timetable/import/recheck', methods=['POST'])
+@limiter.limit("20 per minute")
+def timetable_import_recheck():
+    """Check the same preview again -- after adding its missing courses, or
+    fixing a clash -- without uploading the PDFs again. The codes that were
+    missing before and match now are marked "Just added"."""
+    semester, payload = _posted_import_plan()
+    if not semester:
+        return redirect(url_for('admin.timetable_page'))
+    try:
+        plan = tt_import.plan_slots(payload, semester)
+    except Exception:
+        log_exception("Timetable Import Recheck Error")
+        flash('Something went wrong checking that preview. Upload the sheets again.', 'error')
+        return redirect(url_for('admin.timetable_page'))
+    was_missing = {c for c in request.form.get('was_missing', '').split(',') if c}
+    now_missing = {row['course_code'] for row in tt_import.missing_courses(plan)}
+    return _render_import_preview(plan, semester, just_added=was_missing - now_missing)
+
+
+@admin_bp.route('/timetable/import/missing-courses', methods=['POST'])
+@limiter.limit("20 per minute")
+def timetable_import_missing_courses():
+    """The preview's missing course codes as an Excel file in the Courses
+    bulk upload's format: codes and departments filled in, title and
+    lecturers left for the admin (the timetable doesn't say them)."""
+    semester, payload = _posted_import_plan()
+    if not semester:
+        return redirect(url_for('admin.timetable_page'))
+    try:
+        plan = tt_import.plan_slots(payload, semester)
+        rows = tt_import.missing_courses(plan)
+    except Exception:
+        log_exception("Timetable Missing Courses Error")
+        flash('Something went wrong preparing that file. Upload the sheets again.', 'error')
+        return redirect(url_for('admin.timetable_page'))
+    if not rows:
+        flash('Every course on these sheets exists now.', 'info')
+        return _render_import_preview(plan, semester)
+    slug = re.sub(r'[^A-Za-z0-9]+', '_', semester.name).strip('_')
+    return Response(bulk_upload.courses_workbook(rows),
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    headers={'Content-Disposition': f'attachment; filename=missing_courses_{slug}.xlsx'})
+
+
+@admin_bp.route('/timetable/import/confirm', methods=['POST'])
+@limiter.limit("10 per minute")
+def timetable_import_confirm():
+    semester, payload = _posted_import_plan()
+    if not semester:
         return redirect(url_for('admin.timetable_page'))
 
     try:
@@ -2327,12 +2382,14 @@ def timetable_copy():
     return _render_import_preview(plan, target)
 
 
-def _render_import_preview(plan, semester):
+def _render_import_preview(plan, semester, just_added=()):
     return render_template(
         'admin/timetable_import.html',
         plan=plan,
         semester=semester,
         plan_json=json.dumps(plan.to_json()),
+        missing=tt_import.missing_courses(plan),
+        just_added=set(just_added),
         day_names=tt_import.DAY_NAMES,
         kind_names=KINDS,
         active_page='timetable',

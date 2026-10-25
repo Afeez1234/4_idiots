@@ -538,6 +538,26 @@ def apply_courses(plan, semester):
     return len(rows)
 
 
+def courses_workbook(rows):
+    """[{column: value}] -> an Excel workbook (bytes) in the Courses upload's
+    format: the header row first, as read_xlsx expects, then the rows. Used
+    for the timetable import's missing courses: the admin fills in what the
+    timetable can't say (title, lecturers) and uploads it as it is."""
+    from openpyxl import Workbook
+    book = Workbook()
+    sheet = book.active
+    sheet.title = 'Courses'
+    sheet.append(list(COURSE_COLUMNS))
+    for row in rows:
+        sheet.append([row.get(c, '') for c in COURSE_COLUMNS])
+    for letter, width in zip('ABCDE', (14, 40, 32, 13, 28)):
+        sheet.column_dimensions[letter].width = width
+    sheet.freeze_panes = 'A2'
+    out = io.BytesIO()
+    book.save(out)
+    return out.getvalue()
+
+
 def template_csv(kind):
     """A header row plus one example, for the "Download template" links."""
     if kind == 'students':

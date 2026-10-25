@@ -13,7 +13,11 @@ anything the checks would reject.
 Rules
 -----
 * A class must match a course by code (spaces and capitals ignored) in the
-  chosen semester. Unknown codes are errors: create the course, re-upload.
+  chosen semester. Unknown codes are errors. The sheet has only a code, a
+  kind and a room -- no title or lecturer -- so the course can't be made
+  from it. Instead (2026-10-25) the preview offers missing_courses() as an
+  Excel file for the Courses bulk upload, codes and departments filled
+  in, and "Check again" re-checks the same plan without the PDFs.
 * The same class can appear on several sheets -- a GST course on every
   department's sheet. Identical copies (same course, kind, day, time, room)
   are one class, not a room clash.
@@ -57,6 +61,7 @@ class PlannedSlot:
     end: time
     room: str
     course: Course | None = None
+    missing: bool = False   # no course with this code: goes in missing_courses()
     errors: list[str] = field(default_factory=list)
     shared_with: list[str] = field(default_factory=list)   # other sheets with the same class
 
@@ -228,7 +233,8 @@ def _check(plan, semester):
                 continue
             matches = courses.get(normalize_code(s.code), [])
             if not matches:
-                s.errors.append(f"No course {s.code} in {semester.name}. Create it on the Courses page, then try again.")
+                s.missing = True
+                s.errors.append(f"No course {s.code} in {semester.name}. Add it on the Courses page, then Check again.")
             elif len(matches) > 1:
                 s.errors.append(f"More than one course is coded {s.code}; give them distinct codes first.")
             else:
@@ -316,6 +322,22 @@ def _courses_by_code(semester):
         if exact:
             out[code] = exact
     return out
+
+
+def missing_courses(plan):
+    """The codes no course matches, as rows for the Courses bulk upload:
+    [{'course_code', 'department'}], each code once, sorted. The department
+    is the sheet's, spelled as SUAAMS spells it -- left blank when SUAAMS
+    has no such department, or when the code is on more than one
+    department's sheet (a GST course belongs to none of them)."""
+    names = {d.name.strip().lower(): d.name for d in Department.query.all()}
+    found = {}
+    for sheet in plan.sheets:
+        for s in sheet.slots:
+            if s.missing:
+                found.setdefault(s.code, set()).add(names.get((sheet.department or '').strip().lower(), ''))
+    return [{'course_code': code, 'department': depts.pop() if len(depts) == 1 else ''}
+            for code, depts in sorted(found.items())]
 
 
 def _same_semester(sheet_label, semester_name):

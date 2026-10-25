@@ -130,7 +130,7 @@ class TimetableImportTestCase(unittest.TestCase):
         self.assertFalse(plan.ok)
         bad = [s for s in plan.sheets[0].slots if s.errors]
         self.assertEqual({s.code for s in bad}, {'SAM103'})
-        self.assertIn('Create it on the Courses page', bad[0].errors[0])
+        self.assertIn('Add it on the Courses page, then Check again', bad[0].errors[0])
 
     def test_same_class_on_two_sheets_is_saved_once(self):
         plan = self.plan(make_sample.build_pdf(), make_sample.build_pdf())
@@ -223,6 +223,79 @@ class TimetableImportTestCase(unittest.TestCase):
             self.client.post('/admin/timetable/import/confirm', data={
                 'semester_id': self.sem.id, 'plan': json.dumps(payload)})
         self.assertEqual(Timetable.query.count(), 0)
+
+    # ---- missing courses and Check again (2026-10-25) --------------------------
+    # The first semester has nothing to copy from, and the sheet has no title
+    # or lecturer, so the courses can't be made from it. The preview hands
+    # over an Excel file for the Courses upload instead, and Check again
+    # re-checks the same plan without the PDFs.
+
+    def test_missing_courses_lists_each_code_once_with_its_department(self):
+        db.session.delete(self.courses['SAM103'])
+        db.session.commit()
+        payload = self.plan().to_json()
+        # A second sheet, from a department SUAAMS doesn't have, with
+        # SAM103 (now on two departments' sheets) and a code of its own.
+        other = dict(payload['sheets'][0], filename='other.pdf', department='Unknown Studies')
+        other['slots'] = [dict(payload['sheets'][0]['slots'][0], code='SAM103', day=5),
+                          dict(payload['sheets'][0]['slots'][0], code='NEW900', day=5, start='14:00', end='15:00')]
+        payload['sheets'].append(other)
+        plan = ti.plan_slots(payload, self.sem)
+        self.assertEqual(ti.missing_courses(plan), [
+            {'course_code': 'NEW900', 'department': ''},     # no such department in SUAAMS
+            {'course_code': 'SAM103', 'department': ''},     # on two departments' sheets
+        ])
+        # One department, spelled as SUAAMS spells it (the sheet is upper case).
+        plan = ti.plan_slots(self.plan().to_json(), self.sem)
+        self.assertEqual(ti.missing_courses(plan), [{'course_code': 'SAM103', 'department': 'Sample Studies'}])
+
+    def test_downloaded_file_uploads_once_title_and_lecturer_are_added(self):
+        import bulk_upload
+        from openpyxl import load_workbook
+        db.session.delete(self.courses['SAM103'])
+        db.session.commit()
+        self.sign_in()
+        resp = self.client.post('/admin/timetable/import/missing-courses', data={
+            'semester_id': self.sem.id, 'plan': json.dumps(self.plan().to_json())})
+        self.assertIn('spreadsheetml', resp.mimetype)
+        self.assertIn('missing_courses_2025_2026_Second_Semester.xlsx', resp.headers['Content-Disposition'])
+
+        # As downloaded it's incomplete: no title, no lecturer.
+        rows = bulk_upload.read_upload(resp.data, 'missing.xlsx', 'courses')
+        self.assertEqual(rows[0].values['course_code'], 'SAM103')
+        self.assertFalse(bulk_upload.plan_courses(rows, 'missing.xlsx', self.sem).ok)
+
+        # The admin fills in the two blanks and uploads it as it is.
+        book = load_workbook(io.BytesIO(resp.data))
+        book.active['B2'], book.active['E2'] = 'Sample Course Three', 'STF/1'
+        filled = io.BytesIO()
+        book.save(filled)
+        rows = bulk_upload.read_upload(filled.getvalue(), 'missing.xlsx', 'courses')
+        self.assertTrue(bulk_upload.plan_courses(rows, 'missing.xlsx', self.sem).ok)
+
+    def test_check_again_matches_added_courses_without_the_pdfs(self):
+        db.session.delete(self.courses['SAM103'])
+        db.session.commit()
+        self.sign_in()
+        plan_json = json.dumps(self.plan().to_json())
+        self.course('SAM103', self.lect)                    # added on the Courses page meanwhile
+        db.session.commit()
+        with mock.patch('blueprints.admin.render_template', return_value='') as render:
+            self.client.post('/admin/timetable/import/recheck', data={
+                'semester_id': self.sem.id, 'plan': plan_json, 'was_missing': 'SAM103'})
+            kwargs = render.call_args.kwargs
+        self.assertTrue(kwargs['plan'].ok)
+        self.assertEqual(kwargs['just_added'], {'SAM103'})
+        self.assertEqual(kwargs['missing'], [])
+        self.assertEqual(Timetable.query.count(), 0)        # checking saves nothing
+
+    def test_check_again_refuses_a_preview_for_another_semester(self):
+        self.sign_in()
+        payload = self.plan().to_json()
+        payload['semester_id'] = self.sem.id + 1
+        resp = self.client.post('/admin/timetable/import/recheck', data={
+            'semester_id': self.sem.id, 'plan': json.dumps(payload)})
+        self.assertEqual(resp.status_code, 302)
 
 
 if __name__ == '__main__':

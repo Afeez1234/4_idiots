@@ -153,7 +153,10 @@ Student Affairs' PDF sheets are uploaded, up to 10 at a time. The server reads
 each sheet, matches every class to a course, checks room and lecturer clashes,
 and shows a preview. Saved classes are drafts until an admin publishes, and
 then only students and lecturers whose classes changed are notified. Next year,
-last year's timetable can be copied as a starting point.
+last year's timetable can be copied as a starting point. In the first semester,
+when no courses exist yet, the preview lists the missing ones as an Excel file
+for the course upload; the sheet has no titles or lecturers, so those are the
+only things typed by hand.
 *Limitation:* The reader is built for Student Affairs' current layout; a new
 layout means updating it.
 
