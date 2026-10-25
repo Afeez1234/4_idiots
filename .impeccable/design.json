@@ -994,36 +994,6 @@
           "#FFE9E6"
         ]
       },
-      "site-sunk-dark": {
-        "role": "neutral",
-        "displayName": "Sunk (dark)",
-        "canonical": "oklch(19.1% 0.000 89.9)",
-        "tonalRamp": [
-          "#0B0B0B",
-          "#252525",
-          "#424242",
-          "#616161",
-          "#828282",
-          "#A5A5A5",
-          "#C9C9C9",
-          "#EEEEEE"
-        ]
-      },
-      "site-sunk-light": {
-        "role": "neutral",
-        "displayName": "Sunk (light)",
-        "canonical": "oklch(98.5% 0.000 89.9)",
-        "tonalRamp": [
-          "#0B0B0B",
-          "#252525",
-          "#424242",
-          "#616161",
-          "#828282",
-          "#A5A5A5",
-          "#C9C9C9",
-          "#EEEEEE"
-        ]
-      },
       "site-faint-dark": {
         "role": "neutral",
         "displayName": "Faint (dark)",
@@ -1223,11 +1193,11 @@
       },
       "site-code": {
         "displayName": "Site Code (Plex Mono)",
-        "purpose": "The 32-character check-in code on the stage."
+        "purpose": "The 32-character check-in code under Security."
       },
       "site-count": {
         "displayName": "Site Count (Plex Mono Bold)",
-        "purpose": "The register count; tabular figures."
+        "purpose": "The lecturer's live list count; tabular figures."
       },
       "site-readout": {
         "displayName": "Site Readout (Plex Mono)",
@@ -1484,12 +1454,12 @@
       "css": ".ds-site { background:#0F0F0F; color:#FFFFFF; font:400 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; padding:24px; } .ds-site-row { display:flex; flex-wrap:wrap; gap:12px; align-items:center; } .ds-sbtn { display:inline-flex; align-items:center; gap:10px; min-height:52px; padding:0 22px; border-radius:12px; border:1px solid transparent; font:600 16px/1.2 'IBM Plex Sans', system-ui, sans-serif; text-decoration:none; transition:background-color .18s, border-color .18s, color .18s, transform .12s cubic-bezier(.16,1,.3,1); } .ds-sbtn svg { width:20px; height:20px; } .ds-sbtn:active { transform:scale(.98); } .ds-sbtn:focus-visible, .ds-stext:focus-visible { outline:2px solid #818CF8; outline-offset:3px; } .ds-sbtn-primary { background:#818CF8; color:#0F0F0F; } .ds-sbtn-primary:hover { background:#A5B4FC; } .ds-sbtn-ghost { border-color:#2A2A2A; color:#FFFFFF; } .ds-sbtn-ghost:hover { border-color:#B0B0B0; } .ds-stext { display:inline-flex; align-items:center; gap:8px; min-height:44px; padding:0; background:none; border:0; color:#818CF8; font:600 14px/1 'IBM Plex Sans', system-ui, sans-serif; cursor:pointer; } .ds-stext svg { width:16px; height:16px; } .ds-stext:hover { color:#A5B4FC; }"
     },
     {
-      "name": "Site Stage",
+      "name": "Site Tap",
       "kind": "custom",
-      "refersTo": "site-stage-column",
-      "description": "IN (decoded code) | reader photo | OUT (register), sunk side columns, indigo leaders; demo label beneath.",
-      "html": "<div class=\"ds-site\"><div class=\"ds-stage\"><div class=\"ds-col\"><p class=\"ds-token\"><span class=\"ds-pay\">AAAEEgAAAT5pSj39</span><span class=\"ds-sig\">3V4BJ6kGWbueNNGq</span></p><dl class=\"ds-decode\"><dt><i></i>Who, which class, until when</dt><dd>student 1042 &middot; session 318 &middot; expires 10 s</dd><dt><i class=\"s\"></i>A signature only the server can make</dt><dd class=\"ds-prose\">Change one character and the reader is refused.</dd></dl></div><div class=\"ds-photo\">reader photo</div><div class=\"ds-col\"><p class=\"ds-count\">187<small> / 200</small></p><p class=\"ds-sub\">checked in to MCT 402</p><ol class=\"ds-log\"><li><span>08:04:12</span><span>&bull;&bull;&bull;&bull;7731</span><b>PRESENT</b></li><li><span>08:04:11</span><span>&bull;&bull;&bull;&bull;0458</span><b>PRESENT</b></li></ol></div></div><p class=\"ds-foot\">Demo code and demo check-ins, not real students.</p></div>",
-      "css": ".ds-site { background:#0F0F0F; color:#FFFFFF; font:400 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; padding:24px; } .ds-stage { display:grid; grid-template-columns:1fr 1.3fr 1fr; width:760px; border-top:1px solid #1C1C1C; border-bottom:1px solid #1C1C1C; } .ds-col { position:relative; padding:24px 20px; background:#141414; } .ds-col:first-child { border-right:1px solid #1C1C1C; } .ds-col:last-child { border-left:1px solid #1C1C1C; } .ds-col::after { content:''; position:absolute; top:50%; width:40px; height:2px; background:#818CF8; } .ds-col:first-child::after { right:-20px; } .ds-col:last-child::after { left:-20px; } .ds-photo { display:grid; place-items:center; background:#1C1C1C; color:#8A8A8A; font-size:14px; } .ds-token { margin:0 0 18px; font:400 20px/1.5 'IBM Plex Mono', ui-monospace, monospace; letter-spacing:.02em; word-break:break-all; } .ds-token span { display:block; width:fit-content; } .ds-pay { box-shadow:inset 0 -2px 0 #818CF8; } .ds-sig { margin-top:6px; color:#D4D4D4; box-shadow:inset 0 -2px 0 #2A2A2A; } .ds-decode { margin:0; } .ds-decode dt { display:grid; grid-template-columns:18px 1fr; align-items:baseline; font-weight:600; font-size:14px; } .ds-decode dt i { display:block; width:10px; height:2px; align-self:center; background:#818CF8; } .ds-decode dt i.s { background:#B0B0B0; } .ds-decode dd { margin:2px 0 12px 18px; color:#B0B0B0; font:13px/1.55 'IBM Plex Mono', ui-monospace, monospace; } .ds-decode dd.ds-prose { font:14px/1.5 'IBM Plex Sans', system-ui, sans-serif; } .ds-count { margin:0; font:700 56px/1 'IBM Plex Mono', ui-monospace, monospace; letter-spacing:-.04em; font-variant-numeric:tabular-nums; } .ds-count small { font-size:20px; font-weight:400; letter-spacing:0; color:#8A8A8A; } .ds-sub { margin:8px 0 16px; color:#B0B0B0; font-size:14px; } .ds-log { list-style:none; margin:0; padding:0; font:13px/1 'IBM Plex Mono', ui-monospace, monospace; } .ds-log li { display:grid; grid-template-columns:auto 1fr auto; gap:10px; padding:11px 0; border-top:1px solid #1C1C1C; color:#B0B0B0; } .ds-log li:first-child { color:#FFFFFF; } .ds-log b { font-weight:400; color:#10B981; } .ds-foot { margin:10px 0 0; color:#8A8A8A; font-size:14px; }"
+      "refersTo": "site-tap-reader",
+      "description": "The student's phone (real screens, demo account) beside the reader's drawn OLED, over three numbered beats in plain words; demo label beneath.",
+      "html": "<div class=\"ds-site\"><div class=\"ds-tap\"><div class=\"ds-phone\"><div class=\"ds-screen\"><b class=\"ds-ok\"></b><span>ATTENDANCE VERIFIED</span></div></div><div class=\"ds-reader\"><p class=\"ds-label\">The reader at the door</p><div class=\"ds-oled\"><svg viewBox=\"0 0 128 64\"><g fill=\"#e8eefc\"><rect x=\"0\" y=\"10\" width=\"128\" height=\"1\"/></g><text x=\"0\" y=\"7\">08:04</text><circle class=\"ln\" cx=\"18\" cy=\"38\" r=\"14\"/><circle cx=\"13\" cy=\"34\" r=\"2\"/><circle cx=\"23\" cy=\"34\" r=\"2\"/><path class=\"ln\" d=\"M11 40 A7 7 0 0 0 25 40\"/><text x=\"40\" y=\"30\" class=\"big\">DONE</text><text x=\"40\" y=\"45\">Shang</text><text x=\"40\" y=\"56\">marked present</text></svg></div></div><ol class=\"ds-beats\"><li><i>1</i><div><b>Confirm it's you</b><span>Fingerprint or PIN on your own phone.</span></div></li><li><i>2</i><div><b>Tap the reader</b><span>Hold your phone to it at the door.</span></div></li><li><i>3</i><div><b>You're marked</b><span>Present on the lecturer's list.</span></div></li></ol></div><p class=\"ds-foot\">Demo account and reader screen, not real students.</p></div>",
+      "css": ".ds-site { background:#0F0F0F; color:#FFFFFF; font:400 17px/1.6 'IBM Plex Sans', system-ui, sans-serif; padding:24px; } .ds-tap { display:grid; grid-template-columns:150px 300px 260px; gap:32px; align-items:center; } .ds-phone { padding:6px; border-radius:26px; background:#050505; border:1px solid #2A2A2A; } .ds-screen { aspect-ratio:1080/2170; border-radius:20px; background:#1C1C1C; display:grid; place-content:center; justify-items:center; gap:10px; color:#10B981; font:600 8px/1 'IBM Plex Mono', monospace; letter-spacing:.1em; } .ds-ok { width:34px; height:34px; border-radius:50%; background:#10B981; } .ds-label { margin:0 0 8px; color:#8A8A8A; font-size:13px; } .ds-oled { padding:10px; border-radius:10px; background:#050505; border:1px solid #262626; } .ds-oled svg { display:block; width:100%; background:#000; } .ds-oled text { font:10px 'IBM Plex Mono', monospace; fill:#e8eefc; } .ds-oled text.big { font-size:20px; } .ds-oled circle { fill:#e8eefc; } .ds-oled .ln { fill:none; stroke:#e8eefc; } .ds-beats { list-style:none; margin:0; padding:0; border-top:1px solid #1C1C1C; } .ds-beats li { display:grid; grid-template-columns:28px 1fr; gap:10px; padding:12px 0; border-bottom:1px solid #1C1C1C; } .ds-beats i { font:600 14px/1.65 'IBM Plex Mono', monospace; font-style:normal; color:#818CF8; } .ds-beats b { display:block; font-size:17px; font-weight:600; } .ds-beats span { color:#B0B0B0; font-size:15px; line-height:1.5; } .ds-foot { margin:14px 0 0; color:#8A8A8A; font-size:14px; }"
     },
     {
       "name": "Site Threat List",
@@ -1593,7 +1563,7 @@
       "**Do** set times, codes and terminal strings in the mono face, and everything else in the sans.",
       "**Do** contrast-check new pairs against the surface they actually sit on, including tinted fills.",
       "**Do** build site pages from the app's tokens and the `styles.css` custom properties; dark by default, light by `prefers-color-scheme`.",
-      "**Do** label every piece of sample data as demo, next to it: the stage's code and check-ins, and every screenshot caption.",
+      "**Do** label every piece of sample data as demo, next to it: the tap, the demo code, the lecturer's live list, and every screenshot caption.",
       "**Do** separate site lists with ruled rows (hairline top and bottom), not cards.",
       "**Do** make every site animation finish into the page's static markup, so no script or reduced motion shows the complete state.",
       "**Do** self-host fonts for anything a student opens (Plex WOFF2, `font-display: swap`)."

@@ -30,7 +30,6 @@
   </script>
   <script src="hero.js" defer></script>
   <script src="hall.js" defer></script>
-  <script src="steps.js" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -61,14 +60,6 @@
     <symbol id="plus" viewBox="0 0 24 24">
       <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </symbol>
-    <symbol id="fingerprint" viewBox="0 0 24 24">
-      <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-        <path d="M5 13v-1a7 7 0 0 1 14 0v1"/>
-        <path d="M8 16v-4a4 4 0 0 1 8 0v2.5c0 1.6.4 3.1 1.2 4.4"/>
-        <path d="M12 12v3.5c0 2 .6 3.8 1.6 5.3"/>
-        <path d="M8.8 19.2A9.6 9.6 0 0 1 8 16"/>
-      </g>
-    </symbol>
     <symbol id="icon-replay" viewBox="0 0 24 24">
       <path d="M4 12a8 8 0 1 0 2.6-5.9M4 4v4.5h4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </symbol>
@@ -94,17 +85,20 @@
   </header>
 
   <main id="main">
-    <!-- The stage: what goes into the reader (the code), the reader
-         itself (the photo), what comes out (the register). The code and the
-         check-ins are demo data, labelled under the stage. The code is a
-         real-format token (12-byte payload + 12-byte HMAC, base64url, see
-         SUAAMS/beacon.py) signed with a throwaway key. -->
+    <!-- The first screen: the two screens a student looks at during a
+         check-in, their own phone and the reader at the door, stepping
+         together through the three beats listed under them (hero.js). The
+         phone screens are real captures from the demo account; the reader's
+         screen is drawn from the firmware. The markup is the finished state,
+         beat 3. The signed code the phone hands over is under Security
+         ("What your phone actually sends"), and the lecturer's live list
+         under "What each person gets". -->
     <section class="stage-wrap" aria-labelledby="hero-title">
       <div class="wrap">
         <div class="stage-top">
           <h1 id="hero-title">Tap your phone at the door. <em>You're marked present.</em></h1>
           <div>
-            <p class="stage-lede">Your fingerprint unlocks a one-time code on your own phone. The reader takes it in a tenth of a second, and nobody can check in for you without your phone, your fingerprint or PIN, and your help.</p>
+            <p class="stage-lede">Your fingerprint unlocks a one-time code on your own phone, and one tap hands it to the reader. Nobody can check in for you without your phone, your fingerprint or PIN, and your help.</p>
             <div class="cta-row">
               <a class="btn btn-primary" href="get/">
                 <svg aria-hidden="true"><use href="#android"/></svg>
@@ -116,90 +110,59 @@
           </div>
         </div>
 
-        <div class="stage" id="stage">
-          <div class="stage-col">
-            <span class="col-label">In · from the phone</span>
-            <!-- Beat 1 of the tap (hero.js): the phone confirms its owner
-                 before it will ask for a code. -->
-            <p class="verify">
-              <svg class="fp" aria-hidden="true"><use href="#fingerprint"/></svg>
-              <span>fingerprint verified</span>
-              <svg class="ok" aria-hidden="true"><use href="#check"/></svg>
-            </p>
-            <p class="token" aria-label="Demo check-in code, 32 characters"><span class="payload">AAAEEgAAAT5pSj39</span><span class="sig">3V4BJ6kGWbueNNGq</span></p>
-            <dl class="decode">
-              <div>
-                <dt><i aria-hidden="true"></i>Who, which class, until when</dt>
-                <dd>student 1042 · session 318 · expires 10 s after minting</dd>
-              </div>
-              <div>
-                <dt><i class="sig" aria-hidden="true"></i>A signature only the server can make</dt>
-                <dd class="prose">Change one character and the server refuses it.</dd>
-              </div>
-            </dl>
-            <span class="leader" aria-hidden="true"></span>
-          </div>
+        <!-- data-beat says which beat both screens show (1, 2 or 3);
+             styles.css keys every screen change off it. -->
+        <div class="tap" id="tap" data-beat="3">
+          <!-- One screen per beat, stacked; the current beat's fades in.
+               The fingerprint prompt itself can't be captured (Android
+               blocks screenshots of it), so beat 1 is the ID card's Check in
+               button that opens it. -->
+          <figure class="phone tap-phone" role="img" aria-label="The SUAAMS app (demo account): the ID card's Check in button, then Listening for terminal at the reader, then Attendance verified for MCT 402">
+            <div class="phone-screen">
+              <img src="img/app-id-card.webp" width="540" height="1085" data-optional data-beat="1" alt="">
+              <img src="img/app-tap.webp" width="540" height="1085" data-optional data-beat="2" alt="">
+              <img src="img/app-marked.webp" width="540" height="1085" data-optional data-beat="3" alt="">
+            </div>
+          </figure>
 
-          <figure class="stage-photo">
-            <!-- PHOTO: not linked until it exists, so visitors get the frame
-                 below instead of a failed request (and, without JavaScript, a
-                 broken-image icon). When img/reader-tap.webp (landscape, about
-                 1600 x 1200) is added, uncomment the <img> below; the frame
-                 then hides itself (styles.css, ".stage-photo img +
-                 .reader-drawn"). test_landing_claims.py fails if the file and
-                 this markup disagree.
+          <figure class="tap-reader">
+            <figcaption class="tap-label">The reader at the door</figcaption>
+            <!-- PHOTO: img/reader-tap.webp isn't linked until it exists, and
+                 where it goes is undecided: it no longer replaces the drawn
+                 screen below, which plays the beats. test_landing_claims.py
+                 fails if the file and this markup disagree.
             <img src="img/reader-tap.webp" width="1600" height="1200" data-optional
                  alt="A phone held to the SUAAMS reader at a lecture-hall door. The reader's screen shows the class and how many students have checked in.">
             -->
-            <!-- The reader's own screen, drawn (demo data) until the photo
-                 above is uncommented. It's the 0.96" 128x64 OLED from
-                 ESP32_ARDUINO CODE/SUAAMS_HCE/oled_display.ino, drawn on its
-                 own pixel grid with the firmware's coordinates: the status
-                 row, the live-class screen (oledDrawDoor), WAIT /
-                 "Checking..." with its progress bar while the server answers,
-                 and DONE with the student's first name (oledShowRecorded).
-                 hero.js steps through them with the tap; the markup's
-                 finished state is the class screen at 187. -->
-            <div class="reader-drawn">
-              <div class="oled">
-                <svg viewBox="0 0 128 64" role="img" aria-label="Drawing of the SUAAMS reader's screen (demo): MCT 402, 187 of 200 checked in">
-                  <g class="oled-status"><rect x="0" y="6" width="2" height="2"/><rect x="3" y="4" width="2" height="4"/><rect x="6" y="2" width="2" height="6"/><rect x="9" y="7" width="2" height="1"/><text x="15" y="7">ON</text><text x="49" y="7">08:04</text><text x="109" y="7">Q:0</text><rect x="0" y="10" width="128" height="1"/></g>
-                  <g class="oled-idle0"><text x="0" y="28" class="big">MCT 402</text><text x="0" y="40">186 / 200 checked in</text><text x="0" y="50">ends 10:00</text><text x="0" y="62">TAP your phone</text></g>
-                  <g class="oled-wait"><circle class="ln" cx="18" cy="38" r="14"/><circle cx="14" cy="32" r="2"/><circle cx="24" cy="32" r="2"/><line class="ln" x1="14" y1="45" x2="23" y2="43"/><text x="40" y="30" class="big">WAIT</text><text x="40" y="45">Checking...</text><rect class="ln" x="40.5" y="50.5" width="83" height="6"/><rect class="oled-bar" x="41" y="51" width="82" height="5"/></g>
-                  <g class="oled-done"><circle class="ln" cx="18" cy="38" r="14"/><circle cx="13" cy="34" r="2"/><circle cx="23" cy="34" r="2"/><path class="ln" d="M11 40 A7 7 0 0 0 25 40"/><text x="40" y="30" class="big">DONE</text><text x="40" y="45">Shang</text><text x="40" y="56">marked present</text></g>
-                  <g class="oled-idle1"><text x="0" y="28" class="big">MCT 402</text><text x="0" y="40">187 / 200 checked in</text><text x="0" y="50">ends 10:00</text><text x="0" y="62">TAP your phone</text></g>
-                </svg>
-              </div>
-              <p class="reader-cap">The reader's screen, drawn (demo)</p>
+            <!-- The reader's own screen, drawn (demo data): the 0.96" 128x64
+                 OLED from ESP32_ARDUINO CODE/SUAAMS_HCE/oled_display.ino, on
+                 its own pixel grid with the firmware's coordinates: the
+                 status row, the live-class screen (oledDrawDoor), WAIT /
+                 "Checking..." with its progress bar while the server
+                 answers, and DONE with the student's first name
+                 (oledShowRecorded). -->
+            <div class="oled">
+              <svg viewBox="0 0 128 64" role="img" aria-label="Drawing of the SUAAMS reader's screen (demo): MCT 402, TAP your phone, then WAIT Checking, then DONE, Shang marked present">
+                <g class="oled-status"><rect x="0" y="6" width="2" height="2"/><rect x="3" y="4" width="2" height="4"/><rect x="6" y="2" width="2" height="6"/><rect x="9" y="7" width="2" height="1"/><text x="15" y="7">ON</text><text x="49" y="7">08:04</text><text x="109" y="7">Q:0</text><rect x="0" y="10" width="128" height="1"/></g>
+                <g class="oled-idle"><text x="0" y="28" class="big">MCT 402</text><text x="0" y="40">186 / 200 checked in</text><text x="0" y="50">ends 10:00</text><text x="0" y="62">TAP your phone</text></g>
+                <g class="oled-wait"><circle class="ln" cx="18" cy="38" r="14"/><circle cx="14" cy="32" r="2"/><circle cx="24" cy="32" r="2"/><line class="ln" x1="14" y1="45" x2="23" y2="43"/><text x="40" y="30" class="big">WAIT</text><text x="40" y="45">Checking...</text><rect class="ln" x="40.5" y="50.5" width="83" height="6"/><rect class="oled-bar" x="41" y="51" width="82" height="5"/></g>
+                <g class="oled-done"><circle class="ln" cx="18" cy="38" r="14"/><circle cx="13" cy="34" r="2"/><circle cx="23" cy="34" r="2"/><path class="ln" d="M11 40 A7 7 0 0 0 25 40"/><text x="40" y="30" class="big">DONE</text><text x="40" y="45">Shang</text><text x="40" y="56">marked present</text></g>
+              </svg>
+              <!-- The reader's "beep" as the phone taps: one indigo flash
+                   around the screen. -->
+              <span class="tap-ring" aria-hidden="true"></span>
             </div>
-            <!-- The reader's "beep" when the phone taps: one indigo flash. -->
-            <span class="photo-ring" aria-hidden="true"></span>
           </figure>
 
-          <div class="stage-col">
-            <span class="leader" aria-hidden="true"></span>
-            <span class="col-label"><span class="live" aria-hidden="true"></span>Out · to the lecturer</span>
-            <!-- Only the last digit rolls (6 to 7) when the new check-in
-                 lands; screen readers get the settled number. -->
-            <p class="count"><span class="sr-only">187 of 200</span><span class="count-now" aria-hidden="true">18<span class="roll"><span class="roll-strip"><span>6</span><span>7</span></span></span></span><small aria-hidden="true"> / 200</small></p>
-            <p class="count-sub">checked in to MCT 402 Embedded Systems</p>
-            <!-- A four-row window onto the register. The fifth (oldest) row is
-                 what the window shows before the tap; the newest row slides in
-                 from the top and pushes it out of the bottom. -->
-            <div class="log-window">
-              <ol class="log" aria-label="Latest check-ins">
-                <li><span>08:04:12</span><span>••••7731</span><span class="st">PRESENT</span></li>
-                <li><span>08:04:11</span><span>••••0458</span><span class="st">PRESENT</span></li>
-                <li><span>08:04:11</span><span>••••2210</span><span class="st">PRESENT</span></li>
-                <li><span>08:04:10</span><span>••••6095</span><span class="st">PRESENT</span></li>
-                <li aria-hidden="true"><span>08:04:09</span><span>••••1183</span><span class="st">PRESENT</span></li>
-              </ol>
-            </div>
-          </div>
+          <ol class="beats">
+            <li data-beat="1"><span class="n" aria-hidden="true">1</span><div><strong>Confirm it's you</strong><span>Press Check in, then touch the fingerprint sensor or enter your PIN.</span></div></li>
+            <li data-beat="2"><span class="n" aria-hidden="true">2</span><div><strong>Tap the reader</strong><span>Hold your phone to the reader at the door.</span></div></li>
+            <li data-beat="3"><span class="n" aria-hidden="true">3</span><div><strong>You're marked</strong><span>Present on the lecturer's list, with a notification on your phone.</span></div></li>
+          </ol>
         </div>
 
         <div class="stage-foot">
-          <span>Demo code, check-ins and reader screen, not real students.</span>
+          <span>Demo account and reader screen, not real students.</span>
           <button class="text-btn" type="button" id="replay" hidden>
             <svg aria-hidden="true"><use href="#icon-replay"/></svg>
             Replay the tap
@@ -241,67 +204,29 @@
     <!-- How it works -->
     <section id="how" class="section" aria-labelledby="how-title">
       <div class="wrap split">
-        <!-- One screen per step, real captures from the demo account. Step 1
-             shows by default (and is all that shows without script or on a
-             phone); steps.js crossfades to each step's screen as that step
-             reaches the middle of the window. The fingerprint prompt itself
-             can't be captured (Android blocks screenshots of it), so step 1
-             is the ID card's Check in button that opens it. -->
-        <figure class="phone phone-sticky" id="step-phone">
-          <div class="phone-screen">
-            <img src="img/app-id-card.webp" width="540" height="1085" loading="lazy" data-optional data-step="1"
-                 alt="Step 1: the SUAAMS app's digital ID card, with a Check in with this ID button">
-            <img src="img/app-tap.webp" width="540" height="1085" loading="lazy" data-optional data-step="2" aria-hidden="true"
-                 alt="Step 2: the app listening for the terminal while the phone is held to the reader">
-            <img src="img/app-marked.webp" width="540" height="1085" loading="lazy" data-optional data-step="3" aria-hidden="true"
-                 alt="Step 3: Attendance verified, checked in for MCT 402, with the Attendance recorded notification">
-          </div>
-          <figcaption><span class="step-cap" data-step="1">Step one: confirm it's you</span><span class="step-cap" data-step="2">Step two: at the reader</span><span class="step-cap" data-step="3">Step three: marked present</span> (demo account)</figcaption>
-        </figure>
+        <!-- The hero shows the tap in three beats; this is the same check-in
+             in detail, with its timings. -->
+        <div class="section-head">
+          <h2 id="how-title">One check-in, start to finish.</h2>
+          <p>The lecturer starts the class from the app or the web portal. Then each student does this at the door.</p>
+        </div>
         <div>
-          <div class="section-head">
-            <h2 id="how-title">One check-in, start to finish.</h2>
-            <p>The lecturer starts the class from the app or the web portal. Then each student does this at the door.</p>
-          </div>
-          <!-- Phones and narrow windows: the sticky switching phone (steps.js)
-               needs room beside the steps, so here all three screens sit in
-               a row instead, each labelled with its step. Hidden above 900px. -->
-          <ol class="step-strip">
+          <ol class="sequence">
             <li>
-              <figure>
-                <div class="mini"><div class="phone-screen"><img src="img/app-id-card.webp" width="540" height="1085" loading="lazy" data-optional alt="Step 1: the SUAAMS app's digital ID card, with a Check in with this ID button"></div></div>
-                <figcaption><span>1</span> Confirm it's you</figcaption>
-              </figure>
-            </li>
-            <li>
-              <figure>
-                <div class="mini"><div class="phone-screen"><img src="img/app-tap.webp" width="540" height="1085" loading="lazy" data-optional alt="Step 2: the app listening for the terminal while the phone is held to the reader"></div></div>
-                <figcaption><span>2</span> At the reader</figcaption>
-              </figure>
-            </li>
-            <li>
-              <figure>
-                <div class="mini"><div class="phone-screen"><img src="img/app-marked.webp" width="540" height="1085" loading="lazy" data-optional alt="Step 3: Attendance verified, checked in for MCT 402, with the Attendance recorded notification"></div></div>
-                <figcaption><span>3</span> Marked present</figcaption>
-              </figure>
-            </li>
-          </ol>
-          <ol class="sequence" id="steps">
-            <li data-step="1">
               <span class="t">t = 0</span>
               <div>
                 <h3>Confirm it's you</h3>
                 <p>Press <strong>Check in</strong> and touch the fingerprint sensor, or enter your phone's PIN. The app does nothing until your phone confirms it's you, then it asks the server for a signed code.</p>
               </div>
             </li>
-            <li data-step="2">
+            <li>
               <span class="t">within 10 s</span>
               <div>
                 <h3>Tap the reader</h3>
                 <p>Hold your phone to the reader at the door, within about 4 cm. The phone hands over its 32-character code in one exchange of about a tenth of a second. The code belongs to you and this class only, and it expires after 10 seconds.</p>
               </div>
             </li>
-            <li data-step="3">
+            <li>
               <span class="t">+ ~0.5 s</span>
               <div>
                 <h3>You're marked</h3>
@@ -389,6 +314,27 @@
             <p>A student who unlocks their phone for a friend, or adds a friend's fingerprint to it, can still get that friend checked in. The planned fix is a check-in key tied to the fingerprints already on the phone, so adding a new one breaks it.</p>
           </details>
         </div>
+        <!-- The code itself, for anyone who wants to see it (it used to be
+             the first screen's "IN" column). A real-format token: 12-byte
+             payload + 12-byte HMAC, base64url (SUAAMS/beacon.py), signed
+             with a throwaway key, so demo data. -->
+        <details class="threat sends">
+          <summary><h3>What your phone actually sends</h3><span class="stop">32 characters, signed</span><svg aria-hidden="true"><use href="#plus"/></svg></summary>
+          <div class="sends-body">
+            <p>One tap hands the reader a code like this one: who you are, which class, and when it expires, then a signature only the server can make. This one is in the real format, signed with a test key.</p>
+            <p class="token" aria-label="Demo check-in code, 32 characters"><span class="payload">AAAEEgAAAT5pSj39</span><span class="sig">3V4BJ6kGWbueNNGq</span></p>
+            <dl class="decode">
+              <div>
+                <dt><i aria-hidden="true"></i>Who, which class, until when</dt>
+                <dd>student 1042 · session 318 · expires 10 s after minting</dd>
+              </div>
+              <div>
+                <dt><i class="sig" aria-hidden="true"></i>A signature only the server can make</dt>
+                <dd class="prose">Change one character and the server refuses it.</dd>
+              </div>
+            </dl>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -405,7 +351,20 @@
           </div>
           <div>
             <h3>Lecturers</h3>
-            <p>Start a class from your phone or the portal, watch students arrive live, mark anyone the reader couldn't, and export the register.</p>
+            <div>
+              <p>Start a class from your phone or the portal, watch students arrive live, mark anyone the reader couldn't, and export the register.</p>
+              <!-- The live list a lecturer watches (demo data, masked IDs).
+                   It used to be the first screen's "OUT" column. -->
+              <figure class="register">
+                <p class="register-count"><span>187</span> / 200 checked in to MCT 402</p>
+                <ol class="log" aria-label="Latest check-ins (demo)">
+                  <li><span>08:04:12</span><span>••••7731</span><span class="st">PRESENT</span></li>
+                  <li><span>08:04:11</span><span>••••0458</span><span class="st">PRESENT</span></li>
+                  <li><span>08:04:11</span><span>••••2210</span><span class="st">PRESENT</span></li>
+                </ol>
+                <figcaption>The live list as students tap in (demo)</figcaption>
+              </figure>
+            </div>
           </div>
           <div>
             <h3>Heads of department</h3>

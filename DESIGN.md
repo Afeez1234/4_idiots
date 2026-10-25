@@ -75,8 +75,6 @@ colors:
   # Public site (suaams.com.ng: story page, /get, privacy, poster).
   # The site wears the app's world: every colour it shares with the app is
   # the app-* token above. Only values the site adds are listed here.
-  site-sunk-dark: "#141414"
-  site-sunk-light: "#FAFAFA"
   site-faint-dark: "#8A8A8A"
   site-indigo-hover-dark: "#A5B4FC"
   site-indigo-hover-light: "#4338CA"
@@ -211,16 +209,15 @@ typography:
     lineHeight: 1.2
   site-code:
     fontFamily: "IBM Plex Mono, ui-monospace, monospace"
-    fontSize: "clamp(20px, 1.85vw, 28px)"
+    fontSize: "clamp(19px, 2vw, 26px)"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "0.02em"
   site-count:
     fontFamily: "IBM Plex Mono, ui-monospace, monospace"
-    fontSize: "clamp(56px, 6.2vw, 96px)"
+    fontSize: "28px"
     fontWeight: 700
     lineHeight: 1
-    letterSpacing: "-0.04em"
     fontFeature: "tnum"
   site-readout:
     fontFamily: "IBM Plex Mono, ui-monospace, monospace"
@@ -248,7 +245,6 @@ spacing:
   site-gutter: "clamp(20px, 4.4vw, 64px)"
   site-section: "clamp(72px, 9vw, 120px)"
   site-section-head: "clamp(36px, 4vw, 56px)"
-  site-stage-col: "28px"
 components:
   app-button-primary-dark:
     backgroundColor: "{colors.app-text-dark}"
@@ -389,11 +385,10 @@ components:
   site-text-button:
     textColor: "{colors.app-contactless-indigo-dark}"
     height: "44px"
-  site-stage-column:
-    backgroundColor: "{colors.site-sunk-dark}"
-    padding: "{spacing.site-stage-col}"
-  site-stage-photo:
-    backgroundColor: "{colors.app-graphite-card}"
+  site-tap-reader:
+    backgroundColor: "{colors.site-phone-bezel}"
+    rounded: "10px"
+    padding: "10px"
   site-register-row:
     textColor: "{colors.app-text-muted-dark}"
     typography: "{typography.site-readout}"
@@ -511,8 +506,8 @@ and was contrast-checked there. Change it in code first, then here.
   doesn't need (#A5B4FC dark, #4338CA light) and a soft tint for the one
   callout note (12% indigo dark, #EEF2FF light). It marks: the primary
   button, links and the "Replay the tap" text button, the focus ring, the
-  underline under the code's payload, the leader lines on the stage, the
-  live dot, the sequence time markers, the /get step numerals, the privacy
+  underline under the code's payload, the reader's "beep" ring and the
+  lit beat numbers on the tap, the live dot, the sequence time markers, the /get step numerals, the privacy
   check marks, and one emphasised phrase in the display headline.
 - **Records Blue** (portal, #2F6BEE; hover #1E56CC): the portal's accent.
   It marks the primary button, the active rail link, focus rings, course
@@ -552,9 +547,6 @@ fails as text.
 
 **Site neutrals.** The site reuses the app's ground, panel, edge and text
 ramp. What it adds:
-- **Sunk** (#141414 dark / #FAFAFA light): one step between Midnight and
-  Graphite. Only the stage's two side columns sit on it, so the reader
-  photo between them reads as the object and IN / OUT read as its readouts.
 - **Rules**: hairlines on the page are Graphite Card (#1C1C1C) in dark and
   the app's light Edge (#DDDDDD) in light. Outlined things (ghost buttons,
   panels, the step circles) use Graphite Edge (#2A2A2A) in dark.
@@ -623,7 +615,7 @@ campus Wi-Fi a third-party font request is the slowest thing on the page.
 The site scale is its own (pages are wider than phones) but the roles map
 one to one onto the app's.
 - **Display** (700, clamp 40-68, leading 1.02, -0.028em): the story page
-  headline only. Three lines at desktop width so the whole stage fits a
+  headline only. Three lines at desktop width so the whole tap fits a
   900px-tall screen.
 - **Page Title** (700, clamp 36-56, leading 1.04): /get. The privacy
   policy's title runs a touch smaller (clamp 34-48).
@@ -636,11 +628,11 @@ one to one onto the app's.
 - **Lede** (400, 18, 1.6) / **Body** (400, 17, 1.6) / **Caption** (400,
   14-14.5): muted ledes, body, demo labels and footnotes.
 - **Button** (600, 16, 1.2); small buttons 15.
-- **Code** (Plex Mono 400, clamp 20-28, 1.5, +0.02em): the 32-character
-  check-in code, payload on one line and signature on the next.
-- **Count** (Plex Mono 700, clamp 56-96, leading 1, -0.04em, tabular
-  figures): the register's count; its "/ 200" denominator drops to clamp
-  20-30, 400, faint.
+- **Code** (Plex Mono 400, clamp 19-26, 1.5, +0.02em): the 32-character
+  check-in code under Security, payload on one line and signature on the
+  next.
+- **Count** (Plex Mono 700, 28, leading 1, tabular figures): the
+  lecturer's live list count; the rest of its line is muted sans.
 - **Readout** (Plex Mono 400, 13, 1.55): decoded values, register rows,
   the QR's URL, the build version on /get.
 
@@ -695,12 +687,11 @@ Lists of like things are **ruled rows**: a top rule, then one bottom rule
 per row (the timed sequence, the threats, the roles, the /get facts).
 Reading pages narrow: /get is capped at 720px, the privacy policy at 760px.
 
-Responsive steps: at 1000px the stage drops to two columns with the photo
-spanning the top in its own 4:3 box and the leaders hidden; at 900px splits
-stack; at 860px the header nav hides and an Install button takes its place;
+Responsive steps: above 1000px the tap is one row (phone, reader, beats);
+at 1000px and below the phone and reader sit side by side (2 : 3) with the
+beats under them, and the headline band stacks; at 900px splits stack; at 860px the header nav hides and an Install button takes its place;
 at 760px the install band's QR hides (it is for a laptop visitor holding a
-phone); at 640px the stage goes to one column and bleeds to the screen
-edges, primary buttons go full width, and role rows stack.
+phone); at 640px primary buttons go full width and role rows stack.
 
 ## Elevation & Depth
 
@@ -740,10 +731,11 @@ Gently rounded, never pill-soft except where a shape is meant to be a pill.
   pills for status pills, course chips and tab pills.
 - **Site:** the app's 12px for buttons, panels, the callout note and the QR
   plate; 16px for the privacy summary box; 8px for header nav links; 6px
-  on the focus ring. The stage, rows and bands have square edges: they are
-  ruled, not boxed. Circles for the live dot and the /get step numerals.
+  on the focus ring; 10px for the reader's bezel. Rows and bands have
+  square edges: they are ruled, not boxed. Circles for the live dot and the /get step numerals.
   The screenshot phone frame is the one soft shape (40px outer, 31px
-  screen), because it is a drawing of a phone.
+  screen; 26 / 20 for the smaller phone in the tap), because it is a
+  drawing of a phone.
 
 ## Components
 
@@ -822,61 +814,58 @@ portal's equivalent is the stat card: an uppercase label, an 800-weight
 - **Press:** scale 0.98 over 120ms. Colour transitions 180ms.
 - **Focus:** 2px indigo outline, 3px offset, on every focusable element.
 
-### The stage (site signature)
-The story page's first screen. A full-width band of three columns between
-two hairline rules: **IN** (what the phone sends), the **reader photo**
-(about 40% of the width and the tallest thing on screen), and **OUT** (what
-the lecturer gets). The side columns sit on Sunk with a hairline toward
-the photo; 2px indigo **leader lines** cross from each side column into the
-photo at mid-height.
-- **IN:** the 32-character code in the Code style, payload on one line
-  underlined in indigo, signature on the next underlined in edge grey. A
-  short definition list below decodes it: each term is keyed by a 10 x 2px
-  bar in the matching underline colour, values in Readout, and the
-  explanation of the signature in the sans.
-- **OUT:** a live dot in the label, the Count with its denominator, the
-  class in the sans, then four ruled register rows (time, masked ID,
-  PRESENT in green), the newest in full white and the rest muted.
-- **Demo label:** a faint caption under the stage says it is demo data;
-  "Replay the tap" sits opposite it.
-- **The tap, played once (verify → tap → recorded):** when the stage first
-  comes 35% into view, about 1.5s in total, from one Web Animations
-  timeline in `hero.js`:
-  - *Verify* (deliberate): the "fingerprint verified" line fades and
-    scales in from .96 (220ms, ease-out, at 120ms), its indigo check
-    follows (160ms, at 380ms).
-  - *Tap* (fast): the code arrives whole with a left-to-right clip reveal,
-    payload then signature 60ms behind (220ms each, from 540ms); the IN
-    leader draws in 180ms with the strong ease-in-out (at 860ms); the photo
-    flashes a 2px indigo ring once, the reader's "beep" (300ms, at 960ms).
-  - *Recorded* (fast): the OUT leader draws (180ms, at 1040ms); the
-    register slides down one 36px row inside a four-row window, the new row
-    fading in and the oldest fading out (240 / 200 / 160ms, at 1220ms); the
-    count's last digit rolls 6 → 7 (220ms); the live dot blinks once.
-  - Slow where the person acts, fast where the system responds: the tap
-    leader is the quickest beat because the real exchange is about 0.1s.
-  - The markup is the finished state. An inline script in `<head>` adds
-    `.motion` before first paint so the stage starts rewound (no flash of
-    the finished stage); a 3s fallback (`.motion-done`) shows the finished
-    stage if `hero.js` never arrives. With no script at all the finished
-    stage is plain markup. Reduced motion plays the same beats as opacity
-    fades only (no clip, travel or roll). Replay fades the stage out over
-    150ms, then replays.
-- **The reader's screen, drawn:** until the reader photo is uploaded, the
-  centre is a drawing of the reader's own 0.96" 128x64 OLED, made from the
-  firmware (`oled_display.ino`): an SVG on the OLED's pixel grid
-  (viewBox 0 0 128 64, text in Plex Mono at the GFX 6 px advance, faces
-  from `oledDrawFace()`), black glass and white pixels in both themes, in
-  a #050505 bezel with a "drawn (demo)" caption. It steps with the tap:
-  the class screen at 186, WAIT / "Checking..." (the bar creeps ~5%; it
-  fills over 10 s on the device) as the code reaches the reader, DONE with
-  the first name as the register updates (held 2.2 s, 3 s on the device),
-  then the class screen at 187. Never invent hardware beyond it: no
-  enclosure or antenna is drawn.
+### The tap (site signature)
+The story page's first screen, under the headline band: the two screens a
+student actually looks at during a check-in, **their phone** and **the
+reader at the door**, stepping together through three numbered beats
+written in plain words beneath them. It replaced (2026-10-25) a three-column
+IN | reader | OUT stage whose decoded code and register most visitors
+couldn't read, on a phone least of all; the code now sits under Security
+("What your phone actually sends") and the live list under Lecturers.
+- **Phone:** the app's real screens (demo account) in the phone frame at
+  its smaller size (6px bezel, 26px outer corner), one per beat, stacked
+  and crossfading (250ms): the ID card with its Check in button, the
+  "Listening for terminal" sheet, "Attendance verified" with its
+  notification. The fingerprint prompt can't be screenshotted, so beat 1
+  is the button that opens it.
+- **Reader:** a faint "The reader at the door" label over a drawing of the
+  reader's own 0.96" 128x64 OLED, made from the firmware
+  (`oled_display.ino`): an SVG on the OLED's pixel grid (viewBox 0 0 128
+  64, text in Plex Mono at the GFX 6 px advance, faces from
+  `oledDrawFace()`), black glass and white pixels in both themes, in a
+  #050505 bezel. Its screens change with no fade, like a frame redraw:
+  the class screen at 186 with "TAP your phone"; WAIT / "Checking..."
+  with the bar creeping (it fills over 10 s on the device); DONE, "Shang",
+  "marked present". Never invent hardware beyond it: no enclosure or
+  antenna is drawn.
+- **Beats:** three ruled rows, a number in indigo Readout, a title and one
+  muted line: *Confirm it's you*, *Tap the reader*, *You're marked*. Done
+  and current beats are lit, later ones faint, so the list reads as
+  progress; finished, all three are lit. Numbers here are earned: the
+  order is the content.
+- **Layout:** above 1000px one row: phone (220px), reader, beats (260-340px).
+  At 1000px and below, phone and reader side by side (2 : 3, phone capped at
+  240px) with the beats full width under them; at 390px the whole tap is
+  about 570px tall, so it fits one phone screen.
+- **Demo label:** a faint caption under the tap ("Demo account and reader
+  screen, not real students."); "Replay the tap" sits opposite it.
+- **Motion (hero.js), played once:** when the beats list is 90% in view
+  (bottom 8% of the window excluded), beat 1 holds 1.6s (the person acts:
+  slow), beat 2 holds 1.3s (the system answers: quicker), then beat 3 is the
+  end state. As beat 2 starts the reader's bezel flashes a 2px indigo ring
+  once, its "beep" (300ms). The script only sets `data-beat` on `.tap`;
+  styles.css draws each beat from it.
+  - The markup is the finished state (`data-beat="3"`). An inline script in
+    `<head>` adds `.motion` before first paint, and CSS shows beat 1 until
+    hero.js takes over (`.armed`), so there's no flash of the finished
+    tap; a 3s fallback (`.motion-done`) shows the finished tap if hero.js
+    never arrives. With no script the finished tap is plain markup.
+    Reduced motion: the screens still change, as fades, and the bar
+    doesn't travel.
 
 ### The hall (site)
-The one quiet statement after the stage, and the page's second visual beat:
-the stage shows one tap, the hall shows a whole lecture.
+The one quiet statement after the tap, and the page's second visual beat:
+the tap shows one student, the hall shows a whole lecture.
 - **Layout:** a display-size headline ("A 200-student hall, checked in
   without a queue.", clamp(32px, 4.2vw, 56px)) with the worked-out timings
   and a faint "worked out, not timed with a crowd" note, beside a 20 x 10
@@ -893,7 +882,7 @@ the stage shows one tap, the hall shows a whole lecture.
   of dots without changing the copy, and keep the timings labelled as
   worked out.
 - The finished grid is the markup; until hall.js has scattered it the dots
-  are hidden under `.motion` (the same 3s fallback as the stage). Reduced
+  are hidden under `.motion` (the same 3s fallback as the tap). Reduced
   motion, no IntersectionObserver or no script: the grid simply shows.
   `overflow-x: clip` on the section keeps spilled dots from widening the
   page.
@@ -901,15 +890,10 @@ the stage shows one tap, the hall shows a whole lecture.
 ### Ruled rows (site)
 - **Timed sequence** ("how it works"): a 112px marker column with the time
   in indigo Readout (`t = 0`, `within 10 s`, `+ ~0.5 s`), then a title and
-  muted body. The times are the markers; there are no step numbers.
-  Beside it, on desktop, the sticky phone shows each step's real screen
-  (ID card, "listening for terminal", "attendance verified" with its
-  notification), crossfading in 200ms as that step crosses the middle of
-  the window (steps.js); the active step's time stays indigo and the others
-  go faint. At 900px and below the sticky phone is replaced by a row of
-  three small phones (4px bezel, 18px corners), one per step, labelled
-  with the step number in indigo Readout, under the section heading;
-  nothing switches or dims there.
+  muted body. The times are the markers; there are no step numbers. The
+  section heading sits beside it on desktop. No screenshots: the tap
+  already shows each step's screen, so this is the same check-in in
+  detail, with its timings.
 - **Threat list:** one `<details>` per attempt. The summary row (64px
   minimum) holds the attempt as a title, what stops it in muted text, and a
   plus that rotates 45 degrees to a cross when open (250ms). Hovering turns
@@ -965,7 +949,7 @@ to the indigo accent.
 - **Do** set times, codes and terminal strings in the mono face, and everything else in the sans.
 - **Do** contrast-check new pairs against the surface they actually sit on, including tinted fills.
 - **Do** build site pages from the app's tokens and the `styles.css` custom properties; dark by default, light by `prefers-color-scheme`.
-- **Do** label every piece of sample data as demo, next to it: the stage's code and check-ins, and every screenshot caption.
+- **Do** label every piece of sample data as demo, next to it: the tap, the demo code, the lecturer's live list, and every screenshot caption.
 - **Do** separate site lists with ruled rows (hairline top and bottom), not cards.
 - **Do** make every site animation finish into the page's static markup, so no script or reduced motion shows the complete state.
 - **Do** self-host fonts for anything a student opens (Plex WOFF2, `font-display: swap`).

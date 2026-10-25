@@ -7,14 +7,13 @@ from the Flask server at `portal.suaams.com.ng`. See section 11 of
 
 | File | What it is |
 |---|---|
-| `index.html` | The story page: the reader "stage", how it works, security, privacy |
+| `index.html` | The story page: the tap (phone and reader, three beats), how it works, security, privacy |
 | `get/index.html` | The student install page, `suaams.com.ng/get` (QR codes point here) |
 | `get/poster.html` | Printable A4 poster with the QR code (print from the browser, A4, no margins) |
 | `privacy.html` | Privacy policy (needed for the Play Store) |
 | `styles.css` | All styling for the three pages; dark by default, light follows the system |
-| `hero.js` | The one animation: the tap (verify, tap, recorded) when the stage comes into view, with "Replay the tap"; also hides missing images. Motion timings are in DESIGN.md, "The stage" |
+| `hero.js` | The tap: steps the phone and reader through its three beats when they come into view, with "Replay the tap"; also hides missing images. Timings are in DESIGN.md, "The tap" |
 | `hall.js` | The hall: 200 dots, one per student, snapping from a scatter into the register when the section comes into view |
-| `steps.js` | "How it works": on desktop the phone beside the steps shows each step's screen as that step reaches the middle of the window (narrow screens show all three in a row instead, no script needed) |
 | `fonts/` | IBM Plex Sans and Mono, cut down to Latin WOFF2 from the app's own TTFs |
 | `img/qr-get.svg` | QR code for `https://suaams.com.ng/get` |
 | `favicon.svg` | Tab icon, the SUAAMS mark |
@@ -75,10 +74,10 @@ writes a ~20 KB WebP to `img/`. The crop defaults suit a Galaxy S24; pass
 
 | File | Screen | Used in |
 |---|---|---|
-| `img/app-id-card.webp` | ID Card tab | "How it works", step one |
+| `img/app-id-card.webp` | ID Card tab | The tap, beat one |
 | `img/app-records.webp` | Records tab | "Know where you stand" |
-| `img/app-tap.webp` | "Listening for terminal" sheet, mid check-in | "How it works", step two |
-| `img/app-marked.webp` | "Attendance verified" sheet with the "Attendance recorded" notification | "How it works", step three |
+| `img/app-tap.webp` | "Listening for terminal" sheet, mid check-in | The tap, beat two |
+| `img/app-marked.webp` | "Attendance verified" sheet with the "Attendance recorded" notification | The tap, beat three |
 
 Upload into `public_html/img/`. Until a file is there, its phone frame
 shows a placeholder label instead of a broken image.

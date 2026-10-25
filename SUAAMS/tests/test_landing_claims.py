@@ -51,7 +51,7 @@ CLAIMS = [
      python_constant('beacon.py', 'BEACON_TOKEN_TTL_SECONDS'),
      r'expires? after (\d+) seconds',
      ['index.html', 'privacy.html']),
-    # The decoded demo code in the first screen ("IN" column).
+    # The decoded demo code (Security, "What your phone actually sends").
     ('check-in code lifetime, decoded demo code',
      python_constant('beacon.py', 'BEACON_TOKEN_TTL_SECONDS'),
      r'expires (\d+) s after minting',
@@ -95,7 +95,7 @@ def manifest_text():
 class LandingClaimsTest(unittest.TestCase):
 
     def test_demo_code_is_a_real_format_token(self):
-        """The first screen shows a demo check-in code split into payload
+        """The Security section shows a demo check-in code split into payload
         and signature. It must stay the real shape: 16 + 16 base64url
         characters (12-byte payload, 12-byte signature, beacon.py)."""
         html = page_text('index.html')
