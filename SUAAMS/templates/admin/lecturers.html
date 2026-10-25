@@ -1,238 +1,297 @@
 {% extends "base_admin.html" %}
-{% from '_macros.html' import avatar, empty_state, table_empty, card_heading, directory_heading %}
-{% from 'admin/_status.html' import status_cell, status_dialog, bulk_status_card with context %}
+{% from '_macros.html' import pill, avatar, initials, empty_state, table_empty %}
+{% from 'admin/_status.html' import status_dialog, bulk_status_card with context %}
 {% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
 
-{# One Edit button per lecturer, used by both the card and table views. The
-   filters ride along so saving returns to this same view. #}
-{% macro lecturer_edit(lecturer) -%}
-    {{ edit_button(url_for('admin.edit_record', kind='lecturers', record_id=lecturer.id, **filter_args),
-                   url_for('admin.delete_record', kind='lecturers', record_id=lecturer.id, **filter_args),
-                   lecturer.full_name ~ ' (' ~ lecturer.staff_id ~ ')',
-                   {'full_name': lecturer.full_name, 'staff_id': lecturer.staff_id,
-                    'department_id': lecturer.department_id},
-                   delete_blockers.get(lecturer.id),
-                   reset_url=url_for('admin.reset_password', kind='lecturers', record_id=lecturer.id, **filter_args)) }}
+{# The Lecturers page on the Students pattern (2026-10-25): a full-width
+   directory, the occasional jobs in header dialogs, and a record drawer
+   (?lecturer=<id>) holding everything you can do to one lecturer. Every
+   action carries page_args back, so it returns here with the drawer open. #}
+
+{% macro record_link(lecturer) -%}
+    <a href="{{ url_for('admin.lecturers_page', **dict(filter_args, lecturer=lecturer.id)) }}" class="record-link"
+       {% if record and record.lecturer.id == lecturer.id %}aria-current="true"{% endif %}>{{ lecturer.full_name }}</a>
+{%- endmacro %}
+
+{# The same states the old status cell showed, without its Change button
+   (that's in the drawer now). Neutral, or ink for having left. #}
+{% macro status_pill(lecturer) -%}
+    {%- if lecturer.status != 'active' -%}
+        {{ pill(lecturer_statuses.get(lecturer.status, lecturer.status), 'ink' if lecturer.status == 'left' else 'neutral') }}
+    {%- elif lecturer.user and lecturer.user.requires_password_change -%}
+        {{ pill('Pending setup', 'neutral') }}
+    {%- else -%}
+        {{ pill('Active', 'neutral') }}
+    {%- endif -%}
+{%- endmacro %}
+
+{% macro record_drawer(record) -%}
+    {%- set lt = record.lecturer -%}
+    <aside class="drawer" id="record-drawer" aria-labelledby="drawer-name" data-close-url="{{ drawer_close_url }}">
+        <div class="drawer-head">
+            <span class="drawer-avatar" aria-hidden="true">{{ initials(lt.full_name) }}</span>
+            <div class="min-w-0">
+                <h2 class="drawer-name" id="drawer-name">{{ lt.full_name }}</h2>
+                <p class="drawer-id">{{ lt.staff_id }}<br>{{ lt.department.name if lt.department else 'No department' }}</p>
+            </div>
+            <a href="{{ drawer_close_url }}" class="drawer-close" aria-label="Close {{ lt.full_name }}'s record">{{ icon_svg('close', 'h-4 w-4') }}</a>
+        </div>
+
+        <div class="drawer-body">
+            <section class="drawer-sec" aria-labelledby="drawer-acct">
+                <h3 class="drawer-label" id="drawer-acct">Account</h3>
+                <dl class="drawer-kv">
+                    <dt>Status</dt>
+                    <dd>{{ lecturer_statuses.get(lt.status, lt.status) }}</dd>
+                    <dt>Sign-in</dt>
+                    <dd>{{ 'Not set up yet (first password is the staff ID, or a reset one)' if lt.user and lt.user.requires_password_change
+                           else ('Switched off' if lt.user and not lt.user.is_active else 'Own password set') }}</dd>
+                </dl>
+            </section>
+
+            {# This semester's courses: role, enrolment, and the course's
+               average attendance (utils.course_attendance, the register's
+               rule), amber below the exam line like a student's standing. #}
+            <section class="drawer-sec" aria-labelledby="drawer-courses">
+                <h3 class="drawer-label" id="drawer-courses">Teaching this semester</h3>
+                {% if record.courses %}
+                    <ul class="drawer-courses">
+                        {% for c in record.courses %}
+                            {% set a = record.attendance.get(c.id, {}) %}
+                            {% set below = a.held and a.pct < exam_threshold %}
+                            <li>
+                                <div class="min-w-0">
+                                    <p class="truncate"><span class="mono font-semibold">{{ c.course_code }}</span>&ensp;{{ c.course_title }}</p>
+                                    <p class="text-xs text-muted">{{ 'Coordinator' if c.lecturer_id == lt.id else 'Co-lecturer' }} &middot; {{ a.enrolled or 0 }} enrolled &middot; {{ a.held or 0 }} held</p>
+                                </div>
+                                <span class="mono text-sm {{ 'font-bold text-warning-ink' if below else 'text-ink' }}">{{ (a.pct|round|int ~ '%') if a.held else '—' }}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="standing-key">Average attendance per course; amber below {{ exam_threshold }}%</p>
+                {% else %}
+                    <p class="text-sm text-muted">No courses this semester.</p>
+                {% endif %}
+            </section>
+
+            <section class="drawer-sec" aria-labelledby="drawer-log">
+                <h3 class="drawer-label" id="drawer-log">Recent changes</h3>
+                {% if record.changes %}
+                    <ul class="drawer-log">
+                        {% for entry in record.changes %}
+                            <li><time class="mono">{{ entry.created_at|campus('%d %b') }}</time>
+                                <span>{{ entry.summary }}<small>by {{ entry.actor_label }}</small></span></li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-sm text-muted">Nothing recorded yet.</p>
+                {% endif %}
+            </section>
+        </div>
+
+        <div class="drawer-acts">
+            <button type="button" class="btn-secondary w-full status-open"
+                    data-action="{{ url_for('admin.change_status', kind='lecturers', person_id=lt.id, **page_args) }}"
+                    data-name="{{ lt.full_name }}" data-status="{{ lt.status }}">Change status</button>
+            <form action="{{ url_for('admin.reset_password', kind='lecturers', record_id=lt.id, **page_args) }}"
+                  method="POST" data-confirm="Give {{ lt.full_name }} a new temporary password? Their current one stops working and the app signs them out.">
+                {% include '_csrf_field.html' %}
+                <button type="submit" class="btn-secondary w-full">Reset password</button>
+            </form>
+            {{ edit_button(url_for('admin.edit_record', kind='lecturers', record_id=lt.id, **page_args),
+                           url_for('admin.delete_record', kind='lecturers', record_id=lt.id, **page_args),
+                           lt.full_name ~ ' (' ~ lt.staff_id ~ ')',
+                           {'full_name': lt.full_name, 'staff_id': lt.staff_id, 'department_id': lt.department_id},
+                           record.delete_blocker,
+                           reset_url=url_for('admin.reset_password', kind='lecturers', record_id=lt.id, **page_args),
+                           label='Edit record', cls='btn-secondary col-span-2 w-full') }}
+        </div>
+    </aside>
 {%- endmacro %}
 
 {% block title %}Lecturers | SUAAMS Admin{% endblock %}
 {% block page_title %}Lecturers{% endblock %}
 {% block page_subtitle %}
-    <p class="page-subtitle">Teaching staff directory</p>
+    <p class="page-subtitle"><span class="mono">{{ lecturers|length }}</span> {{ 'lecturer' if lecturers|length == 1 else 'lecturers' }}{{ ' match' if is_filtered else '' }} &middot; open a name for their record</p>
+{% endblock %}
+
+{% block page_actions %}
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+        <button type="button" class="btn-primary btn-sm" data-dialog="dlg-add">{{ icon_svg('add', 'h-4 w-4') }}Add lecturer</button>
+        <details class="menu">
+            <summary class="btn-secondary btn-sm">More {{ icon_svg('expand_more', 'h-4 w-4') }}</summary>
+            <div class="menu-list">
+                <button type="button" data-dialog="dlg-upload">{{ icon_svg('upload', 'h-4 w-4') }}Upload lecturers</button>
+                <button type="button" data-dialog="dlg-status">{{ icon_svg('upload_file', 'h-4 w-4') }}Change status from a CSV</button>
+            </div>
+        </details>
+    </div>
 {% endblock %}
 
 {% block content %}
 
-    <div class="form-grid">
-
-        <!-- Add Lecturer -->
-        <div class="form-col">
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Add Lecturer') }}
-                </div>
-                <div class="card-body">
-                    <form action="{{ url_for('admin.lecturers_page') }}" method="POST" class="space-y-4">
-                        {% include '_csrf_field.html' %}
-
-                        <div>
-                            <label class="form-label" for="lecturer-name">Full Name</label>
-                            <input type="text" name="full_name" id="lecturer-name" required
-                                   placeholder="e.g. Dr. Jane Doe" class="form-input">
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="lecturer-staff-id">Staff ID</label>
-                            <input type="text" name="staff_id" id="lecturer-staff-id" required
-                                   placeholder="e.g. LECT-1002" class="form-input">
-                            <p class="form-help">
-                                Also used as the login username; default password is the same as
-                                the Staff ID.
-                            </p>
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="lecturer-department">Department</label>
-                            <select name="department_id" id="lecturer-department" required class="form-select">
-                                <option value="" disabled selected>Select department</option>
-                                {% for dept in departments %}
-                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn-primary mt-2 w-full">Create Lecturer</button>
-                    </form>
-                </div>
+    <div class="card-clip">
+        {# Search + department: a plain GET form, so the view lives in the
+           URL and the dialogs return to it. One toolbar row. #}
+        <form method="GET" action="{{ url_for('admin.lecturers_page') }}" id="lecturer-filters" class="roster-tools">
+            <div>
+                <label class="form-label sr-only-lg" for="filter-q">Search</label>
+                <input type="search" name="q" id="filter-q" value="{{ filters.q }}"
+                       placeholder="Staff ID or name" autocomplete="off" class="form-input form-select-sm">
             </div>
-
-            {# ============ BULK UPLOAD (CSV) ============
-               Upload -> preview -> confirm (bulk_upload.py). Nothing is saved
-               until the preview is confirmed; existing rows are skipped. #}
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Bulk Upload') }}
-                </div>
-                <div class="card-body">
-                    <form action="{{ url_for('admin.bulk_upload_preview', kind='lecturers') }}" method="POST"
-                          enctype="multipart/form-data" class="space-y-4">
-                        {% include '_csrf_field.html' %}
-
-                        <div>
-                            <label class="form-label" for="bulk-lecturers-file">Excel or CSV file</label>
-                            <input type="file" name="file" id="bulk-lecturers-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required class="form-file">
-                            <p class="form-help">
-                                Columns: staff_id, full_name, department (its exact name). Up to 1,000 rows. Each lecturer's first password is their staff ID. Staff IDs already registered are skipped.
-                                <a href="{{ url_for('admin.bulk_template', kind='lecturers') }}" class="text-accent">Download the template</a>.
-                                {# Excel workbooks are read directly (bulk_upload.read_upload), so
-                                   nobody has to save as CSV first; a CSV must be UTF-8, since
-                                   Excel's plain "CSV" turns letters like ẹ and ọ into "?". #}
-                                <span class="mt-1 block">Upload the <strong>Excel file (.xlsx)</strong> as it is, or a CSV saved as
-                                    &ldquo;CSV UTF-8&rdquo; &mdash; plain &ldquo;CSV&rdquo; from Excel loses letters like ẹ and ọ.</span>
-                            </p>
-                        </div>
-
-                        <button type="submit" class="btn-secondary mt-2 w-full">Preview upload</button>
-                    </form>
-                </div>
+            <div>
+                <label class="form-label sr-only-lg" for="filter-dept">Department</label>
+                <select name="dept" id="filter-dept" class="form-select form-select-sm">
+                    <option value="">All departments</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if filters.dept == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="btn-secondary btn-sm h-9">Search</button>
+                {% if is_filtered %}
+                    <a href="{{ url_for('admin.lecturers_page') }}" class="btn-ghost btn-sm h-9">Clear</a>
+                {% endif %}
+            </div>
+        </form>
 
-            {# Applying a staff list: who left, who is on leave. #}
-            {{ bulk_status_card('lecturers', lecturer_statuses, 'staff ID') }}
+        <div class="divide-y divide-divider border-t border-divider sm:hidden">
+            {% for lecturer in lecturers %}
+                <div class="px-5 py-3.5 {{ 'bg-accent-soft' if record and record.lecturer.id == lecturer.id }}">
+                    <div class="flex items-center gap-3">
+                        {{ avatar(lecturer.full_name) }}
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-semibold">{{ record_link(lecturer) }}</p>
+                            <p class="mono text-2xs text-muted">{{ lecturer.staff_id }} &middot; {{ course_counts.get(lecturer.id, 0) }} courses</p>
+                        </div>
+                        {{ status_pill(lecturer) }}
+                    </div>
+                </div>
+            {% else %}
+                {{ empty_state('No lecturers match this search.' if is_filtered else 'No lecturers registered yet.', 'school') }}
+            {% endfor %}
         </div>
 
-        {# Directory. order-first below lg: finding a lecturer is the page's
-           main job, so on a phone it comes before the three forms instead of
-           after them. lg:order-none puts it back in the right-hand column. #}
-        <div class="form-main order-first lg:order-none">
-            <div class="card-clip">
-                {{ directory_heading('Lecturers', lecturers|length, 'lecturer') }}
-
-                {# Search + department filter: a plain GET form, as on the
-                   Students roster, so the view lives in the URL and the edit
-                   and status dialogs return to it. #}
-                <form method="GET" action="{{ url_for('admin.lecturers_page') }}" id="lecturer-filters"
-                      class="grid gap-3 px-5 pb-4 sm:grid-cols-[1fr_14rem_auto]">
-                    <div>
-                        <label class="form-label" for="filter-q">Search</label>
-                        <input type="search" name="q" id="filter-q" value="{{ filters.q }}"
-                               placeholder="Staff ID or name, e.g. LECT-1002"
-                               autocomplete="off" class="form-input">
-                    </div>
-                    <div>
-                        <label class="form-label" for="filter-dept">Department</label>
-                        <select name="dept" id="filter-dept" class="form-select">
-                            <option value="">All departments</option>
-                            {% for dept in departments %}
-                                <option value="{{ dept.id }}" {% if filters.dept == dept.id %}selected{% endif %}>{{ dept.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="flex items-end gap-2">
-                        <button type="submit" class="btn-primary flex-1">Search</button>
-                        {% if is_filtered %}
-                            <a href="{{ url_for('admin.lecturers_page') }}" class="btn-ghost">Clear</a>
-                        {% endif %}
-                    </div>
-                </form>
-
-                {# Card view below sm, as on the Students roster: the
-                   six-column table hid Courses, Status and Edit off the right
-                   edge of a phone. Same data, stacked. #}
-                <div class="divide-y divide-divider border-t border-divider sm:hidden">
+        <div class="table-wrap hidden border-t border-divider sm:block">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th class="th">Lecturer</th>
+                        <th class="th">Staff ID</th>
+                        <th class="th col-wide">Department</th>
+                        {# Coordinated + co-lectured, active semester only
+                           (_lecturer_course_counts in admin.py). #}
+                        <th class="th">Courses this semester</th>
+                        <th class="th">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
                     {% for lecturer in lecturers %}
-                        <div class="px-5 py-4">
-                            <div class="flex items-center gap-3">
-                                {{ avatar(lecturer.full_name) }}
-                                <div class="min-w-0 flex-1">
-                                    <p class="truncate text-sm font-semibold text-ink">{{ lecturer.full_name }}</p>
-                                    <p class="mono text-2xs text-muted">{{ lecturer.staff_id }}</p>
+                        <tr class="{{ 'is-open' if record and record.lecturer.id == lecturer.id }}">
+                            <td class="td">
+                                <div class="flex items-center gap-3">
+                                    {{ avatar(lecturer.full_name) }}
+                                    <span class="font-medium">{{ record_link(lecturer) }}</span>
                                 </div>
-                            </div>
-                            <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                                <div>
-                                    <dt class="text-muted">Department</dt>
-                                    <dd class="mt-0.5 truncate text-secondary">{{ lecturer.department.name if lecturer.department else '—' }}</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-muted">Courses this semester</dt>
-                                    <dd class="mt-0.5 text-secondary">{{ course_counts.get(lecturer.id, 0) }}</dd>
-                                </div>
-                            </dl>
-                            <div class="mt-3 flex flex-wrap items-center gap-2">
-                                {{ status_cell(lecturer, lecturer_statuses, url_for('admin.change_status', kind='lecturers', person_id=lecturer.id, **filter_args)) }}
-                                {{ lecturer_edit(lecturer) }}
-                            </div>
-                        </div>
+                            </td>
+                            <td class="td td-muted mono whitespace-nowrap text-xs">{{ lecturer.staff_id }}</td>
+                            <td class="td td-muted col-wide">{{ lecturer.department.name if lecturer.department else '—' }}</td>
+                            <td class="td td-muted mono">{{ course_counts.get(lecturer.id, 0) }}</td>
+                            <td class="td">{{ status_pill(lecturer) }}</td>
+                        </tr>
                     {% else %}
-                        {{ empty_state('No lecturers match this search.' if is_filtered else 'No lecturers registered yet.', 'school') }}
+                        {{ table_empty(5, 'No lecturers match this search.' if is_filtered else 'No lecturers registered yet.') }}
                     {% endfor %}
-                </div>
-
-                <div class="table-wrap hidden border-t border-divider sm:block">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th class="th">Lecturer</th>
-                                <th class="th">Staff ID</th>
-                                <th class="th">Department</th>
-                                {# Coordinated + co-lectured, active semester only
-                                   (_lecturer_course_counts in admin.py). #}
-                                <th class="th">Courses<span class="block text-2xs font-normal normal-case tracking-normal">this semester</span></th>
-                                <th class="th">Status</th>
-                                <th class="th"><span class="sr-only">Edit</span></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for lecturer in lecturers %}
-                                <tr>
-                                    <td class="td">
-                                        <div class="flex items-center gap-3">
-                                            {{ avatar(lecturer.full_name) }}
-                                            <span class="font-medium">{{ lecturer.full_name }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="td td-muted mono whitespace-nowrap text-xs">{{ lecturer.staff_id }}</td>
-                                    <td class="td td-muted">{{ lecturer.department.name if lecturer.department else '—' }}</td>
-                                    <td class="td td-muted">{{ course_counts.get(lecturer.id, 0) }}</td>
-                                    <td class="td">
-                                        {# School status when not Active; otherwise the
-                                           account-setup state ("Pending Setup" until the
-                                           first password change). #}
-                                        {{ status_cell(lecturer, lecturer_statuses, url_for('admin.change_status', kind='lecturers', person_id=lecturer.id, **filter_args)) }}
-                                    </td>
-                                    <td class="td">{{ lecturer_edit(lecturer) }}</td>
-                                </tr>
-                            {% else %}
-                                {{ table_empty(6, 'No lecturers match this search.' if is_filtered else 'No lecturers registered yet.') }}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    {{ status_dialog(lecturer_statuses, 'Left also takes them off courses still running; a coordinator must be replaced first.') }}
+    {% if record %}{{ record_drawer(record) }}{% endif %}
 
-    {% call edit_dialog('Edit lecturer', 'Removes the lecturer and their login. Only possible before they have coordinated a course or run a class.') %}
-        <div>
-            <label class="form-label" for="edit-full-name">Full Name</label>
-            <input type="text" name="full_name" id="edit-full-name" required maxlength="150" class="form-input">
-        </div>
-        <div>
-            <label class="form-label" for="edit-staff-id">Staff ID</label>
-            <input type="text" name="staff_id" id="edit-staff-id" required maxlength="50" class="form-input mono">
-            <p class="form-help">Also their login username. If they haven't set their own password yet, it becomes the new staff ID too.</p>
-        </div>
-        <div>
-            <label class="form-label" for="edit-department">Department</label>
-            <select name="department_id" id="edit-department" required class="form-select">
-                {% for dept in departments %}
-                    <option value="{{ dept.id }}">{{ dept.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-    {% endcall %}
+    <dialog class="modal" id="dlg-add" aria-labelledby="dlg-add-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-add-title">Add lecturer</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+        <form action="{{ url_for('admin.lecturers_page') }}" method="POST" class="space-y-4">
+            {% include '_csrf_field.html' %}
+            <div>
+                <label class="form-label" for="lecturer-name">Full Name</label>
+                <input type="text" name="full_name" id="lecturer-name" required placeholder="e.g. Dr. Jane Doe" class="form-input">
+            </div>
+            <div>
+                <label class="form-label" for="lecturer-staff-id">Staff ID</label>
+                <input type="text" name="staff_id" id="lecturer-staff-id" required placeholder="e.g. LECT-1002" class="form-input mono">
+                <p class="form-help">Also used as the login username; default password is the same as the Staff ID.</p>
+            </div>
+            <div>
+                <label class="form-label" for="lecturer-department">Department</label>
+                <select name="department_id" id="lecturer-department" required class="form-select">
+                    <option value="" disabled selected>Select department</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn-primary mt-2 w-full">Create lecturer</button>
+        </form>
+    </dialog>
+
+    {# Upload -> preview -> confirm (bulk_upload.py). Nothing is saved until
+       the preview is confirmed; existing rows are skipped. #}
+    <dialog class="modal" id="dlg-upload" aria-labelledby="dlg-upload-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-upload-title">Upload lecturers</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+        <form action="{{ url_for('admin.bulk_upload_preview', kind='lecturers') }}" method="POST"
+              enctype="multipart/form-data" class="space-y-4">
+            {% include '_csrf_field.html' %}
+            <div>
+                <label class="form-label" for="bulk-lecturers-file">Excel or CSV file</label>
+                <input type="file" name="file" id="bulk-lecturers-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required class="form-file">
+                <p class="form-help">
+                    Columns: staff_id, full_name, department (its exact name). Up to 1,000 rows. Each lecturer's first password is their staff ID. Staff IDs already registered are skipped.
+                    <a href="{{ url_for('admin.bulk_template', kind='lecturers') }}" class="text-accent">Download the template</a>.
+                    {# Excel workbooks are read directly (bulk_upload.read_upload); a
+                       CSV must be UTF-8, since Excel's plain "CSV" turns letters
+                       like ẹ and ọ into "?". #}
+                    <span class="mt-1 block">Upload the <strong>Excel file (.xlsx)</strong> as it is, or a CSV saved as
+                        &ldquo;CSV UTF-8&rdquo; &mdash; plain &ldquo;CSV&rdquo; from Excel loses letters like ẹ and ọ.</span>
+                </p>
+            </div>
+            <button type="submit" class="btn-secondary mt-2 w-full">Preview upload</button>
+        </form>
+    </dialog>
+
+    {# Applying a staff list: who left, who is on leave. #}
+    <dialog class="modal" id="dlg-status" aria-labelledby="dlg-status-title">
+        <div class="modal-head"><h2 class="sr-only" id="dlg-status-title">Change status from a CSV</h2>
+            <span></span>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+        {{ bulk_status_card('lecturers', lecturer_statuses, 'staff ID') }}
+    </dialog>
+
+    {% if record %}
+        {{ status_dialog(lecturer_statuses, 'Left also takes them off courses still running; a coordinator must be replaced first.') }}
+
+        {% call edit_dialog('Edit lecturer', 'Removes the lecturer and their login. Only possible before they have coordinated a course or run a class.') %}
+            <div>
+                <label class="form-label" for="edit-full-name">Full Name</label>
+                <input type="text" name="full_name" id="edit-full-name" required maxlength="150" class="form-input">
+            </div>
+            <div>
+                <label class="form-label" for="edit-staff-id">Staff ID</label>
+                <input type="text" name="staff_id" id="edit-staff-id" required maxlength="50" class="form-input mono">
+                <p class="form-help">Also their login username. If they haven't set their own password yet, it becomes the new staff ID too.</p>
+            </div>
+            <div>
+                <label class="form-label" for="edit-department">Department</label>
+                <select name="department_id" id="edit-department" required class="form-select">
+                    {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        {% endcall %}
+    {% endif %}
 
 {% endblock %}

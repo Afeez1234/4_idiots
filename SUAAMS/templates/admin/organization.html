@@ -7,35 +7,22 @@
     <p class="page-subtitle">Faculties and departments</p>
 {% endblock %}
 
+{% block page_actions %}
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+        <button type="button" class="btn-secondary btn-sm" data-dialog="dlg-faculty">{{ icon_svg('add', 'h-4 w-4') }}Add faculty</button>
+        <button type="button" class="btn-primary btn-sm" data-dialog="dlg-department">{{ icon_svg('add', 'h-4 w-4') }}Add department</button>
+    </div>
+{% endblock %}
+
 {% block content %}
 
-    {# Two parallel columns rather than the usual form-left/directory-right:
-       faculties and departments are peer entities, not "create a faculty,
-       then browse everything". Each column carries its own add-form above
-       its own list, so the pairing is visible. #}
+    {# Two parallel lists: faculties and departments are peers. Their add
+       forms are header dialogs (2026-10-25, the Students pattern). #}
     <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
 
         <!-- ============ FACULTIES ============ -->
         <div class="space-y-6">
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Add Faculty') }}
-                </div>
-                <div class="card-body">
-                    <form action="{{ url_for('admin.organization_page') }}" method="POST" class="space-y-4">
-                        {% include '_csrf_field.html' %}
-                        <input type="hidden" name="action" value="add_faculty">
-
-                        <div>
-                            <label class="form-label" for="faculty-name">Faculty Name</label>
-                            <input type="text" name="name" id="faculty-name" required
-                                   placeholder="e.g. Faculty of Engineering" class="form-input">
-                        </div>
-
-                        <button type="submit" class="btn-primary w-full">Add Faculty</button>
-                    </form>
-                </div>
-            </div>
+            
 
             <div class="card-clip">
                 {{ directory_heading('Faculties', faculties|length, 'faculty', 'faculties') }}
@@ -84,47 +71,7 @@
 
         <!-- ============ DEPARTMENTS ============ -->
         <div class="space-y-6">
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Add Department') }}
-                </div>
-                <div class="card-body">
-                    <form action="{{ url_for('admin.organization_page') }}" method="POST" class="space-y-4">
-                        {% include '_csrf_field.html' %}
-                        <input type="hidden" name="action" value="add_department">
-
-                        <div>
-                            <label class="form-label" for="department-faculty">Parent Faculty</label>
-                            <select name="faculty_id" id="department-faculty" required class="form-select">
-                                <option value="" disabled selected>Select faculty</option>
-                                {% for faculty in faculties %}
-                                    <option value="{{ faculty.id }}">{{ faculty.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="department-name">Department Name</label>
-                            <input type="text" name="name" id="department-name" required
-                                   placeholder="e.g. Computer Engineering" class="form-input">
-                        </div>
-
-                        {# Its final level (years x 100) is where yearly
-                           promotion stops -- see promotion.py. #}
-                        <div>
-                            <label class="form-label" for="department-years">Programme length</label>
-                            <select name="programme_years" id="department-years" required class="form-select">
-                                <option value="" disabled selected>Select length</option>
-                                {% for years in programme_years %}
-                                    <option value="{{ years }}">{{ years }} years ({{ years * 100 }} level is final year)</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn-primary w-full">Add Department</button>
-                    </form>
-                </div>
-            </div>
+            
 
             <div class="card-clip">
                 {{ directory_heading('Departments', departments|length, 'department') }}
@@ -132,7 +79,7 @@
                 <div class="divide-y divide-divider border-t border-divider">
                     {% for dept in departments %}
                         {% set dc = dept_counts.get(dept.id, {'students': 0, 'lecturers': 0, 'courses': 0, 'hods': 0}) %}
-                        <div class="flex items-center justify-between gap-4 px-5 py-3.5">
+                        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3.5">
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-semibold text-ink">{{ dept.name }}</p>
                                 <p class="mt-0.5 text-2xs text-muted">
@@ -147,11 +94,11 @@
                                until every department with students has one. Saved
                                with the button: it used to save on change, so one
                                arrow-key press on the dropdown saved a wrong length. #}
-                            <form action="{{ url_for('admin.organization_page') }}" method="POST" class="ml-auto flex shrink-0 items-center gap-2">
+                            <form action="{{ url_for('admin.organization_page') }}" method="POST" class="ml-auto flex shrink-0 flex-wrap items-center gap-2">
                                 {% include '_csrf_field.html' %}
                                 <input type="hidden" name="action" value="set_programme_years">
                                 <input type="hidden" name="department_id" value="{{ dept.id }}">
-                                <select name="programme_years" class="form-select programme-years" aria-label="Programme length for {{ dept.name }}">
+                                <select name="programme_years" class="form-select programme-years w-auto" aria-label="Programme length for {{ dept.name }}">
                                     {% if not dept.programme_years %}<option value="" selected disabled>Length not set</option>{% endif %}
                                     {% for years in programme_years %}
                                         <option value="{{ years }}" {{ 'selected' if dept.programme_years == years else '' }}>{{ years }} years</option>
@@ -220,6 +167,64 @@
             </form>
         </div>
     </div>
+
+    <dialog class="modal" id="dlg-faculty" aria-labelledby="dlg-faculty-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-faculty-title">Add faculty</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+
+                    <form action="{{ url_for('admin.organization_page') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="action" value="add_faculty">
+
+                        <div>
+                            <label class="form-label" for="faculty-name">Faculty Name</label>
+                            <input type="text" name="name" id="faculty-name" required
+                                   placeholder="e.g. Faculty of Engineering" class="form-input">
+                        </div>
+
+                        <button type="submit" class="btn-primary w-full">Add Faculty</button>
+                    </form>
+    </dialog>
+
+    <dialog class="modal" id="dlg-department" aria-labelledby="dlg-department-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-department-title">Add department</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+
+                    <form action="{{ url_for('admin.organization_page') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="action" value="add_department">
+
+                        <div>
+                            <label class="form-label" for="department-faculty">Parent Faculty</label>
+                            <select name="faculty_id" id="department-faculty" required class="form-select">
+                                <option value="" disabled selected>Select faculty</option>
+                                {% for faculty in faculties %}
+                                    <option value="{{ faculty.id }}">{{ faculty.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="department-name">Department Name</label>
+                            <input type="text" name="name" id="department-name" required
+                                   placeholder="e.g. Computer Engineering" class="form-input">
+                        </div>
+
+                        {# Its final level (years x 100) is where yearly
+                           promotion stops -- see promotion.py. #}
+                        <div>
+                            <label class="form-label" for="department-years">Programme length</label>
+                            <select name="programme_years" id="department-years" required class="form-select">
+                                <option value="" disabled selected>Select length</option>
+                                {% for years in programme_years %}
+                                    <option value="{{ years }}">{{ years }} years ({{ years * 100 }} level is final year)</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn-primary w-full">Add Department</button>
+                    </form>
+    </dialog>
 
 {% endblock %}
 

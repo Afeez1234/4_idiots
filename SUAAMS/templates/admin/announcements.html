@@ -7,17 +7,70 @@
     <p class="page-subtitle">Post university, department, or course notices</p>
 {% endblock %}
 
+{% block page_actions %}
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+        <button type="button" class="btn-primary btn-sm" data-dialog="dlg-post">{{ icon_svg('campaign', 'h-4 w-4') }}Post announcement</button>
+    </div>
+{% endblock %}
+
 {% block content %}
 
-    <div class="form-grid">
+    <div class="space-y-6">
 
-        <!-- Post Announcement -->
-        <div class="form-col">
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Post Announcement') }}
+            {% for a in announcements %}
+                <article class="card">
+                    <div class="card-header">
+                        <div class="min-w-0">
+                            <h2 class="card-title truncate">{{ a.title }}</h2>
+                            <p class="mt-0.5 text-2xs text-muted">
+                                {{ a.created_at|campus('%d %b %Y, %H:%M') }}
+                            </p>
+                        </div>
+                        {# Scope is the badge, not the timestamp line: which
+                           audience an announcement reached is the fact an admin
+                           scans the feed for. #}
+                        {% if a.scope == 'university' %}
+                            {{ pill('University-wide', 'accent') }}
+                        {% elif a.scope == 'department' %}
+                            {{ pill(a.department.name if a.department else 'Department', 'neutral') }}
+                        {% else %}
+                            {{ course_chip(a.course.course_code if a.course else 'Course') }}
+                        {% endif %}
+                    </div>
+                    <div class="card-body">
+                        <p class="text-sm leading-relaxed text-secondary">{{ a.body }}</p>
+                    </div>
+                    <div class="card-foot">
+                        {% if a.is_active %}
+                            {{ pill('Live', 'live') }}
+                            {# Deleting hides it (a soft delete, kept for the record); it
+                               can't recall notifications already sent. The old text said
+                               "cannot be undone", which wasn't the point. #}
+                            <form action="{{ url_for('admin.delete_announcement', announcement_id=a.id) }}" method="POST"
+                                  onsubmit="return confirm('Delete this announcement? Students stop seeing it now. Notifications already sent to phones can\'t be recalled.');">
+                                {% include '_csrf_field.html' %}
+                                <button type="submit" title="Delete announcement" class="btn-link ml-auto">
+                                    Delete
+                                </button>
+                            </form>
+                        {% else %}
+                            {{ pill('Inactive', 'neutral') }}
+                            <p class="ml-auto text-2xs text-muted">Hidden from students</p>
+                        {% endif %}
+                    </div>
+                </article>
+            {% else %}
+                <div class="card">
+                    {{ empty_state('No announcements posted yet.', 'campaign', 'Use the form to reach the whole university.') }}
                 </div>
-                <div class="card-body">
+            {% endfor %}
+
+    </div>
+
+    <dialog class="modal" id="dlg-post" aria-labelledby="dlg-post-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-post-title">Post announcement</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+
                     {# Posting pushes a notification to every student it reaches, so the
                        script below asks first with the count (data-audience). #}
                     <form action="{{ url_for('admin.announcements_page') }}" method="POST" class="space-y-4"
@@ -71,61 +124,8 @@
 
                         <button type="submit" class="btn-primary mt-2 w-full">Post Announcement</button>
                     </form>
-                </div>
-            </div>
-        </div>
+    </dialog>
 
-        <!-- Feed -->
-        <div class="form-main space-y-4">
-            {% for a in announcements %}
-                <article class="card">
-                    <div class="card-header">
-                        <div class="min-w-0">
-                            <h2 class="card-title truncate">{{ a.title }}</h2>
-                            <p class="mt-0.5 text-2xs text-muted">
-                                {{ a.created_at|campus('%d %b %Y, %H:%M') }}
-                            </p>
-                        </div>
-                        {# Scope is the badge, not the timestamp line: which
-                           audience an announcement reached is the fact an admin
-                           scans the feed for. #}
-                        {% if a.scope == 'university' %}
-                            {{ pill('University-wide', 'accent') }}
-                        {% elif a.scope == 'department' %}
-                            {{ pill(a.department.name if a.department else 'Department', 'neutral') }}
-                        {% else %}
-                            {{ course_chip(a.course.course_code if a.course else 'Course') }}
-                        {% endif %}
-                    </div>
-                    <div class="card-body">
-                        <p class="text-sm leading-relaxed text-secondary">{{ a.body }}</p>
-                    </div>
-                    <div class="card-foot">
-                        {% if a.is_active %}
-                            {{ pill('Live', 'live') }}
-                            {# Deleting hides it (a soft delete, kept for the record); it
-                               can't recall notifications already sent. The old text said
-                               "cannot be undone", which wasn't the point. #}
-                            <form action="{{ url_for('admin.delete_announcement', announcement_id=a.id) }}" method="POST"
-                                  onsubmit="return confirm('Delete this announcement? Students stop seeing it now. Notifications already sent to phones can\'t be recalled.');">
-                                {% include '_csrf_field.html' %}
-                                <button type="submit" title="Delete announcement" class="btn-link ml-auto">
-                                    Delete
-                                </button>
-                            </form>
-                        {% else %}
-                            {{ pill('Inactive', 'neutral') }}
-                            <p class="ml-auto text-2xs text-muted">Hidden from students</p>
-                        {% endif %}
-                    </div>
-                </article>
-            {% else %}
-                <div class="card">
-                    {{ empty_state('No announcements posted yet.', 'campaign', 'Use the form to reach the whole university.') }}
-                </div>
-            {% endfor %}
-        </div>
-    </div>
 
 {% endblock %}
 

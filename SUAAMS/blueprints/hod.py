@@ -1,6 +1,7 @@
 import re
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for
 from icons import icon as _icon_svg
+from campus_time import campus_fmt as _campus_fmt
 from datetime import datetime, timezone
 from utils import login_required, normalize_level, held_sessions, attended_by_student, current_courses
 from models import db, HOD, Department, Lecturer, Course, Student, Session as SessionModel, Enrollment
@@ -10,6 +11,8 @@ hod_bp = Blueprint('hod', __name__)
 # icon_svg() in templates (icons.py). Registered app-wide by every web
 # blueprint, so an app that registers any one of them can render pages.
 hod_bp.add_app_template_global(_icon_svg, 'icon_svg')
+# And the campus-time filter (campus_time.py), for the same reason.
+hod_bp.add_app_template_filter(_campus_fmt, 'campus')
 
 
 def _student_level(raw):

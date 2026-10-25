@@ -8,21 +8,102 @@
     <p class="page-subtitle">Heads of Department</p>
 {% endblock %}
 
+{% block page_actions %}
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+        <button type="button" class="btn-primary btn-sm" data-dialog="dlg-assign">{{ icon_svg('add', 'h-4 w-4') }}Assign HOD</button>
+    </div>
+{% endblock %}
+
 {% block content %}
 
     {# The assign forms list only departments with no HOD (free_departments).
        hods_page still refuses a department that has one -- HOD.department_id
        has no unique constraint, so that check is the real guard. #}
 
-    <div class="form-grid">
+    <div class="space-y-6">
 
-        <!-- Assign HOD -->
-        <div class="form-col">
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Assign HOD') }}
+            <div class="card-clip">
+                {# One row per department, so a department with no HOD shows as
+                   a gap instead of simply not being listed (2026-10-18). #}
+                <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
+                    <h2 class="card-title">Heads of Department</h2>
+                    <span class="text-xs text-muted">
+                        {{ hod_count }} of {{ rows|length }} department{{ '' if rows|length == 1 else 's' }} have an HOD
+                    </span>
                 </div>
-                <div class="card-body">
+
+                <div class="table-wrap border-t border-divider">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th class="th">Department</th>
+                                <th class="th">HOD</th>
+                                <th class="th hidden sm:table-cell">Staff ID</th>
+                                <th class="th">Status</th>
+                                <th class="th"><span class="sr-only">Edit</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                                {% set hod = row.hod %}
+                                <tr>
+                                    <td class="td font-medium">{{ row.department.name }}</td>
+                                    {% if hod %}
+                                        <td class="td">
+                                            {# The avatar from 640px: on a phone the name needs
+                                               the width, or the status runs off the edge. #}
+                                            <div class="flex items-center gap-3">
+                                                <span class="hidden sm:inline-flex">{{ avatar(hod.full_name) }}</span>
+                                                <span>{{ hod.full_name }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="td td-muted mono hidden whitespace-nowrap text-xs sm:table-cell">{{ hod.staff_id }}</td>
+                                        <td class="td">
+                                            {# Sign-in off first: "Active" used to show for an
+                                               HOD whose login was switched off -- e.g. a
+                                               promoted lecturer marked On leave or Left on the
+                                               Lecturers page, which turns their shared login off. #}
+                                            {% set lect = hod_lecturers.get(hod.user_id) %}
+                                            {% if hod.user and not hod.user.is_active %}
+                                                {% if lect and lect.status != 'active' %}
+                                                    {{ pill(lecturer_statuses.get(lect.status, lect.status) ~ ' · sign-in off',
+                                                            'ink' if lect.status == 'left' else 'neutral') }}
+                                                {% else %}
+                                                    {{ pill('Sign-in off', 'ink') }}
+                                                {% endif %}
+                                            {% elif hod.user and hod.user.requires_password_change %}
+                                                {{ pill('Pending setup', 'neutral') }}
+                                            {% else %}
+                                                {{ pill('Active', 'neutral') }}
+                                            {% endif %}
+                                        </td>
+                                        <td class="td">
+                                            {{ edit_button(url_for('admin.edit_record', kind='hods', record_id=hod.id),
+                                                           url_for('admin.delete_record', kind='hods', record_id=hod.id),
+                                                           hod.full_name ~ ' (' ~ hod.staff_id ~ ')',
+                                                           {'full_name': hod.full_name, 'staff_id': hod.staff_id,
+                                                            'department_id': hod.department_id},
+                                                           note=('A promoted lecturer: they go back to being a lecturer, keeping their courses and class history.'
+                                                                 if lect else none)) }}
+                                        </td>
+                                    {% else %}
+                                        <td class="td" colspan="4">{{ pill('No HOD yet', 'accent') }}</td>
+                                    {% endif %}
+                                </tr>
+                            {% else %}
+                                {{ table_empty(5, 'No departments yet. Add them on the Organization page.') }}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+    </div>
+
+    <dialog class="modal" id="dlg-assign" aria-labelledby="dlg-assign-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-assign-title">Assign HOD</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+
 
                     {# Mode toggle: promoting an existing lecturer reuses their
                        existing User row/login (only their role flips to 'hod' and
@@ -137,87 +218,8 @@
                             Promote to HOD
                         </button>
                     </form>
-                </div>
-            </div>
-        </div>
+    </dialog>
 
-        <!-- Directory: one row per department -->
-        <div class="form-main">
-            <div class="card-clip">
-                {# One row per department, so a department with no HOD shows as
-                   a gap instead of simply not being listed (2026-10-18). #}
-                <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
-                    <h2 class="card-title">Heads of Department</h2>
-                    <span class="text-xs text-muted">
-                        {{ hod_count }} of {{ rows|length }} department{{ '' if rows|length == 1 else 's' }} have an HOD
-                    </span>
-                </div>
-
-                <div class="table-wrap border-t border-divider">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th class="th">Department</th>
-                                <th class="th">HOD</th>
-                                <th class="th">Staff ID</th>
-                                <th class="th">Status</th>
-                                <th class="th"><span class="sr-only">Edit</span></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in rows %}
-                                {% set hod = row.hod %}
-                                <tr>
-                                    <td class="td font-medium">{{ row.department.name }}</td>
-                                    {% if hod %}
-                                        <td class="td">
-                                            <div class="flex items-center gap-3">
-                                                {{ avatar(hod.full_name) }}
-                                                <span>{{ hod.full_name }}</span>
-                                            </div>
-                                        </td>
-                                        <td class="td td-muted mono whitespace-nowrap text-xs">{{ hod.staff_id }}</td>
-                                        <td class="td">
-                                            {# Sign-in off first: "Active" used to show for an
-                                               HOD whose login was switched off -- e.g. a
-                                               promoted lecturer marked On leave or Left on the
-                                               Lecturers page, which turns their shared login off. #}
-                                            {% set lect = hod_lecturers.get(hod.user_id) %}
-                                            {% if hod.user and not hod.user.is_active %}
-                                                {% if lect and lect.status != 'active' %}
-                                                    {{ pill(lecturer_statuses.get(lect.status, lect.status) ~ ' · sign-in off',
-                                                            'error' if lect.status == 'left' else 'warning') }}
-                                                {% else %}
-                                                    {{ pill('Sign-in off', 'ink') }}
-                                                {% endif %}
-                                            {% elif hod.user and hod.user.requires_password_change %}
-                                                {{ pill('Pending setup', 'neutral') }}
-                                            {% else %}
-                                                {{ pill('Active', 'neutral') }}
-                                            {% endif %}
-                                        </td>
-                                        <td class="td">
-                                            {{ edit_button(url_for('admin.edit_record', kind='hods', record_id=hod.id),
-                                                           url_for('admin.delete_record', kind='hods', record_id=hod.id),
-                                                           hod.full_name ~ ' (' ~ hod.staff_id ~ ')',
-                                                           {'full_name': hod.full_name, 'staff_id': hod.staff_id,
-                                                            'department_id': hod.department_id},
-                                                           note=('A promoted lecturer: they go back to being a lecturer, keeping their courses and class history.'
-                                                                 if lect else none)) }}
-                                        </td>
-                                    {% else %}
-                                        <td class="td" colspan="4">{{ pill('No HOD yet', 'accent') }}</td>
-                                    {% endif %}
-                                </tr>
-                            {% else %}
-                                {{ table_empty(5, 'No departments yet. Add them on the Organization page.') }}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
 
     {# Changing a department's HOD = remove this one, then assign or promote
        the next with the form on the left. #}

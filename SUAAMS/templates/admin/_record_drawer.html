@@ -14,6 +14,7 @@
      {% from 'admin/_record_drawer.html' import record_drawer, record_dialogs with context %}
    and call record_dialogs() after record_drawer(), so its script finds the
    drawer's buttons. #}
+{% from '_macros.html' import initials %}
 {% from 'admin/_status.html' import status_dialog with context %}
 {% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
 
@@ -53,7 +54,7 @@
     {%- set close_url = drawer_close_url -%}
     <aside class="drawer" id="record-drawer" aria-labelledby="drawer-name" data-close-url="{{ close_url }}">
         <div class="drawer-head">
-            <span class="drawer-avatar" aria-hidden="true">{{ (st.full_name.split()[0][0] ~ (st.full_name.split()[-1][0] if st.full_name.split()|length > 1 else ''))|upper }}</span>
+            <span class="drawer-avatar" aria-hidden="true">{{ initials(st.full_name) }}</span>
             <div class="min-w-0">
                 <h2 class="drawer-name" id="drawer-name">{{ st.full_name }}</h2>
                 <p class="drawer-id">{{ st.matric_number }} &middot; {{ st.level }}L<br>{{ st.department.name if st.department else 'No department' }}</p>
@@ -221,26 +222,7 @@
     {% endcall %}
 
 <script>
-    // Reset password asks first: the current password stops working at once.
-    document.querySelectorAll('form[data-confirm]').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            if (!confirm(form.dataset.confirm)) e.preventDefault();
-        });
-    });
-
-    // Escape closes the record drawer (its close link), unless a dialog
-    // is open on top of it -- then Escape is that dialog's.
-    (function () {
-        var drawer = document.getElementById('record-drawer');
-        if (!drawer) return;
-        document.addEventListener('keydown', function (e) {
-            if (e.key !== 'Escape' || e.defaultPrevented) return;
-            if (document.querySelector('dialog[open]')) return;
-            var modal = document.querySelector('#unbind-modal.flex, #status-modal.flex, #edit-modal.flex');
-            if (modal) return;
-            window.location = drawer.dataset.closeUrl;
-        });
-    })();
+    // Confirm-first forms and Escape on the drawer: shared, in _shell.html.
 
     // The unbind dialog. It replaced a confirm() that named the student and
     // nothing more: OK got clicked by reflex, and two students sharing a

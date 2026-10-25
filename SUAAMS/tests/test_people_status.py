@@ -352,5 +352,38 @@ class PeopleStatusTestCase(unittest.TestCase):
         self.assertIn('/admin/dashboard', resp.headers['Location'])
 
 
+    def test_lecturer_drawer_shows_this_semesters_teaching(self):
+        self.course('MCT401', self.lect, self.now, co=[self.helper])
+        self.course('MCT301', self.lect, self.past)          # last semester: not shown
+        db.session.commit()
+        self.render_pages()
+        html = self.client.get(f'/admin/lecturers?lecturer={self.helper.id}').get_data(as_text=True)
+        drawer = html.split('id="record-drawer"')[1]
+        self.assertIn('MCT401', drawer)
+        self.assertIn('Co-lecturer', drawer)
+        self.assertNotIn('MCT301', drawer)
+        self.assertIn(f'lecturer={self.helper.id}', drawer)   # actions come back to it
+
+    def test_lecturer_status_change_returns_to_the_drawer(self):
+        self.sign_in()
+        resp = self.client.post(f'/admin/lecturers/{self.helper.id}/status?lecturer={self.helper.id}',
+                                data={'status': 'on_leave', 'reason': 'Sabbatical'})
+        self.assertIn(f'lecturer={self.helper.id}', resp.headers['Location'])
+
+
+    def test_course_drawer_enrolls_and_comes_back(self):
+        course = self.course('MCT401', self.lect, self.now, co=[self.helper])
+        db.session.commit()
+        self.render_pages()
+        html = self.client.get(f'/admin/courses?semester={self.now.id}&course={course.id}').get_data(as_text=True)
+        drawer = html.split('id="record-drawer"')[1]
+        self.assertIn('Enroll a student', drawer)
+        self.assertIn('Dr Help', drawer)
+        resp = self.client.post(f'/admin/courses?semester={self.now.id}&course={course.id}',
+                                data={'action': 'enroll_student', 'course_id': course.id, 'matric_number': 'MCT/20/0001'})
+        self.assertIn(f'course={course.id}', resp.headers['Location'])
+        self.assertEqual(Enrollment.query.filter_by(student_id=self.ada.id, course_id=course.id).count(), 1)
+
+
 if __name__ == '__main__':
     unittest.main()

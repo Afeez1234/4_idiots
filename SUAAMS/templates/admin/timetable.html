@@ -4,7 +4,19 @@
 {% block title %}Timetable | SUAAMS Admin{% endblock %}
 {% block page_title %}Timetable{% endblock %}
 {% block page_subtitle %}
-    <p class="page-subtitle">Recurring weekly course slots &mdash; drives the mobile app's "today's protocol" list</p>
+    <p class="page-subtitle">The weekly classes students and lecturers see in the app, by department and level</p>
+{% endblock %}
+
+{% block page_actions %}
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+        {% if view.is_grid %}
+            <button type="button" class="btn-primary btn-sm" data-dialog="dlg-slot">{{ icon_svg('add', 'h-4 w-4') }}Add slot</button>
+        {% endif %}
+        <button type="button" class="{{ 'btn-secondary' if view.is_grid else 'btn-primary' }} btn-sm" data-dialog="dlg-import">{{ icon_svg('upload_file', 'h-4 w-4') }}Import from PDF</button>
+        {% if view.semester and semesters|length > 1 %}
+            <button type="button" class="btn-secondary btn-sm" data-dialog="dlg-copy">{{ icon_svg('content_copy', 'h-4 w-4') }}Copy previous</button>
+        {% endif %}
+    </div>
 {% endblock %}
 
 {% block content %}
@@ -15,10 +27,10 @@
        class's week on the grid. See _timetable_view() in blueprints/admin.py. #}
     <div class="card-clip mb-6">
         <form method="GET" action="{{ url_for('admin.timetable_page') }}" id="timetable-filters"
-              class="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+              class="roster-tools">
             <div>
-                <label class="form-label" for="filter-semester">Semester</label>
-                <select name="semester" id="filter-semester" class="form-select">
+                <label class="form-label sr-only-lg" for="filter-semester">Semester</label>
+                <select name="semester" id="filter-semester" class="form-select form-select-sm">
                     {% for semester in semesters %}
                         <option value="{{ semester.id }}" {% if view.semester_id == semester.id %}selected{% endif %}>
                             {{ semester.name }}{{ ' (active)' if active_semester and semester.id == active_semester.id else '' }}
@@ -27,8 +39,8 @@
                 </select>
             </div>
             <div>
-                <label class="form-label" for="filter-dept">Department</label>
-                <select name="dept" id="filter-dept" class="form-select">
+                <label class="form-label sr-only-lg" for="filter-dept">Department</label>
+                <select name="dept" id="filter-dept" class="form-select form-select-sm">
                     <option value="">All departments</option>
                     {% for dept in departments %}
                         <option value="{{ dept.id }}" {% if view.dept == dept.id|string %}selected{% endif %}>{{ dept.name }}</option>
@@ -37,8 +49,8 @@
                 </select>
             </div>
             <div>
-                <label class="form-label" for="filter-level">Level</label>
-                <select name="level" id="filter-level" class="form-select">
+                <label class="form-label sr-only-lg" for="filter-level">Level</label>
+                <select name="level" id="filter-level" class="form-select form-select-sm">
                     <option value="">All levels</option>
                     {% for level in levels %}
                         <option value="{{ level }}" {% if view.level == level %}selected{% endif %}>{{ level }} level</option>
@@ -47,9 +59,9 @@
                 </select>
             </div>
             <div class="flex items-end gap-2">
-                <button type="submit" class="btn-primary flex-1">Show</button>
+                <button type="submit" class="btn-secondary btn-sm h-9">Show</button>
                 {% if view.dept or view.level %}
-                    <a href="{{ url_for('admin.timetable_page', semester=view.semester_id) }}" class="btn-ghost">All</a>
+                    <a href="{{ url_for('admin.timetable_page', semester=view.semester_id) }}" class="btn-ghost btn-sm h-9">Clear</a>
                 {% endif %}
             </div>
         </form>
@@ -77,9 +89,13 @@
     </div>
     {% endif %}
 
-    <div class="form-grid form-grid-wide">
+    {# One column (2026-10-25, the Students pattern): Drafts waiting stays a
+       visible card, since publishing is the page's most consequential
+       action; Import, Copy and Add slot are header dialogs (below, each
+       where its card was, so its condition still applies). #}
+    <div class="space-y-6">
 
-        <div class="form-col">
+        <div class="space-y-6">
 
         {# ============ DRAFTS WAITING ============
            Publishing is the page's most consequential action -- it replaces
@@ -89,18 +105,17 @@
            read as part of importing. One Publish per semester with drafts;
            each asks first. #}
         {% if draft_count %}
-        <div class="card card-body">
-            {{ card_heading('Drafts waiting') }}
-            <p class="mt-3 text-xs text-secondary">
+        <div class="drafts-bar">
+            <p class="min-w-0 grow basis-64 text-sm text-ink"><span class="font-semibold">Drafts waiting.</span>
                 {{ draft_count }} draft class{{ '' if draft_count == 1 else 'es' }} not yet published
                 (dashed and marked &ldquo;Draft&rdquo; on the grid). Students and lecturers can't see them yet.
             </p>
             {% for sem, count, course_count in draft_semesters %}
-                <form action="{{ url_for('admin.timetable_publish') }}" method="POST" class="publish-form mt-3"
+                <form action="{{ url_for('admin.timetable_publish') }}" method="POST" class="publish-form"
                       data-message="Publish {{ count }} class{{ '' if count == 1 else 'es' }} for {{ course_count }} course{{ '' if course_count == 1 else 's' }} in {{ sem.name }}? They replace those courses' current classes, and students and lecturers whose classes change will be notified.">
                     {% include '_csrf_field.html' %}
                     <input type="hidden" name="semester_id" value="{{ sem.id }}">
-                    <button type="submit" class="btn-primary w-full">Publish {{ sem.name }} ({{ count }})</button>
+                    <button type="submit" class="btn-primary btn-sm">Publish {{ sem.name }} ({{ count }})</button>
                 </form>
             {% endfor %}
         </div>
@@ -111,8 +126,9 @@
            preview (timetable_import.html) has been checked and confirmed;
            confirmed classes are saved as DRAFTS, invisible to students and
            lecturers until published. See timetable_import.py. #}
-        <div class="card card-body">
-            {{ card_heading('Import from PDF') }}
+        <dialog class="modal" id="dlg-import" aria-labelledby="dlg-import-title">
+            <div class="modal-head"><h2 class="card-title" id="dlg-import-title">Import from PDF</h2>
+                <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
             <form action="{{ url_for('admin.timetable_import') }}" method="POST"
                   enctype="multipart/form-data" class="mt-5 space-y-4">
                 {% include '_csrf_field.html' %}
@@ -138,15 +154,16 @@
                 </div>
                 <button type="submit" class="btn-secondary w-full">Read sheets</button>
             </form>
-        </div>
+        </dialog>
 
         {# ============ COPY A PREVIOUS SEMESTER ============
            Into the semester being viewed (and only the department/level
            being viewed, if one is). Defaults to the same semester last
            year. Opens the same preview as a PDF import; saves drafts. #}
         {% if view.semester and semesters|length > 1 %}
-        <div class="card card-body">
-            {{ card_heading('Copy a previous timetable') }}
+        <dialog class="modal" id="dlg-copy" aria-labelledby="dlg-copy-title">
+            <div class="modal-head"><h2 class="card-title" id="dlg-copy-title">Copy a previous timetable</h2>
+                <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
             <form action="{{ url_for('admin.timetable_copy') }}" method="POST" class="mt-5 space-y-4">
                 {% include '_csrf_field.html' %}
                 <input type="hidden" name="semester_id" value="{{ view.semester_id }}">
@@ -169,15 +186,16 @@
                 </div>
                 <button type="submit" class="btn-secondary w-full">Preview copy</button>
             </form>
-        </div>
+        </dialog>
         {% endif %}
 
         {# ============ ADD TIMETABLE SLOT ============
            Only for one department+level: single corrections now, bulk entry
            is the PDF import. The course list is that class's courses. #}
         {% if view.is_grid %}
-        <div class="card card-body">
-            {{ card_heading('Add Timetable Slot') }}
+        <dialog class="modal" id="dlg-slot" aria-labelledby="dlg-slot-title">
+            <div class="modal-head"><h2 class="card-title" id="dlg-slot-title">Add a timetable slot</h2>
+                <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
 
             <form id="create-slot-form" action="{{ url_for('admin.timetable_page', **view.args) }}" method="POST" class="mt-5 space-y-4">
                 {% include '_csrf_field.html' %}
@@ -250,7 +268,7 @@
 
                 <button type="submit" class="btn-primary w-full">Add Slot</button>
             </form>
-        </div>
+        </dialog>
         {% endif %}
 
         </div>
@@ -260,7 +278,7 @@
            One row per department+level with courses this semester. Answers
            "who still needs a timetable / has a draft waiting" at a glance;
            each row opens that class's week on the grid. #}
-        <div class="card-clip form-main">
+        <div class="card-clip">
             <div class="px-5 pt-5 pb-4">
                 {{ card_heading('Timetable coverage') }}
                 <p class="mt-1 text-xs text-muted">
@@ -303,7 +321,7 @@
         {% else %}
         {# ============ WEEKLY CALENDAR ============
            One department+level: the week those students see in the app. #}
-        <div class="card-clip form-main">
+        <div class="card-clip">
             <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
                 <div>
                     {{ card_heading(view.dept_name ~ ' · ' ~ (view.level ~ ' level' if view.level != 'other' else 'other courses')) }}

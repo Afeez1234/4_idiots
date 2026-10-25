@@ -281,6 +281,44 @@
                 }
             });
 
+            // Header dialogs (data-dialog="<dialog id>"): native <dialog>, so
+            // showModal() gives focus, Tab and Escape for free; focus goes
+            // back to the button. A button inside a <details> menu closes it.
+            document.querySelectorAll('[data-dialog]').forEach(function (btn) {
+                var dlg = document.getElementById(btn.dataset.dialog);
+                if (!dlg) return;
+                btn.addEventListener('click', function () {
+                    var menu = btn.closest('details');
+                    if (menu) menu.open = false;
+                    dlg.showModal();
+                });
+                dlg.addEventListener('close', function () { btn.focus(); });
+                dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+                dlg.querySelectorAll('[data-close]').forEach(function (c) {
+                    c.addEventListener('click', function () { dlg.close(); });
+                });
+            });
+
+            // Forms that ask first (data-confirm="<question>"), e.g. a
+            // password reset, whose current password stops working at once.
+            document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+                form.addEventListener('submit', function (e) {
+                    if (!confirm(form.dataset.confirm)) e.preventDefault();
+                });
+            });
+
+            // Escape closes a record drawer (#record-drawer, its close URL in
+            // data-close-url), unless a dialog is open over it.
+            var recordDrawer = document.getElementById('record-drawer');
+            if (recordDrawer) {
+                document.addEventListener('keydown', function (e) {
+                    if (e.key !== 'Escape' || e.defaultPrevented) return;
+                    if (document.querySelector('dialog[open]')) return;
+                    if (document.querySelector('#unbind-modal.flex, #status-modal.flex, #edit-modal.flex')) return;
+                    window.location = recordDrawer.dataset.closeUrl;
+                });
+            }
+
             // Escape closes the drawer -- the old version had no keyboard
             // path out of it, so the rail trapped keyboard and screen-reader
             // users on a phone.

@@ -417,6 +417,21 @@ CONTEXTS = {
         copy_source={"id": 2, "name": "2024/2025 First Semester"},
         # Course 1 can't be deleted (greyed out); course 2 can.
         delete_blockers={1: "Has 12 class sessions."},
+        # CPE401's record drawer: below the exam line, a published and a
+        # draft slot, one log line.
+        exam_threshold=75,
+        page_args={"semester": 1, "course": 1},
+        drawer_close_url="/admin/courses?semester=1",
+        record={
+            "course": dict(_COURSES[0]),
+            "attendance": {"enrolled": 48, "held": 12, "attended": 400, "pct": 69.4},
+            "slots": [
+                {"day_of_week": 0, "start_time": time(8), "end_time": time(10), "room": "LT 1", "is_published": True},
+                {"day_of_week": 3, "start_time": time(14), "end_time": time(16), "room": None, "is_published": False},
+            ],
+            "changes": [{"created_at": datetime(2026, 10, 3, 11, 0), "summary": "Added Dr. Ade Bello as a lecturer on CPE401", "actor_label": "tunde"}],
+            "delete_blocker": "Has 12 class sessions.",
+        },
     ),
 
     "admin/hods.html": dict(
@@ -494,6 +509,24 @@ CONTEXTS = {
         filters={"q": "", "dept": 1},
         filter_args={"dept": 1},
         is_filtered=True,
+        # Dr Doe's record drawer: a coordinated course below the exam line,
+        # a co-lectured one with nothing held yet, one log line.
+        exam_threshold=75,
+        page_args={"dept": 1, "lecturer": 1},
+        drawer_close_url="/admin/lecturers?dept=1",
+        record={
+            "lecturer": {"id": 1, "full_name": "Dr. Jane Doe", "staff_id": "LECT-1002", "status": "on_leave",
+                         "department": {"name": "Computer Engineering"}, "department_id": 1,
+                         "user": {"requires_password_change": False, "is_active": False}},
+            "courses": [
+                {"id": 1, "course_code": "CPE401", "course_title": "Embedded Systems", "lecturer_id": 1},
+                {"id": 2, "course_code": "CPE405", "course_title": "Computer Networks", "lecturer_id": 7},
+            ],
+            "attendance": {1: {"enrolled": 63, "held": 12, "attended": 520, "pct": 68.8},
+                           2: {"enrolled": 61, "held": 0, "attended": 0, "pct": 0}},
+            "changes": [{"created_at": datetime(2026, 10, 2, 9, 0), "summary": "Set Dr. Jane Doe (LECT-1002) to On leave: Sabbatical", "actor_label": "tunde"}],
+            "delete_blocker": "Coordinates CPE401. Make someone else coordinator first.",
+        },
     ),
 
     # The two signed-out pages (STANDALONE: no rail). The login page with a

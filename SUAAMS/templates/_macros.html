@@ -183,8 +183,15 @@
 {# Avatar with a name-derived initial. Several pages do
    `{{ person.full_name[0]|upper }}` inline; a None name would raise, so the
    macro falls back rather than trusting the caller. #}
+{# A person's initials, skipping titles: "Dr. Jane Doe" is JD, not DD
+   (every lecturer's avatar read "D"). n=1 for the first name only. #}
+{%- macro initials(name, n=2) -%}
+  {%- set words = (name or '?').replace('.', ' ').split()|reject('in', ['Dr', 'Prof', 'Engr', 'Mr', 'Mrs', 'Ms', 'Miss', 'Rev', 'Arc', 'Barr'])|list or ['?'] -%}
+  {{- (words[0][0] ~ (words[-1][0] if n > 1 and words|length > 1 else ''))|upper -}}
+{%- endmacro -%}
+
 {%- macro avatar(name, muted=false) -%}
-  <span class="avatar {% if muted %}avatar-muted{% endif %}">{{ (name or '?')[0]|upper }}</span>
+  <span class="avatar {% if muted %}avatar-muted{% endif %}">{{ initials(name, 1) }}</span>
 {%- endmacro -%}
 
 

@@ -8,50 +8,18 @@
     <p class="page-subtitle">Academic semester calendar</p>
 {% endblock %}
 
+{% block page_actions %}
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+        <button type="button" class="btn-primary btn-sm" data-dialog="dlg-add">{{ icon_svg('add', 'h-4 w-4') }}Add semester</button>
+    </div>
+{% endblock %}
+
 {% block content %}
 
-    {# The shared two-column shell: forms left, directory right. Seven admin
-       pages used to re-declare this grid by hand. #}
-    <div class="form-grid">
+    {# Full width, the add form in a header dialog (2026-10-25, the
+       Students pattern); it was a form column beside this list. #}
+    <div class="space-y-6">
 
-        <!-- Add Semester -->
-        <div class="form-col">
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Add Semester') }}
-                </div>
-                <div class="card-body">
-                    <form action="{{ url_for('admin.semesters_page') }}" method="POST" class="space-y-4">
-                        {% include '_csrf_field.html' %}
-
-                        <div>
-                            <label class="form-label" for="semester-name">Semester Name</label>
-                            <input type="text" name="name" id="semester-name" required
-                                   placeholder="e.g. 2025/2026 First Semester" class="form-input">
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="semester-start">Start Date</label>
-                            <input type="date" name="start_date" id="semester-start" required class="form-input">
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="semester-end">End Date</label>
-                            <input type="date" name="end_date" id="semester-end" required class="form-input">
-                        </div>
-
-                        <button type="submit" class="btn-primary mt-2 w-full">Create Semester</button>
-                        <p class="form-help">
-                            New semesters start inactive. Use &ldquo;Set Active&rdquo; in the list
-                            once you&rsquo;re ready to switch to it.
-                        </p>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <!-- Directory -->
-        <div class="form-main">
             <div class="card-clip">
                 {{ directory_heading('Semesters', semesters|length, 'semester') }}
 
@@ -105,8 +73,40 @@
                     {% endfor %}
                 </div>
             </div>
-        </div>
+
     </div>
+
+    <dialog class="modal" id="dlg-add" aria-labelledby="dlg-add-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-add-title">Add semester</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+
+                    <form action="{{ url_for('admin.semesters_page') }}" method="POST" class="space-y-4">
+                        {% include '_csrf_field.html' %}
+
+                        <div>
+                            <label class="form-label" for="semester-name">Semester Name</label>
+                            <input type="text" name="name" id="semester-name" required
+                                   placeholder="e.g. 2025/2026 First Semester" class="form-input">
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="semester-start">Start Date</label>
+                            <input type="date" name="start_date" id="semester-start" required class="form-input">
+                        </div>
+
+                        <div>
+                            <label class="form-label" for="semester-end">End Date</label>
+                            <input type="date" name="end_date" id="semester-end" required class="form-input">
+                        </div>
+
+                        <button type="submit" class="btn-primary mt-2 w-full">Create Semester</button>
+                        <p class="form-help">
+                            New semesters start inactive. Use &ldquo;Set Active&rdquo; in the list
+                            once you&rsquo;re ready to switch to it.
+                        </p>
+                    </form>
+    </dialog>
+
 
     {% call edit_dialog('Edit semester', 'Removes the semester. Only possible while it is empty (no courses, timetable or results) and not active.') %}
         <div>

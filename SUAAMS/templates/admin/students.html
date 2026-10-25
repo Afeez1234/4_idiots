@@ -35,7 +35,7 @@
        line beside an open drawer. "Promote students", not "New session":
        next to the door board's class sessions that read as starting a
        class. #}
-    <div class="ml-auto flex items-center gap-2">
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
         <button type="button" class="btn-primary btn-sm" data-dialog="dlg-add">{{ icon_svg('add', 'h-4 w-4') }}Add student</button>
         <details class="menu">
             <summary class="btn-secondary btn-sm">More {{ icon_svg('expand_more', 'h-4 w-4') }}</summary>
@@ -288,24 +288,8 @@
 
 {% block extra_scripts %}
 <script>
-    // The page's dialogs (Add student, Upload, Change status CSV): native
-    // <dialog>, so showModal() gives focus, Tab and Escape for free. Focus
-    // goes back to the button that opened it.
-    document.querySelectorAll('[data-dialog]').forEach(function (btn) {
-        var dlg = document.getElementById(btn.dataset.dialog);
-        if (!dlg) return;
-        btn.addEventListener('click', function () {
-            var menu = btn.closest('details');
-            if (menu) menu.open = false;
-            dlg.showModal();
-        });
-        dlg.addEventListener('close', function () { btn.focus(); });
-        dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
-        dlg.querySelectorAll('[data-close]').forEach(function (c) {
-            c.addEventListener('click', function () { dlg.close(); });
-        });
-    });
-
+    // Header dialogs, confirm-first forms and Escape on the drawer are
+    // shared behaviour, in _shell.html.
     // The filter dropdowns used to submit on change. With a keyboard, an
     // arrow key on a closed <select> fires change, so the page reloaded on
     // the first press -- you couldn't arrow down to a department -- and

@@ -1,5 +1,6 @@
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for
 from icons import icon as _icon_svg
+from campus_time import campus_fmt as _campus_fmt
 import bcrypt
 from models import db, User  # Imported 'db' to allow committing password changes
 from extensions import limiter, login_username_key, client_ip
@@ -11,6 +12,8 @@ auth_bp = Blueprint('auth', __name__)
 # icon_svg() in templates (icons.py). Registered app-wide by every web
 # blueprint, so an app that registers any one of them can render pages.
 auth_bp.add_app_template_global(_icon_svg, 'icon_svg')
+# And the campus-time filter (campus_time.py), for the same reason.
+auth_bp.add_app_template_filter(_campus_fmt, 'campus')
 
 # Pages a signed-in user may still reach while they owe a password change.
 # Everything else redirects to the change-password page.

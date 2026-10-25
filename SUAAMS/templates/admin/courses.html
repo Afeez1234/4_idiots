@@ -1,23 +1,23 @@
 {% extends "base_admin.html" %}
-{% from '_macros.html' import course_chip, empty_state, table_empty, card_heading, directory_heading %}
+{% from '_macros.html' import course_chip, empty_state, table_empty %}
 {% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
 
-{# One Edit button per course, used by both the card and table views. The
-   filters ride along so saving returns to this same view. #}
-{% macro course_edit(course) -%}
-    {{ edit_button(url_for('admin.edit_record', kind='courses', record_id=course.id, **filter_args),
-                   url_for('admin.delete_record', kind='courses', record_id=course.id, **filter_args),
-                   course.course_code ~ ' (' ~ course.course_title ~ ')',
-                   {'code': course.course_code, 'title': course.course_title,
-                    'department_id': course.department_id, 'semester_id': course.semester_id,
-                    'credit_units': course.credit_units},
-                   delete_blockers.get(course.id)) }}
+{# The Courses page on the Students pattern (2026-10-25): a full-width
+   catalog, the occasional jobs in header dialogs, and a record drawer
+   (?course=<id>). The two jobs that are about one course -- its lecturers
+   and enrolling a student -- live in that course's drawer, so there's no
+   course dropdown to pick from. Every form carries page_args back
+   (_courses_back), so it returns here with the drawer open. #}
+
+{% set day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+
+{% macro record_link(course) -%}
+    <a href="{{ url_for('admin.courses_page', **dict(filter_args, course=course.id)) }}" class="record-link"
+       {% if record and record.course.id == course.id %}aria-current="true"{% endif %}>{{ course.course_title }}</a>
 {%- endmacro %}
 
-{# Every lecturer on a course, coordinator first, each with the staff ID
-   Course Lecturers asks for. It used to be lecturer_summary ("Dr A + 2
-   more") with the rest only in a hover title -- out of reach by keyboard or
-   touch, and with no staff ID anywhere on the page to remove someone by. #}
+{# Every lecturer on a course, coordinator first, with the staff ID the
+   drawer's lecturer form asks for. #}
 {% macro course_lecturers(course) -%}
     {% for l in course.all_lecturers %}
         <span class="block whitespace-nowrap">
@@ -35,404 +35,379 @@
     {% if not course.semester_id %}<span class="pill" data-tone="neutral">All semesters</span>{% endif %}
 {%- endmacro %}
 
+{% macro record_drawer(record) -%}
+    {%- set c = record.course -%}
+    {%- set a = record.attendance -%}
+    {%- set sem = (semesters|selectattr('id', 'equalto', c.semester_id)|first) if c.semester_id else none -%}
+    <aside class="drawer" id="record-drawer" aria-labelledby="drawer-name" data-close-url="{{ drawer_close_url }}">
+        <div class="drawer-head">
+            <div class="min-w-0">
+                <p class="mono text-sm font-bold text-ink">{{ c.course_code }}</p>
+                <h2 class="drawer-name" id="drawer-name">{{ c.course_title }}</h2>
+                <p class="drawer-id">{{ c.department.name if c.department else 'General (no department)' }}<br>
+                    {{ sem.name if sem else 'Every semester' }}{{ ' · ' ~ c.credit_units ~ ' units' if c.credit_units }}</p>
+            </div>
+            <a href="{{ drawer_close_url }}" class="drawer-close" aria-label="Close {{ c.course_code }}">{{ icon_svg('close', 'h-4 w-4') }}</a>
+        </div>
+
+        <div class="drawer-body">
+            {# Attendance: the register's rule (finished classes; present or
+               late), amber below the exam line. #}
+            <section class="drawer-sec" aria-labelledby="drawer-att">
+                <h3 class="drawer-label" id="drawer-att">Attendance</h3>
+                {% set below = a.held and a.pct < exam_threshold %}
+                <dl class="drawer-kv">
+                    <dt>Enrolled</dt><dd class="mono">{{ a.enrolled or 0 }}</dd>
+                    <dt>Classes held</dt><dd class="mono">{{ a.held or 0 }}</dd>
+                    <dt>Average</dt>
+                    <dd class="mono {{ 'font-bold text-warning-ink' if below }}">{{ (a.pct|round|int ~ '%') if a.held else '—' }}{% if below %} <span class="font-sans text-xs font-normal">below {{ exam_threshold }}%</span>{% endif %}</dd>
+                </dl>
+            </section>
+
+            {# Its lecturers, and changing them. Every lecturer added can run
+               the course's classes, mark students present, review offline
+               taps and see its analytics -- the coordinator's powers. #}
+            <section class="drawer-sec" aria-labelledby="drawer-lect">
+                <h3 class="drawer-label" id="drawer-lect">Lecturers</h3>
+                <div class="text-sm text-ink">{{ course_lecturers(c) }}</div>
+                <form action="{{ url_for('admin.courses_page', **page_args) }}" method="POST" class="drawer-form">
+                    {% include '_csrf_field.html' %}
+                    <input type="hidden" name="action" value="manage_lecturer">
+                    <input type="hidden" name="course_id" value="{{ c.id }}">
+                    <label class="sr-only" for="lecturers-staff-id">Lecturer's staff ID</label>
+                    <input type="text" name="staff_id" id="lecturers-staff-id" required placeholder="Staff ID"
+                           autocomplete="off" class="form-input form-select-sm mono">
+                    <label class="sr-only" for="lecturers-change">Change</label>
+                    <select name="change" id="lecturers-change" required class="form-select form-select-sm">
+                        <option value="add">Add to course</option>
+                        <option value="remove">Remove</option>
+                        <option value="coordinator">Make coordinator</option>
+                    </select>
+                    <button type="submit" class="btn-secondary btn-sm h-9">Save</button>
+                </form>
+                <p class="form-help">One coordinator always; making someone else coordinator keeps the old one as a lecturer.</p>
+            </section>
+
+            {# Enroll by matric number, not a dropdown of every student: the
+               admin is usually holding the student's ID card. #}
+            <section class="drawer-sec" aria-labelledby="drawer-enrol">
+                <h3 class="drawer-label" id="drawer-enrol">Enroll a student</h3>
+                <form action="{{ url_for('admin.courses_page', **page_args) }}" method="POST" class="drawer-form">
+                    {% include '_csrf_field.html' %}
+                    <input type="hidden" name="action" value="enroll_student">
+                    <input type="hidden" name="course_id" value="{{ c.id }}">
+                    <label class="sr-only" for="enroll-student">Student's matric number</label>
+                    <input type="text" name="matric_number" id="enroll-student" required placeholder="Matric number, e.g. CPE/20/1123"
+                           autocomplete="off" class="form-input form-select-sm mono">
+                    <button type="submit" class="btn-secondary btn-sm h-9">Enroll</button>
+                </form>
+            </section>
+
+            <section class="drawer-sec" aria-labelledby="drawer-slots">
+                <h3 class="drawer-label" id="drawer-slots">On the timetable</h3>
+                {% if record.slots %}
+                    <ul class="drawer-log">
+                        {% for s in record.slots %}
+                            <li><time class="mono">{{ day_names[s.day_of_week] }}</time>
+                                <span class="mono text-sm">{{ s.start_time.strftime('%H:%M') }}–{{ s.end_time.strftime('%H:%M') }}{{ ' · ' ~ s.room if s.room }}
+                                    {%- if not s.is_published %} <span class="pill" data-tone="accent">Draft</span>{% endif %}</span></li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-sm text-muted">No timetable slots.</p>
+                {% endif %}
+            </section>
+
+            <section class="drawer-sec" aria-labelledby="drawer-log">
+                <h3 class="drawer-label" id="drawer-log">Recent changes</h3>
+                {% if record.changes %}
+                    <ul class="drawer-log">
+                        {% for entry in record.changes %}
+                            <li><time class="mono">{{ entry.created_at|campus('%d %b') }}</time>
+                                <span>{{ entry.summary }}<small>by {{ entry.actor_label }}</small></span></li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-sm text-muted">Nothing recorded yet.</p>
+                {% endif %}
+            </section>
+        </div>
+
+        <div class="drawer-acts">
+            {{ edit_button(url_for('admin.edit_record', kind='courses', record_id=c.id, **page_args),
+                           url_for('admin.delete_record', kind='courses', record_id=c.id, **page_args),
+                           c.course_code ~ ' (' ~ c.course_title ~ ')',
+                           {'code': c.course_code, 'title': c.course_title,
+                            'department_id': c.department_id, 'semester_id': c.semester_id,
+                            'credit_units': c.credit_units},
+                           record.delete_blocker,
+                           label='Edit course', cls='btn-secondary col-span-2 w-full') }}
+        </div>
+    </aside>
+{%- endmacro %}
+
 {% block title %}Courses | SUAAMS Admin{% endblock %}
 {% block page_title %}Courses{% endblock %}
 {% block page_subtitle %}
-    <p class="page-subtitle">Course catalog and lecturer assignments</p>
+    <p class="page-subtitle"><span class="mono">{{ courses|length }}</span> {{ 'course' if courses|length == 1 else 'courses' }}{{ ' match' if is_filtered else '' }}{{ ' in ' ~ view_semester.name if view_semester }}</p>
+{% endblock %}
+
+{% block page_actions %}
+    <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+        <button type="button" class="btn-primary btn-sm" data-dialog="dlg-add">{{ icon_svg('add', 'h-4 w-4') }}Add course</button>
+        <details class="menu">
+            <summary class="btn-secondary btn-sm">More {{ icon_svg('expand_more', 'h-4 w-4') }}</summary>
+            <div class="menu-list">
+                <button type="button" data-dialog="dlg-upload">{{ icon_svg('upload', 'h-4 w-4') }}Upload courses</button>
+                {% if view_semester and semesters|length > 1 %}
+                    <button type="button" data-dialog="dlg-copy">{{ icon_svg('content_copy', 'h-4 w-4') }}Copy from another semester</button>
+                {% endif %}
+            </div>
+        </details>
+    </div>
 {% endblock %}
 
 {% block content %}
 
-    {# Add Course + Enroll Student share one form column (it scrolls with the page; see .form-grid in input.css). #}
-    <div class="form-grid">
-        <div class="form-col">
-
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Add Course') }}
-                </div>
-                <div class="card-body">
-                    <form action="{{ url_for('admin.courses_page', **filter_args) }}" method="POST" class="space-y-4">
-                        {% include '_csrf_field.html' %}
-                        <input type="hidden" name="action" value="create_course">
-
-                        <div>
-                            <label class="form-label" for="course-title">Course Title</label>
-                            <input type="text" name="title" id="course-title" required
-                                   placeholder="e.g. Embedded Systems" class="form-input">
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="course-code">Course Code</label>
-                            <input type="text" name="code" id="course-code" required
-                                   placeholder="e.g. CPE401" class="form-input mono">
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="course-department">Department</label>
-                            <select name="department_id" id="course-department" required class="form-select">
-                                <option value="" disabled selected>Select department</option>
-                                {% for dept in departments %}
-                                    <option value="{{ dept.id }}">{{ dept.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="course-lecturer">Coordinator (lead lecturer)</label>
-                            <select name="lecturer_id" id="course-lecturer" required class="form-select">
-                                <option value="" disabled selected>Select lecturer</option>
-                                {% for lecturer in lecturers %}
-                                    <option value="{{ lecturer.id }}">{{ lecturer.full_name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="course-semester">
-                                Semester <span class="text-muted">(optional)</span>
-                            </label>
-                            {# Defaults to the semester being viewed. It used to
-                               default to "No semester", which makes a course
-                               belong to every semester. #}
-                            <select name="semester_id" id="course-semester" class="form-select">
-                                <option value="">No semester (every semester)</option>
-                                {% for semester in semesters %}
-                                    <option value="{{ semester.id }}" {{ 'selected' if view_semester and semester.id == view_semester.id else '' }}>{{ semester.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="course-units">
-                                Credit Units <span class="text-muted">(optional)</span>
-                            </label>
-                            <input type="number" name="credit_units" id="course-units" min="1" max="10"
-                                   placeholder="e.g. 3" class="form-input">
-                        </div>
-
-                        <button type="submit" class="btn-primary mt-2 w-full">Create Course</button>
-                    </form>
-                </div>
+    <div class="card-clip">
+        {# Semester + search + department: a plain GET form, so the view lives
+           in the URL and every form and dialog returns to it. #}
+        <form method="GET" action="{{ url_for('admin.courses_page') }}" id="catalog-filters" class="roster-tools">
+            <div>
+                <label class="form-label sr-only-lg" for="filter-semester">Semester</label>
+                <select name="semester" id="filter-semester" class="form-select form-select-sm">
+                    {% for semester in semesters %}
+                        <option value="{{ semester.id }}" {% if view_semester and view_semester.id == semester.id %}selected{% endif %}>
+                            {{ semester.name }}{{ ' (active)' if semester.is_active else '' }}
+                        </option>
+                    {% endfor %}
+                </select>
             </div>
-
-            {# ============ BULK UPLOAD (CSV) ============
-               Upload -> preview -> confirm (bulk_upload.py). Nothing is saved
-               until the preview is confirmed; existing rows are skipped. #}
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Bulk Upload') }}
-                </div>
-                <div class="card-body">
-                    <form action="{{ url_for('admin.bulk_upload_preview', kind='courses') }}" method="POST"
-                          enctype="multipart/form-data" class="space-y-4">
-                        {% include '_csrf_field.html' %}
-                        <div>
-                            <label class="form-label" for="bulk-courses-semester">Semester</label>
-                            <select name="semester_id" id="bulk-courses-semester" required class="form-select">
-                                {% for semester in semesters %}
-                                    <option value="{{ semester.id }}" {{ 'selected' if active_semester and semester.id == active_semester.id else '' }}>
-                                        {{ semester.name }}{{ ' (active)' if active_semester and semester.id == active_semester.id else '' }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="bulk-courses-file">Excel or CSV file</label>
-                            <input type="file" name="file" id="bulk-courses-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required class="form-file">
-                            <p class="form-help">
-                                Columns: course_code, course_title, department (blank for a general course like GST), credit_units (optional), lecturers (staff IDs, coordinator first: &quot;STF/1; STF/7&quot;). Upload the lecturers first. Codes already in the semester are skipped.
-                                <a href="{{ url_for('admin.bulk_template', kind='courses') }}" class="text-accent">Download the template</a>.
-                                {# Excel workbooks are read directly (bulk_upload.read_upload), so
-                                   nobody has to save as CSV first; a CSV must be UTF-8, since
-                                   Excel's plain "CSV" turns letters like ẹ and ọ into "?". #}
-                                <span class="mt-1 block">Upload the <strong>Excel file (.xlsx)</strong> as it is, or a CSV saved as
-                                    &ldquo;CSV UTF-8&rdquo; &mdash; plain &ldquo;CSV&rdquo; from Excel loses letters like ẹ and ọ.</span>
-                            </p>
-                        </div>
-
-                        <button type="submit" class="btn-secondary mt-2 w-full">Preview upload</button>
-                    </form>
-                </div>
+            <div>
+                <label class="form-label sr-only-lg" for="filter-q">Search</label>
+                <input type="search" name="q" id="filter-q" value="{{ filters.q }}"
+                       placeholder="Code or title" autocomplete="off" class="form-input form-select-sm">
             </div>
-
-            {# ============ COPY FROM ANOTHER SEMESTER ============
-               The new-semester changeover: last year's courses into the
-               semester being viewed, through the same preview and checks as
-               the CSV upload (bulk_upload.plan_course_copy). Defaults to the
-               same semester last year. #}
-            {% if view_semester and semesters|length > 1 %}
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Copy courses from another semester') }}
-                </div>
-                <div class="card-body">
-                    <form action="{{ url_for('admin.courses_copy') }}" method="POST" class="space-y-4">
-                        {% include '_csrf_field.html' %}
-                        <input type="hidden" name="semester_id" value="{{ view_semester.id }}">
-                        <div>
-                            <label class="form-label" for="copy-source-id">Copy from</label>
-                            <select name="source_id" id="copy-source-id" required class="form-select">
-                                {% for semester in semesters if semester.id != view_semester.id %}
-                                    <option value="{{ semester.id }}" {{ 'selected' if copy_source and semester.id == copy_source.id else '' }}>{{ semester.name }}</option>
-                                {% endfor %}
-                            </select>
-                            <p class="form-help">
-                                Into <strong>{{ view_semester.name }}</strong>: each course's code, title, department,
-                                units and lecturers. Not its students or timetable. Codes already here are skipped;
-                                lecturers no longer active are left out. You'll see a preview first.
-                            </p>
-                        </div>
-                        <button type="submit" class="btn-secondary mt-2 w-full">Preview copy</button>
-                    </form>
-                </div>
+            <div>
+                <label class="form-label sr-only-lg" for="filter-dept">Department</label>
+                <select name="dept" id="filter-dept" class="form-select form-select-sm">
+                    <option value="">All departments</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.id }}" {% if filters.dept == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
-            {% endif %}
-
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Enroll Student') }}
-                </div>
-                <div class="card-body">
-                    {# Same URL as the form above; the hidden `action` field is
-                       what routes the POST to a different handler. Both must
-                       keep their distinct values or one silently wins. #}
-                    <form action="{{ url_for('admin.courses_page', **filter_args) }}" method="POST" class="space-y-4">
-                        {% include '_csrf_field.html' %}
-                        <input type="hidden" name="action" value="enroll_student">
-
-                        {# A matric number box, not a dropdown of every student:
-                           the dropdown loaded and drew the whole student body on
-                           every visit, which grows every term. The admin is
-                           usually holding the student's ID card anyway. #}
-                        <div>
-                            <label class="form-label" for="enroll-student">Student's matric number</label>
-                            <input type="text" name="matric_number" id="enroll-student" required
-                                   placeholder="e.g. CPE/20/1123" autocomplete="off" class="form-input mono">
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="enroll-course">Course</label>
-                            <select name="course_id" id="enroll-course" required class="form-select">
-                                <option value="" disabled selected>Select course</option>
-                                {# The semester being viewed, not every semester's:
-                                   MCT401 used to appear once per semester here,
-                                   identically. #}
-                                {% for course in semester_courses %}
-                                    <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}{{ ' (all semesters)' if not course.semester_id else '' }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn-secondary mt-2 w-full">Enroll Student</button>
-                    </form>
-                </div>
+            <div class="flex items-end gap-2">
+                <button type="submit" class="btn-secondary btn-sm h-9">Show</button>
+                {% if is_filtered %}
+                    <a href="{{ url_for('admin.courses_page', semester=view_semester.id if view_semester else None) }}" class="btn-ghost btn-sm h-9">Clear</a>
+                {% endif %}
             </div>
+        </form>
 
-            {# Courses here often have several lecturers (a GST course can list
-               six). Every lecturer added here can run the course's classes,
-               mark students present, review offline taps and see its
-               analytics -- the same powers as the coordinator. Staff ID, not
-               a dropdown, for the same reason as the matric box above. #}
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Course Lecturers') }}
+        <div class="divide-y divide-divider border-t border-divider sm:hidden">
+            {% for course in courses %}
+                <div class="px-5 py-3.5 {{ 'bg-accent-soft' if record and record.course.id == course.id }}">
+                    <div class="flex items-center gap-2">
+                        {{ course_chip(course.course_code) }}
+                        <p class="min-w-0 flex-1 truncate text-sm font-semibold">{{ record_link(course) }}</p>
+                        <span class="mono text-xs text-muted">{{ enrolled.get(course.id, 0) }}</span>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <form action="{{ url_for('admin.courses_page', **filter_args) }}" method="POST" class="space-y-4">
-                        {% include '_csrf_field.html' %}
-                        <input type="hidden" name="action" value="manage_lecturer">
-
-                        <div>
-                            <label class="form-label" for="lecturers-course">Course</label>
-                            <select name="course_id" id="lecturers-course" required class="form-select">
-                                <option value="" disabled selected>Select course</option>
-                                {# The semester being viewed, not every semester's:
-                                   MCT401 used to appear once per semester here,
-                                   identically. #}
-                                {% for course in semester_courses %}
-                                    <option value="{{ course.id }}">{{ course.course_code }} &ndash; {{ course.course_title }}{{ ' (all semesters)' if not course.semester_id else '' }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="lecturers-staff-id">Lecturer's staff ID</label>
-                            <input type="text" name="staff_id" id="lecturers-staff-id" required
-                                   placeholder="e.g. AFIT/STF/0123" autocomplete="off" class="form-input mono">
-                        </div>
-
-                        <div>
-                            <label class="form-label" for="lecturers-change">Change</label>
-                            <select name="change" id="lecturers-change" required class="form-select">
-                                <option value="add">Add as a lecturer on this course</option>
-                                <option value="remove">Remove from this course</option>
-                                <option value="coordinator">Make coordinator</option>
-                            </select>
-                            <p class="form-help">
-                                A course always has one coordinator. Making someone else
-                                coordinator keeps the old one on the course as a lecturer.
-                            </p>
-                        </div>
-
-                        <button type="submit" class="btn-secondary mt-2 w-full">Save</button>
-                    </form>
-                </div>
-            </div>
+            {% else %}
+                {{ empty_state('No courses match this search.' if is_filtered else 'No courses in this semester yet.', 'book') }}
+            {% endfor %}
         </div>
 
-        {# Catalog. order-first below lg: on a phone it comes before the four
-           forms. lg:order-none puts it back in the right-hand column. #}
-        <div class="form-main order-first lg:order-none">
-            <div class="card-clip">
-                {{ directory_heading('Catalog', courses|length, 'course') }}
-
-                {# Semester + search + department: a plain GET form, as on the
-                   Students and Lecturers pages, so the view lives in the URL
-                   and every form and dialog returns to it. #}
-                <form method="GET" action="{{ url_for('admin.courses_page') }}" id="catalog-filters"
-                      class="grid gap-3 px-5 pb-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_auto]">
-                    <div>
-                        <label class="form-label" for="filter-semester">Semester</label>
-                        <select name="semester" id="filter-semester" class="form-select">
-                            {% for semester in semesters %}
-                                <option value="{{ semester.id }}" {% if view_semester and view_semester.id == semester.id %}selected{% endif %}>
-                                    {{ semester.name }}{{ ' (active)' if semester.is_active else '' }}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="form-label" for="filter-q">Search</label>
-                        <input type="search" name="q" id="filter-q" value="{{ filters.q }}"
-                               placeholder="Code or title, e.g. MCT401" autocomplete="off" class="form-input">
-                    </div>
-                    <div>
-                        <label class="form-label" for="filter-dept">Department</label>
-                        <select name="dept" id="filter-dept" class="form-select">
-                            <option value="">All departments</option>
-                            {% for dept in departments %}
-                                <option value="{{ dept.id }}" {% if filters.dept == dept.id %}selected{% endif %}>{{ dept.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="flex items-end gap-2">
-                        <button type="submit" class="btn-primary flex-1">Show</button>
-                        {% if is_filtered %}
-                            <a href="{{ url_for('admin.courses_page', semester=view_semester.id if view_semester else None) }}" class="btn-ghost">Clear</a>
-                        {% endif %}
-                    </div>
-                </form>
-
-                <!-- Card view (below sm): same reasoning as students.html. -->
-                <div class="divide-y divide-divider border-t border-divider sm:hidden">
+        <div class="table-wrap hidden border-t border-divider sm:block">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th class="th">Course</th>
+                        <th class="th col-wide">Lecturers</th>
+                        <th class="th">Units</th>
+                        <th class="th">Enrolled</th>
+                    </tr>
+                </thead>
+                <tbody>
                     {% for course in courses %}
-                        <div class="px-5 py-4">
-                            <div class="flex items-center gap-2">
-                                {{ course_chip(course.course_code) }}
-                                <p class="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{{ course.course_title }}</p>
-                                {{ course_edit(course) }}
-                            </div>
-                            {% if not course.semester_id %}<div class="mt-2">{{ all_semesters_tag(course) }}</div>{% endif %}
-                            <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                                <div>
-                                    <dt class="text-muted">Department</dt>
-                                    <dd class="mt-0.5 truncate text-secondary">{{ course.department.name if course.department else '—' }}</dd>
+                        <tr class="{{ 'is-open' if record and record.course.id == course.id }}">
+                            <td class="td">
+                                <div class="flex items-center gap-2">
+                                    <span class="shrink-0">{{ course_chip(course.course_code) }}</span>
+                                    <span class="truncate font-medium">{{ record_link(course) }}</span>
                                 </div>
-                                <div class="col-span-2">
-                                    <dt class="text-muted">Lecturers</dt>
-                                    <dd class="mt-0.5 text-secondary">{{ course_lecturers(course) }}</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-muted">Units</dt>
-                                    <dd class="mt-0.5 text-secondary">{{ course.credit_units if course.credit_units else '—' }}</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-muted">Enrolled</dt>
-                                    <dd class="mt-0.5 text-secondary">{{ enrolled.get(course.id, 0) }}</dd>
-                                </div>
-                            </dl>
-                        </div>
+                                <p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+                                    {{ course.department.name if course.department else 'General (no department)' }}
+                                    {{ all_semesters_tag(course) }}
+                                </p>
+                            </td>
+                            <td class="td td-muted col-wide">{{ course_lecturers(course) }}</td>
+                            <td class="td td-muted mono">{{ course.credit_units if course.credit_units else '—' }}</td>
+                            <td class="td td-muted mono">{{ enrolled.get(course.id, 0) }}</td>
+                        </tr>
                     {% else %}
-                        {{ empty_state('No courses match this search.' if is_filtered else 'No courses in this semester yet.', 'book') }}
+                        {{ table_empty(4, 'No courses match this search.' if is_filtered else 'No courses in this semester yet.') }}
                     {% endfor %}
-                </div>
-
-                <div class="table-wrap hidden border-t border-divider sm:block">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th class="th">Course</th>
-                                <th class="th">Lecturers</th>
-                                <th class="th">Units</th>
-                                <th class="th">Enrolled</th>
-                                <th class="th"><span class="sr-only">Edit</span></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for course in courses %}
-                                <tr>
-                                    <td class="td">
-                                        <div class="flex items-center gap-2">
-                                            {{ course_chip(course.course_code) }}
-                                            <span class="truncate font-medium">{{ course.course_title }}</span>
-                                        </div>
-                                        {# Department on a second line, not its own column:
-                                           with every lecturer listed, a Department column
-                                           pushed Edit off the card at 1440px. #}
-                                        <p class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
-                                            {{ course.department.name if course.department else 'General (no department)' }}
-                                            {{ all_semesters_tag(course) }}
-                                        </p>
-                                    </td>
-                                    <td class="td td-muted">{{ course_lecturers(course) }}</td>
-                                    <td class="td td-muted">{{ course.credit_units if course.credit_units else '—' }}</td>
-                                    <td class="td td-muted">{{ enrolled.get(course.id, 0) }}</td>
-                                    <td class="td">{{ course_edit(course) }}</td>
-                                </tr>
-                            {% else %}
-                                {{ table_empty(5, 'No courses match this search.' if is_filtered else 'No courses in this semester yet.') }}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                </tbody>
+            </table>
         </div>
     </div>
 
-    {% call edit_dialog('Edit course', 'Removes the course with its enrollments and timetable slots. Only possible before any class session or result has been recorded for it.') %}
-        <div>
-            <label class="form-label" for="edit-code">Course Code</label>
-            <input type="text" name="code" id="edit-code" required maxlength="20" class="form-input mono">
-        </div>
-        <div>
-            <label class="form-label" for="edit-title">Course Title</label>
-            <input type="text" name="title" id="edit-title" required maxlength="150" class="form-input">
-        </div>
-        <div>
-            <label class="form-label" for="edit-department">Department</label>
-            <select name="department_id" id="edit-department" class="form-select">
-                <option value="">None (general course, e.g. GST)</option>
-                {% for dept in departments %}
-                    <option value="{{ dept.id }}">{{ dept.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label class="form-label" for="edit-semester">Semester</label>
-            <select name="semester_id" id="edit-semester" class="form-select">
-                <option value="">No semester</option>
-                {% for semester in semesters %}
-                    <option value="{{ semester.id }}">{{ semester.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label class="form-label" for="edit-units">Credit Units</label>
-            <input type="number" name="credit_units" id="edit-units" min="1" max="10" class="form-input">
-            <p class="form-help">Lecturers are changed with Course Lecturers on the left.</p>
-        </div>
-    {% endcall %}
+    {% if record %}{{ record_drawer(record) }}{% endif %}
+
+    <dialog class="modal" id="dlg-add" aria-labelledby="dlg-add-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-add-title">Add course</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+        <form action="{{ url_for('admin.courses_page', **filter_args) }}" method="POST" class="space-y-4">
+            {% include '_csrf_field.html' %}
+            <input type="hidden" name="action" value="create_course">
+            <div>
+                <label class="form-label" for="course-title">Course Title</label>
+                <input type="text" name="title" id="course-title" required placeholder="e.g. Embedded Systems" class="form-input">
+            </div>
+            <div>
+                <label class="form-label" for="course-code">Course Code</label>
+                <input type="text" name="code" id="course-code" required placeholder="e.g. CPE401" class="form-input mono">
+            </div>
+            <div>
+                <label class="form-label" for="course-department">Department</label>
+                <select name="department_id" id="course-department" required class="form-select">
+                    <option value="" disabled selected>Select department</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="course-lecturer">Coordinator (lead lecturer)</label>
+                <select name="lecturer_id" id="course-lecturer" required class="form-select">
+                    <option value="" disabled selected>Select lecturer</option>
+                    {% for lecturer in lecturers %}
+                        <option value="{{ lecturer.id }}">{{ lecturer.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="course-semester">Semester <span class="text-muted">(optional)</span></label>
+                {# Defaults to the semester being viewed. It used to default to
+                   "No semester", which makes a course belong to every semester. #}
+                <select name="semester_id" id="course-semester" class="form-select">
+                    <option value="">No semester (every semester)</option>
+                    {% for semester in semesters %}
+                        <option value="{{ semester.id }}" {{ 'selected' if view_semester and semester.id == view_semester.id else '' }}>{{ semester.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="course-units">Credit Units <span class="text-muted">(optional)</span></label>
+                <input type="number" name="credit_units" id="course-units" min="1" max="10" placeholder="e.g. 3" class="form-input">
+            </div>
+            <button type="submit" class="btn-primary mt-2 w-full">Create course</button>
+        </form>
+    </dialog>
+
+    {# Upload -> preview -> confirm (bulk_upload.py). Nothing is saved until
+       the preview is confirmed; existing rows are skipped. #}
+    <dialog class="modal" id="dlg-upload" aria-labelledby="dlg-upload-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-upload-title">Upload courses</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+        <form action="{{ url_for('admin.bulk_upload_preview', kind='courses') }}" method="POST"
+              enctype="multipart/form-data" class="space-y-4">
+            {% include '_csrf_field.html' %}
+            <div>
+                <label class="form-label" for="bulk-courses-semester">Semester</label>
+                <select name="semester_id" id="bulk-courses-semester" required class="form-select">
+                    {% for semester in semesters %}
+                        {# Defaults to the semester being viewed (?semester=), so the
+                           timetable import's "Courses page" link arrives with its semester
+                           picked; with no ?semester= that's the active one. #}
+                        <option value="{{ semester.id }}" {{ 'selected' if (view_semester or active_semester) and semester.id == (view_semester or active_semester).id else '' }}>
+                            {{ semester.name }}{{ ' (active)' if active_semester and semester.id == active_semester.id else '' }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="bulk-courses-file">Excel or CSV file</label>
+                <input type="file" name="file" id="bulk-courses-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required class="form-file">
+                <p class="form-help">
+                    Columns: course_code, course_title, department (blank for a general course like GST), credit_units (optional), lecturers (staff IDs, coordinator first: &quot;STF/1; STF/7&quot;). Upload the lecturers first. Codes already in the semester are skipped.
+                    <a href="{{ url_for('admin.bulk_template', kind='courses') }}" class="text-accent">Download the template</a>.
+                    {# Excel workbooks are read directly (bulk_upload.read_upload); a
+                       CSV must be UTF-8, since Excel's plain "CSV" turns letters
+                       like ẹ and ọ into "?". #}
+                    <span class="mt-1 block">Upload the <strong>Excel file (.xlsx)</strong> as it is, or a CSV saved as
+                        &ldquo;CSV UTF-8&rdquo; &mdash; plain &ldquo;CSV&rdquo; from Excel loses letters like ẹ and ọ.</span>
+                </p>
+            </div>
+            <button type="submit" class="btn-secondary mt-2 w-full">Preview upload</button>
+        </form>
+    </dialog>
+
+    {# The new-semester changeover: last year's courses into the semester
+       being viewed, through the same preview and checks as the upload
+       (bulk_upload.plan_course_copy). Defaults to the same semester last
+       year. #}
+    {% if view_semester and semesters|length > 1 %}
+    <dialog class="modal" id="dlg-copy" aria-labelledby="dlg-copy-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-copy-title">Copy courses from another semester</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+        <form action="{{ url_for('admin.courses_copy') }}" method="POST" class="space-y-4">
+            {% include '_csrf_field.html' %}
+            <input type="hidden" name="semester_id" value="{{ view_semester.id }}">
+            <div>
+                <label class="form-label" for="copy-source-id">Copy from</label>
+                <select name="source_id" id="copy-source-id" required class="form-select">
+                    {% for semester in semesters if semester.id != view_semester.id %}
+                        <option value="{{ semester.id }}" {{ 'selected' if copy_source and semester.id == copy_source.id else '' }}>{{ semester.name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="form-help">
+                    Into <strong>{{ view_semester.name }}</strong>: each course's code, title, department,
+                    units and lecturers. Not its students or timetable. Codes already here are skipped;
+                    lecturers no longer active are left out. You'll see a preview first.
+                </p>
+            </div>
+            <button type="submit" class="btn-secondary mt-2 w-full">Preview copy</button>
+        </form>
+    </dialog>
+    {% endif %}
+
+    {% if record %}
+        {% call edit_dialog('Edit course', 'Removes the course with its enrollments and timetable slots. Only possible before any class session or result has been recorded for it.') %}
+            <div>
+                <label class="form-label" for="edit-code">Course Code</label>
+                <input type="text" name="code" id="edit-code" required maxlength="20" class="form-input mono">
+            </div>
+            <div>
+                <label class="form-label" for="edit-title">Course Title</label>
+                <input type="text" name="title" id="edit-title" required maxlength="150" class="form-input">
+            </div>
+            <div>
+                <label class="form-label" for="edit-department">Department</label>
+                <select name="department_id" id="edit-department" class="form-select">
+                    <option value="">None (general course, e.g. GST)</option>
+                    {% for dept in departments %}
+                        <option value="{{ dept.id }}">{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="edit-semester">Semester</label>
+                <select name="semester_id" id="edit-semester" class="form-select">
+                    <option value="">No semester</option>
+                    {% for semester in semesters %}
+                        <option value="{{ semester.id }}">{{ semester.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="edit-units">Credit Units</label>
+                <input type="number" name="credit_units" id="edit-units" min="1" max="10" class="form-input">
+                <p class="form-help">Lecturers are changed in the course's drawer.</p>
+            </div>
+        {% endcall %}
+    {% endif %}
 
 {% endblock %}

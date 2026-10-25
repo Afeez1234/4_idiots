@@ -4,6 +4,7 @@ import re
 from collections import defaultdict
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response, jsonify
 from icons import icon as _icon_svg
+from campus_time import campus_fmt as _campus_fmt
 from datetime import date, datetime, timezone
 from utils import (login_required, resolve_timetable_slot_for_course, notify_announcement,
                    start_class_session, end_class_session,
@@ -18,6 +19,8 @@ lecturer_bp = Blueprint('lecturer', __name__)
 # icon_svg() in templates (icons.py). Registered app-wide by every web
 # blueprint, so an app that registers any one of them can render pages.
 lecturer_bp.add_app_template_global(_icon_svg, 'icon_svg')
+# And the campus-time filter (campus_time.py), for the same reason.
+lecturer_bp.add_app_template_filter(_campus_fmt, 'campus')
 
 
 @lecturer_bp.route('/lecturer/dashboard')

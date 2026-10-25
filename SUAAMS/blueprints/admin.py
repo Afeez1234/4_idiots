@@ -8,6 +8,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, Response
 from icons import icon as _icon_svg
+from campus_time import campus_fmt as _campus_fmt
 import bcrypt
 from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
@@ -22,6 +23,7 @@ from utils import (
     resolve_current_course, session_status_for_course, notify_announcement,
     VALID_LEVELS, normalize_level, course_level, _csv_safe, course_attendance,
     current_courses, student_course_attendance, EXAM_ELIGIBILITY_THRESHOLD,
+    courses_taught_by,
 )
 from push_notifications import send_push_notification, notify_users
 from audit import log_action, changes
@@ -48,6 +50,8 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 # icon_svg() in templates (icons.py). Registered app-wide by every web
 # blueprint, so an app that registers any one of them can render pages.
 admin_bp.add_app_template_global(_icon_svg, 'icon_svg')
+# And the campus-time filter (campus_time.py), for the same reason.
+admin_bp.add_app_template_filter(_campus_fmt, 'campus')
 
 
 @admin_bp.before_request
@@ -480,9 +484,16 @@ def lecturers_page():
 
     filter_args = {k: v for k, v in (('q', q), ('dept', dept_id)) if v}
     semester = Semester.query.filter_by(is_active=True).first()
+    # The record drawer (?lecturer=<id>), as on the Students page.
+    record = _lecturer_record(request.args.get('lecturer', type=int))
+    page_args = dict(filter_args, lecturer=record['lecturer'].id) if record else dict(filter_args)
     return render_template(
         'admin/lecturers.html',
         lecturers=lecturers,
+        record=record,
+        page_args=page_args,
+        drawer_close_url=url_for('admin.lecturers_page', **filter_args),
+        exam_threshold=EXAM_ELIGIBILITY_THRESHOLD,
         departments=Department.query.order_by(Department.name).all(),
         course_counts=_lecturer_course_counts([l.id for l in lecturers], semester),
         filters={'q': q, 'dept': dept_id},
@@ -493,6 +504,33 @@ def lecturers_page():
         delete_blockers=record_edits.delete_blockers('lecturers', lecturers),
         active_page='lecturers',
     )
+
+
+def _lecturer_record(lecturer_id):
+    """What the Lecturers page's record drawer shows, or None: the
+    lecturer, this semester's courses they teach (coordinator first) with
+    each course's enrolment and average attendance, and the audit log's
+    entries about them."""
+    if not lecturer_id:
+        return None
+    lecturer = (Lecturer.query.options(joinedload(Lecturer.department), joinedload(Lecturer.user))
+                .filter(Lecturer.id == lecturer_id).first())
+    if lecturer is None:
+        return None
+    courses = (current_courses(courses_taught_by(lecturer))
+               .order_by(Course.course_code).all())
+    courses.sort(key=lambda c: c.lecturer_id != lecturer.id)      # coordinated first
+    changes = (AuditLog.query
+               .filter(AuditLog.entity_type == 'lecturer', AuditLog.entity_id == str(lecturer.id))
+               .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+               .limit(5).all())
+    return {
+        'lecturer': lecturer,
+        'courses': courses,
+        'attendance': course_attendance([c.id for c in courses]),
+        'changes': changes,
+        'delete_blocker': record_edits.delete_blockers('lecturers', [lecturer]).get(lecturer.id),
+    }
 
 
 def _lecturer_course_counts(lecturer_ids, semester):
@@ -1079,7 +1117,7 @@ STUDENT_FILTER_ARGS = ('q', 'dept', 'level', 'device', 'status', 'page', 'studen
 
 # What the edit and status dialogs carry back to the page they were opened
 # on: the roster's filters plus the Courses catalog's semester.
-RETURN_ARGS = STUDENT_FILTER_ARGS + ('semester',)
+RETURN_ARGS = STUDENT_FILTER_ARGS + ('semester', 'lecturer', 'course')
 
 
 def _back_url(page):
@@ -1594,9 +1632,15 @@ def courses_page():
 
     filter_args = {k: v for k, v in (('semester', semester.id if semester else None),
                                      ('q', q), ('dept', dept_id)) if v}
+    # The record drawer (?course=<id>), as on the Students page.
+    record = _course_record(request.args.get('course', type=int))
     return render_template(
         'admin/courses.html',
         courses=courses,
+        record=record,
+        page_args=dict(filter_args, course=record['course'].id) if record else dict(filter_args),
+        drawer_close_url=url_for('admin.courses_page', **filter_args),
+        exam_threshold=EXAM_ELIGIBILITY_THRESHOLD,
         semester_courses=semester_courses,
         enrolled=enrolled,
         view_semester=semester,
@@ -1641,9 +1685,36 @@ def courses_copy():
 
 
 def _courses_back():
-    """The Courses page as the form was posted from (semester, search, dept)."""
+    """The Courses page as the form was posted from (semester, search, dept,
+    and the course drawer that's open)."""
     return url_for('admin.courses_page',
-                   **{k: request.args[k] for k in ('semester', 'q', 'dept') if request.args.get(k)})
+                   **{k: request.args[k] for k in ('semester', 'q', 'dept', 'course') if request.args.get(k)})
+
+
+def _course_record(course_id):
+    """What the Courses page's record drawer shows, or None: the course with
+    every lecturer (coordinator first), its attendance figures (the
+    register's rule, utils.course_attendance), its timetable slots and the
+    audit log's entries about it."""
+    if not course_id:
+        return None
+    course = (Course.query.options(joinedload(Course.department), joinedload(Course.lecturer))
+              .filter(Course.id == course_id).first())
+    if course is None:
+        return None
+    slots = (Timetable.query.filter_by(course_id=course.id)
+             .order_by(Timetable.day_of_week, Timetable.start_time).all())
+    changes = (AuditLog.query
+               .filter(AuditLog.entity_type == 'course', AuditLog.entity_id == str(course.id))
+               .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+               .limit(5).all())
+    return {
+        'course': course,
+        'attendance': course_attendance([course.id]).get(course.id, {}),
+        'slots': slots,
+        'changes': changes,
+        'delete_blocker': record_edits.delete_blockers('courses', [course]).get(course.id),
+    }
 
 
 # ==========================================

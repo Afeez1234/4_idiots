@@ -849,13 +849,18 @@ the title and subtitle at left and the page's actions or the facts strip at
 right; content stacks below it in 24px gaps. Panels pad 20px; table cells
 20px x 14px, heads 20px x 10px.
 
-Records run full width. On the rebuilt pages (the door board, Students)
-occasional forms open in a dialog and rarer actions sit in a More menu
-beside the title, instead of a form column beside the directory. A record
-opens in a 400px drawer on the right, under the top bar; from 1280px the
-page column makes room for it, and below 1536px the roster drops its Level
-and Department columns while it is open. Older admin pages still use the
-1/3 + 2/3 form-and-directory grid.
+Records run full width on every admin page. Occasional forms open in a
+dialog and rarer actions sit in a More menu beside the title; there is no
+form column beside a directory any more. Filters are one toolbar row above
+the list (labels visually hidden from 1024px). Students, Lecturers and
+Courses open a record in a 400px drawer on the right, under the top bar;
+from 1280px the page column makes room for it, and below 1536px the list
+drops its wide columns (`.col-wide`) while it is open. A drawer holds the
+jobs about that one record (a course's lecturers, enrolling a student), so
+no form asks you to pick the record from a dropdown. Organization keeps its
+two lists side by side (faculties and departments are peers); the
+Timetable keeps its week grid, with Drafts waiting as a one-line bar above
+it because publishing is the page's most consequential action.
 
 **Site.** A 1240px column with a fluid gutter (`site-gutter`). The story
 page runs as full-width bands separated by hairline rules (section padding
