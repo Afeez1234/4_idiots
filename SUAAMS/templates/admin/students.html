@@ -1,38 +1,202 @@
 {% extends "base_admin.html" %}
 {% from '_macros.html' import pill, avatar, empty_state, table_empty, card_heading, directory_heading %}
-{% from 'admin/_status.html' import status_cell, status_dialog, bulk_status_card with context %}
-{% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
+{% from 'admin/_status.html' import bulk_status_card with context %}
+{% from 'admin/_record_drawer.html' import record_drawer, record_dialogs with context %}
 
-{# One Edit button per student, used by both the card and table views. The
-   page and filters ride along so saving returns to this same view. #}
-{% macro student_edit(student) -%}
-    {{ edit_button(url_for('admin.edit_record', kind='students', record_id=student.id, page=pagination.page, **filter_args),
-                   url_for('admin.delete_record', kind='students', record_id=student.id, page=pagination.page, **filter_args),
-                   student.full_name ~ ' (' ~ student.matric_number ~ ')',
-                   {'full_name': student.full_name, 'matric_number': student.matric_number,
-                    'level': student.level, 'department_id': student.department_id},
-                   delete_blockers.get(student.id),
-                   reset_url=url_for('admin.reset_password', kind='students', record_id=student.id, page=pagination.page, **filter_args)) }}
+{# A student's name, linking to their record drawer on this same view
+   (the filters and page ride along). #}
+{% macro record_link(student) -%}
+    {%- set args = dict(filter_args, student=student.id) -%}
+    <a href="{{ url_for('admin.students_page', page=pagination.page, **args) }}" class="record-link"
+       {% if record and record.student.id == student.id %}aria-current="true"{% endif %}>{{ student.full_name }}</a>
+{%- endmacro %}
+
+{% macro status_pill(student) -%}
+    {%- if student.status != 'active' -%}
+        {{ pill(student_statuses.get(student.status, student.status), 'neutral') }}
+    {%- elif student.user and student.user.requires_password_change -%}
+        {{ pill('Pending setup', 'neutral') }}
+    {%- else -%}
+        {{ pill('Active', 'neutral') }}
+    {%- endif -%}
 {%- endmacro %}
 
 {% block title %}Students | SUAAMS Admin{% endblock %}
 {% block page_title %}Students{% endblock %}
 {% block page_subtitle %}
-    <p class="page-subtitle">Student roster</p>
+    <p class="page-subtitle"><span class="mono">{{ '{:,}'.format(pagination.total) }}</span> {{ 'student' if pagination.total == 1 else 'students' }}{{ ' match' if is_filtered else '' }} &middot; open a name for their record</p>
+{% endblock %}
+
+{# The jobs done now and then, as buttons beside the title, each opening
+   its form in a dialog. They were four cards in a column taking a third of
+   the page on every visit (2026-10-25). #}
+{% block page_actions %}
+    {# Add student, plus a More menu for the rest, so the head stays one
+       line beside an open drawer. "Promote students", not "New session":
+       next to the door board's class sessions that read as starting a
+       class. #}
+    <div class="ml-auto flex items-center gap-2">
+        <button type="button" class="btn-primary btn-sm" data-dialog="dlg-add">{{ icon_svg('add', 'h-4 w-4') }}Add student</button>
+        <details class="menu">
+            <summary class="btn-secondary btn-sm">More {{ icon_svg('expand_more', 'h-4 w-4') }}</summary>
+            <div class="menu-list">
+                <button type="button" data-dialog="dlg-upload">{{ icon_svg('upload', 'h-4 w-4') }}Upload students</button>
+                <button type="button" data-dialog="dlg-status">{{ icon_svg('upload_file', 'h-4 w-4') }}Change status from a CSV</button>
+                <a href="{{ url_for('admin.promotion_page') }}">{{ icon_svg('school', 'h-4 w-4') }}Promote students (new session)</a>
+            </div>
+        </details>
+    </div>
 {% endblock %}
 
 {% block content %}
 
-    {# The forms share one column (it scrolls with the page; see .form-grid in input.css): wrapping them together
-       keeps the Roster's lg:col-span-2 lining up against a single column 1. #}
-    <div class="form-grid">
-        <div class="form-col">
+    {# The roster runs the full width; with a record open the page column
+       makes room for the drawer at desk width (main:has(#record-drawer)). #}
+    <div>
+        <div class="card-clip">
+            {# Search + filters. A plain GET form: the filters live in the
+                   URL, so the query does the filtering (the page stays one
+                   page long however many students exist), the back button
+                   works, and the unbind redirect can return to this exact
+                   view. "page" is deliberately not a field -- changing a
+                   filter should start again from page 1. #}
+                {# One toolbar row (2026-10-25). The text search is the top
+                   bar's Find, which shows the current term on this page; it
+                   rides along here so applying a filter keeps it. #}
+                <form method="GET" action="{{ url_for('admin.students_page') }}" id="roster-filters"
+                      class="roster-tools">
+                    {% if filters.q %}<input type="hidden" name="q" value="{{ filters.q }}">{% endif %}
+                    {% if filters.q %}
+                        <p class="roster-q">Matching <b class="mono">{{ filters.q }}</b></p>
+                    {% endif %}
+                    <div>
+                        <label class="form-label sr-only-lg" for="filter-dept">Department</label>
+                        <select name="dept" id="filter-dept" class="form-select form-select-sm">
+                            <option value="">All departments</option>
+                            {% for dept in departments %}
+                                <option value="{{ dept.id }}" {% if filters.dept == dept.id %}selected{% endif %}>{{ dept.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label sr-only-lg" for="filter-level">Level</label>
+                        <select name="level" id="filter-level" class="form-select form-select-sm">
+                            <option value="">All levels</option>
+                            {% for lvl in levels %}
+                                <option value="{{ lvl }}" {% if filters.level == lvl %}selected{% endif %}>
+                                    {{- lvl ~ 'L' if lvl in valid_levels else lvl ~ ' (invalid)' -}}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label sr-only-lg" for="filter-device">Device</label>
+                        <select name="device" id="filter-device" class="form-select form-select-sm">
+                            <option value="">Any phone</option>
+                            <option value="bound" {% if filters.device == 'bound' %}selected{% endif %}>Phone bound</option>
+                            <option value="unbound" {% if filters.device == 'unbound' %}selected{% endif %}>No phone bound</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label sr-only-lg" for="filter-status">Status</label>
+                        <select name="status" id="filter-status" class="form-select form-select-sm">
+                            <option value="">Any status</option>
+                            {% for key, label in student_statuses.items() %}
+                                <option value="{{ key }}" {% if filters.status == key %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="flex items-end gap-2">
+                        <button type="submit" class="btn-secondary btn-sm h-9">Apply</button>
+                        {% if is_filtered %}
+                            <a href="{{ url_for('admin.students_page') }}" class="btn-ghost btn-sm h-9">Clear</a>
+                        {% endif %}
+                    </div>
+                </form>
 
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Add Student') }}
+
+                <div class="divide-y divide-divider border-t border-divider sm:hidden">
+                    {% for student in students %}
+                        <div class="px-5 py-3.5 {{ 'bg-accent-soft' if record and record.student.id == student.id }}">
+                            <div class="flex items-center gap-3">
+                                {{ avatar(student.full_name) }}
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm font-semibold">{{ record_link(student) }}</p>
+                                    <p class="mono text-2xs text-muted">{{ student.matric_number }} &middot; {{ student.level }}L</p>
+                                </div>
+                                {{ status_pill(student) }}
+                            </div>
+                        </div>
+                    {% else %}
+                        {{ empty_state('No students match these filters.' if is_filtered else 'No students registered yet.',
+                                       'search_off' if is_filtered else 'groups_2') }}
+                    {% endfor %}
                 </div>
-                <div class="card-body">
+
+                {# Six columns, no row actions: everything you can do to a
+                   student is in their record drawer, so the table fits a
+                   laptop (at 1280px the Edit column used to be off-screen). #}
+                <div class="table-wrap hidden border-t border-divider sm:block">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th class="th">Student</th>
+                                <th class="th">Matric no.</th>
+                                <th class="th col-wide">Level</th>
+                                <th class="th col-wide">Department</th>
+                                <th class="th">Phone</th>
+                                <th class="th">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in students %}
+                                <tr class="{{ 'is-open' if record and record.student.id == student.id }}">
+                                    <td class="td">
+                                        <div class="flex items-center gap-3">
+                                            {{ avatar(student.full_name) }}
+                                            <span class="font-medium">{{ record_link(student) }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="td td-muted mono text-xs">{{ student.matric_number }}</td>
+                                    <td class="td td-muted col-wide">{{ student.level }}</td>
+                                    <td class="td td-muted col-wide">{{ student.department.name if student.department else '—' }}</td>
+                                    <td class="td">{{ pill('Bound', 'neutral', 'smartphone') if student.device_id else pill('Not bound', 'neutral') }}</td>
+                                    <td class="td">{{ status_pill(student) }}</td>
+                                </tr>
+                            {% else %}
+                                {{ table_empty(6, 'No students match these filters.' if is_filtered else 'No students registered yet.') }}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if pagination.pages > 1 %}
+                    <div class="card-foot justify-between text-xs text-muted">
+                        <span>
+                            Showing {{ pagination.first }}–{{ pagination.last }} of {{ pagination.total }}
+                        </span>
+                        <div class="flex items-center gap-2">
+                            {% if pagination.has_prev %}
+                                <a href="{{ url_for('admin.students_page', page=pagination.prev_num, **filter_args) }}"
+                                   class="btn-secondary btn-sm">Previous</a>
+                            {% endif %}
+                            <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+                            {% if pagination.has_next %}
+                                <a href="{{ url_for('admin.students_page', page=pagination.next_num, **filter_args) }}"
+                                   class="btn-secondary btn-sm">Next</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+        </div>
+    </div>
+
+    {% if record %}{{ record_drawer(record) }}{% endif %}
+
+    {# The occasional jobs, in native dialogs: focus moves in, Tab stays in,
+       Escape closes, and the page behind is inert -- all from the browser. #}
+    <dialog class="modal" id="dlg-add" aria-labelledby="dlg-add-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-add-title">Add student</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
                     <form action="{{ url_for('admin.students_page') }}" method="POST" class="space-y-4">
                         {% include '_csrf_field.html' %}
 
@@ -72,16 +236,13 @@
                             </select>
                         </div>
 
-                        <button type="submit" class="btn-primary mt-2 w-full">Create Student</button>
+                        <button type="submit" class="btn-primary mt-2 w-full">Create student</button>
                     </form>
-                </div>
-            </div>
+    </dialog>
 
-            <div class="card">
-                <div class="card-header">
-                    {{ card_heading('Bulk Enroll') }}
-                </div>
-                <div class="card-body">
+    <dialog class="modal" id="dlg-upload" aria-labelledby="dlg-upload-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-upload-title">Upload students</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
                     {# Upload -> preview -> confirm (bulk_upload.py), like the
                        lecturer and course uploads. Until 2026-10-17 this saved
                        on submit and reported skipped rows as "View logs".
@@ -112,268 +273,44 @@
 
                         <button type="submit" class="btn-secondary mt-2 w-full">Preview upload</button>
                     </form>
-                </div>
-            </div>
+    </dialog>
 
-            {# Graduating a whole set, or applying a Senate list. #}
-            {{ bulk_status_card('students', student_statuses, 'matric number') }}
+    <dialog class="modal" id="dlg-status" aria-labelledby="dlg-status-title">
+        <div class="modal-head"><h2 class="sr-only" id="dlg-status-title">Change status from a CSV</h2>
+            <span></span>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+        {{ bulk_status_card('students', student_statuses, 'matric number') }}
+    </dialog>
 
-            {# Yearly promotion lives on its own page: it acts on everyone. #}
-            <div class="card card-body">
-                {{ card_heading('New Session') }}
-                <p class="mt-3 text-xs text-secondary">
-                    Move every active student up one level, once per session, after making the new session's
-                    first semester active. You'll see a preview first, and it can be undone.
-                </p>
-                <a href="{{ url_for('admin.promotion_page') }}" class="btn-secondary mt-4 w-full">Promote students</a>
-            </div>
-        </div>
-
-        {# Roster. order-first below lg: finding a student is the page's main
-           job, so on a phone it comes before the four forms rather than
-           after them. lg:order-none puts it back in the right-hand column. #}
-        <div class="form-main order-first lg:order-none">
-            <div class="card-clip">
-                {{ directory_heading('Roster', pagination.total, 'student') }}
-
-                {# Search + filters. A plain GET form: the filters live in the
-                   URL, so the query does the filtering (the page stays one
-                   page long however many students exist), the back button
-                   works, and the unbind redirect can return to this exact
-                   view. "page" is deliberately not a field -- changing a
-                   filter should start again from page 1. #}
-                <form method="GET" action="{{ url_for('admin.students_page') }}" id="roster-filters"
-                      class="grid gap-3 px-5 pb-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <div class="sm:col-span-2 lg:col-span-4">
-                        <label class="form-label" for="filter-q">Search</label>
-                        <input type="search" name="q" id="filter-q" value="{{ filters.q }}"
-                               placeholder="Matric number or name, e.g. CPE/20/1123"
-                               autocomplete="off" class="form-input">
-                    </div>
-                    <div>
-                        <label class="form-label" for="filter-dept">Department</label>
-                        <select name="dept" id="filter-dept" class="form-select">
-                            <option value="">All departments</option>
-                            {% for dept in departments %}
-                                <option value="{{ dept.id }}" {% if filters.dept == dept.id %}selected{% endif %}>{{ dept.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="form-label" for="filter-level">Level</label>
-                        <select name="level" id="filter-level" class="form-select">
-                            <option value="">All levels</option>
-                            {% for lvl in levels %}
-                                <option value="{{ lvl }}" {% if filters.level == lvl %}selected{% endif %}>
-                                    {{- lvl ~ 'L' if lvl in valid_levels else lvl ~ ' (invalid)' -}}
-                                </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div>
-                        <label class="form-label" for="filter-device">Device</label>
-                        <select name="device" id="filter-device" class="form-select">
-                            <option value="">Any</option>
-                            <option value="bound" {% if filters.device == 'bound' %}selected{% endif %}>Bound</option>
-                            <option value="unbound" {% if filters.device == 'unbound' %}selected{% endif %}>Not bound</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="form-label" for="filter-status">Status</label>
-                        <select name="status" id="filter-status" class="form-select">
-                            <option value="">Any</option>
-                            {% for key, label in student_statuses.items() %}
-                                <option value="{{ key }}" {% if filters.status == key %}selected{% endif %}>{{ label }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="flex items-end gap-2">
-                        <button type="submit" class="btn-primary flex-1">Search</button>
-                        {% if is_filtered %}
-                            <a href="{{ url_for('admin.students_page') }}" class="btn-ghost">Clear</a>
-                        {% endif %}
-                    </div>
-                </form>
-
-                {# Card view (below sm): a 6-column table is unreadable on a
-                   phone even scrolled -- each row becomes a stacked card
-                   instead, same data, no horizontal scrolling. #}
-                <div class="divide-y divide-divider border-t border-divider sm:hidden">
-                    {% for student in students %}
-                        <div class="px-5 py-4">
-                            <div class="flex items-center gap-3">
-                                {{ avatar(student.full_name) }}
-                                <div class="min-w-0 flex-1">
-                                    <p class="truncate text-sm font-semibold text-ink">{{ student.full_name }}</p>
-                                    <p class="text-2xs text-muted mono">{{ student.matric_number }}</p>
-                                </div>
-                            </div>
-                            <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                                <div>
-                                    <dt class="text-muted">Level</dt>
-                                    <dd class="mt-0.5 text-secondary">{{ student.level }}</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-muted">Department</dt>
-                                    <dd class="mt-0.5 truncate text-secondary">{{ student.department.name if student.department else '—' }}</dd>
-                                </div>
-                            </dl>
-                            <div class="mt-3 flex flex-wrap items-center gap-2">
-                                {% if student.device_id %}
-                                    {{ pill('Bound', 'success', 'smartphone') }}
-                                    <form action="{{ url_for('admin.reset_student_binding', student_id=student.id, page=pagination.page, **filter_args) }}" method="POST"
-                                          class="unbind-form" data-student-name="{{ student.full_name }}">
-                                        {% include '_csrf_field.html' %}
-                                        <button type="submit" class="btn-link">Unbind</button>
-                                    </form>
-                                {% else %}
-                                    {{ pill('Not Bound', 'neutral') }}
-                                {% endif %}
-                                {{ status_cell(student, student_statuses, url_for('admin.change_status', kind='students', person_id=student.id, page=pagination.page, **filter_args)) }}
-                                {{ student_edit(student) }}
-                            </div>
-                        </div>
-                    {% else %}
-                        {% if is_filtered %}
-                            {{ empty_state('No students match these filters.', 'search_off') }}
-                        {% else %}
-                            {{ empty_state('No students registered yet.', 'groups_2') }}
-                        {% endif %}
-                    {% endfor %}
-                </div>
-
-                <div class="table-wrap hidden border-t border-divider sm:block">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th class="th">Student</th>
-                                <th class="th">Matric No.</th>
-                                <th class="th">Level</th>
-                                <th class="th">Department</th>
-                                <th class="th">Device</th>
-                                <th class="th">Status</th>
-                                <th class="th"><span class="sr-only">Edit</span></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for student in students %}
-                                <tr>
-                                    <td class="td">
-                                        <div class="flex items-center gap-3">
-                                            {{ avatar(student.full_name) }}
-                                            <span class="font-medium">{{ student.full_name }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="td td-muted mono text-xs">{{ student.matric_number }}</td>
-                                    <td class="td td-muted">{{ student.level }}</td>
-                                    <td class="td td-muted">{{ student.department.name if student.department else '—' }}</td>
-                                    <td class="td">
-                                        {% if student.device_id %}
-                                            <div class="flex items-center gap-2">
-                                                {{ pill('Bound', 'success') }}
-                                                <form action="{{ url_for('admin.reset_student_binding', student_id=student.id, page=pagination.page, **filter_args) }}" method="POST"
-                                                      class="unbind-form" data-student-name="{{ student.full_name }}">
-                                                    {% include '_csrf_field.html' %}
-                                                    <button type="submit" class="btn-link">Unbind</button>
-                                                </form>
-                                            </div>
-                                        {% else %}
-                                            {{ pill('Not Bound', 'neutral') }}
-                                        {% endif %}
-                                    </td>
-                                    <td class="td">
-                                        {{ status_cell(student, student_statuses, url_for('admin.change_status', kind='students', person_id=student.id, page=pagination.page, **filter_args)) }}
-                                    </td>
-                                    <td class="td">{{ student_edit(student) }}</td>
-                                </tr>
-                            {% else %}
-                                {{ table_empty(7, 'No students match these filters.' if is_filtered else 'No students registered yet.') }}
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-
-                {% if pagination.pages > 1 %}
-                    <div class="card-foot justify-between text-xs text-muted">
-                        <span>
-                            Showing {{ pagination.first }}–{{ pagination.last }} of {{ pagination.total }}
-                        </span>
-                        <div class="flex items-center gap-2">
-                            {% if pagination.has_prev %}
-                                <a href="{{ url_for('admin.students_page', page=pagination.prev_num, **filter_args) }}"
-                                   class="btn-secondary btn-sm">Previous</a>
-                            {% endif %}
-                            <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
-                            {% if pagination.has_next %}
-                                <a href="{{ url_for('admin.students_page', page=pagination.next_num, **filter_args) }}"
-                                   class="btn-secondary btn-sm">Next</a>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    {{ status_dialog(student_statuses, 'Graduated, Withdrawn, Expelled and Deceased also release the phone binding.') }}
-
-    {% call edit_dialog('Edit student', 'Removes the student, their login and their course registrations. Only possible before any attendance or result is recorded for them.') %}
-        <div>
-            <label class="form-label" for="edit-full-name">Full Name</label>
-            <input type="text" name="full_name" id="edit-full-name" required maxlength="150" class="form-input">
-        </div>
-        <div>
-            <label class="form-label" for="edit-matric">Matric Number</label>
-            <input type="text" name="matric_number" id="edit-matric" required maxlength="50" class="form-input mono">
-            <p class="form-help">Also their login username. If they haven't set their own password yet, it becomes the new matric number too. Their phone stays bound.</p>
-        </div>
-        <div>
-            <label class="form-label" for="edit-level">Level</label>
-            <select name="level" id="edit-level" required class="form-select">
-                {% for lvl in valid_levels %}
-                    <option value="{{ lvl }}">{{ lvl }}L</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div>
-            <label class="form-label" for="edit-department">Department</label>
-            <select name="department_id" id="edit-department" required class="form-select">
-                {% for dept in departments %}
-                    <option value="{{ dept.id }}">{{ dept.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-    {% endcall %}
+    {% if record %}{{ record_dialogs() }}{% endif %}
 
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-    // Reading the student's name from data-student-name (plain text,
-    // decoded once by the browser) rather than building the confirm()
-    // call as an inline onsubmit="..." attribute string. An inline
-    // handler re-parses its decoded attribute value AS JavaScript source
-    // -- a name containing an apostrophe (e.g. "O'Brien") would close the
-    // JS string literal early and silently break the whole handler with
-    // no visible error, meaning the confirmation prompt just wouldn't
-    // appear. Reading it as a data attribute and interpolating it into a
-    // JS template literal here avoids that: it's a real string value at
-    // that point, never re-parsed as code.
+    // The page's dialogs (Add student, Upload, Change status CSV): native
+    // <dialog>, so showModal() gives focus, Tab and Escape for free. Focus
+    // goes back to the button that opened it.
+    document.querySelectorAll('[data-dialog]').forEach(function (btn) {
+        var dlg = document.getElementById(btn.dataset.dialog);
+        if (!dlg) return;
+        btn.addEventListener('click', function () {
+            var menu = btn.closest('details');
+            if (menu) menu.open = false;
+            dlg.showModal();
+        });
+        dlg.addEventListener('close', function () { btn.focus(); });
+        dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+        dlg.querySelectorAll('[data-close]').forEach(function (c) {
+            c.addEventListener('click', function () { dlg.close(); });
+        });
+    });
+
     // The filter dropdowns used to submit on change. With a keyboard, an
     // arrow key on a closed <select> fires change, so the page reloaded on
     // the first press -- you couldn't arrow down to a department -- and
     // focus jumped to the top (WCAG 3.2.2). Removed 2026-10-17: the Search
     // button applies every filter.
 
-    document.querySelectorAll('.unbind-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            const name = form.dataset.studentName;
-            // The policy (CLAUDE.md, device binding): unbind only after the
-            // student presents their physical school ID, so the prompt says so.
-            if (!confirm(`Unbind ${name}'s phone? Only do this after checking their student ID card. They can pair a new phone at their next login.`)) {
-                e.preventDefault();
-            }
-        });
-    });
 </script>
 {% endblock %}

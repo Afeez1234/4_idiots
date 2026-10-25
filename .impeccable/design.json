@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-23T10:16:58+00:00",
+  "generatedAt": "2026-10-25T16:38:45+00:00",
   "title": "Design System: SUAAMS",
   "extensions": {
     "colorMeta": {
@@ -589,25 +589,145 @@
           "#FEE9E9"
         ]
       },
-      "portal-mist": {
+      "portal-paper": {
         "role": "neutral",
-        "displayName": "Mist",
-        "canonical": "oklch(96.6% 0.006 255.5)",
+        "displayName": "Indigo Paper",
+        "canonical": "oklch(94.2% 0.015 277.8)",
         "tonalRamp": [
-          "#090B0E",
-          "#232528",
-          "#404245",
-          "#5F6165",
-          "#808286",
-          "#A2A5A9",
-          "#C6C9CD",
-          "#ECEFF3"
+          "#0A0B11",
+          "#23242C",
+          "#40414A",
+          "#5F616A",
+          "#80828B",
+          "#A2A4AF",
+          "#C6C8D3",
+          "#ECEEF9"
         ]
       },
-      "portal-card": {
+      "portal-raised": {
         "role": "neutral",
-        "displayName": "Portal Card",
-        "canonical": "oklch(100.0% 0.000 89.9)",
+        "displayName": "Portal Raised",
+        "canonical": "oklch(98.0% 0.005 275.0)",
+        "tonalRamp": [
+          "#0A0B0D",
+          "#242528",
+          "#414245",
+          "#606164",
+          "#818286",
+          "#A4A5A8",
+          "#C8C9CD",
+          "#EDEEF2"
+        ]
+      },
+      "portal-hairline": {
+        "role": "neutral",
+        "displayName": "Portal Hairline",
+        "canonical": "oklch(88.8% 0.023 277.9)",
+        "tonalRamp": [
+          "#090A15",
+          "#222431",
+          "#3F414F",
+          "#5E606F",
+          "#7F8191",
+          "#A1A4B4",
+          "#C5C8D9",
+          "#EAEDFF"
+        ]
+      },
+      "portal-divider": {
+        "role": "neutral",
+        "displayName": "Portal Divider",
+        "canonical": "oklch(93.8% 0.014 277.1)",
+        "tonalRamp": [
+          "#0A0B11",
+          "#23252C",
+          "#404149",
+          "#5F6169",
+          "#80828B",
+          "#A3A4AE",
+          "#C7C8D2",
+          "#ECEEF8"
+        ]
+      },
+      "portal-topbar": {
+        "role": "neutral",
+        "displayName": "Top Bar",
+        "canonical": "oklch(91.0% 0.030 277.6)",
+        "tonalRamp": [
+          "#080A18",
+          "#212434",
+          "#3E4152",
+          "#5D6073",
+          "#7E8195",
+          "#A0A4B8",
+          "#C4C8DD",
+          "#EAEDFF"
+        ]
+      },
+      "portal-topbar-line": {
+        "role": "neutral",
+        "displayName": "Top Bar Rule",
+        "canonical": "oklch(85.4% 0.044 276.8)",
+        "tonalRamp": [
+          "#07081D",
+          "#20233A",
+          "#3C4059",
+          "#5A5F7A",
+          "#7B809D",
+          "#9EA3C1",
+          "#C1C7E6",
+          "#EAEDFF"
+        ]
+      },
+      "portal-topbar-ink": {
+        "role": "neutral",
+        "displayName": "Top Bar Ink",
+        "canonical": "oklch(38.9% 0.074 282.4)",
+        "tonalRamp": [
+          "#090328",
+          "#211F47",
+          "#3C3C68",
+          "#5B5C8A",
+          "#7B7DAE",
+          "#9DA0D3",
+          "#C1C4F9",
+          "#ECEDFF"
+        ]
+      },
+      "portal-indigo-line": {
+        "role": "primary",
+        "displayName": "Contactless Indigo Line (portal)",
+        "canonical": "oklch(87.0% 0.062 274.0)",
+        "tonalRamp": [
+          "#050625",
+          "#1C2243",
+          "#383F63",
+          "#565F85",
+          "#7680A8",
+          "#99A3CD",
+          "#BCC7F3",
+          "#E9EEFF"
+        ]
+      },
+      "portal-muted": {
+        "role": "neutral",
+        "displayName": "Portal Muted",
+        "canonical": "oklch(50.0% 0.016 285.8)",
+        "tonalRamp": [
+          "#0A0A12",
+          "#24242D",
+          "#41414A",
+          "#60606A",
+          "#81818C",
+          "#A4A4AF",
+          "#C8C8D3",
+          "#EDEDF9"
+        ]
+      },
+      "portal-on-rail": {
+        "role": "neutral",
+        "displayName": "Text on Midnight Rail",
+        "canonical": "oklch(92.2% 0.000 89.9)",
         "tonalRamp": [
           "#0B0B0B",
           "#252525",
@@ -619,249 +739,39 @@
           "#EEEEEE"
         ]
       },
-      "portal-raised": {
+      "portal-grid": {
         "role": "neutral",
-        "displayName": "Portal Raised",
-        "canonical": "oklch(98.8% 0.003 264.5)",
+        "displayName": "Measuring Grid (portal)",
+        "canonical": "oklch(51.1% 0.230 277.0 / 0.07)",
         "tonalRamp": [
-          "#0B0B0C",
-          "#242526",
-          "#414243",
-          "#606163",
-          "#818284",
-          "#A4A5A7",
-          "#C8C9CB",
-          "#EDEEF0"
-        ]
-      },
-      "portal-navy-rail": {
-        "role": "neutral",
-        "displayName": "Navy Rail",
-        "canonical": "oklch(20.2% 0.018 274.9)",
-        "tonalRamp": [
-          "#090B13",
-          "#22242E",
-          "#3F414C",
-          "#5E616C",
-          "#7F828E",
-          "#A1A4B1",
-          "#C5C8D5",
-          "#EBEEFB"
-        ]
-      },
-      "portal-navy-rail-hover": {
-        "role": "neutral",
-        "displayName": "Portal Navy Rail Hover",
-        "canonical": "oklch(25.2% 0.029 275.4)",
-        "tonalRamp": [
-          "#080A17",
-          "#212433",
-          "#3D4152",
-          "#5C6072",
-          "#7D8194",
-          "#A0A4B8",
-          "#C3C8DC",
-          "#EAEEFF"
-        ]
-      },
-      "portal-hairline": {
-        "role": "neutral",
-        "displayName": "Portal Hairline",
-        "canonical": "oklch(93.6% 0.009 264.5)",
-        "tonalRamp": [
-          "#090B0F",
-          "#232529",
-          "#404247",
-          "#5F6166",
-          "#808288",
-          "#A2A5AB",
-          "#C6C9CF",
-          "#EBEEF5"
-        ]
-      },
-      "portal-divider": {
-        "role": "neutral",
-        "displayName": "Portal Divider",
-        "canonical": "oklch(96.4% 0.006 264.5)",
-        "tonalRamp": [
-          "#0A0B0E",
-          "#242528",
-          "#404245",
-          "#5F6165",
-          "#808286",
-          "#A3A5A9",
-          "#C7C9CD",
-          "#ECEEF2"
-        ]
-      },
-      "portal-accent": {
-        "role": "primary",
-        "displayName": "Records Blue",
-        "canonical": "oklch(56.7% 0.207 263.0)",
-        "tonalRamp": [
-          "#00052C",
-          "#021C5F",
-          "#0132A3",
-          "#1953D4",
-          "#3B78FC",
-          "#77A3FA",
-          "#AECAFE",
-          "#E7EFFE"
-        ]
-      },
-      "portal-accent-hover": {
-        "role": "primary",
-        "displayName": "Portal Accent Hover",
-        "canonical": "oklch(49.3% 0.192 262.6)",
-        "tonalRamp": [
-          "#00062A",
-          "#001C61",
-          "#05359C",
-          "#1E56CC",
-          "#3F7AF3",
-          "#75A3FD",
-          "#AFCAFB",
-          "#E6EFFF"
-        ]
-      },
-      "portal-accent-soft": {
-        "role": "primary",
-        "displayName": "Portal Accent Soft",
-        "canonical": "oklch(95.7% 0.019 263.0)",
-        "tonalRamp": [
-          "#070B13",
-          "#20252F",
-          "#3D424C",
-          "#5C616C",
-          "#7C838E",
-          "#9FA5B1",
-          "#C3C9D6",
-          "#E8EFFC"
-        ]
-      },
-      "portal-accent-line": {
-        "role": "primary",
-        "displayName": "Portal Accent Line",
-        "canonical": "oklch(88.7% 0.050 260.4)",
-        "tonalRamp": [
-          "#010A20",
-          "#16253D",
-          "#32425D",
-          "#51627E",
-          "#7183A1",
-          "#93A6C5",
-          "#B7CAEB",
-          "#E6EFFE"
-        ]
-      },
-      "portal-ink": {
-        "role": "neutral",
-        "displayName": "Portal Ink",
-        "canonical": "oklch(21.1% 0.025 270.0)",
-        "tonalRamp": [
-          "#070B16",
-          "#202531",
-          "#3D424F",
-          "#5C6170",
-          "#7C8292",
-          "#9FA5B5",
-          "#C3C9DA",
-          "#E8EEFE"
-        ]
-      },
-      "portal-secondary": {
-        "role": "neutral",
-        "displayName": "Portal Secondary",
-        "canonical": "oklch(50.1% 0.028 259.8)",
-        "tonalRamp": [
-          "#050B17",
-          "#1D2533",
-          "#394251",
-          "#586272",
-          "#788394",
-          "#9BA6B7",
-          "#BFCADC",
-          "#E6EFFE"
-        ]
-      },
-      "portal-muted": {
-        "role": "neutral",
-        "displayName": "Portal Muted",
-        "canonical": "oklch(53.1% 0.028 265.4)",
-        "tonalRamp": [
-          "#060B17",
-          "#1E2533",
-          "#3B4252",
-          "#596172",
-          "#7A8294",
-          "#9CA5B8",
-          "#C0C9DC",
-          "#E7EFFF"
-        ]
-      },
-      "portal-on-rail": {
-        "role": "neutral",
-        "displayName": "Portal On Rail",
-        "canonical": "oklch(94.0% 0.010 267.4)",
-        "tonalRamp": [
-          "#090B0F",
-          "#23252A",
-          "#404247",
-          "#5F6167",
-          "#808288",
-          "#A2A5AB",
-          "#C6C9D0",
-          "#EBEEF5"
-        ]
-      },
-      "portal-on-rail-muted": {
-        "role": "neutral",
-        "displayName": "Portal On Rail Muted",
-        "canonical": "oklch(61.4% 0.035 269.6)",
-        "tonalRamp": [
-          "#060A1A",
-          "#1E2436",
-          "#3B4155",
-          "#596175",
-          "#7A8298",
-          "#9CA5BB",
-          "#C0C9E1",
-          "#E8EEFE"
-        ]
-      },
-      "portal-on-rail-line": {
-        "role": "neutral",
-        "displayName": "Portal On Rail Line",
-        "canonical": "oklch(28.7% 0.026 272.3)",
-        "tonalRamp": [
-          "#080A16",
-          "#202432",
-          "#3D4150",
-          "#5C6171",
-          "#7D8293",
-          "#9FA4B6",
-          "#C3C9DB",
-          "#E9EEFD"
+          "#070030",
+          "#1C0270",
+          "#3406B7",
+          "#4B40DF",
+          "#686CFB",
+          "#8F9BFE",
+          "#BCC5FD",
+          "#EAEDFE"
         ]
       },
       "portal-success": {
         "role": "status",
-        "displayName": "Portal Success",
+        "displayName": "Portal Present Fill",
         "canonical": "oklch(62.2% 0.163 151.0)",
         "tonalRamp": [
           "#001003",
-          "#012E12",
-          "#095026",
-          "#027537",
+          "#022E13",
+          "#075025",
+          "#007537",
           "#029C4C",
           "#44C16E",
           "#6DE791",
-          "#C9FED4"
+          "#C8FED4"
         ]
       },
       "portal-success-soft": {
         "role": "status",
-        "displayName": "Portal Success Soft",
+        "displayName": "Portal Present Tint",
         "canonical": "oklch(96.0% 0.019 162.9)",
         "tonalRamp": [
           "#040E09",
@@ -876,37 +786,37 @@
       },
       "portal-success-ink": {
         "role": "status",
-        "displayName": "Portal Success Ink",
+        "displayName": "Portal Present Text",
         "canonical": "oklch(50.8% 0.133 151.0)",
         "tonalRamp": [
-          "#010F04",
-          "#002E12",
-          "#085025",
-          "#1B743C",
+          "#001003",
+          "#022E12",
+          "#075025",
+          "#107439",
           "#389857",
           "#5EBC79",
           "#84E29C",
-          "#C9FED4"
+          "#C8FED4"
         ]
       },
       "portal-warning": {
         "role": "status",
-        "displayName": "Portal Warning",
+        "displayName": "Portal Late Fill",
         "canonical": "oklch(64.2% 0.144 65.0)",
         "tonalRamp": [
-          "#140800",
-          "#371E03",
-          "#603700",
-          "#89530E",
+          "#150800",
+          "#381E02",
+          "#5F3704",
+          "#89530C",
           "#B66F15",
           "#E29030",
-          "#FEB975",
-          "#FFEBD8"
+          "#FEB974",
+          "#FEEBD8"
         ]
       },
       "portal-warning-soft": {
         "role": "status",
-        "displayName": "Portal Warning Soft",
+        "displayName": "Portal Late Tint",
         "canonical": "oklch(96.7% 0.025 81.1)",
         "tonalRamp": [
           "#100A02",
@@ -921,52 +831,52 @@
       },
       "portal-warning-ink": {
         "role": "status",
-        "displayName": "Portal Warning Ink",
+        "displayName": "Portal Late Text",
         "canonical": "oklch(50.1% 0.113 64.2)",
         "tonalRamp": [
-          "#140800",
-          "#391E00",
-          "#603704",
-          "#895315",
+          "#150800",
+          "#381E01",
+          "#603703",
+          "#8B520A",
           "#B17230",
           "#D69554",
           "#FDB978",
-          "#FEEBD9"
+          "#FFEAD8"
         ]
       },
       "portal-error": {
         "role": "status",
-        "displayName": "Portal Error",
+        "displayName": "Portal Absent / Danger Fill",
         "canonical": "oklch(59.0% 0.195 24.0)",
         "tonalRamp": [
           "#1F0001",
-          "#4C0208",
-          "#7D0E18",
+          "#4C0108",
+          "#800314",
           "#B60922",
           "#DF4044",
-          "#F87873",
-          "#FCB4AF",
+          "#FD7470",
+          "#FFB2AD",
           "#FEE9E7"
         ]
       },
       "portal-error-hover": {
         "role": "status",
-        "displayName": "Portal Error Hover",
+        "displayName": "Portal Danger Hover",
         "canonical": "oklch(51.7% 0.174 24.1)",
         "tonalRamp": [
-          "#1F0001",
-          "#4C0309",
-          "#7C0F18",
+          "#1E0001",
+          "#4C0208",
+          "#7F0515",
           "#AF242B",
           "#D74C4C",
-          "#F87974",
-          "#FBB4AF",
-          "#FEE9E7"
+          "#FC7571",
+          "#FEB3AD",
+          "#FFE8E6"
         ]
       },
       "portal-error-soft": {
         "role": "status",
-        "displayName": "Portal Error Soft",
+        "displayName": "Portal Absent Tint",
         "canonical": "oklch(95.8% 0.016 17.4)",
         "tonalRamp": [
           "#110809",
@@ -981,16 +891,16 @@
       },
       "portal-error-ink": {
         "role": "status",
-        "displayName": "Portal Error Ink",
+        "displayName": "Portal Absent Text",
         "canonical": "oklch(50.2% 0.180 25.3)",
         "tonalRamp": [
-          "#1E0102",
-          "#4D0106",
-          "#7E0A13",
+          "#1F0001",
+          "#4B0307",
+          "#7E0913",
           "#B11F25",
           "#D94A47",
-          "#FA776F",
-          "#FDB4AD",
+          "#FE736C",
+          "#FEB3AC",
           "#FFE9E6"
         ]
       },
@@ -1151,13 +1061,33 @@
         "displayName": "App Machine (Plex Mono)",
         "purpose": "Times, codes, terminal strings only; inherits size."
       },
-      "portal-stat-value": {
-        "displayName": "Portal Stat Value",
-        "purpose": "Dashboard figures."
+      "portal-page-title": {
+        "displayName": "Portal Page Title",
+        "purpose": "One per page, in the page head on the measuring grid."
       },
       "portal-micro": {
         "displayName": "Portal Micro",
-        "purpose": "Pills, chips, captions, help text."
+        "purpose": "Pills, captions, help text; the 11px floor."
+      },
+      "portal-column-label": {
+        "displayName": "Portal Column Label (Plex Mono)",
+        "purpose": "Table and board column heads, board group bands, rail and drawer section labels, stat labels. Uppercase, widest tracking."
+      },
+      "portal-figure": {
+        "displayName": "Portal Figure (Plex Mono Bold)",
+        "purpose": "The facts strip: need you, classes live, readers online."
+      },
+      "portal-stat-value": {
+        "displayName": "Portal Stat Value (Plex Mono Bold)",
+        "purpose": "Stat cards on lecturer, HOD and student pages."
+      },
+      "portal-board-time": {
+        "displayName": "Portal Board Time (Plex Mono Bold)",
+        "purpose": "A board row's start time and checked-in count."
+      },
+      "portal-reader": {
+        "displayName": "Portal Reader (Plex Mono)",
+        "purpose": "The lines of a reader screen, uppercase, in the firmware's words."
       },
       "site-display": {
         "displayName": "Site Display",
@@ -1207,13 +1137,43 @@
     "shadows": [
       {
         "name": "portal-card",
-        "value": "0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06)",
-        "purpose": "Every portal card, under its hairline border."
+        "value": "0 1px 0 rgb(26 26 46 / 0.03)",
+        "purpose": "A whisper under each portal panel's hairline; panels are flat."
       },
       {
         "name": "portal-pop",
-        "value": "0 8px 24px rgb(16 24 40 / 0.10), 0 2px 6px rgb(16 24 40 / 0.06)",
-        "purpose": "Menus, skip link, anything floating above the page."
+        "value": "0 12px 32px rgb(26 26 46 / 0.16), 0 2px 6px rgb(26 26 46 / 0.06)",
+        "purpose": "Menus, dialogs, the skip link."
+      },
+      {
+        "name": "portal-drawer",
+        "value": "-16px 0 32px -24px rgb(26 26 46 / 0.35)",
+        "purpose": "The record drawer's left edge over the page."
+      },
+      {
+        "name": "portal-nav-active-edge",
+        "value": "inset 2px 0 0 #4F46E5",
+        "purpose": "The active rail link's indigo left edge."
+      },
+      {
+        "name": "portal-focus",
+        "value": "outline: 2px solid #4F46E5; outline-offset: 2px",
+        "purpose": "Keyboard focus on every link, button, summary, select and tabbable element."
+      },
+      {
+        "name": "portal-find-focus",
+        "value": "0 0 0 3px #EEF2FF",
+        "purpose": "Find field focus ring, with an indigo border."
+      },
+      {
+        "name": "portal-live-dot",
+        "value": "0 0 0 3px rgb(129 140 248 / 0.25)",
+        "purpose": "Ring around the #818CF8 live dot on a lit reader screen."
+      },
+      {
+        "name": "portal-backdrop",
+        "value": "rgb(15 15 15 / 0.5)",
+        "purpose": "Dialog and mobile-rail backdrop."
       }
     ],
     "motion": [
@@ -1235,7 +1195,27 @@
       {
         "name": "portal-transition",
         "value": "150ms",
-        "purpose": "Tailwind transition-colors default on buttons and links."
+        "purpose": "Tailwind transition-colors on buttons, links, rail links."
+      },
+      {
+        "name": "portal-rail-drawer",
+        "value": "200ms translateX",
+        "purpose": "The rail sliding in as an off-canvas drawer below 1024px."
+      },
+      {
+        "name": "portal-rail-fade",
+        "value": "200ms opacity",
+        "purpose": "The rail's more-above / more-below fades."
+      },
+      {
+        "name": "portal-section-chevron",
+        "value": "150ms rotate(-90deg)",
+        "purpose": "A rail section's chevron when its group folds."
+      },
+      {
+        "name": "portal-board-refresh",
+        "value": "every 15s, swapped in place",
+        "purpose": "Door board facts and rows re-rendered by the server; skipped while focus is in the board or the tab is hidden."
       },
       {
         "name": "site-ease",
@@ -1310,14 +1290,29 @@
     ],
     "breakpoints": [
       {
+        "name": "portal-sm",
+        "value": "640px",
+        "purpose": "Semester chip shows in the top bar; the record drawer becomes 400px instead of full width."
+      },
+      {
         "name": "portal-lg",
         "value": "1024px",
-        "purpose": "Rail becomes fixed; form/directory grid splits 1/3 + 2/3."
+        "purpose": "Rail becomes static; door board rows lay out in five columns; page padding 28px."
+      },
+      {
+        "name": "portal-xl",
+        "value": "1280px",
+        "purpose": "The page column makes room for an open record drawer."
+      },
+      {
+        "name": "portal-2xl",
+        "value": "1536px",
+        "purpose": "Below it the roster drops Level and Department while a record is open."
       },
       {
         "name": "portal-max",
-        "value": "1400px",
-        "purpose": "Content column cap."
+        "value": "1680px",
+        "purpose": "Page head and content box cap, including side padding."
       },
       {
         "name": "site-max",
@@ -1358,7 +1353,7 @@
     "scope": {
       "covered": [
         "SUAAMS_Mobile (Flutter app)",
-        "SUAAMS/templates + static/src/input.css (web portal)",
+        "SUAAMS/templates + static/src/input.css + icons.py (web portal, rebuilt 2026-10-25)",
         "landing/ (public site: index.html + hero.js, get/, privacy.html on styles.css; get/poster.html print styles)"
       ],
       "excluded": []
@@ -1417,33 +1412,49 @@
       "name": "Portal Buttons",
       "kind": "button",
       "refersTo": "portal-button-primary",
-      "description": "Primary, secondary and danger on the mist page.",
-      "html": "<div class=\"ds-portal-ground\"><button class=\"ds-pbtn ds-pbtn-primary\">Publish timetable</button><button class=\"ds-pbtn ds-pbtn-secondary\">Export CSV</button><button class=\"ds-pbtn ds-pbtn-danger\">Unbind phone</button></div>",
-      "css": ".ds-portal-ground { background:#F1F4F8; padding:24px; display:flex; gap:10px; flex-wrap:wrap; } .ds-pbtn { display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:9px; border:1px solid transparent; font:600 14px 'Plus Jakarta Sans', system-ui, sans-serif; cursor:pointer; transition:background-color .15s, color .15s, border-color .15s; } .ds-pbtn:focus-visible { outline:2px solid #2F6BEE; outline-offset:2px; } .ds-pbtn-primary { background:#2F6BEE; color:#FFFFFF; } .ds-pbtn-primary:hover { background:#1E56CC; } .ds-pbtn-secondary { background:#FAFBFD; color:#141824; border-color:#E7EAF0; } .ds-pbtn-secondary:hover { background:#EAF1FE; color:#2F6BEE; border-color:#C7DBFC; } .ds-pbtn-danger { background:#D93A3F; color:#FFFFFF; } .ds-pbtn-danger:hover { background:#B72D32; }"
+      "description": "Indigo primary, Raised secondary, danger and the dotted text link, on a white panel over Indigo Paper.",
+      "html": "<div class=\"ds-pground\"><div class=\"ds-ppanel\"><button class=\"ds-pbtn ds-pbtn-primary\">Notify lecturer</button><button class=\"ds-pbtn ds-pbtn-secondary\">Open reader</button><button class=\"ds-pbtn ds-pbtn-danger\">Delete record</button><button class=\"ds-plink\">Edit</button></div></div>",
+      "css": ".ds-pground { background:#E9EBF6; padding:24px; } .ds-ppanel { display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:20px; background:#FFFFFF; border:1px solid #D6D9EA; border-radius:12px; box-shadow:0 1px 0 rgb(26 26 46 / .03); } .ds-pbtn { display:inline-flex; align-items:center; gap:8px; padding:10px 16px; border-radius:8px; border:1px solid transparent; font:600 14px 'IBM Plex Sans', system-ui, sans-serif; cursor:pointer; transition:background-color .15s, color .15s, border-color .15s; } .ds-pbtn:focus-visible, .ds-plink:focus-visible { outline:2px solid #4F46E5; outline-offset:2px; } .ds-pbtn-primary { background:#4F46E5; color:#FFFFFF; } .ds-pbtn-primary:hover { background:#4338CA; } .ds-pbtn-secondary { background:#F7F8FC; color:#1A1A1A; border-color:#D6D9EA; } .ds-pbtn-secondary:hover { background:#EEF2FF; color:#4F46E5; border-color:#C7D2FE; } .ds-pbtn-danger { background:#D93A3F; color:#FFFFFF; } .ds-pbtn-danger:hover { background:#B72D32; } .ds-plink { min-height:24px; padding:0 4px; background:none; border:0; font:600 12px 'IBM Plex Sans', system-ui, sans-serif; color:#62626C; text-decoration:underline dotted; text-underline-offset:2px; cursor:pointer; transition:color .15s; } .ds-plink:hover { color:#1A1A1A; }"
     },
     {
-      "name": "Portal Input",
+      "name": "Portal Top Bar and Find",
       "kind": "input",
-      "refersTo": "portal-input",
-      "description": "Raised field with hairline border; blue border and ring on focus.",
-      "html": "<div class=\"ds-portal-ground\"><label class=\"ds-plabel\">Course code<input class=\"ds-pinput\" placeholder=\"MCT 512\"></label></div>",
-      "css": ".ds-portal-ground { background:#FFFFFF; padding:24px; width:320px; } .ds-plabel { display:block; font:500 12px 'Plus Jakarta Sans', system-ui, sans-serif; color:#5A6474; } .ds-pinput { display:block; width:100%; margin-top:6px; padding:10px 16px; border:1px solid #E7EAF0; border-radius:9px; background:#FAFBFD; color:#141824; font:400 14px 'Plus Jakarta Sans', system-ui, sans-serif; outline:none; transition:border-color .15s, box-shadow .15s; } .ds-pinput::placeholder { color:#646C7D; } .ds-pinput:focus { border-color:#2F6BEE; box-shadow:0 0 0 1px #2F6BEE; }"
+      "refersTo": "portal-find",
+      "description": "The soft indigo top bar: Find (slash to focus) and the semester chip in mono on a white plate.",
+      "html": "<header class=\"ds-topbar\"><label class=\"ds-find\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"m21 21-4.34-4.34\"/><circle cx=\"11\" cy=\"11\" r=\"8\"/></svg><input placeholder=\"Find a student by name or matric\"><kbd>/</kbd></label><span class=\"ds-sem\">Semester <b>2026/2027 First Semester</b></span></header>",
+      "css": ".ds-topbar { display:flex; align-items:center; gap:12px; height:56px; width:760px; padding:0 28px; background:#DCE0F6; border-bottom:1px solid #C7CDEC; font-family:'IBM Plex Sans', system-ui, sans-serif; } .ds-find { position:relative; display:flex; align-items:center; width:100%; max-width:460px; } .ds-find svg { position:absolute; left:12px; width:16px; height:16px; fill:none; stroke:#52525B; stroke-width:2; stroke-linecap:round; } .ds-find input { width:100%; height:36px; padding:0 40px 0 36px; border:1px solid #C7CDEC; border-radius:8px; background:#FFFFFF; color:#1A1A1A; font:400 14px 'IBM Plex Sans', system-ui, sans-serif; outline:none; transition:box-shadow .15s; } .ds-find input::placeholder { color:#62626C; } .ds-find input:focus { border-color:#4F46E5; box-shadow:0 0 0 3px #EEF2FF; } .ds-find kbd { position:absolute; right:8px; padding:0 6px; border:1px solid #D6D9EA; border-radius:4px; font:11px 'IBM Plex Mono', ui-monospace, Consolas, monospace; color:#62626C; } .ds-sem { margin-left:auto; display:flex; align-items:center; gap:8px; font-size:12px; color:#3F3F6B; white-space:nowrap; } .ds-sem b { padding:2px 8px; border:1px solid #C7CDEC; border-radius:6px; background:#FFFFFF; font:400 12px 'IBM Plex Mono', ui-monospace, Consolas, monospace; color:#1A1A1A; }"
     },
     {
-      "name": "Portal Card with Status Pills",
-      "kind": "card",
-      "refersTo": "portal-card",
-      "description": "White hairline card, whisper shadow; status pills via data-tone.",
-      "html": "<div class=\"ds-portal-ground\"><div class=\"ds-pcard\"><div class=\"ds-pcard-title\">MCT 512 &middot; Today</div><div class=\"ds-prow\"><span>A. Bello</span><span class=\"ds-ppill\" data-tone=\"success\">Present</span></div><div class=\"ds-prow\"><span>C. Okafor</span><span class=\"ds-ppill\" data-tone=\"warning\">Late</span></div><div class=\"ds-prow\"><span>E. Musa</span><span class=\"ds-ppill\" data-tone=\"error\">Absent</span></div></div></div>",
-      "css": ".ds-portal-ground { background:#F1F4F8; padding:24px; } .ds-pcard { width:300px; background:#FFFFFF; border:1px solid #E7EAF0; border-radius:14px; box-shadow:0 1px 2px rgb(16 24 40 / .04), 0 1px 3px rgb(16 24 40 / .06); padding:20px; font-family:'Plus Jakarta Sans', system-ui, sans-serif; } .ds-pcard-title { font-size:14px; font-weight:700; color:#141824; margin-bottom:8px; } .ds-prow { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #F1F3F7; font-size:14px; color:#141824; } .ds-prow:last-child { border-bottom:0; } .ds-ppill { padding:2px 8px; border-radius:9999px; font-size:11px; font-weight:600; } .ds-ppill[data-tone=success] { background:#E7F6EE; color:#0B7A3B; } .ds-ppill[data-tone=warning] { background:#FDF3E2; color:#8F5300; } .ds-ppill[data-tone=error] { background:#FCEDED; color:#B42328; }"
-    },
-    {
-      "name": "Portal Navy Rail",
+      "name": "Portal Midnight Rail",
       "kind": "nav",
       "refersTo": "portal-nav-link-active",
-      "description": "The one dark mass on the portal; active link filled Records Blue.",
-      "html": "<nav class=\"ds-rail\"><div class=\"ds-rail-sec\">RECORDS</div><a class=\"ds-rail-link is-active\">Dashboard</a><a class=\"ds-rail-link\">Students</a><a class=\"ds-rail-link\">Timetable</a><a class=\"ds-rail-link\">Terminals</a></nav>",
-      "css": ".ds-rail { width:240px; background:#14161F; padding:16px 12px; font-family:'Plus Jakarta Sans', system-ui, sans-serif; display:flex; flex-direction:column; gap:2px; } .ds-rail-sec { padding:0 12px; margin-bottom:8px; font-size:11px; font-weight:700; letter-spacing:.1em; color:#7C849A; } .ds-rail-link { padding:6px 12px; border-radius:9px; font-size:14px; font-weight:500; color:#7C849A; cursor:pointer; transition:background-color .15s, color .15s; } .ds-rail-link:hover { background:#1E2130; color:#E8EBF2; } .ds-rail-link.is-active { background:#2F6BEE; color:#FFFFFF; }"
+      "description": "The app's Midnight ground as the sidebar; the active link is Graphite with a 2px indigo edge; mono section labels; an indigo count badge.",
+      "html": "<nav class=\"ds-rail\"><div class=\"ds-rail-sec\">OVERVIEW</div><a class=\"ds-rail-link is-active\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect width=\"7\" height=\"9\" x=\"3\" y=\"3\" rx=\"1\"/><rect width=\"7\" height=\"5\" x=\"14\" y=\"3\" rx=\"1\"/><rect width=\"7\" height=\"9\" x=\"14\" y=\"12\" rx=\"1\"/><rect width=\"7\" height=\"5\" x=\"3\" y=\"16\" rx=\"1\"/></svg>Door board</a><a class=\"ds-rail-link\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/></svg>Students</a><div class=\"ds-rail-sec\">ACADEMIC</div><a class=\"ds-rail-link\" href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M3 9h18M8 2v3M16 2v3\"/></svg>Timetable<span class=\"ds-badge\">2</span></a></nav>",
+      "css": ".ds-rail { width:232px; padding:16px 12px; background:#0F0F0F; font-family:'IBM Plex Sans', system-ui, sans-serif; display:flex; flex-direction:column; gap:4px; } .ds-rail-sec { margin:8px 0 4px; padding:0 12px; font:400 11px 'IBM Plex Mono', ui-monospace, Consolas, monospace; letter-spacing:.1em; color:#8A8A8A; } .ds-rail-link { display:flex; align-items:center; gap:12px; padding:6px 12px; border-radius:9px; font-size:14px; font-weight:500; color:#8A8A8A; text-decoration:none; transition:background-color .15s, color .15s; } .ds-rail-link svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; } .ds-rail-link:hover { background:#1C1C1C; color:#E5E5E5; } .ds-rail-link:focus-visible { outline:2px solid #4F46E5; outline-offset:2px; } .ds-rail-link.is-active { background:#1C1C1C; color:#FFFFFF; box-shadow:inset 2px 0 0 #4F46E5; } .ds-badge { margin-left:auto; display:grid; place-items:center; min-width:20px; height:20px; padding:0 6px; border-radius:9999px; background:#4F46E5; color:#FFFFFF; font:400 11px 'IBM Plex Mono', ui-monospace, Consolas, monospace; }"
+    },
+    {
+      "name": "Portal Status Pills",
+      "kind": "chip",
+      "refersTo": "portal-pill-live",
+      "description": "Attendance tones (present, late, absent, excused) beside the operational ones: live indigo and the solid ink pill.",
+      "html": "<div class=\"ds-pground\"><span class=\"ds-pill\" data-tone=\"success\">Present</span><span class=\"ds-pill\" data-tone=\"warning\">Late</span><span class=\"ds-pill\" data-tone=\"error\">Absent</span><span class=\"ds-pill\" data-tone=\"neutral\">Excused</span><span class=\"ds-pill\" data-tone=\"live\">Live</span><span class=\"ds-pill\" data-tone=\"ink\">Disabled</span></div>",
+      "css": ".ds-pground { background:#FFFFFF; padding:24px; display:flex; gap:8px; flex-wrap:wrap; } .ds-pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:9999px; font:600 11px 'IBM Plex Sans', system-ui, sans-serif; } .ds-pill[data-tone=success] { background:#E7F6EE; color:#0B7A3B; } .ds-pill[data-tone=warning] { background:#FDF3E2; color:#8F5300; } .ds-pill[data-tone=error] { background:#FCEDED; color:#B42328; } .ds-pill[data-tone=neutral] { background:#E9EBF6; color:#52525B; } .ds-pill[data-tone=live] { background:#EEF2FF; color:#4338CA; } .ds-pill[data-tone=ink] { background:#1A1A1A; color:#FFFFFF; }"
+    },
+    {
+      "name": "Portal Door Board",
+      "kind": "custom",
+      "refersTo": "portal-board",
+      "description": "One row per class today, grouped by what it needs; columns never move; each row shows its reader's screen in the firmware's words (lit, dim, off, none).",
+      "html": "<div class=\"ds-pground\"><div class=\"ds-board\"><div class=\"ds-cols\"><span>Time &middot; room</span><span>Class &middot; lecturer</span><span>Checked in</span><span>Reader shows</span><span></span></div><h3 class=\"ds-group ds-needs\">Needs you <em>1</em></h3><div class=\"ds-row ds-needs\"><div class=\"ds-when\"><b>10:00</b><span>ENG-LT2</span></div><div class=\"ds-class\"><p><span class=\"ds-mono\">MCT 405</span>&ensp;Control Systems</p><p class=\"ds-sub\">Dr A. Okafor &middot; no session 42 min after start</p></div><div class=\"ds-note\">Not started</div><div class=\"ds-screen\" data-state=\"dim\"><span>MCT 405</span><span>NOT STARTED YET</span></div><div class=\"ds-act\"><button class=\"ds-btn\">Notify lecturer</button></div></div><h3 class=\"ds-group\">Live now <em>1</em></h3><div class=\"ds-row\"><div class=\"ds-when\"><b>09:00</b><span>ENG-LT1</span></div><div class=\"ds-class\"><p><span class=\"ds-mono\">MCT 401</span>&ensp;Robotics</p><p class=\"ds-sub\">Prof. K. Adeyemi</p></div><div class=\"ds-count\"><b>188 <small>of 204</small></b><div class=\"ds-track\"><i style=\"width:92%\"></i></div></div><div class=\"ds-screen\" data-state=\"lit\"><span><i class=\"ds-live\"></i>MCT 401</span><span>188 / 204 CHECKED IN</span><span>ENDS 11:00</span></div><div class=\"ds-act\"><span class=\"ds-actnote\">ends 11:00</span></div></div><div class=\"ds-row\"><div class=\"ds-when\"><b>10:00</b><span>ENG-B14</span></div><div class=\"ds-class\"><p><span class=\"ds-mono\">CPE 401</span>&ensp;Embedded Systems</p><p class=\"ds-sub\">Engr. F. Bello &middot; reader last seen 27 min ago</p></div><div class=\"ds-count\"><b>41 <small>of 63</small></b><div class=\"ds-track\"><i style=\"width:65%\"></i></div></div><div class=\"ds-screen\" data-state=\"off\"><span>READER OFFLINE</span><span>TAPS HELD ON READER</span></div><div class=\"ds-act\"><span class=\"ds-actnote\">ends 12:00</span></div></div></div></div>",
+      "css": ".ds-pground { background:#E9EBF6; padding:24px; font-family:'IBM Plex Sans', system-ui, sans-serif; } .ds-board { width:860px; overflow:hidden; background:#FFFFFF; border:1px solid #D6D9EA; border-radius:12px; } .ds-cols, .ds-row { display:grid; grid-template-columns:6.5rem minmax(11rem,1.5fr) minmax(6.5rem,.7fr) 12rem 8.5rem; column-gap:16px; align-items:center; padding:0 20px; } .ds-cols { height:36px; background:#F7F8FC; border-bottom:1px solid #D6D9EA; font:400 11px 'IBM Plex Mono', ui-monospace, Consolas, monospace; text-transform:uppercase; letter-spacing:.1em; color:#62626C; } .ds-group { display:flex; align-items:center; gap:8px; height:32px; margin:0; padding:0 20px; background:#F7F8FC; border-top:1px solid #D6D9EA; font:700 11px 'IBM Plex Mono', ui-monospace, Consolas, monospace; text-transform:uppercase; letter-spacing:.1em; color:#52525B; } .ds-group em { font-style:normal; font-weight:400; color:#62626C; } .ds-row { min-height:60px; padding-top:10px; padding-bottom:10px; border-top:1px solid #E8EAF4; font-size:14px; } .ds-group.ds-needs, .ds-row.ds-needs { background:#EEF2FF; border-color:#C7D2FE; color:#4338CA; } .ds-when b { display:block; font:700 15px 'IBM Plex Mono', ui-monospace, Consolas, monospace; color:#1A1A1A; } .ds-when span, .ds-actnote { font:400 12px 'IBM Plex Mono', ui-monospace, Consolas, monospace; color:#62626C; } .ds-class p { margin:0; } .ds-class p:first-child { font-weight:600; color:#1A1A1A; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .ds-mono { font-family:'IBM Plex Mono', ui-monospace, Consolas, monospace; } .ds-sub { margin-top:2px !important; font-size:12px; color:#52525B; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; } .ds-note { color:#62626C; } .ds-count b { font:700 15px 'IBM Plex Mono', ui-monospace, Consolas, monospace; color:#1A1A1A; } .ds-count small { font:400 12px 'IBM Plex Mono', ui-monospace, Consolas, monospace; color:#62626C; } .ds-track { margin-top:6px; height:4px; border-radius:9999px; background:#E8EAF4; } .ds-track i { display:block; height:4px; border-radius:9999px; background:#1A1A1A; } .ds-screen { display:flex; flex-direction:column; justify-content:center; min-height:40px; padding:4px 10px; border-radius:7px; font:400 11.5px/1.375 'IBM Plex Mono', ui-monospace, Consolas, monospace; letter-spacing:.025em; text-transform:uppercase; } .ds-screen[data-state=lit] { background:#0F0F0F; color:#E5E5E5; } .ds-screen[data-state=dim] { background:#F7F8FC; border:1px solid #D6D9EA; color:#62626C; } .ds-screen[data-state=off] { background:#FFFFFF; border:1px dashed #1A1A1A; color:#1A1A1A; } .ds-live { display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%; vertical-align:middle; background:#818CF8; box-shadow:0 0 0 3px rgb(129 140 248 / .25); } .ds-act { display:flex; justify-content:flex-end; } .ds-btn { padding:6px 12px; border:0; border-radius:7px; background:#4F46E5; color:#FFFFFF; font:600 12px 'IBM Plex Sans', system-ui, sans-serif; cursor:pointer; transition:background-color .15s; } .ds-btn:hover { background:#4338CA; } .ds-btn:focus-visible { outline:2px solid #4F46E5; outline-offset:2px; }"
+    },
+    {
+      "name": "Portal Record Drawer",
+      "kind": "card",
+      "refersTo": "portal-drawer",
+      "description": "A student's record on the right while the page stays in view: Midnight initials tile, mono labels, exam standing with the 75% tick, pinned actions.",
+      "html": "<aside class=\"ds-drawer\"><div class=\"ds-dhead\"><span class=\"ds-av\">AB</span><div><h2>Aisha Bello</h2><p>CPE/20/1123 &middot; 400L<br>Computer Engineering</p></div><button class=\"ds-close\" aria-label=\"Close\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M18 6 6 18M6 6l12 12\"/></svg></button></div><section class=\"ds-sec\"><h3>Attendance this semester</h3><div class=\"ds-st\"><span class=\"ds-mono\">CPE 401</span><span class=\"ds-tr\"><i style=\"width:91%\"></i></span><span class=\"ds-mono ds-r\">91%</span></div><div class=\"ds-st is-below\"><span class=\"ds-mono\">MCT 401</span><span class=\"ds-tr\"><i style=\"width:68%\"></i></span><span class=\"ds-mono ds-r\">68%</span><span class=\"ds-why\">Below 75%: not yet eligible for the exam</span></div><p class=\"ds-key\"><i></i>75% needed to sit the exam</p></section><div class=\"ds-acts\"><button class=\"ds-b ds-b1\">Unbind phone...</button><button class=\"ds-b\">Change status</button><button class=\"ds-b\">Reset password</button></div></aside>",
+      "css": ".ds-drawer { width:400px; background:#FFFFFF; border-left:1px solid #D6D9EA; box-shadow:-16px 0 32px -24px rgb(26 26 46 / .35); font-family:'IBM Plex Sans', system-ui, sans-serif; color:#1A1A1A; } .ds-dhead { display:flex; align-items:flex-start; gap:14px; padding:16px 20px; border-bottom:1px solid #D6D9EA; } .ds-av { display:grid; place-items:center; flex-shrink:0; width:44px; height:44px; border-radius:10px; background:#0F0F0F; color:#FFFFFF; font-weight:700; } .ds-dhead h2 { margin:0; font-size:18px; line-height:1.25; } .ds-dhead p { margin:4px 0 0; font:400 12px/1.6 'IBM Plex Mono', ui-monospace, Consolas, monospace; color:#52525B; } .ds-close { margin-left:auto; display:grid; place-items:center; width:32px; height:32px; border:1px solid #D6D9EA; border-radius:8px; background:none; color:#52525B; cursor:pointer; } .ds-close:hover { color:#1A1A1A; } .ds-close:focus-visible, .ds-b:focus-visible { outline:2px solid #4F46E5; outline-offset:2px; } .ds-close svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; } .ds-sec { padding:16px 20px; border-bottom:1px solid #E8EAF4; } .ds-sec h3 { margin:0 0 10px; font:400 11px 'IBM Plex Mono', ui-monospace, Consolas, monospace; letter-spacing:.1em; text-transform:uppercase; color:#62626C; } .ds-st { display:grid; grid-template-columns:4.5rem 1fr 2.75rem; align-items:center; column-gap:10px; row-gap:4px; margin-bottom:10px; font-size:12px; } .ds-mono { font-family:'IBM Plex Mono', ui-monospace, Consolas, monospace; } .ds-r { text-align:right; } .ds-tr { position:relative; height:6px; border-radius:9999px; background:#E8EAF4; } .ds-tr i { display:block; height:6px; border-radius:9999px; background:#12A150; } .ds-tr::after { content:''; position:absolute; top:-3px; left:75%; width:1px; height:12px; background:#1A1A1A; opacity:.45; } .is-below .ds-tr i { background:#C77700; } .is-below .ds-r { font-weight:700; color:#8F5300; } .ds-why { grid-column:2 / 4; margin-top:-2px; color:#8F5300; } .ds-key { display:flex; align-items:center; gap:6px; margin:10px 0 0; font-size:12px; color:#62626C; } .ds-key i { display:inline-block; width:1px; height:10px; background:#1A1A1A; opacity:.45; } .ds-acts { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:16px 20px; background:#F7F8FC; border-top:1px solid #D6D9EA; } .ds-b { padding:10px 16px; border:1px solid #D6D9EA; border-radius:8px; background:#F7F8FC; color:#1A1A1A; font:600 14px 'IBM Plex Sans', system-ui, sans-serif; cursor:pointer; transition:background-color .15s, color .15s, border-color .15s; } .ds-b:hover { background:#EEF2FF; color:#4F46E5; border-color:#C7D2FE; } .ds-b1 { grid-column:1 / 3; background:#4F46E5; border-color:#4F46E5; color:#FFFFFF; } .ds-b1:hover { background:#4338CA; color:#FFFFFF; border-color:#4338CA; }"
     },
     {
       "name": "Site Buttons",
@@ -1504,10 +1515,10 @@
   ],
   "narrative": {
     "northStar": "Midnight Instrument",
-    "overview": "SUAAMS is a precision tool. In the student's hand it is an instrument on a black ground: graphite surfaces, white type, a faint measuring grid behind everything, and one indigo signal, Contactless Indigo, marking the place to act. Anything a machine says (a time range, a course code, a terminal status) is set in monospace, so the student can tell at a glance what the system reports and what the interface just labels. The check-in moment happens in a queue at a lecture-hall door, so everything on the screen must be readable in one glance and every control must respond the moment it is touched.\n\nThe system has two worlds that share one set of meanings. The **app** is dark by default, with a light mode that follows the same rules. The **web portal** is where admins, lecturers and HODs keep records at a desk. It uses a light page, white cards and a dark navy sidebar, with a blue accent for emphasis. The two look different on purpose: one is held in a hand at a door, the other is worked at a desk all day. They share the brand blue in the logo, the four attendance status meanings, and the rule that no status is ever shown by colour alone.\n\nThe **public site** at suaams.com.ng is not a third world. It is the app's Midnight Instrument opened up to page width: the same #0F0F0F ground and graphite panels, the same Plex pair, the same one indigo signal, and the same faint 28px measuring grid behind the first screen. Dark is the default and light follows the visitor's system setting, as in the app, so the app's own screenshots sit on the page in their native colours. The only thing that leaves the dark world is the A4 install poster, which is printed on paper and so is light.\n\nComponents are **tactile and confident**: full-width 56dp buttons, 48dp+ tap targets, visible press feedback, and a small scale lift on the active item. Motion is short (120-280ms, ease-out-cubic) and only confirms a change. It is never decoration.",
+    "overview": "SUAAMS is a precision tool. In the student's hand it is an instrument on a black ground: graphite surfaces, white type, a faint measuring grid behind everything, and one indigo signal, Contactless Indigo, marking the place to act. Anything a machine says (a time range, a course code, a terminal status) is set in monospace, so the student can tell at a glance what the system reports and what the interface just labels. The check-in moment happens in a queue at a lecture-hall door, so everything on the screen must be readable in one glance and every control must respond the moment it is touched.\n\nThe **app** is dark by default, with a light mode that follows the same rules. The **web portal** is where admins, lecturers and HODs keep records at a desk, and since 2026-10-25 it is the app's Midnight Instrument in light, at desk width: a Midnight rail (the app's own #0F0F0F ground), an indigo-tinted Paper page under a soft indigo top bar, white panels on cool hairlines, the same Plex pair, and the same one indigo signal. A faint 28px measuring grid sits behind every page head. Its home screen is the door board, one row per class today, each showing what that room's reader is showing in the firmware's own words. It replaced a navy rail, mist page and Records Blue accent that read as a generic admin kit and shared nothing with the app. Every surface shares the brand blue in the logo, the four attendance status meanings, and the rule that no status is ever shown by colour alone.\n\nThe **public site** at suaams.com.ng is not a third world. It is the app's Midnight Instrument opened up to page width: the same #0F0F0F ground and graphite panels, the same Plex pair, the same one indigo signal, and the same faint 28px measuring grid behind the first screen. Dark is the default and light follows the visitor's system setting, as in the app, so the app's own screenshots sit on the page in their native colours. The only thing that leaves the dark world is the A4 install poster, which is printed on paper and so is light.\n\nComponents are **tactile and confident**: full-width 56dp buttons, 48dp+ tap targets, visible press feedback, and a small scale lift on the active item. Motion is short (120-280ms, ease-out-cubic) and only confirms a change. It is never decoration.",
     "keyCharacteristics": [
       "App: midnight surfaces (#0F0F0F / #1C1C1C), one indigo accent, IBM Plex Sans + Plex Mono.",
-      "Portal: mist page, white hairline cards, navy rail, one blue accent, Plus Jakarta Sans + JetBrains Mono.",
+      "Portal: the app's world in light. Midnight rail, indigo-tinted Paper page and top bar, white hairline panels, Contactless Indigo the one signal, IBM Plex self-hosted, Lucide icons inlined as SVG.",
       "Status meanings are identical everywhere: present green, late amber, absent red, excused grey. A text label is always shown.",
       "Every text/surface pair is contrast-measured; values are chosen for AA, not by eye.",
       "Flat surfaces separated by hairline borders; depth comes from tone, not shadow.",
@@ -1516,12 +1527,12 @@
     "rules": [
       {
         "name": "The One Signal Rule",
-        "body": "Each world has exactly one accent, and it marks where to act or where you are. In the app that is Contactless Indigo, and it always goes on the same few elements so students learn to find it. It never colours a status value. The site is in the app's world, so its one accent is Contactless Indigo too; Brand Blue stays inside the logo.",
+        "body": "Each surface has exactly one accent, and it marks where to act or where you are. In the app that is Contactless Indigo, and it always goes on the same few elements so students learn to find it. It never colours a status value. The site and the portal are in the app's world, so their one accent is Contactless Indigo too (the portal uses the light value); Brand Blue stays inside the logo. In the portal indigo means act here, you are here, needs you, or live. It is never a record's status.",
         "section": "colors"
       },
       {
         "name": "The Green Is Sacred Rule",
-        "body": "Green means \"you're registered.\" Never spend it on branding, success toasts for unrelated actions, or decoration. A student reads green in well under a second, so that meaning must stay unambiguous. On the site green appears in two places only: the PRESENT label on the register, and the \"75% or more\" key that explains the app's Records colours. Both carry their words.",
+        "body": "Green means \"you're registered.\" Never spend it on branding, success toasts for unrelated actions, or decoration. A student reads green in well under a second, so that meaning must stay unambiguous. On the site green appears in two places only: the PRESENT label on the register, and the \"75% or more\" key that explains the app's Records colours. Both carry their words. In the portal green is attendance only: a present status, an attendance rate at or above 75%, and the fill of a course's exam standing bar. A live class is indigo, a lifecycle state is neutral or the ink pill, and amber stays \"late\" or \"below 75%\", so a check-in method or a draft count never wears it.",
         "section": "colors"
       },
       {
@@ -1536,7 +1547,7 @@
       },
       {
         "name": "The Mono Means Machine Rule",
-        "body": "Monospace is only for data the system emits (times, session and course codes, terminal states). Never use it for labels, buttons or prose. On the site that means the check-in code, the decoded values, times, masked student IDs, the register count, the build version and the printed URL. Where a machine readout is followed by an explanation, the explanation drops back to the sans.",
+        "body": "Monospace is only for data the system emits (times, session and course codes, terminal states). Never use it for labels, buttons or prose. On the site that means the check-in code, the decoded values, times, masked student IDs, the register count, the build version and the printed URL. Where a machine readout is followed by an explanation, the explanation drops back to the sans. The portal has one exception: its column labels (table and board heads, board group bands, rail and drawer section labels, stat labels) are 11px uppercase mono, the legend over columns of machine data. Titles, buttons, form labels and prose stay in the sans.",
         "section": "typography"
       },
       {
@@ -1546,7 +1557,7 @@
       },
       {
         "name": "The Own Fonts Rule",
-        "body": "The app and the site ship their own Plex files. No Google Fonts or other third-party font host on anything a student opens on campus Wi-Fi.",
+        "body": "The app, the site and the portal ship their own Plex files. No Google Fonts, icon font or other third-party font host on anything opened on campus Wi-Fi.",
         "section": "typography"
       },
       {
@@ -1557,6 +1568,8 @@
     ],
     "dos": [
       "**Do** use Contactless Indigo only on the active tab, the check-in action, contactless glyphs and live dots.",
+      "**Do** keep portal indigo to act here, you are here, needs you and live: the primary button, the active rail edge and tab, focus, the Needs you band and figure, live pills.",
+      "**Do** show portal machine and lifecycle states as neutral, indigo or the solid ink pill, and reader screens in the firmware's own words.",
       "**Do** pair every status colour with its text label, from the one shared map on each side.",
       "**Do** read colours from `AppTerminal` / `colorScheme` (app) or the `@theme` tokens (portal). Never retype a hex at a call site.",
       "**Do** keep app tap targets at 48dp or more, and full-width primary buttons at 56dp tall.",
@@ -1566,7 +1579,8 @@
       "**Do** label every piece of sample data as demo, next to it: the tap, the demo code, the lecturer's live list, and every screenshot caption.",
       "**Do** separate site lists with ruled rows (hairline top and bottom), not cards.",
       "**Do** make every site animation finish into the page's static markup, so no script or reduced motion shows the complete state.",
-      "**Do** self-host fonts for anything a student opens (Plex WOFF2, `font-display: swap`)."
+      "**Do** self-host fonts on every surface (Plex WOFF2, `font-display: swap`), and inline portal icons as SVG from `icons.py`.",
+      "**Do** run portal records full width, with occasional forms in a dialog and the record in the drawer."
     ],
     "donts": [
       "**Don't** use green for anything except \"present / success\".",
@@ -1574,8 +1588,9 @@
       "**Don't** use the raw status hues (#10B981, #F59E0B, #EF4444) as text. They are fills only.",
       "**Don't** add drop shadows to app surfaces. Step the tone instead.",
       "**Don't** build portal tone classes by string interpolation (`bg-{{ tone }}`). Use `data-tone`.",
-      "**Don't** load Google Fonts or any third-party font on the app or the site.",
-      "**Don't** add a second accent to the site, or use Brand Blue anywhere but the logo mark.",
+      "**Don't** load Google Fonts, an icon font or any third-party font on the app, the site or the portal.",
+      "**Don't** add a second accent to the site or the portal, or use Brand Blue anywhere but the logo mark.",
+      "**Don't** colour a live class, a check-in method, a draft count or a lifecycle state green or amber in the portal; those are attendance's colours.",
       "**Don't** set prose, headings, labels or buttons in Plex Mono on the site; explanations under a readout go back to the sans.",
       "**Don't** add box shadows to the site. Step from Midnight to Sunk to Graphite instead.",
       "**Don't** carry the poster's light sheet onto screen pages; it is the print exception."

@@ -45,17 +45,6 @@ class Dept:
         self.name = name
 
 
-def _dash_slot(slot_id, code, start, end, room, status, present, enrolled, reminded_at=None):
-    """One row of the dashboard's today["slots"] (see dashboard_today.today)."""
-    h1, m1 = map(int, start.split(":"))
-    h2, m2 = map(int, end.split(":"))
-    return {
-        "slot": {"id": slot_id, "start_time": time(h1, m1), "end_time": time(h2, m2), "room": room},
-        "course": {"course_code": code, "course_title": "Course " + code, "lecturer_names": "Dr. Amina Yusuf",
-                   "lecturer_summary": "Dr. Amina Yusuf"},
-        "status": status, "present": present, "enrolled": enrolled, "reminded_at": reminded_at,
-    }
-
 
 # The Courses catalog (admin/courses.html): one course with a coordinator and
 # a co-lecturer, one general course with no semester and no lecturer.
@@ -76,16 +65,89 @@ _COURSES = [
 ]
 
 
-_DASH_SLOTS = [
-    _dash_slot(1, "CSC 201", "08:00", "10:00", "LT 2", "ended", 142, 156),
-    _dash_slot(2, "MCT 401", "09:00", "11:00", "LT 1", "live", 74, 88),
-    _dash_slot(3, "MCT 405", "10:00", "12:00", "LT 3", "late", None, 66),
-    _dash_slot(4, "EEE 305", "10:00", "11:00", None, "late", None, 40,
-               reminded_at=datetime(2026, 10, 8, 9, 35)),
-    _dash_slot(5, "PHY 101", "10:30", "12:00", "LT 4", "due", None, 200),
-    _dash_slot(6, "MEE 307", "07:00", "09:00", "Lab B", "missed", None, 43),
-    _dash_slot(7, "GST 211", "14:00", "16:00", "Main Hall", "upcoming", None, 312),
-]
+def _door_board_demo():
+    """The door board built by the real dashboard_today.door_board() from
+    synthetic rows: every group, a reminded and an unreminded late class, a
+    live class whose reader went offline, a room with no reader, a class
+    with no room, a switched-off reader and a live class started outside the
+    timetable -- so every reader-screen state and every action renders."""
+    from types import SimpleNamespace as NS
+    from datetime import timedelta
+    import dashboard_today
+    now = datetime(2026, 10, 27, 10, 42)
+    now_utc = datetime(2026, 10, 27, 9, 42)
+
+    def course(cid, code, title, lect):
+        return NS(id=cid, course_code=code, course_title=title, lecturer_summary=lect)
+
+    def slot(sid, crs, start, end, room):
+        return NS(id=sid, course=crs, course_id=crs.id, room=room,
+                  start_time=time(*start), end_time=time(*end))
+
+    def session(sid, crs, slot_=None, active=True, room=None, start=None, end=None):
+        return NS(id=sid, course=crs, course_id=crs.id, is_active=active, room=room, timetable=slot_,
+                  planned_start=start or (slot_.start_time if slot_ else None),
+                  planned_end=end or (slot_.end_time if slot_ else None), start_time=None)
+
+    mct405 = course(1, "MCT 405", "Control Systems II", "Dr A. Okafor")
+    cpe401 = course(2, "CPE 401", "Embedded Systems", "Engr. F. Bello")
+    mct401 = course(3, "MCT 401", "Robotics", "Prof. K. Adeyemi")
+    sen311 = course(4, "SEN 311", "Software Design", "Dr H. Musa")
+    eee305 = course(5, "EEE 305", "Power Electronics", "Dr O. Eze")
+    phy101 = course(6, "PHY 101", "General Physics I", "Dr T. Lawal")
+    mct403 = course(7, "MCT 403", "Mechatronic Design", "Dr A. Okafor")
+    gst211 = course(8, "GST 211", "Philosophy and Logic", "Dr P. Nwosu")
+    cpe405 = course(9, "CPE 405", "Computer Networks", "Engr. F. Bello")
+    mee307 = course(10, "MEE 307", "Fluid Mechanics", "Dr B. Sani")
+    csc499 = course(11, "CSC 499", "Project Seminar", "Dr P. Nwosu")
+
+    s = {k: slot(i, c, a, b, r) for i, (k, c, a, b, r) in enumerate([
+        ("mct405", mct405, (10, 0), (12, 0), "ENG-LT2"),
+        ("eee305", eee305, (10, 0), (11, 0), None),
+        ("cpe401", cpe401, (10, 0), (12, 0), "ENG-B14"),
+        ("mct401", mct401, (9, 0), (11, 0), "ENG-LT1"),
+        ("sen311", sen311, (10, 0), (12, 0), "SCI-LT3"),
+        ("phy101", phy101, (10, 30), (12, 0), "MAIN HALL"),
+        ("mct403", mct403, (12, 0), (14, 0), "ENG-LT1"),
+        ("gst211", gst211, (14, 0), (16, 0), "SCI-LT3"),
+        ("cpe405", cpe405, (8, 0), (10, 0), "ENG-B14"),
+        ("mee307", mee307, (7, 0), (9, 0), "LAB B"),
+    ], start=1)}
+    sess = {
+        "cpe401": session(101, cpe401, s["cpe401"]),
+        "mct401": session(102, mct401, s["mct401"]),
+        "sen311": session(103, sen311, s["sen311"]),
+        "cpe405": session(104, cpe405, s["cpe405"], active=False),
+    }
+    adhoc = session(105, csc499, None, room="ENG-B02", start=time(10, 15), end=time(11, 45))
+    present = {101: 41, 102: 188, 103: 72, 104: 58, 105: 19}
+    enrolled = {1: 66, 2: 63, 3: 204, 4: 90, 5: 40, 6: 200, 7: 54, 8: 312, 9: 61, 10: 43, 11: 22}
+    status = {"mct405": "late", "eee305": "late", "cpe401": "live", "mct401": "live", "sen311": "live",
+              "phy101": "due", "mct403": "upcoming", "gst211": "upcoming", "cpe405": "ended", "mee307": "missed"}
+    rows = [{"slot": s[k], "course": s[k].course, "status": status[k], "session": sess.get(k),
+             "present": present.get(sess[k].id) if k in sess else None,
+             "enrolled": enrolled[s[k].course_id],
+             "reminded_at": datetime(2026, 10, 27, 9, 35) if k == "eee305" else None}
+            for k in sorted(s, key=lambda k: (s[k].start_time, s[k].id))]
+    live = [{"session": x, "room": x.room or (x.timetable.room if x.timetable else None)}
+            for x in [sess["cpe401"], sess["mct401"], sess["sen311"], adhoc]]
+    data = {"now": now, "slots": rows, "live": live, "alerts": [],
+            "present_by_session": present, "enrolled_by_course": enrolled,
+            "checkins": {"count": 0, "expected": 0, "pct": None, "by_method": []}}
+    seen = lambda minutes: now_utc - timedelta(minutes=minutes)  # noqa: E731
+    terminals = [
+        NS(code="LT2-A", room="ENG-LT2", is_active=True, last_seen_at=seen(1)),
+        NS(code="B14-A", room="ENG-B14", is_active=True, last_seen_at=seen(27)),
+        NS(code="LT1-A", room="ENG-LT1", is_active=True, last_seen_at=seen(0)),
+        NS(code="LT3-A", room="SCI-LT3", is_active=True, last_seen_at=seen(1)),
+        NS(code="B02-A", room="ENG-B02", is_active=True, last_seen_at=seen(2)),
+        NS(code="LABB-A", room="LAB B", is_active=False, last_seen_at=seen(600)),
+        NS(code="SPARE-1", room=None, is_active=True, last_seen_at=None),
+    ]
+    return data, dashboard_today.door_board(data, terminals, timedelta(minutes=15), now_utc=now_utc)
+
+
+_DOOR_TODAY, _DOOR_BOARD = _door_board_demo()
 
 
 def _pagination(total, page, pages, per_page=50):
@@ -187,14 +249,10 @@ CONTEXTS = {
         role="admin",
         active_page="dashboard",
         active_semester={"name": "2026/2027 First Semester"},
-        today={
-            "now": datetime(2026, 10, 8, 10, 40),
-            "alerts": [r for r in _DASH_SLOTS if r["status"] == "late"],
-            "slots": _DASH_SLOTS,
-            "live": [{"room": "LT 1"}, {"room": None}],
-            "checkins": {"count": 216, "expected": 244, "pct": 89,
-                         "by_method": [("nfc", 170), ("ble", 30), ("manual", 10), ("unknown", 6)]},
-        },
+        today=dict(_DOOR_TODAY, checkins={
+            "count": 216, "expected": 244, "pct": 89,
+            "by_method": [("nfc", 170), ("ble", 30), ("manual", 10), ("unknown", 6)]}),
+        board=_DOOR_BOARD,
         department_attendance=[
             {"name": "Systems Eng", "percentage": 82.0},
             {"name": "Comp Sci", "percentage": 47.0},
@@ -537,7 +595,7 @@ CONTEXTS = {
                 "id": 1,
                 "full_name": "Aisha Bello",
                 "matric_number": "CPE/20/1123",
-                "level": "400L",
+                "level": "400",
                 "department": {"name": "Computer Engineering"},
                 "department_id": 1,
                 "device_id": "android-abc123",
@@ -551,7 +609,7 @@ CONTEXTS = {
                 # an inline onsubmit handler would mis-parse this string.
                 "full_name": "Chinedu O'Brien",
                 "matric_number": "SEE/21/0044",
-                "level": "300L",
+                "level": "300",
                 "status": "graduated",
                 "department": {"name": "Systems Engineering"},
                 "department_id": 2,
@@ -571,9 +629,34 @@ CONTEXTS = {
         valid_levels=["100", "200", "300", "400", "500"],
         filters={"q": "", "dept": None, "level": "", "device": "", "status": ""},
         student_statuses={"active": "Active", "suspended": "Suspended", "graduated": "Graduated"},
+        unbind_tail=3,
         delete_blockers={1: "Has 4 attendance records. Use Status instead."},
-        filter_args={},
+        filter_args={"student": 1},
+        page_args={"student": 1, "page": 1},
+        drawer_close_url="/admin/students",
         is_filtered=False,
+        exam_threshold=75,
+        # Aisha's record drawer open: a bound phone with its date, one course
+        # below the exam line, one with nothing held yet, and three log lines.
+        record={
+            "student": {
+                "id": 1, "full_name": "Aisha Bello", "matric_number": "CPE/20/1123", "level": "400",
+                "department": {"name": "Computer Engineering"}, "department_id": 1,
+                "device_id": "android-abc123", "device_bound_at": datetime(2026, 9, 14, 8, 2),
+                "status": "active", "user": {"requires_password_change": False, "is_active": True},
+            },
+            "attendance": [
+                {"course": {"course_code": "CPE 401"}, "attended": 21, "total": 23, "pct": 91.3},
+                {"course": {"course_code": "CPE 405"}, "attended": 16, "total": 19, "pct": 84.2},
+                {"course": {"course_code": "MCT 401"}, "attended": 13, "total": 19, "pct": 68.4},
+                {"course": {"course_code": "CPE 409"}, "attended": 0, "total": 0, "pct": 0},
+            ],
+            "changes": [
+                {"created_at": datetime(2026, 10, 21, 9, 12), "summary": "Reset the password of Aisha Bello (CPE/20/1123)", "actor_label": "tunde"},
+                {"created_at": datetime(2026, 9, 2, 11, 40), "summary": "Created student Aisha Bello (CPE/20/1123)", "actor_label": "tunde"},
+            ],
+            "delete_blocker": "Has 4 attendance records. Use Status instead.",
+        },
     ),
 
     # Yearly promotion page, at the preview step (promotion.py).

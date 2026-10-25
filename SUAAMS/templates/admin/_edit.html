@@ -13,12 +13,14 @@
    delete note for this row only (HODs: promoted lecturer or not). #}
 {# reset_url: students and lecturers only -- shows the dialog's "Reset
    password" section for this row (admin.reset_password). #}
-{% macro edit_button(edit_url, delete_url, name, values, blocker=None, note=None, reset_url=None) -%}
-    <button type="button" class="btn-link edit-open"
+{# label / cls: the Students record drawer's full-width "Edit record". #}
+{% macro edit_button(edit_url, delete_url, name, values, blocker=None, note=None, reset_url=None,
+                     label='Edit', cls='btn-link') -%}
+    <button type="button" class="{{ cls }} edit-open"
             data-edit="{{ edit_url }}" data-delete="{{ delete_url }}" data-name="{{ name }}"
             data-reset="{{ reset_url or '' }}"
             data-blocker="{{ blocker or '' }}" data-note="{{ note or '' }}" data-values='{{ values|tojson }}'>
-        Edit
+        {{ label }}
     </button>
 {%- endmacro %}
 
@@ -31,7 +33,7 @@
             <div class="mb-4 flex items-center justify-between">
                 <h3 class="card-title" id="edit-title">{{ title }}</h3>
                 <button type="button" id="edit-close" class="btn-ghost btn-icon" aria-label="Close">
-                    <span class="material-symbols-rounded text-xl" aria-hidden="true">close</span>
+                    {{ icon_svg('close', 'h-5 w-5 shrink-0') }}
                 </button>
             </div>
             <form id="edit-form" method="POST" class="space-y-4">

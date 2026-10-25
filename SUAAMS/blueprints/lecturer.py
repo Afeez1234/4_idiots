@@ -3,6 +3,7 @@ import io
 import re
 from collections import defaultdict
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for, Response, jsonify
+from icons import icon as _icon_svg
 from datetime import date, datetime, timezone
 from utils import (login_required, resolve_timetable_slot_for_course, notify_announcement,
                    start_class_session, end_class_session,
@@ -14,6 +15,9 @@ from models import db, Lecturer, Course, Session as SessionModel, Attendance, St
 from extensions import log_exception, limiter
 
 lecturer_bp = Blueprint('lecturer', __name__)
+# icon_svg() in templates (icons.py). Registered app-wide by every web
+# blueprint, so an app that registers any one of them can render pages.
+lecturer_bp.add_app_template_global(_icon_svg, 'icon_svg')
 
 
 @lecturer_bp.route('/lecturer/dashboard')

@@ -20,6 +20,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import joinedload
 
 from campus_time import campus_now, campus_tz
+from terminal_rooms import class_room, normalize_room
 from utils import ATTENDED_STATUSES, held_sessions, attended_by_course
 from models import (
     db, Attendance, AuditLog, Course, Department, Enrollment, Session, Timetable,
@@ -116,7 +117,9 @@ def today(semester, now=None):
 
     # Every session today, not only timetabled ones: an ad hoc class still
     # counts as live and its check-ins still count.
-    sessions = (Session.query.options(joinedload(Session.course))
+    # timetable too: the door board reads a live class's slot for its end
+    # time, which would otherwise be one lazy query per live class.
+    sessions = (Session.query.options(joinedload(Session.course), joinedload(Session.timetable))
                 .filter(Session.session_date == day).order_by(Session.id).all())
     present = _count_by(Attendance.session_id, [s.id for s in sessions],
                         Attendance.status.in_(PRESENT))
@@ -156,6 +159,10 @@ def today(semester, now=None):
                      .group_by(Attendance.method))
     return {
         'now': now,
+        # For door_board(): counts behind the rows, and the live sessions
+        # no slot claimed (started outside the timetable).
+        'present_by_session': present,
+        'enrolled_by_course': enrolled,
         'slots': rows,
         'alerts': [r for r in rows if r['status'] == 'late'],
         # Room from the session, else from the slot it was matched to.
@@ -202,6 +209,171 @@ def department_rates(semester):
     rates = [{'name': name, 'percentage': round(got / want * 100, 1)}
              for name, (got, want) in totals.items() if want]
     return sorted(rates, key=lambda r: -r['percentage'])
+
+
+# ---------------------------------------------------------------------------
+# The door board (admin home, 2026-10-25): today's classes as rows, each
+# with what its room's reader is showing. Built from today()'s dict and the
+# list of readers, so it adds one query (the readers) to the page.
+# ---------------------------------------------------------------------------
+
+# Board groups, in the order they're shown.
+BOARD_GROUPS = (
+    ('needs', 'Needs you'),
+    ('live', 'Live now'),
+    ('due', 'Due now'),
+    ('later', 'Later today'),
+    ('ended', 'Ended'),
+)
+
+
+def _hhmm(t):
+    return t.strftime('%H:%M') if t is not None else None
+
+
+def _room_screens(data, now):
+    """{normalized room: lines} for what each room's reader shows now,
+    decided the way terminal_status.status_for() decides it (so the board
+    and the door agree): the live class, else a timetabled class that
+    hasn't started ("Not started yet"), else NO CLASS with the next one.
+    Lines are the reader's own wording (oled_display.ino, oledDrawDoor)."""
+    present, enrolled = data['present_by_session'], data['enrolled_by_course']
+    live = {}
+    for item in data['live']:
+        s = item['session']
+        live.setdefault(normalize_room(class_room(s) or item['room']), []).append(s)
+    screens = {}
+    rooms = set(live) | {normalize_room(r['slot'].room) for r in data['slots']}
+    for room in rooms - {''}:
+        if room in live:
+            s = live[room][0]
+            code = s.course.course_code if s.course else '?'
+            more = len(live[room]) - 1
+            end = s.planned_end or (s.timetable.end_time if s.timetable else None)
+            lines = [code + (f'  +{more}' if more else ''),
+                     f"{present.get(s.id, 0)} / {enrolled.get(s.course_id, 0)} checked in"]
+            if end:
+                lines.append(f'ends {_hhmm(end)}')
+            screens[room] = {'state': 'lit', 'lines': lines}
+            continue
+        slots = [r for r in data['slots'] if normalize_room(r['slot'].room) == room]
+        due = next((r for r in slots if r['session'] is None
+                    and r['slot'].start_time <= now.time() < r['slot'].end_time), None)
+        if due:
+            screens[room] = {'state': 'dim', 'lines': [
+                due['course'].course_code, 'Not started yet',
+                f"{_hhmm(due['slot'].start_time)} - {_hhmm(due['slot'].end_time)}"]}
+            continue
+        nxt = next((r for r in slots if r['slot'].start_time > now.time()), None)
+        screens[room] = {'state': 'dim', 'lines': (
+            ['NO CLASS', f"Next: {nxt['course'].course_code} at {_hhmm(nxt['slot'].start_time)}"]
+            if nxt else ['NO CLASS', 'Nothing else today'])}
+    return screens
+
+
+def _minutes(now, t):
+    """Whole minutes from campus time-of-day t to now (negative if t is
+    still to come)."""
+    return int((datetime.combine(now.date(), now.time())
+                - datetime.combine(now.date(), t)).total_seconds() // 60)
+
+
+def door_board(data, terminals, online_within, now_utc=None):
+    """Rows and groups for the door board.
+
+    data: today()'s dict. terminals: every models.Terminal. online_within:
+    how recently a reader must have been seen to count as online (the
+    Terminals page's TERMINAL_ONLINE_WITHIN, so the two pages agree).
+
+    Each row: {key, start, end, room, course, lecturer, status, session,
+    present, enrolled, slot, reminded_at, reader, screen, group, reason}.
+    reader is {'state': 'online'|'offline'|'disabled'|'none', 'terminal',
+    'seen_ago'}; screen is _room_screens()'s entry or None (no reader).
+    """
+    now = data['now']
+    now_utc = now_utc or datetime.now(timezone.utc).replace(tzinfo=None)
+
+    readers = {}
+    for t in terminals:
+        room = normalize_room(t.room)
+        # An active reader wins over a switched-off one in the same room.
+        if room and (room not in readers or (t.is_active and not readers[room].is_active)):
+            readers[room] = t
+
+    def reader_for(room_key):
+        t = readers.get(room_key)
+        if t is None:
+            return {'state': 'none', 'terminal': None, 'seen_ago': None}
+        seen_ago = (now_utc - t.last_seen_at) if t.last_seen_at else None
+        if not t.is_active:
+            state = 'disabled'
+        elif seen_ago is not None and seen_ago <= online_within:
+            state = 'online'
+        else:
+            state = 'offline'
+        return {'state': state, 'terminal': t, 'seen_ago': seen_ago}
+
+    screens = _room_screens(data, now)
+    present, enrolled = data['present_by_session'], data['enrolled_by_course']
+    rows = []
+
+    def add(key, start, end, room, course, status, session, slot=None, reminded_at=None, count=None):
+        room_key = normalize_room(room)
+        reader = reader_for(room_key) if room_key else {'state': 'none', 'terminal': None, 'seen_ago': None}
+        happening = status in ('live', 'due', 'late')
+        if status == 'late':
+            group, reason = 'needs', 'late'
+        elif happening and reader['state'] in ('offline', 'disabled'):
+            group, reason = 'needs', 'reader'
+        else:
+            group = {'live': 'live', 'due': 'due', 'upcoming': 'later'}.get(status, 'ended')
+            reason = None
+        rows.append({
+            'key': key, 'start': start, 'end': end, 'room': room, 'course': course,
+            'lecturer': (course.lecturer_summary if course else None) or 'No lecturer assigned',
+            'status': status, 'session': session, 'slot': slot, 'reminded_at': reminded_at,
+            'present': count, 'enrolled': enrolled.get(course.id, 0) if course else 0,
+            'reader': reader, 'screen': screens.get(room_key) if reader['terminal'] else None,
+            'group': group, 'reason': reason,
+            # Minutes, for the row's wording: how late, how soon, how long
+            # since the reader was heard from.
+            'late_by': _minutes(now, start) if status == 'late' and start else None,
+            'starts_in': -_minutes(now, start) if status == 'upcoming' and start else None,
+            'seen_min': int(reader['seen_ago'].total_seconds() // 60) if reader['seen_ago'] else None,
+        })
+
+    claimed = set()
+    for r in data['slots']:
+        s = r['session']
+        if s is not None:
+            claimed.add(s.id)
+        add(f"slot-{r['slot'].id}", r['slot'].start_time, r['slot'].end_time, r['slot'].room,
+            r['course'], r['status'], s, slot=r['slot'], reminded_at=r['reminded_at'],
+            count=r['present'])
+    # Live classes started outside the timetable still belong on the board.
+    for item in data['live']:
+        s = item['session']
+        if s.id in claimed:
+            continue
+        add(f"session-{s.id}", s.planned_start or s.start_time, s.planned_end, class_room(s) or item['room'],
+            s.course, 'live', s, count=present.get(s.id, 0))
+
+    rows.sort(key=lambda r: (r['start'] is None, r['start'] or now.time()))
+    groups = [(key, label, [r for r in rows if r['group'] == key]) for key, label in BOARD_GROUPS]
+    active = [t for t in terminals if t.is_active]
+    return {
+        'now': now,
+        'rows': rows,
+        'groups': [g for g in groups if g[2]],
+        'facts': {
+            'needs': sum(1 for r in rows if r['group'] == 'needs'),
+            'live': len(data['live']),
+            # Every switched-on reader, with or without a room.
+            'readers_online': sum(1 for t in active
+                                  if t.last_seen_at and now_utc - t.last_seen_at <= online_within),
+            'readers': len(active),
+        },
+    }
 
 
 def recent_checkins(limit=8):

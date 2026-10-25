@@ -73,10 +73,13 @@
         <div class="card card-body mt-6 space-y-4">
             {{ card_heading('Preview') }}
             <p class="text-sm text-secondary">
-                <span class="font-medium text-ink">{{ plan.moving }}</span> students move up one level.
-                {{ plan.excluded|length }} stay as repeaters. {{ plan.due|length }} are in their final year or beyond
-                and are due to graduate (they don't move).
-                {% if plan.bad_levels %}{{ plan.bad_levels|length }} have a level that isn't 100&ndash;500 and are left as they are.{% endif %}
+                {# Singular and plural: "1 stay as repeaters" read wrong. #}
+                {% set ex, due, bad = plan.excluded|length, plan.due|length, plan.bad_levels|length %}
+                <span class="font-medium text-ink">{{ plan.moving }}</span> {{ 'student moves' if plan.moving == 1 else 'students move' }} up one level.
+                {{ ex }} {{ 'stays as a repeater' if ex == 1 else 'stay as repeaters' }}.
+                {{ due }} {{ 'is' if due == 1 else 'are' }} in their final year or beyond
+                and {{ 'is' if due == 1 else 'are' }} due to graduate (they don't move).
+                {% if bad %}{{ bad }} {{ 'has' if bad == 1 else 'have' }} a level that isn't 100&ndash;500 and {{ 'is' if bad == 1 else 'are' }} left as they are.{% endif %}
             </p>
             {% if plan.unknown_exclusions %}
                 <div class="alert" data-tone="warning"><span>
@@ -127,7 +130,7 @@
                             <tr><td class="td mono text-xs">{{ matric }}</td><td class="td">{{ name }}</td><td class="td td-muted">{{ level }}</td><td class="td">{{ pill('Repeater', 'neutral') }}</td></tr>
                         {% endfor %}
                         {% for matric, name, level in plan.bad_levels %}
-                            <tr><td class="td mono text-xs">{{ matric }}</td><td class="td">{{ name }}</td><td class="td td-muted">{{ level }}</td><td class="td">{{ pill('Level not 100–500', 'warning') }}</td></tr>
+                            <tr><td class="td mono text-xs">{{ matric }}</td><td class="td">{{ name }}</td><td class="td td-muted">{{ level }}</td><td class="td">{{ pill('Level not 100–500', 'ink') }}</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>

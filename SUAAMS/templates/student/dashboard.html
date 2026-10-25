@@ -49,13 +49,13 @@
             {# Warning, not error: a phone links itself at the first sign-in
                in the app, so "not linked yet" is a step to take, not a fault. #}
             {% if student_profile.phone_linked %}
-                <span class="pill shrink-0" data-tone="success">
-                    <span class="material-symbols-rounded text-sm">smartphone</span>
+                <span class="pill shrink-0" data-tone="neutral">
+                    {{ icon_svg('smartphone', 'h-3.5 w-3.5 shrink-0') }}
                     Phone linked
                 </span>
             {% else %}
-                <span class="pill shrink-0" data-tone="warning">
-                    <span class="material-symbols-rounded text-sm">phonelink_off</span>
+                <span class="pill shrink-0" data-tone="accent">
+                    {{ icon_svg('phonelink_off', 'h-3.5 w-3.5 shrink-0') }}
                     No phone linked yet. Sign in on the SUAAMS app
                 </span>
             {% endif %}

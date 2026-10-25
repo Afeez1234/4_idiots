@@ -15,10 +15,11 @@
        the previous copy used an animate-ping ring, which reads as an error
        spinner on a light surface. #}
     {% if active_sessions %}
-        <div class="alert" data-tone="success" role="status">
+        <div class="alert" data-tone="info" role="status">
             <span class="relative flex h-3 w-3 shrink-0 items-center justify-center">
-                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-success opacity-75"></span>
-                <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-success"></span>
+                {# Indigo, the app's live dot; green is "present" only. #}
+                <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75 motion-reduce:animate-none"></span>
+                <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent"></span>
             </span>
             <div class="min-w-0">
                 <p class="font-semibold">
@@ -54,7 +55,7 @@
                 <a href="{{ url_for('hod.levels') }}"
                    class="card group flex flex-col p-5 transition-colors hover:border-accent-line">
                     <div class="flex items-start justify-between gap-3">
-                        <span class="material-symbols-rounded text-2xl text-accent">layers</span>
+                        {{ icon_svg('layers', 'h-6 w-6 text-accent shrink-0') }}
                         {{ pill('Overview', 'accent') }}
                     </div>
                     <p class="mt-3.5 text-sm font-bold text-ink">Levels 100&ndash;500</p>
@@ -66,8 +67,8 @@
                 <a href="{{ url_for('hod.students') }}"
                    class="card group flex flex-col p-5 transition-colors hover:border-accent-line">
                     <div class="flex items-start justify-between gap-3">
-                        <span class="material-symbols-rounded text-2xl text-accent">groups_2</span>
-                        {{ pill('At risk', 'error') }}
+                        {{ icon_svg('groups_2', 'h-6 w-6 text-accent shrink-0') }}
+                        {{ pill('At risk', 'warning') }}
                     </div>
                     <p class="mt-3.5 text-sm font-bold text-ink">Students &amp; Attendance</p>
                     <p class="mt-1 text-xs leading-relaxed text-secondary">
@@ -78,7 +79,7 @@
                 <a href="{{ url_for('hod.signoffs') }}"
                    class="card group flex flex-col p-5 transition-colors hover:border-accent-line">
                     <div class="flex items-start justify-between gap-3">
-                        <span class="material-symbols-rounded text-2xl text-accent">task_alt</span>
+                        {{ icon_svg('task_alt', 'h-6 w-6 text-accent shrink-0') }}
                         {{ pill('Coming soon', 'neutral') }}
                     </div>
                     <p class="mt-3.5 text-sm font-bold text-ink">Sign-offs</p>

@@ -50,7 +50,7 @@
                         </div>
 
                         <button type="submit" class="btn-primary w-full">
-                            <span class="material-symbols-rounded text-lg">campaign</span>
+                            {{ icon_svg('campaign', 'h-[18px] w-[18px] shrink-0') }}
                             Post Announcement
                         </button>
                     </form>
@@ -68,7 +68,7 @@
                                 <p class="font-semibold text-ink">{{ a.title }}</p>
                                 <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-muted">
                                     <span class="flex items-center gap-1">
-                                        <span class="material-symbols-rounded text-sm">schedule</span>
+                                        {{ icon_svg('schedule', 'h-3.5 w-3.5 shrink-0') }}
                                         {{ a.created_at|campus('%d %b %Y, %H:%M') }}
                                     </span>
                                     {# a.course is nullable on the model, so it falls
@@ -89,7 +89,7 @@
                                     {% include '_csrf_field.html' %}
                                     <button type="submit" title="Delete announcement"
                                             aria-label="Delete announcement" class="btn-icon btn-ghost hover:text-error">
-                                        <span class="material-symbols-rounded text-lg">delete</span>
+                                        {{ icon_svg('delete', 'h-[18px] w-[18px] shrink-0') }}
                                     </button>
                                 </form>
                             {% else %}

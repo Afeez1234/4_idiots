@@ -72,7 +72,7 @@
                                 {% if blocked.get(p.id) %}
                                     <p class="text-xs text-error">Still coordinates {{ blocked[p.id] }}.</p>
                                 {% else %}
-                                    {{ pill(names[status], 'success' if status == 'active' else 'warning') }}
+                                    {{ pill(names[status], 'neutral' if status == 'active' else 'ink') }}
                                 {% endif %}
                             </td>
                         </tr>

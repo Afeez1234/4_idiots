@@ -162,7 +162,7 @@ def mobile_login():
                 if taken:
                     return jsonify({"error": _DEVICE_IN_USE_ERROR}), 403
 
-                student_profile.device_id = device_id
+                student_profile.bind_device(device_id)
                 try:
                     db.session.commit()
                 except IntegrityError:

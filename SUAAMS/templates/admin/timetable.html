@@ -65,7 +65,11 @@
        CSS rather than in a JS string -- see renderNowBanner() below. #}
     <div id="now-banner" class="now-banner" data-tone="neutral">
         <div id="now-banner-icon-wrap" class="now-banner-icon" data-tone="neutral">
-            <span class="material-symbols-rounded text-xl" id="now-banner-icon" aria-hidden="true">schedule</span>
+            {# One icon per state; renderNowBanner() shows the matching one (it used
+               to swap the icon font's ligature word). #}
+            {{ icon_svg('sensors', 'hidden h-5 w-5 shrink-0', id='now-banner-icon-sensors') }}
+            {{ icon_svg('error', 'hidden h-5 w-5 shrink-0', id='now-banner-icon-error') }}
+            {{ icon_svg('schedule', 'h-5 w-5 shrink-0', id='now-banner-icon-schedule') }}
         </div>
         <div class="min-w-0" id="now-banner-text">
             <p class="text-sm font-bold text-ink">Checking today's schedule&hellip;</p>
@@ -284,8 +288,8 @@
                                 <td class="td td-muted">{{ row.scheduled }} of {{ row.courses }}</td>
                                 <td class="td td-muted">{{ row.drafts or '—' }}</td>
                                 <td class="td">
-                                    {% if row.status == 'draft' %}{{ pill('Draft waiting', 'warning') }}
-                                    {% elif row.status == 'published' %}{{ pill('Published', 'success') }}
+                                    {% if row.status == 'draft' %}{{ pill('Draft waiting', 'accent') }}
+                                    {% elif row.status == 'published' %}{{ pill('Published', 'neutral') }}
                                     {% else %}{{ pill('No timetable yet') }}{% endif %}
                                 </td>
                             </tr>
@@ -361,7 +365,7 @@
                                     </p>
                                     {% if p.today_status %}
                                         <span class="pill mt-2" data-tone="{{ 'live' if p.today_status.status == 'live' else 'neutral' }}">
-                                            <span class="dot" data-tone="{{ 'success' if p.today_status.status == 'live' else 'muted' }}"></span>
+                                            <span class="dot" data-tone="{{ 'accent' if p.today_status.status == 'live' else 'muted' }}"></span>
                                             {{ 'Live now' if p.today_status.status == 'live' else 'Ended' if p.today_status.status == 'ended' else 'Not started yet' }}
                                             {% if p.today_status.present_count is not none %} &middot; {{ p.today_status.present_count }} present{% endif %}
                                         </span>
@@ -465,7 +469,7 @@
             <div class="mb-4 flex items-center justify-between">
                 <h3 class="card-title" id="slot-modal-title">Timetable Slot</h3>
                 <button type="button" id="slot-modal-close" class="btn-ghost btn-icon" aria-label="Close">
-                    <span class="material-symbols-rounded text-xl" aria-hidden="true">close</span>
+                    {{ icon_svg('close', 'h-5 w-5 shrink-0') }}
                 </button>
             </div>
 
@@ -747,7 +751,6 @@
 
         function renderNowBanner(data) {
             var iconWrap = document.getElementById('now-banner-icon-wrap');
-            var icon = document.getElementById('now-banner-icon');
             var banner = document.getElementById('now-banner');
             var text = document.getElementById('now-banner-text');
 
@@ -764,7 +767,9 @@
             }
             banner.dataset.tone = tone;
             iconWrap.dataset.tone = tone;
-            icon.textContent = iconName;
+            ['sensors', 'error', 'schedule'].forEach(function (n) {
+                document.getElementById('now-banner-icon-' + n).classList.toggle('hidden', n !== iconName);
+            });
 
             text.innerHTML = '';
             if (data.status === 'in_session') {

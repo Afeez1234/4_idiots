@@ -14,7 +14,10 @@ Pins:
   * department rates use sessions x enrolled PER COURSE, active semester only;
   * the reminder notifies every lecturer on the course, is audited, and
     shows on the next load;
-  * the dashboard's queries don't grow with the number of classes.
+  * the dashboard's queries don't grow with the number of classes;
+  * the door board (2026-10-25): which group each class lands in, what its
+    room's reader shows (the firmware's own wording), a live class started
+    outside the timetable, and its 15-second refresh endpoint.
 
 Run with:  python tests/test_dashboard_today.py
 (also collected by pytest if it is installed)
@@ -23,7 +26,7 @@ Run with:  python tests/test_dashboard_today.py
 import os
 import sys
 import unittest
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -36,7 +39,7 @@ import dashboard_today as dt  # noqa: E402
 from extensions import limiter, csrf  # noqa: E402
 from models import (  # noqa: E402
     db, Attendance, AuditLog, Course, Department, Enrollment, Faculty, Lecturer,
-    Notification, Semester, Session as SessionModel, Student, Timetable, User,
+    Notification, Semester, Session as SessionModel, Student, Terminal, Timetable, User,
 )
 from utils import resolve_timetable_slot_for_course  # noqa: E402
 from blueprints.auth import auth_bp  # noqa: E402
@@ -337,6 +340,135 @@ class DashboardTodayTestCase(unittest.TestCase):
         few = queries()
         add_classes(8, 100)
         self.assertEqual(few, queries())
+
+
+    # ---- door board ---------------------------------------------------------------
+
+    def reader(self, room, seen_min_ago=1, active=True):
+        last = None if seen_min_ago is None else datetime(2026, 10, 8, 10, 0) - timedelta(minutes=seen_min_ago)
+        t = Terminal(code=f"R-{room}", name=room, room=room, secret_hash="x" * 64,
+                     is_active=active, last_seen_at=last)
+        db.session.add(t)
+        db.session.flush()
+        return t
+
+    def board(self, now):
+        # A fixed UTC clock for "last seen", 10:00 UTC.
+        return dt.door_board(dt.today(self.sem, now=now), Terminal.query.all(),
+                             timedelta(minutes=15), now_utc=datetime(2026, 10, 8, 10, 0))
+
+    def by_course(self, board):
+        return {r["course"].course_code: r for r in board["rows"]}
+
+    def test_board_groups_each_class_by_what_it_needs(self):
+        late = self.course("MCT 405", self.mct)
+        offline = self.course("CPE 401", self.cpe)
+        due = self.course("PHY 101", self.mct)
+        later = self.course("MCT 403", self.mct)
+        self.slot(late, (10, 0), (12, 0), room="LT 2")
+        self.session(offline, active=True, slot=self.slot(offline, (10, 0), (12, 0), room="B14"))
+        self.session(self.course401, active=True, slot=self.slot(self.course401, (9, 0), (12, 0)))
+        self.slot(due, (10, 45), (12, 0), room="LT 3")
+        self.slot(later, (14, 0), (16, 0), room="LT 1")
+        self.reader("LT 1")                       # online
+        self.reader("B14", seen_min_ago=27)       # offline: over 15 minutes
+        db.session.commit()
+        board = self.board(at(11, 0))
+        rows = self.by_course(board)
+        self.assertEqual((rows["MCT 405"]["group"], rows["MCT 405"]["reason"]), ("needs", "late"))
+        self.assertEqual(rows["MCT 405"]["late_by"], 60)
+        self.assertEqual((rows["CPE 401"]["group"], rows["CPE 401"]["reason"]), ("needs", "reader"))
+        self.assertEqual(rows["CPE 401"]["seen_min"], 27)
+        self.assertEqual(rows["MCT 401"]["group"], "live")
+        self.assertEqual(rows["PHY 101"]["group"], "due")
+        self.assertEqual((rows["MCT 403"]["group"], rows["MCT 403"]["starts_in"]), ("later", 180))
+        self.assertEqual(board["facts"], {"needs": 2, "live": 2, "readers_online": 1, "readers": 2})
+
+    def test_reader_screen_says_what_the_door_says(self):
+        """The lines oled_display.ino draws, by the same rule as
+        terminal_status.status_for: the live class, else "Not started
+        yet", else NO CLASS with the next one."""
+        live_slot = self.slot(self.course401, (10, 0), (12, 0), room="LT 1")
+        sess = self.session(self.course401, active=True, slot=live_slot)
+        for st in self.students(self.course401, 3)[:2]:
+            self.checkin(st, sess)
+        waiting = self.course("MCT 405", self.mct)
+        self.slot(waiting, (10, 30), (12, 30), room="LT 2")
+        idle = self.course("MCT 403", self.mct)
+        self.slot(idle, (14, 0), (16, 0), room="LT 3")
+        for room in ("LT 1", "LT 2", "LT 3"):
+            self.reader(room)
+        db.session.commit()
+        rows = self.by_course(self.board(at(10, 40)))
+        self.assertEqual(rows["MCT 401"]["screen"],
+                         {"state": "lit", "lines": ["MCT 401", "2 / 3 checked in", "ends 12:00"]})
+        self.assertEqual(rows["MCT 405"]["screen"]["lines"], ["MCT 405", "Not started yet", "10:30 - 12:30"])
+        self.assertEqual(rows["MCT 403"]["screen"]["lines"], ["NO CLASS", "Next: MCT 403 at 14:00"])
+
+    def test_a_room_without_a_reader_has_no_screen(self):
+        self.session(self.course401, active=True,
+                     slot=self.slot(self.course401, (10, 0), (12, 0), room="LT 9"))
+        self.reader("LT 1", active=False)
+        db.session.commit()
+        row = self.board(at(10, 40))["rows"][0]
+        self.assertEqual((row["reader"]["state"], row["screen"], row["group"]), ("none", None, "live"))
+
+    def test_a_class_started_off_the_timetable_is_on_the_board(self):
+        extra = self.course("CSC 499", self.cpe)
+        s = self.session(extra, active=True)
+        s.room = "B02"
+        db.session.commit()
+        rows = self.by_course(self.board(at(10, 40)))
+        self.assertEqual(rows["CSC 499"]["group"], "live")
+        self.assertIsNone(rows["CSC 499"]["slot"])
+
+    def test_board_queries_do_not_grow_with_live_classes(self):
+        def queries():
+            seen = []
+            listener = lambda *a: seen.append(1)    # noqa: E731
+            event.listen(db.engine, "before_cursor_execute", listener)
+            try:
+                for row in self.board(at(11, 0))["rows"]:
+                    row["course"].lecturer_summary
+            finally:
+                event.remove(db.engine, "before_cursor_execute", listener)
+            return len(seen)
+
+        def add_live(n, start):
+            for i in range(n):
+                c = self.course(f"Y{start + i}", self.cpe)
+                c.lecturer_id = self.lecturer(f"Dr Y{start + i}", f"STF/Y{start + i}").id
+                sess = self.session(c, active=True,
+                                    slot=self.slot(c, (10, 0), (12, 0), room=f"R{start + i}"))
+                self.checkin(self.students(c, 1)[0], sess)
+                self.reader(f"R{start + i}")
+            db.session.commit()
+            db.session.expire_all()
+
+        add_live(1, 0)
+        few = queries()
+        add_live(6, 100)
+        self.assertEqual(few, queries())
+
+    def test_board_refresh_endpoint_returns_the_board(self):
+        # The real templates, not a mocked render: this checks the fragment
+        # the dashboard swaps in.
+        self.app.template_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
+        self.slot(self.course401, (10, 0), (12, 0))
+        db.session.commit()
+        with self.client.session_transaction() as sess:
+            sess["user_id"], sess["username"], sess["role"] = self.admin.id, "tunde", "admin"
+        with mock.patch("dashboard_today.campus_now", return_value=at(10, 45)):
+            response = self.client.get("/admin/dashboard/board")
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('id="door-board"', html)
+        self.assertIn('id="door-facts"', html)
+        self.assertIn("Notify lecturer", html)
+        # Admins only.
+        with self.client.session_transaction() as sess:
+            sess["role"] = "student"
+        self.assertNotEqual(self.client.get("/admin/dashboard/board").status_code, 200)
 
 
 if __name__ == '__main__':

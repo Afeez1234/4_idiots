@@ -29,13 +29,13 @@
                     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-secondary">
                         {% if course.lecturer_name %}
                             <span class="flex items-center gap-1.5">
-                                <span class="material-symbols-rounded text-base text-muted">co_present</span>
+                                {{ icon_svg('co_present', 'h-4 w-4 text-muted shrink-0') }}
                                 {{ course.lecturer_name }}
                             </span>
                         {% endif %}
                         {% if course.credit_units %}
                             <span class="flex items-center gap-1.5">
-                                <span class="material-symbols-rounded text-base text-muted">school</span>
+                                {{ icon_svg('school', 'h-4 w-4 text-muted shrink-0') }}
                                 {{ course.credit_units }} units
                             </span>
                         {% endif %}

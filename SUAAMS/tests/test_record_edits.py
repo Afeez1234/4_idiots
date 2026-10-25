@@ -183,8 +183,9 @@ class RecordEditsTestCase(unittest.TestCase):
         self.sign_in()
         self.client.post(f'/admin/{kind}/{record.id}/reset-password')
         with self.client.session_transaction() as s:
-            message = s['_flashes'][-1][1]
-        return message.split(': ', 1)[1].split(' ', 1)[0]     # the password in the flash
+            category, message = s['_flashes'][-1]
+        self.assertEqual(category, 'password')                # its own one-time card
+        return message['password']
 
     def test_reset_gives_a_one_time_password_and_keeps_the_phone(self):
         user = self.ada.user

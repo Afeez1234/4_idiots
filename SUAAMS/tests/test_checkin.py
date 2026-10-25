@@ -385,6 +385,8 @@ class CheckinTestCase(unittest.TestCase):
     def test_first_login_binds_and_another_phone_is_locked_out(self):
         self.assertEqual(self.login('MCT/20/0001', 'phone-1').status_code, 200)
         self.assertEqual(db.session.get(Student, self.student.id).device_id, 'phone-1')
+        # The bind date the admin's record drawer shows.
+        self.assertIsNotNone(db.session.get(Student, self.student.id).device_bound_at)
         resp = self.login('MCT/20/0001', 'phone-2')
         self.assertEqual(resp.status_code, 403)
         self.assertIn('SECURITY LOCK', resp.get_json()['error'])

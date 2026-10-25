@@ -16,18 +16,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign in | SUAAMS</title>
-    {# ORDER MATTERS -- see _shell.html for the full explanation. Material
-       Symbols is unlayered, so it must load BEFORE output.css for our rules to
-       win at equal specificity; input.css's icon font-variation-settings and
-       the .hidden guard both depend on that. #}
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    {# JetBrains Mono: the username field is monospace, so a matric number
-       like CPE/20/1123 reads character by character. #}
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-    {# Material Symbols Rounded -- the same icon font the portal shell loads,
-       so this page stops being visually a different product. #}
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    {% include '_head_assets.html' %}
 </head>
 <body class="bg-surface text-secondary font-sans min-h-screen flex flex-col items-center justify-center px-4 py-10 selection:bg-accent selection:text-white antialiased">
 
@@ -75,7 +64,7 @@
                 <label for="username" class="form-label">Username / ID</label>
                 <div class="relative">
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <span class="material-symbols-rounded text-xl text-muted" aria-hidden="true">person</span>
+                        {{ icon_svg('person', 'h-5 w-5 text-muted shrink-0') }}
                     </div>
                     <!-- pl-11/pr-11 clear the absolutely-positioned icons; both
                          are side-specific utilities so they win over the
@@ -95,7 +84,7 @@
                 <label for="password" class="form-label">Password</label>
                 <div class="relative">
                     <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <span class="material-symbols-rounded text-xl text-muted" aria-hidden="true">lock</span>
+                        {{ icon_svg('lock', 'h-5 w-5 text-muted shrink-0') }}
                     </div>
                     <input type="password" id="password" name="password" required
                            placeholder="••••••••"
@@ -109,8 +98,8 @@
                        user couldn't reveal what they had typed). #}
                     <button type="button" id="toggle-password" aria-label="Show password" aria-pressed="false"
                             class="absolute inset-y-0 right-0 flex items-center rounded-r-btn pr-4 text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent">
-                        <span class="material-symbols-rounded text-xl" id="icon-eye-password" aria-hidden="true">visibility</span>
-                        <span class="material-symbols-rounded hidden text-xl" id="icon-eye-off-password" aria-hidden="true">visibility_off</span>
+                        {{ icon_svg('visibility', 'h-5 w-5 shrink-0', id='icon-eye-password') }}
+                        {{ icon_svg('visibility_off', 'h-5 w-5 hidden shrink-0', id='icon-eye-off-password') }}
                     </button>
                 </div>
             </div>

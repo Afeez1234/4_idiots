@@ -81,7 +81,7 @@ def set_student_status(student, status, reason):
     student.status = status
     _switch_login(student.user, status == 'active')
     if status in STUDENT_EXITS:
-        student.device_id = None
+        student.unbind_device()
     return reason
 
 

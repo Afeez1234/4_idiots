@@ -14,8 +14,8 @@
        than a hand-rolled tinted box -- the old version spelled out
        bg-success/10 + border-success/30 inline. #}
     {% if active_sessions %}
-        <div class="alert" data-tone="success">
-            <span class="mt-0.5 shrink-0">{{ dot('success', 'h-2.5 w-2.5') }}</span>
+        <div class="alert" data-tone="info" role="status">
+            <span class="mt-0.5 shrink-0">{{ dot('accent', 'h-2.5 w-2.5') }}</span>
             <div class="min-w-0 flex-1">
                 <p class="font-semibold">
                     {% if active_sessions|length == 1 %}
@@ -32,7 +32,7 @@
                the per-course table below is the honest way to pick the other. #}
             <a href="{{ url_for('lecturer.course_workspace', course_id=active_sessions[0].course_id) }}"
                class="btn-secondary btn-sm shrink-0">
-                <span class="material-symbols-rounded text-base">analytics</span>
+                {{ icon_svg('analytics', 'h-4 w-4 shrink-0') }}
                 View Live Attendance
             </a>
         </div>
@@ -81,16 +81,16 @@
                             <td class="td td-muted">{{ card.session_count }}</td>
                             <td class="td">
                                 {% if card.is_live %}
-                                    {# data-tone="live" shares the success styling
-                                       but names the state separately, so the rail
-                                       legend and a status filter can key off it. #}
+                                    {# data-tone="live": indigo, like the app's live
+                                       dot (green is for "present" only); named
+                                       separately so a filter can key off it. #}
                                     {{ pill('Live', 'live', icon='sensors') }}
                                 {% else %}
                                     {{ pill('Idle', 'neutral') }}
                                 {% endif %}
                             </td>
                             <td class="td text-right">
-                                <span class="material-symbols-rounded text-secondary">chevron_right</span>
+                                {{ icon_svg('chevron_right', 'h-5 w-5 text-secondary shrink-0') }}
                             </td>
                         </tr>
                     {% else %}

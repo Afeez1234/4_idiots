@@ -42,7 +42,7 @@
                             {{ pill(lvl.course_count ~ ' courses', 'neutral') }}
                             {{ pill(lvl.student_count ~ ' students', 'neutral') }}
                         </div>
-                        <span class="material-symbols-rounded shrink-0 text-secondary transition-transform group-open:rotate-180">expand_more</span>
+                        {{ icon_svg('expand_more', 'h-5 w-5 shrink-0 text-secondary transition-transform group-open:rotate-180') }}
                     </summary>
 
                     {% if lvl.courses %}

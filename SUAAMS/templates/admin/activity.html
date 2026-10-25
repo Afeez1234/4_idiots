@@ -14,7 +14,7 @@
 
 {% block content %}
     <div class="card-clip">
-        {{ directory_heading('Activity log', pagination.total, 'entry') }}
+        {{ directory_heading('Activity log', pagination.total, 'entry', plural='entries') }}
 
         {# Plain GET form, like the student roster: filters live in the URL so
            a filtered view can be bookmarked or sent to someone. #}

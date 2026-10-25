@@ -1,10 +1,22 @@
 @import "tailwindcss";
 
+/* IBM Plex, self-hosted (_head_assets.html says why). Same files as the
+   app and the landing site. */
+@font-face { font-family: "IBM Plex Sans"; src: url("../fonts/IBMPlexSans-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("../fonts/IBMPlexSans-SemiBold.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "IBM Plex Sans"; src: url("../fonts/IBMPlexSans-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("../fonts/IBMPlexMono-Regular.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono"; src: url("../fonts/IBMPlexMono-Bold.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+
 /* ============================================================================
-   SUAAMS web design system — LIGHT theme, dark navy rail.
-   Redesigned 2026-09-30 against a light analytics-dashboard reference: light
-   page, white cards, hairline borders instead of shadows, one dark navigation
-   rail carrying the contrast, and a single blue accent doing the emphasis.
+   SUAAMS web design system -- the app's Midnight Instrument, light, at desk
+   width (2026-10-25; DESIGN.md "Portal"). A Midnight rail, an indigo-tinted
+   Paper page with a soft indigo top bar, white panels on cool hairlines, IBM
+   Plex Sans with Plex Mono for machine data only, and Contactless Indigo as
+   the one "act here / you are here" signal. It replaced the 2026-09-30
+   look (navy rail, mist page, Records Blue, Plus Jakarta Sans), which read
+   as a generic admin kit and shared nothing with the app.
+   Every text/surface pair below was measured against WCAG AA.
 
    1. TOKEN MEANINGS ARE DELIBERATELY UNCHANGED FROM THE PREVIOUS DARK THEME.
       Only the VALUES inverted. --color-surface is still "the page background",
@@ -15,26 +27,30 @@
       would have meant touching every template for no benefit.
    ========================================================================= */
 @theme {
-  --font-sans: "Plus Jakarta Sans", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
 
-  /* --- Surfaces. Light page, white cards, dark rail. ------------------- */
-  --color-surface:  #F1F4F8;   /* page background (unchanged meaning) */
-  --color-card:     #FFFFFF;   /* card surface (unchanged meaning) */
-  --color-raised:   #FAFBFD;   /* inputs + buttons sitting on --color-surface.
-                                   A white button on a #F1F4F8 page has no
-                                   visible edge; this gives it one without
-                                   resorting to a heavier border. */
-  --color-sidebar:  #14161F;   /* the dark navy rail */
-  --color-sidebar-hover: #1E2130;
-  --color-border:   #E7EAF0;   /* hairline (unchanged meaning) */
-  --color-divider:  #F1F3F7;   /* inner rules, table row lines */
+  /* --- Surfaces. Tinted page, white panels, Midnight rail. ------------- */
+  --color-surface:  #E9EBF6;   /* page: Paper tinted toward indigo */
+  --color-card:     #FFFFFF;   /* panel */
+  --color-raised:   #F7F8FC;   /* inputs + secondary buttons */
+  --color-sidebar:  #0F0F0F;   /* Midnight rail: the app's own ground */
+  --color-sidebar-hover: #1C1C1C;   /* Graphite: hover and the active link */
+  --color-border:   #D6D9EA;   /* hairline, cooled to sit on the tint */
+  --color-divider:  #E8EAF4;   /* inner rules, table row lines */
+  --color-topbar:      #DCE0F6;   /* the top bar: a step deeper than the page */
+  --color-topbar-line: #C7CDEC;
+  --color-topbar-ink:  #3F3F6B;   /* 7.5:1 on the bar */
 
-  /* --- Brand. --------------------------------------------------------- */
-  --color-accent:       #2F6BEE;
-  --color-accent-hover: #1E56CC;
-  --color-accent-soft:  #EAF1FE;
-  --color-accent-line:  #C7DBFC;
+  /* Brand Blue: the dot and NFC arcs in the SUAAMS mark (suaams_mark),
+     on every surface, and nothing else. */
+  --color-brand: #2F6BEE;
+
+  /* --- The one signal: Contactless Indigo (the app's light value). ---- */
+  --color-accent:       #4F46E5;   /* 6.3:1 on white; white on it 6.3:1 */
+  --color-accent-hover: #4338CA;
+  --color-accent-soft:  #EEF2FF;   /* accent text on it 5.6:1 */
+  --color-accent-line:  #C7D2FE;
 
   /* --- Semantic. Each has a -soft companion for pill/badge backgrounds. - */
   --color-success:     #12A150;   --color-success-soft: #E7F6EE;
@@ -50,25 +66,28 @@
   --color-success-ink: #0B7A3B;   /* 4.87:1 on success-soft */
   --color-warning-ink: #8F5300;   /* 5.61:1 on warning-soft */
   --color-error-ink:   #B42328;   /* 5.75:1 on error-soft */
-  --color-accent-ink:  #1E56CC;   /* 5.68:1 on accent-soft */
+  --color-accent-ink:  #4338CA;   /* 7.07:1 on accent-soft */
 
   /* --- Ink. In a dark theme primary text was literally `text-white`.
          Inverted here to a single --color-ink so that ONE rename covers it.
          `text-white` still means white and is still correct ON a filled
          accent/error button -- just no longer valid on a card. */
-  --color-ink:       #141824;
-  --color-secondary: #5A6474;   /* KEEP NAME (was #9CA3AF, a light grey) */
+  --color-ink:       #1A1A1A;   /* 14.7:1 on the page */
+  --color-secondary: #52525B;   /* 6.5:1 on the page, 5.9:1 on the top bar */
   /* KEEP NAME (was #4B5563 in the dark theme). Darkened 2026-10-17 from
      #939BA9, which measured 2.8:1 on a card and 2.5:1 on the page -- every
      caption, timestamp and empty state failed WCAG AA. #646C7D is 5.3:1 on
      card, 4.8:1 on surface and on the warning/success banner tints. It now
      sits close to --color-secondary; hierarchy comes from size and weight. */
-  --color-muted:     #646C7D;
+  /* #62626C, not the app's #6A6A6A: that measured 4.55:1 on the tinted
+     page, too close to the line. This is 5.1:1 on the page, 6.0:1 on a
+     panel, 4.6:1 on the top bar. */
+  --color-muted:     #62626C;
 
   /* --- Text on the dark rail. ----------------------------------------- */
-  --color-on-rail:       #E8EBF2;
-  --color-on-rail-muted: #7C849A;
-  --color-on-rail-line:  #262A38;
+  --color-on-rail:       #E5E5E5;   /* 15.2:1 on Midnight */
+  --color-on-rail-muted: #8A8A8A;   /* 5.5:1 on Midnight, 4.9:1 on Graphite */
+  --color-on-rail-line:  #2A2A2A;
 
   /* --- Type scale -----------------------------------------------------
      The old templates carried ~60 arbitrary `text-[Npx]` values with no
@@ -85,10 +104,22 @@
   --text-2xs: 11px;
 
   /* --- Shape. --------------------------------------------------------- */
-  --radius-card: 14px;
-  --radius-btn:  9px;
-  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
-  --shadow-pop:  0 8px 24px rgb(16 24 40 / 0.10), 0 2px 6px rgb(16 24 40 / 0.06);
+  --radius-card: 12px;
+  --radius-btn:  8px;
+  /* Flat, as in the app: panels separate by tone and hairline. */
+  --shadow-card: 0 1px 0 rgb(26 26 46 / 0.03);
+  --shadow-pop:  0 12px 32px rgb(26 26 46 / 0.16), 0 2px 6px rgb(26 26 46 / 0.06);
+}
+
+/* Browser surfaces carry the palette too: selection, caret, focus. Every
+   control gets a visible keyboard ring (only inputs had one before). */
+@layer base {
+  ::selection { background: var(--color-accent-line); color: var(--color-ink); }
+  input, textarea { caret-color: var(--color-accent); }
+  :where(a, button, summary, select, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
 }
 
 /* ============================================================================
@@ -140,7 +171,7 @@
   /* 240px (was 260px until 2026-10-07): gives the content column a little
      more room; nav labels and the semester pill truncate rather than wrap
      if a name runs long (.rail-label). */
-  .rail { @apply flex w-[240px] shrink-0 flex-col bg-sidebar; }
+  .rail { @apply flex w-[232px] shrink-0 flex-col bg-sidebar; }
   .rail-brand { @apply flex h-16 shrink-0 items-center gap-3 px-5; }
   .rail-foot { @apply shrink-0 border-t border-on-rail-line p-4; }
 
@@ -157,18 +188,18 @@
   .nav-link:hover {
     @apply bg-sidebar-hover text-on-rail;
   }
-  .nav-link-active {
-    @apply bg-accent text-white;
-  }
+  /* You are here: Graphite with an indigo edge, as in the app's rail. */
+  .nav-link-active,
   .nav-link-active:hover {
-    @apply bg-accent text-white;
+    @apply bg-sidebar-hover text-white;
+    box-shadow: inset 2px 0 0 var(--color-accent);
   }
 
   /* Uppercase grouping label above a run of nav links. Full muted colour
      (4.8:1 on the rail): at /70 opacity it measured 3.0:1, under AA and close
      to invisible on a projector. */
   .nav-section {
-    @apply mb-2 px-3 text-2xs font-bold uppercase tracking-widest text-on-rail-muted;
+    @apply mb-2 px-3 font-mono text-2xs uppercase tracking-widest text-on-rail-muted;
   }
 
   /* A collapsible section heading (rail_section in _macros.html): the same
@@ -256,11 +287,7 @@
      family is set by declaration rather than @apply because
      `material-symbols-rounded` is a class from the Google Fonts stylesheet,
      not a Tailwind utility -- @apply only resolves utilities. */
-  .card-info {
-    @apply text-sm text-muted;
-    font-family: "Material Symbols Rounded";
-    font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
-  }
+  .card-info { @apply text-muted; }
   .card-foot {
     @apply flex items-center gap-4 border-t border-divider px-5 py-3;
   }
@@ -271,9 +298,9 @@
      ====================================================================== */
   .stat-card { @apply card card-body flex flex-col justify-between; }
   .stat-label {
-    @apply text-xs font-semibold uppercase tracking-wide text-secondary;
+    @apply font-mono text-2xs uppercase tracking-widest text-muted;
   }
-  .stat-value { @apply mt-3 text-3xl font-extrabold leading-none text-ink; }
+  .stat-value { @apply mt-3 font-mono text-3xl font-bold leading-none text-ink tabular-nums; }
   .stat-caption { @apply mt-1.5 text-2xs text-muted; }
 
   /* ======================================================================
@@ -298,7 +325,8 @@
   .btn-sm { @apply rounded-[7px] px-3 py-1.5 text-xs; }
   /* Square icon-only button. */
   .btn-icon { @apply rounded-btn p-2; }
-  /* Text link -- "Edit", "Change", "Unbind", "Delete".
+  /* Text link -- "Edit", "Change", "Unbind", "Delete". Hover goes to ink,
+     not red (2026-10-25): every Edit link turning red read as a warning.
      Tap target (2026-10-18): it was bare 11px text, a 17px-tall hit area --
      small for a finger, and two of these lead somewhere consequential
      (changing a status, unbinding a phone). min-h-6 makes the hit area 24px
@@ -307,7 +335,7 @@
      into touching hit areas, 0px apart. Text is 12px, up from 11. */
   .btn-link {
     @apply inline-flex min-h-6 items-center px-1 text-xs font-semibold text-muted
-           underline decoration-dotted underline-offset-2 transition-colors hover:text-error;
+           underline decoration-dotted underline-offset-2 transition-colors hover:text-ink;
   }
 
   /* ======================================================================
@@ -329,12 +357,19 @@
   .pill[data-tone="error"]   { @apply bg-error-soft   text-error-ink; }
   .pill[data-tone="accent"]  { @apply bg-accent-soft  text-accent-ink; }
   .pill[data-tone="neutral"] { @apply bg-surface      text-secondary; }
-  .pill[data-tone="live"]    { @apply bg-success-soft text-success-ink; }
+  /* Live is indigo, like the app's live dot and the door board: green is
+     attendance's "present" and nothing else (DESIGN.md, Green Is Sacred).
+     ink: ended, switched off or invalid -- stands out without borrowing an
+     attendance colour (2026-10-25). */
+  .pill[data-tone="live"]    { @apply bg-accent-soft text-accent-ink; }
+  .pill[data-tone="ink"]     { @apply bg-ink text-white; }
 
   /* Course-code chip -- pure repetition, 8 sites, no conditional logic. */
+  /* A code, not a signal: mono on the raised tint (it was indigo, carried
+     over from Records Blue). */
   .chip {
-    @apply inline-flex items-center rounded-full bg-accent-soft px-2 py-0.5
-           text-2xs font-semibold text-accent;
+    @apply inline-flex items-center rounded-[5px] border border-border bg-raised px-1.5 py-0.5
+           font-mono text-2xs text-ink;
   }
 
   /* Solid small dot used in activity feeds and timetable legends. */
@@ -385,7 +420,7 @@
   .table      { @apply w-full text-sm; }
   .table thead tr { @apply border-b border-border; }
   .th {
-    @apply px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-secondary;
+    @apply bg-raised px-5 py-2.5 text-left font-mono text-2xs font-normal uppercase tracking-widest text-muted;
   }
   .table tbody tr {
     @apply border-b border-divider last:border-0 transition-colors hover:bg-surface/60;
@@ -449,7 +484,9 @@
   .alert {
     @apply flex items-start gap-3 rounded-btn border px-4 py-3 text-sm;
   }
-  .alert[data-tone="success"] { @apply border-success/25 bg-success-soft text-success-ink; }
+  /* A done action ("Saved", "Slot added") is a plain note on a panel, not
+     green: green means "present" (Green Is Sacred). */
+  .alert[data-tone="success"] { @apply border-border bg-card text-ink; }
   .alert[data-tone="error"]   { @apply border-error/25   bg-error-soft   text-error-ink; }
   .alert[data-tone="warning"] { @apply border-warning/25 bg-warning-soft text-warning-ink; }
   .alert[data-tone="info"]    { @apply border-accent-line bg-accent-soft text-accent-ink; }
@@ -458,13 +495,50 @@
      STRUCTURE
      ====================================================================== */
   .page { @apply flex-1 overflow-y-auto; }
-  .page-inner { @apply mx-auto w-full max-w-[1400px] p-5 lg:p-7; }
+  .page-inner { @apply mx-auto w-full max-w-[1680px] px-5 pt-4 pb-7 lg:px-7; }
 
-  .page-header {
-    @apply flex flex-col gap-4 border-b border-border bg-card px-5 py-4 lg:flex-row lg:items-center lg:justify-between;
+  /* The top bar: Find and the semester, on a step of indigo. */
+  .topbar {
+    @apply flex h-14 shrink-0 items-center gap-3 border-b border-topbar-line bg-topbar px-4 lg:px-7;
   }
-  .page-title { @apply text-lg font-bold text-ink; }
-  .page-subtitle { @apply mt-0.5 text-xs text-secondary; }
+  .find { @apply relative flex w-full max-w-[460px] items-center; }
+  .find-icon { @apply pointer-events-none absolute left-3 text-secondary; }
+  .find-input {
+    @apply h-9 w-full rounded-btn border border-topbar-line bg-card pr-10 pl-9 text-sm text-ink
+           placeholder:text-muted transition-shadow;
+  }
+  .find-input:focus { @apply border-accent outline-none ring-3 ring-accent-soft; }
+  .find-kbd {
+    @apply pointer-events-none absolute right-2 rounded-[4px] border border-border px-1.5 font-mono text-2xs text-muted;
+  }
+  /* Hidden on a phone, where Find needs the width. */
+  .sem-chip { @apply ml-auto hidden shrink-0 items-center gap-2 text-xs text-topbar-ink sm:flex; }
+  .sem-chip b {
+    @apply rounded-[6px] border border-topbar-line bg-card px-2 py-0.5 font-mono font-normal text-ink;
+  }
+  .sem-chip[data-tone="inactive"] b { @apply border-dashed text-muted; }
+
+  /* Page head: the title on the app's faint 28px measuring grid, fading
+     out toward the content. The same grid as behind the app's dashboards
+     and the landing page. */
+  /* The grid is on ::before so only the grid fades: a mask on the head
+     itself faded the title and subtitle with it. */
+  .page-head { @apply relative isolate pt-6 pb-2; }
+  .page-head::before {
+    content: "";
+    @apply pointer-events-none absolute inset-0 -z-10;
+    background-image:
+      linear-gradient(rgb(79 70 229 / 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(79 70 229 / 0.07) 1px, transparent 1px);
+    background-size: 28px 28px;
+    -webkit-mask-image: linear-gradient(#000 30%, transparent);
+    mask-image: linear-gradient(#000 30%, transparent);
+  }
+  /* Same box as .page-inner (1680px including its side padding), so the
+     title and figures line up with the content edge at every width. */
+  .page-head-inner { @apply mx-auto flex w-full max-w-[1680px] flex-wrap items-end gap-4 px-5 lg:px-7; }
+  .page-title { @apply text-2xl font-bold tracking-tight text-ink; }
+  .page-subtitle { @apply mt-1 text-sm text-secondary; }
 
   /* The reference's tab strip: pill-shaped, active pill tinted. */
   .tab-pill {
@@ -474,9 +548,10 @@
   .tab-pill-active,
   .tab-pill-active:hover { @apply bg-accent-soft text-accent; }
 
-  /* Blue gradient hero, lifted from the reference's course card. */
+  /* Feature panel: Midnight, like a reader's lit screen (was a blue
+     gradient lifted from the old reference). */
   .hero-card {
-    @apply rounded-card bg-linear-to-br from-[#3B7BF6] to-[#1D4FD0] p-5 text-white;
+    @apply rounded-card bg-sidebar p-5 text-white;
   }
 
   .avatar {
@@ -494,21 +569,204 @@
   .now-banner {
     @apply flex items-center gap-4 rounded-card border p-4;
   }
-  .now-banner[data-tone="live"]    { @apply border-success/25 bg-success-soft; }
+  .now-banner[data-tone="live"]    { @apply border-accent-line bg-accent-soft; }
   .now-banner[data-tone="warning"] { @apply border-warning/25 bg-warning-soft; }
   .now-banner[data-tone="neutral"] { @apply border-border bg-card; }
   .now-banner-icon {
     @apply grid h-9 w-9 shrink-0 place-items-center rounded-full;
   }
-  .now-banner-icon[data-tone="live"]    { @apply bg-success/15 text-success; }
+  .now-banner-icon[data-tone="live"]    { @apply bg-accent/15 text-accent; }
   .now-banner-icon[data-tone="warning"] { @apply bg-warning/15 text-warning; }
   .now-banner-icon[data-tone="neutral"] { @apply bg-surface text-muted; }
 
   /* Count on a nav link (Timetable: unpublished drafts). Pushed to the
      right edge by .rail-label's flex-1. */
+  /* Indigo: a count that needs you (amber is attendance's "late"). */
   .nav-badge {
-    @apply grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-warning px-1.5
-           text-2xs font-bold text-white;
+    @apply grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-accent px-1.5
+           font-mono text-2xs text-white;
+  }
+
+  /* ======================================================================
+     DOOR BOARD (admin home; admin/_door_board.html)
+     One row per class today, grouped by what it needs. Columns never move:
+     time + room, class + lecturer, checked in, what the reader shows,
+     action. The 15-second refresh replaces values in place.
+     Below lg a row stacks; the reader screen and action go under the class.
+     ====================================================================== */
+  .facts { @apply flex overflow-hidden rounded-card border border-border bg-card; }
+  .facts > div { @apply min-w-28 border-l border-divider px-4 py-2.5 text-xs text-muted first:border-l-0; }
+  .facts b { @apply mb-0.5 block font-mono text-2xl leading-tight font-bold text-ink tabular-nums; }
+  .facts .facts-hot b { @apply text-accent; }
+
+  .board { @apply overflow-hidden rounded-card border border-border bg-card; }
+  .board-cols, .board-row {
+    @apply grid gap-x-4 px-4 lg:px-5;
+    grid-template-columns: 1fr;
+  }
+  @media (width >= 64rem) {
+    .board-cols, .board-row {
+      grid-template-columns: 6.5rem minmax(11rem, 1.5fr) minmax(6.5rem, .7fr) 12rem 8.5rem;
+      align-items: center;
+    }
+  }
+  .board-cols {
+    @apply hidden h-9 items-center border-b border-border bg-raised font-mono text-2xs uppercase tracking-widest text-muted lg:grid;
+  }
+  .board-group {
+    @apply flex h-8 items-center gap-2 border-t border-border bg-raised px-4 font-mono text-2xs font-bold uppercase tracking-widest text-secondary lg:px-5;
+  }
+  .board-group:first-of-type { @apply border-t-0; }
+  .board-group em { @apply font-normal not-italic text-muted; }
+  .board-row { @apply gap-y-2 border-t border-divider py-3 lg:min-h-15 lg:py-2.5; }
+  .board-section[data-group="needs"] .board-group { @apply border-accent-line bg-accent-soft text-accent-ink; }
+  .board-section[data-group="needs"] .board-row  { @apply border-accent-line bg-accent-soft; }
+  /* One line on a phone (10:00  ENG-LT2), two at desk width. */
+  .board-when { @apply flex items-baseline gap-2 lg:block; }
+  .board-when b { @apply font-mono text-[15px] font-bold text-ink lg:block; }
+  .board-when span { @apply font-mono text-xs text-muted; }
+  .board-class { @apply min-w-0; }
+  .board-class p:first-child { @apply truncate font-semibold text-ink; }
+  .board-sub { @apply mt-0.5 truncate text-xs text-secondary; }
+  .board-count b { @apply font-mono text-[15px] font-bold text-ink tabular-nums; }
+  .board-count small { @apply font-mono text-xs font-normal text-muted; }
+  .board-count .track { @apply mt-1.5 h-1 rounded-full bg-divider; }
+  .board-count .track i { @apply block h-1 rounded-full bg-ink; }
+  .board-count-note { @apply text-sm text-muted; }
+  .board-act { @apply flex lg:justify-end; }
+  .board-act-note { @apply font-mono text-xs text-muted; }
+
+  /* Under the board: today's check-ins by method, as one line. */
+  .board-foot { @apply -mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-secondary; }
+  .board-foot > span { @apply inline-flex items-center gap-1.5; }
+  .board-foot b { @apply font-bold text-ink; }
+  /* "as of 10:42 · reconnecting": the refresh failed (dashboard.html). */
+  .stale { @apply font-mono text-xs text-accent-ink; }
+
+  /* Latest check-ins: a ruled log, not a card of stacked tiles. */
+  .checkin-log li {
+    @apply grid grid-cols-[5.5rem_minmax(0,1fr)_minmax(0,1fr)_5.5rem] items-center gap-3 border-t border-divider px-5 py-2.5 text-sm;
+  }
+
+  /* What the room's reader shows, in its own words (oled_display.ino):
+     lit Midnight while a class runs, dim when idle, dashed ink when the
+     reader is offline or switched off, plain text when there's no reader.
+     Never an attendance colour: these are machine states. */
+  .reader-screen {
+    @apply flex min-h-10 flex-col justify-center rounded-[7px] px-2.5 py-1 font-mono text-[11.5px] leading-snug tracking-wide uppercase;
+  }
+  .reader-screen[data-state="lit"]  { @apply bg-sidebar text-on-rail; }
+  .reader-screen[data-state="dim"]  { @apply border border-border bg-raised text-muted; }
+  .reader-screen[data-state="off"]  { @apply border border-dashed border-ink bg-card text-ink; }
+  .reader-screen[data-state="none"] { @apply normal-case tracking-normal text-muted; }
+  .reader-screen .live-dot {
+    @apply mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle;
+    background: #818CF8;   /* the app's dark-mode Contactless Indigo, on Midnight */
+    box-shadow: 0 0 0 3px rgb(129 140 248 / 0.25);
+  }
+
+  /* ======================================================================
+     RECORD DRAWER (Students; admin/students.html record_drawer)
+     Fixed to the right under the top bar. At desk width the roster makes
+     room for it (.has-drawer); on a phone it covers the page.
+     ====================================================================== */
+  .drawer {
+    @apply fixed top-14 right-0 bottom-0 z-30 flex w-full flex-col border-l border-border bg-card
+           sm:w-[400px];
+    box-shadow: -16px 0 32px -24px rgb(26 26 46 / 0.35);
+  }
+  /* At desk width the whole page column -- head and roster -- makes room
+     for the drawer. Below 1536px the roster also drops Level and
+     Department while a record is open (the drawer shows both), so the
+     table still fits without scrolling sideways. */
+  @media (width >= 80rem) { main:has(#record-drawer) { padding-right: 400px; } }
+  @media (width < 96rem) { main:has(#record-drawer) .col-wide { display: none; } }
+  .drawer-head { @apply flex items-start gap-3.5 border-b border-border px-5 py-4; }
+  .drawer-avatar {
+    @apply grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-sidebar text-base font-bold text-white;
+  }
+  .drawer-name { @apply text-lg leading-tight font-bold text-ink; }
+  .drawer-id { @apply mt-1 font-mono text-xs leading-relaxed text-secondary; }
+  .drawer-close {
+    @apply ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-btn border border-border text-secondary
+           transition-colors hover:text-ink;
+  }
+  .drawer-body { @apply flex-1 overflow-y-auto; }
+  .drawer-sec { @apply border-b border-divider px-5 py-4; }
+  .drawer-label { @apply mb-2.5 font-mono text-2xs tracking-widest text-muted uppercase; }
+  .drawer-kv { @apply grid grid-cols-[5.5rem_1fr] gap-y-1.5 text-sm; }
+  .drawer-kv dt { @apply text-muted; }
+  .drawer-kv dd { @apply text-ink; }
+  .drawer-icon {
+    @apply grid h-9 w-9 shrink-0 place-items-center rounded-btn border border-border bg-raised text-ink;
+  }
+  .drawer-log li { @apply grid grid-cols-[3.75rem_1fr] gap-2 border-t border-divider py-2 text-sm first:border-t-0; }
+  .drawer-log time { @apply pt-px text-xs text-muted; }
+  .drawer-log small { @apply block text-xs text-muted; }
+  .drawer-acts { @apply grid grid-cols-2 gap-2 border-t border-border bg-raised px-5 py-4; }
+
+  /* Exam standing: green at or above EXAM_ELIGIBILITY_THRESHOLD, amber
+     below with the words, and a tick at the line on every bar. */
+  .standing { @apply grid grid-cols-[4.5rem_1fr_2.75rem] items-center gap-x-2.5 gap-y-1 text-xs; }
+  .standing-track { @apply relative h-1.5 rounded-full bg-divider; }
+  .standing-track i { @apply block h-1.5 rounded-full bg-success; }
+  .standing-track::after {
+    content: ""; @apply absolute -top-[3px] h-3 w-px bg-ink opacity-45;
+    left: var(--line);
+  }
+  .standing.is-below .standing-track i { @apply bg-warning; }
+  .standing.is-below > span:nth-child(3) { @apply font-bold text-warning-ink; }
+  .standing-why { @apply col-start-2 col-end-4 -mt-0.5 font-sans text-xs text-warning-ink; }
+  .standing-key { @apply mt-2.5 flex items-center gap-1.5 text-xs text-muted; }
+  .standing-key i { @apply inline-block h-2.5 w-px bg-ink opacity-45; }
+
+  /* The roster's filters: one toolbar row above the table. Labels are for
+     screen readers at desk width (the selects say what they filter). */
+  .roster-tools { @apply flex flex-wrap items-end gap-2 px-5 py-3; }
+  .roster-tools > div:not(:last-child) { @apply min-w-40 flex-1 lg:max-w-56; }
+  .roster-q { @apply mr-2 self-center text-sm text-secondary; }
+  .form-select-sm { @apply h-9 py-1.5 pl-3 text-sm; }
+  @media (width >= 64rem) { .sr-only-lg { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
+
+  /* A small menu (Students' "More"): native <details>, so it opens with
+     Enter or Space and needs no script. */
+  .menu { @apply relative; }
+  .menu > summary { @apply cursor-pointer list-none; }
+  .menu > summary::-webkit-details-marker { display: none; }
+  .menu-list {
+    @apply absolute right-0 z-20 mt-1.5 flex w-64 flex-col rounded-card border border-border bg-card p-1.5 shadow-pop;
+  }
+  .menu-list > * {
+    @apply flex items-center gap-2.5 rounded-btn px-3 py-2 text-left text-sm text-ink hover:bg-raised;
+  }
+
+  .record-link { @apply text-ink underline-offset-2 hover:text-accent hover:underline; }
+  .table tbody tr.is-open { @apply bg-accent-soft; }
+  .table tbody tr.is-open .record-link { @apply text-accent-ink; }
+
+  /* Native <dialog> for the occasional forms (Students page). */
+  .modal {
+    @apply m-auto w-[calc(100%-2rem)] max-w-md rounded-card border border-border bg-card p-6 text-ink shadow-pop;
+  }
+  /* Centred explicitly (top 50% and back by half its height): with
+     Tailwind's reset, margin:auto left it stuck to the top of the window.
+     A tall form scrolls inside it. */
+  .modal:modal { position: fixed; top: 50%; left: 0; right: 0; bottom: auto; margin: 0 auto; translate: 0 -50%;
+                  max-height: calc(100dvh - 2rem); overflow-y: auto; }
+  .modal::backdrop { background: rgb(15 15 15 / 0.5); }
+  .modal-head { @apply mb-4 flex items-center justify-between gap-3; }
+  /* The status CSV card inside its dialog: no second border. */
+  .modal > .card { @apply border-0 shadow-none; }
+  .modal > .card > .card-header,
+  .modal > .card > .card-body { @apply px-0; }
+  .modal > .card > .card-header { @apply pt-0; }
+
+  /* A new temporary password, shown once (flash_password in _macros.html). */
+  .reveal {
+    @apply flex flex-wrap items-center justify-between gap-3 rounded-card border border-accent-line bg-accent-soft px-4 py-3;
+  }
+  .reveal-secret {
+    @apply rounded-btn bg-sidebar px-3 py-1.5 font-mono text-lg tracking-wider text-white select-all;
   }
 
   /* Dashboard: how today's check-ins arrived, as one stacked bar. Tones
@@ -519,7 +777,7 @@
   .split-seg[data-tone="warning"] { @apply bg-warning; }
   .split-seg[data-tone="neutral"] { @apply bg-border; }
 
-  .mono { @apply font-mono; }
+  .mono { @apply font-mono tabular-nums; }
 
   /* "Form column left, directory right" -- seven admin pages re-declared this
      grid by hand.
@@ -541,46 +799,11 @@
   .form-grid-wide > .form-main { @apply lg:col-span-3; }
 }
 
-/* ============================================================================
-   ICON CASCADE GUARD  (must stay UNLAYERED, and must stay last)
-
-   Google Fonts' Material Symbols stylesheet is UNLAYERED, and in the cascade
-   unlayered author styles beat every @layer rule no matter how high their
-   specificity -- layers are compared BEFORE selectors. So nothing written
-   inside @layer components / @layer utilities can override it, even with two
-   classes to its one. Everything here is therefore unlayered, and the Material
-   Symbols <link> is also placed BEFORE output.css in every template's <head>
-   so that at equal specificity ours is the later one.
-
-   Why this rule exists at all: `.hidden` was silently defeated on icon spans,
-   so the password eye toggles on login.html / change_password.html rendered
-   BOTH the eye and the crossed-out eye at once. Two classes beat one, which
-   settles it without depending on <head> order at all.
-
-   WHAT IS DELIBERATELY NOT HERE. Material Symbols is a variable font with
-   FILL / wght / GRAD / opsz axes, and the obvious upgrade is to set
-   font-variation-settings so the active nav icon fills in (the Material 3
-   pattern). That does not work with this font request, and shipping rules
-   that silently do nothing is worse than shipping none:
-
-     * Google serves the plain ?family=Material+Symbols+Rounded URL with its
-       axes PINNED, so there is nothing for font-variation-settings to drive.
-     * Requesting the axes explicitly
-       (?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..100,0..200)
-       returned no usable font when tested in-browser -- ligatures fell back
-       to serif text.
-     * Verified directly: with both stylesheets loaded, FILL 1 and wght 700
-       rendered a glyph pixel-identical to wght 400.
-
-   So the active rail item relies on its filled background, which is already
-   an unambiguous "you are here" signal. If the axes URL is ever confirmed
-   working, restore the font-variation-settings rules here.
-
-   Apply the same treatment to any element combining a third-party font class
-   with one of Tailwind's own display utilities.
-   ========================================================================= */
-.material-symbols-rounded.hidden,
-.material-symbols-outlined.hidden,
-.material-symbols-sharp.hidden {
-  display: none;
+/* Inline SVG icons (icons.py). In the components layer, BELOW utilities,
+   so `hidden` (display: none) beats this display: inline-block. Unlayered,
+   it would win over every utility -- the same trap that once showed both
+   password eye icons at once, when the Material Symbols font's unlayered
+   stylesheet defeated `.hidden`. tests/test_templates.py holds it here. */
+@layer components {
+  .icon { display: inline-block; flex-shrink: 0; vertical-align: middle; }
 }

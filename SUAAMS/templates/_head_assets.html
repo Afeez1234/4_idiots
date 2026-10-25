@@ -1,0 +1,10 @@
+{# Fonts and stylesheet for every web page (_shell.html, login,
+   change-password). IBM Plex is served from /static/fonts (the same files
+   the app bundles and the landing site uses) instead of Google Fonts: on
+   slow campus Wi-Fi the portal used to sit in a fallback face, and the
+   Material Symbols icon font showed its ligature words until it arrived.
+   Icons are now inline SVG (icons.py). The two faces seen first are
+   preloaded; the rest load on use. #}
+<link rel="preload" href="{{ url_for('static', filename='fonts/IBMPlexSans-Regular.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ url_for('static', filename='fonts/IBMPlexSans-SemiBold.woff2') }}" as="font" type="font/woff2" crossorigin>
+<link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">

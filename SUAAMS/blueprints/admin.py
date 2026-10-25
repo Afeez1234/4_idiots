@@ -7,8 +7,9 @@ import secrets
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, Response
+from icons import icon as _icon_svg
 import bcrypt
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
 from models import (
     db, Faculty, Department, User, Student, Lecturer, Course, Enrollment,
@@ -20,7 +21,7 @@ from campus_time import campus_now, campus_today
 from utils import (
     resolve_current_course, session_status_for_course, notify_announcement,
     VALID_LEVELS, normalize_level, course_level, _csv_safe, course_attendance,
-    current_courses,
+    current_courses, student_course_attendance, EXAM_ELIGIBILITY_THRESHOLD,
 )
 from push_notifications import send_push_notification, notify_users
 from audit import log_action, changes
@@ -44,6 +45,9 @@ from people_status import STUDENT_STATUSES, LECTURER_STATUSES
 WEEKDAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+# icon_svg() in templates (icons.py). Registered app-wide by every web
+# blueprint, so an app that registers any one of them can render pages.
+admin_bp.add_app_template_global(_icon_svg, 'icon_svg')
 
 
 @admin_bp.before_request
@@ -102,11 +106,26 @@ def dashboard():
     status, late classes (with a reminder button), check-ins today by
     method, this semester's department rates and the latest check-ins.
     The work is in dashboard_today.py, in a fixed number of queries."""
+    q = request.args.get('q', '').strip()
+    record_id = request.args.get('student', type=int)
+    if request.args.get('find') and q:
+        found = _find_student(q)
+        if found is None:
+            return redirect(url_for('admin.students_page', q=q))
+        record_id = found.id
     try:
         semester = Semester.query.filter_by(is_active=True).first()
+        today = dashboard_today.today(semester)
+        record = _student_record(record_id) if record_id else None
         return render_template(
             'admin/dashboard.html',
-            today=dashboard_today.today(semester),
+            today=today,
+            board=_door_board(today),
+            record=record,
+            # The drawer's actions come back here (from=board, _back_url).
+            page_args={'from': 'board', 'student': record['student'].id} if record else {},
+            drawer_close_url=url_for('admin.dashboard'),
+            **(_drawer_context() if record else {}),
             department_attendance=dashboard_today.department_rates(semester),
             recent_checkins=dashboard_today.recent_checkins(),
             relative_time=_relative_time,
@@ -120,6 +139,27 @@ def dashboard():
         log_exception("Admin Dashboard Error")
         return render_template('admin/dashboard.html', load_error=True,
                                active_page='dashboard'), 500
+
+
+def _door_board(today):
+    """The door board (dashboard_today.door_board) for today()'s data."""
+    return dashboard_today.door_board(today, Terminal.query.all(), TERMINAL_ONLINE_WITHIN)
+
+
+@admin_bp.route('/dashboard/board', methods=['GET'])
+def dashboard_board():
+    """Just the door board, for the dashboard's 15-second refresh: the
+    rows' counts, states and reader screens change in place, the rest of
+    the page doesn't reload."""
+    try:
+        semester = Semester.query.filter_by(is_active=True).first()
+        return render_template('admin/_door_board.html', refresh=True,
+                               board=_door_board(dashboard_today.today(semester)))
+    except Exception:
+        db.session.rollback()
+        log_exception("Door Board Refresh Error")
+        # 503: the page keeps the last board it drew and tries again.
+        return '', 503
 
 
 @admin_bp.route('/timetable/<int:slot_id>/remind', methods=['POST'])
@@ -660,7 +700,7 @@ def change_status(kind, person_id):
         return redirect(url_for('admin.dashboard'))
     model, _names, page, _id_col = STATUS_KINDS[kind]
     # Back to the same filtered roster page the form was on.
-    back = url_for(page, **{k: v for k, v in request.args.items() if k in RETURN_ARGS})
+    back = _back_url(page)
     person = db.session.get(model, person_id)
     if not person:
         flash('That person no longer exists.', 'error')
@@ -781,8 +821,7 @@ def _record_label(kind, record):
 def _edit_target(kind, record_id):
     """(record or None, URL back to the page the dialog was opened on)."""
     model, page = EDIT_KINDS[kind]
-    back = url_for(page, **{k: v for k, v in request.args.items() if k in RETURN_ARGS})
-    return db.session.get(model, record_id), back
+    return db.session.get(model, record_id), _back_url(page)
 
 
 @admin_bp.route('/<kind>/<int:record_id>/edit', methods=['POST'])
@@ -862,8 +901,10 @@ def reset_password(kind, record_id):
         flash('Failed to reset the password. Nothing changed.', 'error')
         return redirect(back)
 
-    flash(f"New temporary password for {label}: {temp} -- shown only now, so pass it on "
-          "privately. They must choose their own at their next sign-in.", 'success')
+    # Structured, not a sentence: the page shows it once in its own card,
+    # large and in mono with a Copy button (flash_password in _macros.html),
+    # instead of buried in a flash line. Still never stored readable.
+    flash({'who': label, 'password': temp}, 'password')
     return redirect(back)
 
 
@@ -1032,11 +1073,22 @@ STUDENTS_PER_PAGE = 50
 # The roster's filter parameters. Carried through the unbind form and back
 # on its redirect so the admin lands on the same filtered view instead of
 # the unfiltered first page -- otherwise every unbind means searching again.
-STUDENT_FILTER_ARGS = ('q', 'dept', 'level', 'device', 'status', 'page')
+# `student` is the record drawer that's open (2026-10-25): it rides along
+# too, so unbinding, editing or resetting from the drawer comes back to it.
+STUDENT_FILTER_ARGS = ('q', 'dept', 'level', 'device', 'status', 'page', 'student')
 
 # What the edit and status dialogs carry back to the page they were opened
 # on: the roster's filters plus the Courses catalog's semester.
 RETURN_ARGS = STUDENT_FILTER_ARGS + ('semester',)
+
+
+def _back_url(page):
+    """Where a dialog's action returns to: the page it was opened on, with
+    its filters -- or the door board with the record drawer open, when it
+    was opened from the board's drawer (from=board)."""
+    if request.args.get('from') == 'board':
+        return url_for('admin.dashboard', student=request.args.get('student', type=int))
+    return url_for(page, **{k: v for k, v in request.args.items() if k in RETURN_ARGS})
 
 
 def _student_filter_args():
@@ -1047,6 +1099,55 @@ def _student_filter_args():
 def _escape_like(text):
     """Makes % and _ in a search term match literally rather than as LIKE wildcards."""
     return text.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
+def _drawer_context():
+    """What the record drawer and its dialogs read, on any page that shows
+    it (Students, the door board)."""
+    return {
+        'student_statuses': STUDENT_STATUSES,
+        'unbind_tail': UNBIND_MATRIC_TAIL,
+        'exam_threshold': EXAM_ELIGIBILITY_THRESHOLD,
+        'departments': Department.query.order_by(Department.name).all(),
+        'valid_levels': VALID_LEVELS,
+    }
+
+
+def _find_student(q):
+    """Find's single answer: the student whose matric number is exactly q,
+    else the only student matching q, else None."""
+    exact = Student.query.filter(func.upper(Student.matric_number) == q.upper()).first()
+    if exact is not None:
+        return exact
+    pattern = f'%{_escape_like(q)}%'
+    matches = (Student.query.filter(or_(Student.matric_number.ilike(pattern, escape='\\'),
+                                        Student.full_name.ilike(pattern, escape='\\')))
+               .limit(2).all())
+    return matches[0] if len(matches) == 1 else None
+
+
+def _student_record(student_id):
+    """What the Students page's record drawer shows, or None.
+
+    Attendance is the student's own dashboard figure (this semester, the
+    shared attended/held rule, utils.student_course_attendance), so the
+    desk and the student's phone show the same number. Recent changes are
+    the audit log's entries about this student."""
+    student = (Student.query.options(joinedload(Student.department), joinedload(Student.user))
+               .filter(Student.id == student_id).first())
+    if student is None:
+        return None
+    changes = (AuditLog.query
+               .filter(AuditLog.entity_type == 'student', AuditLog.entity_id == str(student.id))
+               .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+               .limit(5).all())
+    return {
+        'student': student,
+        'attendance': student_course_attendance(student),
+        'changes': changes,
+        # The drawer's student may not be on the roster page showing.
+        'delete_blocker': record_edits.delete_blockers('students', [student]).get(student.id),
+    }
 
 
 @admin_bp.route('/students', methods=['GET', 'POST'])
@@ -1172,8 +1273,30 @@ def students_page():
     filter_args = _student_filter_args()
     filter_args.pop('page', None)
 
+    # The record drawer: ?student=<id>, or Find (the top bar's search,
+    # which sends find=1) landing on exactly one student -- an exact matric
+    # number, or a search with one match -- opens it straight away.
+    record_id = request.args.get('student', type=int)
+    if record_id is None and request.args.get('find') and q:
+        found = _find_student(q)
+        record_id = found.id if found else None
+    record = _student_record(record_id) if record_id else None
+    if record is not None:
+        filter_args['student'] = record['student'].id
+    else:
+        filter_args.pop('student', None)
+    # The drawer isn't a filter: an empty roster still says "no students
+    # match these filters" only when one is set.
+    is_filtered = bool({k: v for k, v in filter_args.items() if k != 'student'})
+
+    close_args = {k: v for k, v in filter_args.items() if k != 'student'}
     return render_template(
         'admin/students.html',
+        record=record,
+        # The drawer's links carry the roster's page and filters, so its
+        # actions come back to this same view with the drawer open.
+        page_args=dict(filter_args, page=pagination.page),
+        drawer_close_url=url_for('admin.students_page', page=pagination.page, **close_args),
         students=pagination.items,
         pagination=pagination,
         departments=Department.query.order_by(Department.name).all(),
@@ -1181,11 +1304,22 @@ def students_page():
         valid_levels=VALID_LEVELS,
         filters={'q': q, 'dept': dept_id, 'level': level, 'device': device, 'status': status},
         student_statuses=STUDENT_STATUSES,
+        unbind_tail=UNBIND_MATRIC_TAIL,
         delete_blockers=record_edits.delete_blockers('students', pagination.items),
         filter_args=filter_args,
-        is_filtered=bool(filter_args),
+        is_filtered=is_filtered,
+        exam_threshold=EXAM_ELIGIBILITY_THRESHOLD,
         active_page='students',
     )
+
+
+# How many characters at the end of the matric number the unbind dialog hides
+# and the admin types from the ID card. The dialog and the check both read it.
+UNBIND_MATRIC_TAIL = 3
+
+
+def unbind_matric_tail(matric_number):
+    return matric_number.strip().upper()[-UNBIND_MATRIC_TAIL:]
 
 
 @admin_bp.route('/students/unbind/<int:student_id>', methods=['POST'])
@@ -1195,15 +1329,26 @@ def reset_student_binding(student_id):
     Resets the device binding of a student. Enables them to log in cleanly
     on a new physical device upon presenting valid identification.
     """
+    student = Student.query.get_or_404(student_id)
+    # The ID check, enforced here rather than only in the dialog. The dialog
+    # hides the end of the matric number and the admin types it from the
+    # card, so a tap on OK isn't enough, and two students with the same name
+    # can't be mixed up. It used to be a confirm() naming the student, which
+    # proved nothing about the card.
+    typed = request.form.get('matric_tail', '').strip().upper()
+    if typed != unbind_matric_tail(student.matric_number):
+        flash(f"The characters typed don't match the end of {student.full_name}'s matric number. "
+              f"Check the ID card is theirs and try again. Nothing was changed.", 'error')
+        return redirect(_back_url('admin.students_page'))
+
     try:
-        student = Student.query.get_or_404(student_id)
         # Unbinding is the step that lets an account move to another phone,
         # so it's the one most worth being able to trace back to a person.
         log_action('student.unbind',
-                   f"Unbound the phone of {student.full_name} ({student.matric_number})",
+                   f"Unbound the phone of {student.full_name} ({student.matric_number}) after an ID card check",
                    'student', student.id,
-                   {'had_device': student.device_id is not None})
-        student.device_id = None
+                   {'had_device': student.device_id is not None, 'id_checked': True})
+        student.unbind_device()
         # Clearing current_refresh_jti too -- unbinding used to only clear
         # device_id, which blocks a *future* login from the old device but
         # does nothing to a refresh token that device already holds; it
@@ -1217,6 +1362,10 @@ def reset_student_binding(student_id):
             DeviceToken.query.filter_by(user_id=student.user.id).delete()
         db.session.commit()
 
+        # Deliberately after the tokens are gone: this saves the in-app
+        # notification, which the new phone sees once it signs in, but
+        # pushes to no phone. The old one may be stolen, and shouldn't be
+        # told the account can now move. Don't swap the order to "fix" it.
         if student.user:
             send_push_notification(
                 student.user,
@@ -1225,15 +1374,15 @@ def reset_student_binding(student_id):
                 'Your account is no longer locked to your previous device. You can now log in from a new one.',
             )
 
-        flash(f"Successfully cleared hardware device binding for {student.full_name}.", 'success')
+        flash(f"{student.full_name}'s phone is unbound. They can sign in on their new phone now.", 'success')
     except Exception:
         db.session.rollback()
-        flash('Failed to unbind device. System database exception.', 'error')
+        flash("Couldn't unbind the phone. Nothing was changed; try again.", 'error')
         log_exception("Device Unbind Critical Exception")
 
     # Back to the view the admin unbound from (filters ride along on the
     # form's action URL), not the unfiltered first page.
-    return redirect(url_for('admin.students_page', **_student_filter_args()))
+    return redirect(_back_url('admin.students_page'))
 
 
 # ==========================================
@@ -2147,10 +2296,12 @@ def timetable_current():
 # Each reader's code, room and Bluetooth number, and its own secret. See
 # models.Terminal and terminal_rooms.py.
 
-# A reader that has sent nothing for this long shows as offline. Readers
-# ping /healthz about every 10 minutes and authenticate on every tap and
-# offline upload, but last_seen_at only counts authenticated requests, so
-# an idle reader between classes reads as offline -- "last seen" says when.
+# A reader that has sent nothing for this long shows as offline, here and
+# on the dashboard's door board. last_seen_at counts authenticated requests
+# only: every tap, offline upload, and the door screen's once-a-minute
+# GET /terminal/status (api/terminal.py), so a reader with the door-screen
+# firmware stays online while idle. One on older firmware, which only
+# pinged /healthz (unauthenticated), read as offline between classes.
 TERMINAL_ONLINE_WITHIN = timedelta(minutes=15)
 
 
@@ -2702,15 +2853,16 @@ ACTIVITY_CATEGORIES = {
 
 
 def _activity_tone(action):
-    """Pill colour for an action: deletions and failed sign-ins stand out."""
-    if action.endswith('.delete') or action == 'admin.disable':
-        return 'error'
-    if action in ('auth.login_failed', 'student.unbind', 'semester.activate') \
+    """Pill tone for an action: deletions, switched-off admins and failed
+    sign-ins in solid ink, the ones worth a second look in indigo, the rest
+    neutral. Not green/amber/red (2026-10-25): those are attendance's
+    present/late/absent everywhere else in the portal."""
+    if action.endswith('.delete') or action == 'admin.disable' or action == 'auth.login_failed':
+        return 'ink'
+    if action in ('student.unbind', 'semester.activate') \
             or action.endswith('.status') or action.endswith('.bulk_status') \
             or action.endswith('.password_reset'):
-        return 'warning'
-    if action.endswith('.create') or action.endswith('.bulk_import') or action == 'hod.promote':
-        return 'success'
+        return 'accent'
     return 'neutral'
 
 

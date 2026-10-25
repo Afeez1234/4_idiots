@@ -12,11 +12,11 @@
 {% macro status_cell(person, names, action_url) -%}
     <div class="flex flex-wrap items-center gap-2">
         {% if person.status != 'active' %}
-            {{ pill(names.get(person.status, person.status), 'error' if person.status in ('expelled', 'left', 'deceased') else 'warning') }}
+            {{ pill(names.get(person.status, person.status), 'ink' if person.status in ('expelled', 'left', 'deceased') else 'neutral') }}
         {% elif person.user and person.user.requires_password_change %}
-            {{ pill('Pending Setup', 'warning') }}
+            {{ pill('Pending setup', 'neutral') }}
         {% else %}
-            {{ pill('Active', 'success') }}
+            {{ pill('Active', 'neutral') }}
         {% endif %}
         <button type="button" class="btn-link status-open"
                 data-action="{{ action_url }}" data-name="{{ person.full_name }}" data-status="{{ person.status }}">
@@ -32,7 +32,7 @@
             <div class="mb-4 flex items-center justify-between">
                 <h3 class="card-title" id="status-title">Change status</h3>
                 <button type="button" id="status-close" class="btn-ghost btn-icon" aria-label="Close">
-                    <span class="material-symbols-rounded text-xl" aria-hidden="true">close</span>
+                    {{ icon_svg('close', 'h-5 w-5 shrink-0') }}
                 </button>
             </div>
             <form id="status-form" method="POST" class="space-y-4">

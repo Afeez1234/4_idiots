@@ -98,7 +98,7 @@
                                     {% if s.errors %}
                                         {% for e in s.errors %}<p class="text-xs text-error">{{ e }}</p>{% endfor %}
                                     {% else %}
-                                        {{ pill('OK', 'success') }}
+                                        {{ pill('OK', 'neutral') }}
                                         {% if s.shared_with %}
                                             <span class="text-2xs text-muted">also on {{ s.shared_with|join(', ') }} &mdash; saved once</span>
                                         {% endif %}

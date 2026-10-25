@@ -11,10 +11,13 @@
 
    Blocks a portal template is expected to override:
      brand_subtitle -- the small line under the SUAAMS wordmark
-     rail_pill      -- semester pill / HOD-Lecturer role switch / nothing
+     rail_pill      -- HOD/Lecturer role switch, or nothing
      rail_nav       -- the nav sections
+     topbar_find    -- the Find field in the top bar (admin)
+     topbar_meta    -- right of the top bar; defaults to the semester chip
    Blocks every page template already uses (unchanged contract):
      title, extra_head, page_title, page_subtitle, content, extra_scripts
+   plus page_actions (optional controls beside the page title).
    =========================================================================== #}
 {% from '_macros.html' import suaams_mark %}
 <html lang="en">
@@ -23,15 +26,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}SUAAMS{% endblock %}</title>
 
-    {# NOTE the order. The Material Symbols stylesheet is UNLAYERED, and
-       unlayered author styles beat anything inside a Tailwind @layer no
-       matter the specificity. Loading it BEFORE output.css means our rules
-       are the later ones at equal specificity, so we win cleanly instead of
-       needing specificity hacks. input.css documents this and relies on it
-       for the icon font-variation-settings and the .hidden guard. #}
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+    {% include '_head_assets.html' %}
 
     {% block extra_head %}{% endblock %}
 </head>
@@ -65,11 +60,9 @@
                 </div>
             </div>
 
-            <!-- Pill block under the brand. Admin and student show the active
-                 semester; the portal shows its HOD/Lecturer role switch. -->
-            <div class="px-5 pb-3 shrink-0">
-                {% block rail_pill %}{% endblock %}
-            </div>
+            <!-- Under the brand: the HOD/Lecturer role switch on a promoted
+                 account (base_portal). The semester moved to the top bar. -->
+            {% block rail_pill %}{% endblock %}
 
             <!-- Nav. Each portal template fills this. -->
             {# Soft fades mark "more above / below" instead of a scrollbar
@@ -99,8 +92,8 @@
                         <p class="text-2xs text-on-rail-muted">{{ _role }}</p>
                     </div>
                     <a href="{{ url_for('auth.logout') }}" title="Log out" aria-label="Log out"
-                       class="shrink-0 text-on-rail-muted transition-colors hover:text-error">
-                        <span class="material-symbols-rounded text-xl" aria-hidden="true">logout</span>
+                       class="shrink-0 text-on-rail-muted transition-colors hover:text-white">
+                        {{ icon_svg('logout', 'h-5 w-5 shrink-0') }}
                     </a>
                 </div>
             </div>
@@ -109,17 +102,23 @@
         {# ============== MAIN COLUMN (topbar + content) ============== #}
         <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
 
-            <header class="page-header shrink-0">
-                <div class="flex min-w-0 items-center gap-3">
-                    <button id="sidebar-toggle" class="btn-ghost btn-icon lg:hidden" aria-label="Open navigation"
-                            aria-controls="sidebar" aria-expanded="false">
-                        <span class="material-symbols-rounded" aria-hidden="true">menu</span>
-                    </button>
-                    <div class="min-w-0">
-                        <h1 class="page-title truncate">{% block page_title %}Dashboard{% endblock %}</h1>
-                        {% block page_subtitle %}{% endblock %}
-                    </div>
-                </div>
+            {# The top bar: Find (topbar_find, admin only for now) and the active
+               semester, which used to sit as a pill under the rail's brand.
+               The page title moved down into the page head below it. #}
+            <header class="topbar">
+                <button id="sidebar-toggle" class="btn-ghost btn-icon -ml-1 lg:hidden" aria-label="Open navigation"
+                        aria-controls="sidebar" aria-expanded="false">
+                    {{ icon_svg('menu', 'h-5 w-5 shrink-0') }}
+                </button>
+                {% block topbar_find %}{% endblock %}
+                {% block topbar_meta %}
+                    {% if active_semester is defined %}
+                        <span class="sem-chip" data-tone="{{ 'semester' if active_semester else 'inactive' }}">
+                            <span class="hidden sm:inline">Semester</span>
+                            <b>{{ active_semester.name if active_semester else 'None active' }}</b>
+                        </span>
+                    {% endif %}
+                {% endblock %}
 
                 {# No "System Online" here (removed 2026-10-18): it was a green dot
                    hard-coded into every page, checking nothing -- a status that
@@ -127,14 +126,29 @@
             </header>
 
             <main class="page" id="main" tabindex="-1">
+                {# Page head on the measuring grid. page_actions: optional
+                   controls beside the title (right-aligned). #}
+                <div class="page-head">
+                    <div class="page-head-inner">
+                        <div class="min-w-0">
+                            <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+                            {% block page_subtitle %}{% endblock %}
+                        </div>
+                        {% block page_actions %}{% endblock %}
+                    </div>
+                </div>
                 <div class="page-inner space-y-6">
 
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
                             <div class="space-y-2">
+                                {% from '_macros.html' import flash, flash_password %}
                                 {% for category, message in messages %}
-                                    {% from '_macros.html' import flash %}
-                                    {{ flash(category, message) }}
+                                    {% if category == 'password' and message.password is defined %}
+                                        {{ flash_password(message) }}
+                                    {% else %}
+                                        {{ flash(category, message) }}
+                                    {% endif %}
                                 {% endfor %}
                             </div>
                         {% endif %}
@@ -226,6 +240,46 @@
                 btn.addEventListener('click', function () { set(group.hidden, true); });
             });
             syncFades();
+
+            // "/" jumps to Find, as on most sites with a search box (GitHub,
+            // YouTube); not while typing in another field.
+            var find = document.getElementById('find');
+            if (find) {
+                document.addEventListener('keydown', function (e) {
+                    var t = e.target;
+                    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+                    if (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+                    e.preventDefault();
+                    find.focus();
+                    find.select();
+                });
+            }
+
+            // Copy buttons (data-copy="<id of the element to copy>"): the
+            // one-time password card. Says "Copied" briefly; where the
+            // clipboard isn't allowed (plain http), it selects the text so
+            // Ctrl+C works.
+            document.addEventListener('click', function (e) {
+                var btn = e.target.closest('[data-copy]');
+                if (!btn) return;
+                var el = document.getElementById(btn.dataset.copy);
+                if (!el) return;
+                function selectIt() {
+                    var range = document.createRange();
+                    range.selectNodeContents(el);
+                    var sel = window.getSelection();
+                    sel.removeAllRanges(); sel.addRange(range);
+                }
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(el.textContent.trim()).then(function () {
+                        var was = btn.textContent;
+                        btn.textContent = 'Copied';
+                        setTimeout(function () { btn.textContent = was; }, 1500);
+                    }, selectIt);
+                } else {
+                    selectIt();
+                }
+            });
 
             // Escape closes the drawer -- the old version had no keyboard
             // path out of it, so the rail trapped keyboard and screen-reader

@@ -124,12 +124,12 @@
                                 {% if r.errors %}
                                     {# A student row with a problem is skipped, not
                                        fatal: say so in words, not just in red. #}
-                                    {% if skips %}{{ pill('Skipped', 'warning') }}{% endif %}
+                                    {% if skips %}{{ pill('Skipped', 'neutral') }}{% endif %}
                                     {% for e in r.errors %}<p class="text-xs text-error-ink">{{ e }}</p>{% endfor %}
                                 {% elif r.status == 'exists' %}
                                     {{ pill('Exists', 'neutral') }} <span class="text-2xs text-muted">{{ r.note }}</span>
                                 {% else %}
-                                    {{ pill('New', 'success') }}
+                                    {{ pill('New', 'accent') }}
                                     {# A course copy notes lecturers left out or a new
                                        coordinator (bulk_upload.plan_course_copy). #}
                                     {% if r.note %}<span class="text-2xs text-secondary">{{ r.note }}</span>{% endif %}

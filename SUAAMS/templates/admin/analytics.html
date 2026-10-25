@@ -88,7 +88,7 @@
             </div>
             {% if e.students %}
                 <a href="{{ url_for('admin.analytics_eligibility_csv', **request.args) }}" class="btn-secondary btn-sm">
-                    <span class="material-symbols-rounded text-base">download</span> CSV
+                    {{ icon_svg('download', 'h-4 w-4 shrink-0') }} CSV
                 </a>
             {% endif %}
         </div>
@@ -238,7 +238,7 @@
                                 <td class="td mono text-xs">{{ r.timetabled }}</td>
                                 <td class="td mono text-xs">{{ r.held }}{% if r.rate is not none %} <span class="text-muted">({{ r.rate }}%)</span>{% endif %}</td>
                                 <td class="td">
-                                    {% if r.missed %}{{ pill(r.missed ~ ' missed', 'error' if r.rate is not none and r.rate < 75 else 'warning') }}{% else %}<span class="text-xs text-muted">None</span>{% endif %}
+                                    {% if r.missed %}{{ pill(r.missed ~ ' missed', 'ink' if r.rate is not none and r.rate < 75 else 'neutral') }}{% else %}<span class="text-xs text-muted">None</span>{% endif %}
                                 </td>
                                 <td class="td mono text-xs text-muted">{{ r.extra or '' }}</td>
                             </tr>

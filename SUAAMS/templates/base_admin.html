@@ -8,13 +8,21 @@
 {% block title %}SUAAMS Admin{% endblock %}
 {% block brand_subtitle %}Admin Portal{% endblock %}
 
-{% block rail_pill %}
-  {# active_semester comes from the inject_active_semester context processor in
-     blueprints/admin.py, so it is available on every admin route. #}
-  <span class="rail-pill" data-tone="{{ 'semester' if active_semester else 'inactive' }}">
-    <span class="material-symbols-rounded text-sm" aria-hidden="true">event_available</span>
-    <span class="rail-label">{{ active_semester.name if active_semester else 'No active semester' }}</span>
-  </span>
+{% block topbar_find %}
+  {# Find a student by name or matric number: the Students roster filtered
+     to the match, with their record open when it's exactly one student
+     (find=1; students_page). #}
+  {# On the door board, Find opens the record over the board; anywhere
+     else, the roster. One match or an exact matric opens the drawer; more
+     go to the roster (admin.dashboard, admin.students_page). #}
+  <form class="find" role="search" action="{{ url_for('admin.dashboard') if active_page == 'dashboard' else url_for('admin.students_page') }}" method="get">
+    {{ icon_svg('search', 'find-icon h-4 w-4') }}
+    <label class="sr-only" for="find">Find a student by name or matric number</label>
+    <input id="find" name="q" type="search" class="find-input" autocomplete="off" spellcheck="false"
+           placeholder="Find a student by name or matric" value="{{ request.args.get('q', '') if active_page == 'students' else '' }}">
+    <kbd class="find-kbd" aria-hidden="true">/</kbd>
+    <input type="hidden" name="find" value="1">
+  </form>
 {% endblock %}
 
 {% block rail_nav %}
@@ -23,11 +31,11 @@
     <div class="space-y-1" id="rail-sec-overview" data-rail-group="overview">
       <a href="{{ url_for('admin.dashboard') }}"
          class="nav-link {{ 'nav-link-active' if active_page == 'dashboard' }}" {% if active_page == 'dashboard' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">dashboard</span>
-        <span class="rail-label">Dashboard</span>
+        {{ icon_svg('dashboard', 'h-5 w-5 shrink-0') }}
+        <span class="rail-label">Door board</span>
       </a>
       <a href="{{ url_for('admin.analytics_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'analytics' }}" {% if active_page == 'analytics' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">analytics</span>
+        {{ icon_svg('analytics', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Analytics</span>
       </a>
     </div>
@@ -37,15 +45,15 @@
     {{ rail_section("People", "people") }}
     <div class="space-y-1" id="rail-sec-people" data-rail-group="people">
       <a href="{{ url_for('admin.lecturers_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'lecturers' }}" {% if active_page == 'lecturers' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">co_present</span>
+        {{ icon_svg('co_present', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Lecturers</span>
       </a>
       <a href="{{ url_for('admin.students_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'students' }}" {% if active_page == 'students' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">school</span>
+        {{ icon_svg('school', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Students</span>
       </a>
       <a href="{{ url_for('admin.hods_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'hods' }}" {% if active_page == 'hods' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">supervisor_account</span>
+        {{ icon_svg('supervisor_account', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">HODs</span>
       </a>
     </div>
@@ -55,11 +63,11 @@
     {{ rail_section("Academic", "academic") }}
     <div class="space-y-1" id="rail-sec-academic" data-rail-group="academic">
       <a href="{{ url_for('admin.courses_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'courses' }}" {% if active_page == 'courses' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">book</span>
+        {{ icon_svg('book', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Courses</span>
       </a>
       <a href="{{ url_for('admin.timetable_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'timetable' }}" {% if active_page == 'timetable' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">calendar_month</span>
+        {{ icon_svg('calendar_month', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Timetable</span>
         {# Imported slots nobody has published: invisible to students and
            lecturers until someone does (inject_active_semester counts them). #}
@@ -68,11 +76,11 @@
         {% endif %}
       </a>
       <a href="{{ url_for('admin.organization_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'organization' }}" {% if active_page == 'organization' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">account_tree</span>
+        {{ icon_svg('account_tree', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Organization</span>
       </a>
       <a href="{{ url_for('admin.semesters_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'semesters' }}" {% if active_page == 'semesters' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">date_range</span>
+        {{ icon_svg('date_range', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Semesters</span>
       </a>
     </div>
@@ -82,7 +90,7 @@
     {{ rail_section("Hardware", "hardware") }}
     <div class="space-y-1" id="rail-sec-hardware" data-rail-group="hardware">
       <a href="{{ url_for('admin.terminals_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'terminals' }}" {% if active_page == 'terminals' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">nfc</span>
+        {{ icon_svg('nfc', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Terminals</span>
       </a>
     </div>
@@ -92,11 +100,11 @@
     {{ rail_section("Communication", "communication") }}
     <div class="space-y-1" id="rail-sec-communication" data-rail-group="communication">
       <a href="{{ url_for('admin.announcements_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' }}" {% if active_page == 'announcements' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">campaign</span>
+        {{ icon_svg('campaign', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Announcements</span>
       </a>
       <a href="{{ url_for('admin.reports_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'reports' }}" {% if active_page == 'reports' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">summarize</span>
+        {{ icon_svg('summarize', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Reports</span>
       </a>
     </div>
@@ -108,7 +116,7 @@
     {{ rail_section("Oversight", "oversight") }}
     <div class="space-y-1" id="rail-sec-oversight" data-rail-group="oversight">
       <a href="{{ url_for('admin.activity_page') }}" class="nav-link {{ 'nav-link-active' if active_page == 'activity' }}" {% if active_page == 'activity' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">manage_history</span>
+        {{ icon_svg('manage_history', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Activity</span>
       </a>
     </div>

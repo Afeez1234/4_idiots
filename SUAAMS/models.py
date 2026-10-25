@@ -145,6 +145,11 @@ class Student(db.Model):
     # api/auth.py). NULL means unbound, and MySQL allows any number of NULLs
     # in a unique index, so unbound students don't collide.
     device_id = db.Column(db.String(255), unique=True, nullable=True)
+    # When the current phone was bound (UTC); NULL while unbound, and for
+    # phones bound before 2026-10-25, when this was added. The admin's
+    # record drawer shows it. Set and cleared only through bind_device /
+    # unbind_device below, so the two columns can't disagree.
+    device_bound_at = db.Column(db.DateTime, nullable=True)
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     # NEW. server_default (not just the Python-side `default=`) so the
@@ -193,6 +198,17 @@ class Student(db.Model):
 
     # Cascade deletes to cleanly wipe logs if a student is removed from the system
     enrollments = db.relationship('Enrollment', backref='student', lazy=True, cascade="all, delete-orphan")
+
+    def bind_device(self, device_id):
+        """Lock the account to this phone (first login). Not committed."""
+        self.device_id = device_id
+        self.device_bound_at = datetime.now(timezone.utc)
+
+    def unbind_device(self):
+        """Release the phone (admin unbind, or a status that ends the
+        account). Not committed."""
+        self.device_id = None
+        self.device_bound_at = None
     attendance = db.relationship('Attendance', backref='student', lazy=True, cascade="all, delete-orphan")
     # NEW
     results = db.relationship('Result', backref='student', lazy=True, cascade="all, delete-orphan")

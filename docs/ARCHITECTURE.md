@@ -233,7 +233,9 @@ sequenceDiagram
 - The app retries any 401 once after a silent refresh
   ([auth_retry.dart](../SUAAMS_Mobile/suaams/lib/core/network/auth_retry.dart)).
 - Unbinding is an admin action on the web dashboard
-  (`POST /admin/students/unbind/<id>`).
+  (`POST /admin/students/unbind/<id>`). The admin types the last 3 characters of the
+  matric number from the student's ID card (`matric_tail`); the server
+  refuses the unbind if they don't match.
 
 ---
 

@@ -87,7 +87,7 @@
                                            note=('This is the active semester: changing its dates changes which classes Analytics counts as due.'
                                                  if semester.is_active else none)) }}
                             {% if semester.is_active %}
-                                {{ pill('Active', 'success', 'check_circle') }}
+                                {{ pill('Active', 'accent', 'check_circle') }}
                             {% else %}
                                 {# Asks first, warning when it's empty (script below). #}
                                 <form action="{{ url_for('admin.semesters_page') }}" method="POST" class="activate-form shrink-0"

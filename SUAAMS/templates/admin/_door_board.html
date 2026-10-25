@@ -1,0 +1,124 @@
+{# The door board (admin home): dashboard_today.door_board() drawn.
+
+   Two macros, so the dashboard can put the figures in the page head and
+   the board in the content, and the 15-second refresh
+   (GET /admin/dashboard/board) can return both and swap them in place.
+   Rendered on its own -- the refresh -- this file outputs both. #}
+
+{% macro board_facts(board) -%}
+  <div class="facts ml-auto" id="door-facts" aria-label="Today at a glance">
+    <div class="{{ 'facts-hot' if board.facts.needs }}"><b>{{ board.facts.needs }}</b>need you</div>
+    <div><b>{{ board.facts.live }}</b>classes live</div>
+    <div><b>{{ board.facts.readers_online }}/{{ board.facts.readers }}</b>readers online</div>
+  </div>
+{%- endmacro %}
+
+{# What the room's reader is showing, or why there's nothing to show. A
+   later or finished class shows its room's screen too when the reader is
+   idle (dim: NO CLASS / Next...); while that reader is lit for another
+   class, the row says so in a line instead of repeating that class's
+   screen. #}
+{% macro reader_cell(row) -%}
+  {% set r = row.reader %}
+  {% if row.group in ('later', 'ended') and not (r.state == 'online' and row.screen and row.screen.state == 'dim') %}
+    <div class="reader-screen" data-state="none">
+      {%- if not row.room -%}No room on the timetable
+      {%- elif r.state == 'none' -%}No reader in {{ row.room }}
+      {%- elif r.state == 'disabled' -%}Reader switched off
+      {%- elif r.state == 'offline' -%}Reader offline{{ ', seen ' ~ row.seen_min ~ ' min ago' if row.seen_min is not none }}
+      {%- elif row.screen -%}Reader showing {{ row.screen.lines[0] }}
+      {%- else -%}Reader online{%- endif -%}
+    </div>
+  {% elif not row.room %}
+    <div class="reader-screen" data-state="none">No room on the timetable</div>
+  {% elif r.state == 'none' %}
+    <div class="reader-screen" data-state="none">No reader in {{ row.room }}</div>
+  {% elif r.state == 'disabled' %}
+    <div class="reader-screen" data-state="off"><span>Reader switched off</span><span>{{ r.terminal.code }}</span></div>
+  {% elif r.state == 'offline' %}
+    <div class="reader-screen" data-state="off">
+      <span>Reader offline</span>
+      <span>{{ 'never seen' if r.seen_ago is none else 'taps held on reader' }}</span>
+    </div>
+  {% elif row.screen %}
+    <div class="reader-screen" data-state="{{ row.screen.state }}">
+      {% for line in row.screen.lines %}
+        <span class="truncate">{% if loop.first and row.screen.state == 'lit' %}<span class="live-dot" aria-hidden="true"></span>{% endif %}{{ line }}</span>
+      {% endfor %}
+    </div>
+  {% endif %}
+{%- endmacro %}
+
+{% macro board_row(row) -%}
+  {% set code = row.course.course_code if row.course else '?' %}
+  <div class="board-row">
+    <div class="board-when">
+      <b>{{ row.start.strftime('%H:%M') if row.start else 'Unscheduled' }}</b>
+      <span>{{ row.room or 'No room' }}</span>
+    </div>
+    <div class="board-class">
+      <p><span class="mono">{{ code }}</span>&ensp;{{ row.course.course_title if row.course else '' }}</p>
+      <p class="board-sub">
+        {{ row.lecturer }}
+        {%- if row.reason == 'late' %} &middot; no session {{ row.late_by }} min after start{% endif %}
+        {%- if row.reason == 'reader' %} &middot; reader {{ 'last seen ' ~ row.seen_min ~ ' min ago' if row.seen_min is not none else 'never seen' if row.reader.state == 'offline' else 'switched off' }}{% endif %}
+        {%- if row.reminded_at %} &middot; reminded {{ row.reminded_at|campus('%H:%M') }}{% endif %}
+        {%- if row.status == 'missed' %} &middot; no session was held{% endif %}
+      </p>
+    </div>
+    <div class="board-count">
+      {% if row.present is not none %}
+        {% set pct = (row.present / row.enrolled * 100)|round|int if row.enrolled else 0 %}
+        <b>{{ row.present }} <small>of {{ row.enrolled }}</small></b>
+        <div class="track" aria-hidden="true"><i style="width: {{ pct }}%"></i></div>
+      {% elif row.status in ('late', 'due') %}
+        <span class="board-count-note">Not started</span>
+      {% elif row.status == 'upcoming' %}
+        <span class="board-count-note">in {{ row.starts_in }} min</span>
+      {% else %}
+        <span class="board-count-note">{{ row.enrolled }} enrolled</span>
+      {% endif %}
+    </div>
+    {{ reader_cell(row) }}
+    <div class="board-act">
+      {% if row.reason == 'late' and row.slot %}
+        <form action="{{ url_for('admin.remind_lecturer', slot_id=row.slot.id) }}" method="POST">
+          {% include '_csrf_field.html' %}
+          <button type="submit" class="{{ 'btn-secondary' if row.reminded_at else 'btn-primary' }} btn-sm">
+            {{ 'Remind again' if row.reminded_at else 'Notify lecturer' }}
+          </button>
+        </form>
+      {% elif row.reason == 'reader' %}
+        <a href="{{ url_for('admin.terminals_page') }}" class="btn-secondary btn-sm">Open reader</a>
+      {% elif row.status == 'live' %}
+        <span class="board-act-note">{{ 'ends ' ~ row.end.strftime('%H:%M') if row.end else 'live' }}</span>
+      {% elif row.status == 'ended' %}
+        <span class="board-act-note">ended</span>
+      {% elif row.status == 'missed' %}
+        <span class="board-act-note">missed</span>
+      {% endif %}
+    </div>
+  </div>
+{%- endmacro %}
+
+{% macro board_rows(board) -%}
+  <div class="board" id="door-board" data-asof="{{ board.now.strftime('%H:%M') }}">
+    {% if board.rows %}
+      <div class="board-cols" aria-hidden="true">
+        <span>Time &middot; room</span><span>Class &middot; lecturer</span><span>Checked in</span><span>Reader shows</span><span></span>
+      </div>
+      {% for key, label, rows in board.groups %}
+        <section class="board-section" data-group="{{ key }}" aria-label="{{ label }}">
+          <h2 class="board-group">{{ label }} <em>{{ rows|length }}</em></h2>
+          {% for row in rows %}{{ board_row(row) }}{% endfor %}
+        </section>
+      {% endfor %}
+    {% else %}
+      {% from '_macros.html' import empty_state %}
+      {{ empty_state('No published classes on the timetable today.' if active_semester
+                     else 'No active semester, so there is no timetable to follow.', 'event_available') }}
+    {% endif %}
+  </div>
+{%- endmacro %}
+
+{% if board is defined and refresh is defined %}{{ board_facts(board) }}{{ board_rows(board) }}{% endif %}

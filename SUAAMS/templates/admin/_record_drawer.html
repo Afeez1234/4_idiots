@@ -1,0 +1,289 @@
+{# The Students record drawer and its dialogs, shared by the Students page
+   and the door board (2026-10-25): Find or a name opens a student's record
+   without leaving the page you're on.
+
+   The page supplies, in its context:
+     page_args         -- query args every action carries, so it comes back
+                          to this view with the drawer open (the roster's
+                          filters and page; {'from': 'board', ...} on the
+                          board -- see _back_url in blueprints/admin.py)
+     drawer_close_url  -- where the drawer's close link (and Escape) goes
+     student_statuses, unbind_tail, exam_threshold, departments,
+     valid_levels      -- _drawer_context() in blueprints/admin.py
+   Import with context:
+     {% from 'admin/_record_drawer.html' import record_drawer, record_dialogs with context %}
+   and call record_dialogs() after record_drawer(), so its script finds the
+   drawer's buttons. #}
+{% from 'admin/_status.html' import status_dialog with context %}
+{% from 'admin/_edit.html' import edit_button, edit_dialog with context %}
+
+{# One Unbind button per bound student, card and table views alike. It opens
+   the unbind dialog below; the page and filters ride along on the action so
+   the redirect returns to this same view. Only the start of the matric
+   number goes into the page: the admin reads the rest off the ID card. #}
+{% macro unbind_button(student, label='Unbind', cls='btn-link') -%}
+    <button type="button" class="{{ cls }} unbind-open"
+            data-action="{{ url_for('admin.reset_student_binding', student_id=student.id, **page_args) }}"
+            data-name="{{ student.full_name }}"
+            data-prefix="{{ student.matric_number.strip().upper()[:-unbind_tail] }}"
+            data-detail="{{ student.level }}L · {{ student.department.name if student.department else 'No department' }}">
+        {{ label }}
+    </button>
+{%- endmacro %}
+
+{# The drawer's Edit record button. The page and filters ride along so
+   saving returns to this same view, drawer open. #}
+{% macro student_edit(student, blocker=None) -%}
+    {{ edit_button(url_for('admin.edit_record', kind='students', record_id=student.id, **page_args),
+                   url_for('admin.delete_record', kind='students', record_id=student.id, **page_args),
+                   student.full_name ~ ' (' ~ student.matric_number ~ ')',
+                   {'full_name': student.full_name, 'matric_number': student.matric_number,
+                    'level': student.level, 'department_id': student.department_id},
+                   blocker,
+                   reset_url=url_for('admin.reset_password', kind='students', record_id=student.id, **page_args),
+                   label='Edit record', cls='btn-secondary col-span-2 w-full') }}
+{%- endmacro %}
+
+{# The record drawer (?student=<id>): everything about one student and
+   everything you can do to them, while the page behind stays in view. Drawn by
+   the server with the page, so its link can be shared and the back button
+   works; its actions open record_dialogs() and come back to it. #}
+{% macro record_drawer(record) -%}
+    {%- set st = record.student -%}
+    {%- set close_url = drawer_close_url -%}
+    <aside class="drawer" id="record-drawer" aria-labelledby="drawer-name" data-close-url="{{ close_url }}">
+        <div class="drawer-head">
+            <span class="drawer-avatar" aria-hidden="true">{{ (st.full_name.split()[0][0] ~ (st.full_name.split()[-1][0] if st.full_name.split()|length > 1 else ''))|upper }}</span>
+            <div class="min-w-0">
+                <h2 class="drawer-name" id="drawer-name">{{ st.full_name }}</h2>
+                <p class="drawer-id">{{ st.matric_number }} &middot; {{ st.level }}L<br>{{ st.department.name if st.department else 'No department' }}</p>
+            </div>
+            <a href="{{ close_url }}" class="drawer-close" aria-label="Close {{ st.full_name }}'s record">{{ icon_svg('close', 'h-4 w-4') }}</a>
+        </div>
+
+        <div class="drawer-body">
+            <section class="drawer-sec" aria-labelledby="drawer-acct">
+                <h3 class="drawer-label" id="drawer-acct">Account</h3>
+                <dl class="drawer-kv">
+                    <dt>Status</dt>
+                    <dd>{{ student_statuses.get(st.status, st.status) }}</dd>
+                    <dt>Sign-in</dt>
+                    <dd>{{ 'Not set up yet (first password is the matric number, or a reset one)' if st.user and st.user.requires_password_change
+                           else ('Switched off' if st.user and not st.user.is_active else 'Own password set') }}</dd>
+                    <dt>Courses</dt>
+                    <dd>{{ record.attendance|length }} this semester</dd>
+                </dl>
+            </section>
+
+            <section class="drawer-sec" aria-labelledby="drawer-phone">
+                <h3 class="drawer-label" id="drawer-phone">Phone</h3>
+                <div class="flex items-start gap-3">
+                    <span class="drawer-icon">{{ icon_svg('smartphone', 'h-4 w-4') }}</span>
+                    <div class="text-sm">
+                        {% if st.device_id %}
+                            <p class="font-semibold text-ink">
+                                {%- if st.device_bound_at -%}Bound since {{ st.device_bound_at|campus('%d %b %Y') }}
+                                {%- else -%}Bound (date not recorded){%- endif -%}
+                            </p>
+                            <p class="text-xs text-secondary">Unbind only after checking their ID card.</p>
+                        {% else %}
+                            <p class="font-semibold text-ink">No phone bound</p>
+                            <p class="text-xs text-secondary">Their next sign-in in the app binds that phone.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+
+            <section class="drawer-sec" aria-labelledby="drawer-att">
+                <h3 class="drawer-label" id="drawer-att">Attendance this semester</h3>
+                {% if record.attendance %}
+                    <ul class="space-y-2.5">
+                        {% for row in record.attendance %}
+                            {% set below = row.total and row.pct < exam_threshold %}
+                            <li class="standing {{ 'is-below' if below }}">
+                                <span class="mono">{{ row.course.course_code }}</span>
+                                <span class="standing-track" aria-hidden="true" style="--line: {{ exam_threshold }}%">
+                                    <i style="width: {{ row.pct }}%"></i>
+                                </span>
+                                <span class="mono text-right">{{ (row.pct|round|int ~ '%') if row.total else '—' }}</span>
+                                {% if below %}<span class="standing-why">Below {{ exam_threshold }}%: not yet eligible for the exam</span>
+                                {% elif not row.total %}<span class="standing-why text-muted">No classes held yet</span>{% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="standing-key"><i aria-hidden="true"></i>{{ exam_threshold }}% needed to sit the exam</p>
+                {% else %}
+                    <p class="text-sm text-muted">Not registered for any course this semester.</p>
+                {% endif %}
+            </section>
+
+            <section class="drawer-sec" aria-labelledby="drawer-log">
+                <h3 class="drawer-label" id="drawer-log">Recent changes</h3>
+                {% if record.changes %}
+                    <ul class="drawer-log">
+                        {% for entry in record.changes %}
+                            <li><time class="mono">{{ entry.created_at|campus('%d %b') }}</time>
+                                <span>{{ entry.summary }}<small>by {{ entry.actor_label }}</small></span></li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-sm text-muted">Nothing recorded yet.</p>
+                {% endif %}
+            </section>
+        </div>
+
+        {# Pinned, so the actions sit in the same place whatever the record
+           holds above them. #}
+        <div class="drawer-acts">
+            {% if st.device_id %}
+                {{ unbind_button(st, label='Unbind phone…', cls='btn-primary w-full col-span-2') }}
+            {% endif %}
+            <button type="button" class="btn-secondary w-full status-open"
+                    data-action="{{ url_for('admin.change_status', kind='students', person_id=st.id, **page_args) }}"
+                    data-name="{{ st.full_name }}" data-status="{{ st.status }}">Change status</button>
+            <form action="{{ url_for('admin.reset_password', kind='students', record_id=st.id, **page_args) }}"
+                  method="POST" data-confirm="Give {{ st.full_name }} a new temporary password? Their current one stops working and the app signs them out.">
+                {% include '_csrf_field.html' %}
+                <button type="submit" class="btn-secondary w-full">Reset password</button>
+            </form>
+            {{ student_edit(st, record.delete_blocker) }}
+        </div>
+    </aside>
+{%- endmacro %}
+
+{% macro record_dialogs() -%}
+    {{ status_dialog(student_statuses, 'Graduated, Withdrawn, Expelled and Deceased also release the phone binding.') }}
+
+    {# Unbind: one dialog per page, filled from the clicked button (the same
+       pattern as the status dialog). The admin types the hidden end of the
+       matric number from the student's ID card; the server checks it. #}
+    <div id="unbind-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-md rounded-card border border-border bg-card p-6 shadow-pop"
+             role="dialog" aria-modal="true" aria-labelledby="unbind-title" aria-describedby="unbind-help">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="card-title" id="unbind-title">Unbind phone</h3>
+                <button type="button" id="unbind-close" class="btn-ghost btn-icon" aria-label="Close">
+                    {{ icon_svg('close', 'h-5 w-5 shrink-0') }}
+                </button>
+            </div>
+            <form id="unbind-form" method="POST" class="space-y-4">
+                {% include '_csrf_field.html' %}
+                <div>
+                    <p class="text-sm font-medium text-ink" id="unbind-name"></p>
+                    <p class="mt-0.5 text-xs text-secondary" id="unbind-detail"></p>
+                    <p class="mt-2 mono text-sm text-ink"><span id="unbind-prefix"></span><span class="text-muted" aria-hidden="true">{{ '•' * unbind_tail }}</span></p>
+                </div>
+                <div>
+                    <label class="form-label" for="unbind-tail">Last {{ unbind_tail }} characters of the matric number on their ID card</label>
+                    <input type="text" name="matric_tail" id="unbind-tail" required
+                           minlength="{{ unbind_tail }}" maxlength="{{ unbind_tail }}"
+                           autocomplete="off" autocapitalize="characters" spellcheck="false"
+                           class="form-input mono uppercase">
+                    <p class="form-help" id="unbind-help">
+                        Read it off the card, not the screen. Their old phone is signed out and stops getting
+                        notifications; they pair the new one at their next sign-in. Recorded in the activity log.
+                    </p>
+                </div>
+                <div class="flex gap-3">
+                    <button type="button" id="unbind-cancel" class="btn-secondary flex-1">Cancel</button>
+                    <button type="submit" class="btn-primary flex-1">Unbind phone</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% call edit_dialog('Edit student', 'Removes the student, their login and their course registrations. Only possible before any attendance or result is recorded for them.') %}
+        <div>
+            <label class="form-label" for="edit-full-name">Full Name</label>
+            <input type="text" name="full_name" id="edit-full-name" required maxlength="150" class="form-input">
+        </div>
+        <div>
+            <label class="form-label" for="edit-matric">Matric Number</label>
+            <input type="text" name="matric_number" id="edit-matric" required maxlength="50" class="form-input mono">
+            <p class="form-help">Also their login username. If they haven't set their own password yet, it becomes the new matric number too. Their phone stays bound.</p>
+        </div>
+        <div>
+            <label class="form-label" for="edit-level">Level</label>
+            <select name="level" id="edit-level" required class="form-select">
+                {% for lvl in valid_levels %}
+                    <option value="{{ lvl }}">{{ lvl }}L</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="form-label" for="edit-department">Department</label>
+            <select name="department_id" id="edit-department" required class="form-select">
+                {% for dept in departments %}
+                    <option value="{{ dept.id }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    {% endcall %}
+
+<script>
+    // Reset password asks first: the current password stops working at once.
+    document.querySelectorAll('form[data-confirm]').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (!confirm(form.dataset.confirm)) e.preventDefault();
+        });
+    });
+
+    // Escape closes the record drawer (its close link), unless a dialog
+    // is open on top of it -- then Escape is that dialog's.
+    (function () {
+        var drawer = document.getElementById('record-drawer');
+        if (!drawer) return;
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape' || e.defaultPrevented) return;
+            if (document.querySelector('dialog[open]')) return;
+            var modal = document.querySelector('#unbind-modal.flex, #status-modal.flex, #edit-modal.flex');
+            if (modal) return;
+            window.location = drawer.dataset.closeUrl;
+        });
+    })();
+
+    // The unbind dialog. It replaced a confirm() that named the student and
+    // nothing more: OK got clicked by reflex, and two students sharing a
+    // name looked the same. The name and details are read from data-*
+    // attributes and set with textContent, so a name like "O'Brien" is
+    // data, never markup or script. Keyboard: focus goes to the input on
+    // open, Tab stays inside, Escape closes and focus returns to the row's
+    // button (as in the status and edit dialogs).
+    (function () {
+        var modal = document.getElementById('unbind-modal');
+        var form = document.getElementById('unbind-form');
+        var input = document.getElementById('unbind-tail');
+        var opener = null;
+        function close() {
+            modal.classList.add('hidden'); modal.classList.remove('flex');
+            if (opener) opener.focus();
+        }
+        modal.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') { close(); return; }
+            if (e.key !== 'Tab') return;
+            var items = Array.prototype.filter.call(
+                modal.querySelectorAll('button, input:not([type=hidden])'),
+                function (el) { return el.offsetParent !== null; });
+            var first = items[0], last = items[items.length - 1];
+            if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+            else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+        });
+        document.querySelectorAll('.unbind-open').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                opener = btn;
+                form.action = btn.dataset.action;
+                document.getElementById('unbind-name').textContent = btn.dataset.name;
+                document.getElementById('unbind-detail').textContent = btn.dataset.detail;
+                document.getElementById('unbind-prefix').textContent = btn.dataset.prefix;
+                input.value = '';
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                input.focus();
+            });
+        });
+        document.getElementById('unbind-close').addEventListener('click', close);
+        document.getElementById('unbind-cancel').addEventListener('click', close);
+        modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+    })();
+</script>
+{%- endmacro %}

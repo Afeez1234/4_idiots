@@ -124,7 +124,7 @@
                         {# An inline note rather than a disabled-looking button: it
                            explains the one surprising consequence of promoting. #}
                         <div class="alert" data-tone="info">
-                            <span class="material-symbols-rounded text-lg" aria-hidden="true">info</span>
+                            {{ icon_svg('info', 'h-[18px] w-[18px] shrink-0') }}
                             <p>
                                 Their existing login stays the same &mdash; they&rsquo;ll land on
                                 the HOD dashboard next time they sign in, with a link back
@@ -188,12 +188,12 @@
                                                     {{ pill(lecturer_statuses.get(lect.status, lect.status) ~ ' · sign-in off',
                                                             'error' if lect.status == 'left' else 'warning') }}
                                                 {% else %}
-                                                    {{ pill('Sign-in off', 'error') }}
+                                                    {{ pill('Sign-in off', 'ink') }}
                                                 {% endif %}
                                             {% elif hod.user and hod.user.requires_password_change %}
-                                                {{ pill('Pending Setup', 'warning') }}
+                                                {{ pill('Pending setup', 'neutral') }}
                                             {% else %}
-                                                {{ pill('Active', 'success') }}
+                                                {{ pill('Active', 'neutral') }}
                                             {% endif %}
                                         </td>
                                         <td class="td">
@@ -206,7 +206,7 @@
                                                                  if lect else none)) }}
                                         </td>
                                     {% else %}
-                                        <td class="td" colspan="4">{{ pill('No HOD yet', 'warning') }}</td>
+                                        <td class="td" colspan="4">{{ pill('No HOD yet', 'accent') }}</td>
                                     {% endif %}
                                 </tr>
                             {% else %}

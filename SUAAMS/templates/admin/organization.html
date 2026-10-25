@@ -71,7 +71,7 @@
                                     data-name="{{ faculty.name }}"
                                     data-action-url="{{ url_for('admin.delete_faculty', faculty_id=faculty.id) }}"
                                     data-message="Deleting &quot;{{ faculty.name }}&quot; also deletes its {{ fc.departments }} empty department(s). This cannot be undone.">
-                                <span class="material-symbols-rounded text-xl" aria-hidden="true">delete</span>
+                                {{ icon_svg('delete', 'h-5 w-5 shrink-0') }}
                             </button>
                             {% endif %}
                         </div>
@@ -170,7 +170,7 @@
                                     data-name="{{ dept.name }}"
                                     data-action-url="{{ url_for('admin.delete_department', department_id=dept.id) }}"
                                     data-message="Delete the empty department &quot;{{ dept.name }}&quot;? This cannot be undone.">
-                                <span class="material-symbols-rounded text-xl" aria-hidden="true">delete</span>
+                                {{ icon_svg('delete', 'h-5 w-5 shrink-0') }}
                             </button>
                             {% endif %}
                         </div>
@@ -195,7 +195,7 @@
         <div class="card w-full max-w-md p-6" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
             <div class="mb-4 flex items-center gap-3">
                 <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-error-soft text-error" aria-hidden="true">
-                    <span class="material-symbols-rounded text-xl">warning</span>
+                    {{ icon_svg('warning', 'h-5 w-5 shrink-0') }}
                 </div>
                 <h3 id="delete-modal-title" class="card-title text-base">Delete item?</h3>
             </div>

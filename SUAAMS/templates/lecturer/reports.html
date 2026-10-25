@@ -44,7 +44,7 @@
                     <button type="submit" class="btn-secondary btn-sm">Show</button>
                 </form>
                 <a href="{{ url_for('lecturer.export_reports', **({'semester': semester.id} if semester else {})) }}" class="btn-secondary btn-sm">
-                    <span class="material-symbols-rounded text-base" aria-hidden="true">download</span>
+                    {{ icon_svg('download', 'h-4 w-4 shrink-0') }}
                     Export CSV
                 </a>
             </div>
@@ -88,7 +88,7 @@
                                    this course. #}
                                 <a href="{{ url_for('lecturer.export_course_register', course_id=row.course.id) }}"
                                    class="btn-ghost btn-sm">
-                                    <span class="material-symbols-rounded text-base">download</span>
+                                    {{ icon_svg('download', 'h-4 w-4 shrink-0') }}
                                     CSV
                                 </a>
                             </td>

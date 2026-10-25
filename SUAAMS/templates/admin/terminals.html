@@ -14,7 +14,7 @@
     {% if new_secret %}
         <div class="now-banner" data-tone="warning">
             <span class="now-banner-icon" data-tone="warning">
-                <span class="material-symbols-rounded text-xl" aria-hidden="true">key</span>
+                {{ icon_svg('key', 'h-5 w-5 shrink-0') }}
             </span>
             <div class="min-w-0 flex-1 text-sm text-ink">
                 <p class="font-semibold">Secret for {{ new_secret_for.code }}: copy it into that reader's <span class="mono">secrets.h</span> now.</p>
@@ -106,9 +106,9 @@
                                     </div>
                                     <div class="flex flex-wrap items-center gap-2">
                                         {% if not t.is_active %}
-                                            {{ pill('Disabled', 'error') }}
+                                            {{ pill('Disabled', 'ink') }}
                                         {% elif t.id in online %}
-                                            {{ pill('Online', 'success') }}
+                                            {{ pill('Online', 'accent') }}
                                         {% else %}
                                             {{ pill('Offline', 'neutral') }}
                                         {% endif %}

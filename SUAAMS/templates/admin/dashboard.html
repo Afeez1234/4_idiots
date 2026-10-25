@@ -1,27 +1,25 @@
 {% extends "base_admin.html" %}
-{% from '_macros.html' import stat_card, grade_tone, empty_state, pill, dot, card_heading, course_chip, progress_bar %}
+{% from '_macros.html' import grade_tone, empty_state, pill, dot, card_heading %}
+{% from 'admin/_door_board.html' import board_facts, board_rows with context %}
+{% from 'admin/_record_drawer.html' import record_drawer, record_dialogs with context %}
 
 {% block title %}Dashboard | SUAAMS Admin{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
+{% block page_title %}Door board{% endblock %}
 {% block page_subtitle %}
   {% if not load_error %}
-  <p class="page-subtitle">{{ today.now.strftime('%A %d %B %Y') }} &middot; is today's teaching happening?</p>
+  <p class="page-subtitle">What every reader is showing now &middot; {{ today.now.strftime('%a %d %b') }} &middot; <span class="mono" id="door-clock" data-asof="{{ today.now.strftime('%H:%M') }}">{{ today.now.strftime('%H:%M') }}</span></p>
   {% endif %}
 {% endblock %}
+{% block page_actions %}
+  {% if not load_error %}{{ board_facts(board) }}{% endif %}
+{% endblock %}
 
-{# Shared by the check-in pill and the method split. NFC is the primary
-   channel; BLE is weaker evidence of presence (ble_beacon.py), so it gets
-   the warning tone; the rest are neutral. #}
-{% set method_tone = {'nfc': 'accent', 'ble': 'warning'} %}
+{# Shared by the check-in pill and the method split. NFC, the primary
+   channel, is indigo; the rest are neutral. BLE was amber until
+   2026-10-25, but amber means "late" on every attendance screen. #}
+{% set method_tone = {'nfc': 'accent'} %}
 {% set method_label = {'nfc': 'NFC', 'ble': 'BLE', 'rfid': 'RFID card', 'manual': 'Manual',
                        'offline': 'Offline tap', 'unknown': 'Unknown'} %}
-
-{# One status per timetable slot -- worked out in dashboard_today._status. #}
-{% set status_pill = {
-    'live': ('Live', 'live'), 'ended': ('Ended', 'neutral'), 'upcoming': ('Upcoming', 'accent'),
-    'due': ('Due, not started', 'warning'), 'late': ('Late, not started', 'error'),
-    'missed': ('Missed', 'error'),
-} %}
 
 {% block content %}
 
@@ -31,7 +29,7 @@
        ERR_TOO_MANY_REDIRECTS. The cause is in the server log. #}
     {% if load_error %}
         <div class="alert" data-tone="error" role="alert">
-            <span class="material-symbols-rounded text-lg" aria-hidden="true">warning</span>
+            {{ icon_svg('warning', 'h-[18px] w-[18px] shrink-0') }}
             <div>
                 <p class="font-semibold">Today's data couldn't be loaded.</p>
                 <p class="mt-0.5">This is usually a brief database hiccup. Reload the page to try again.</p>
@@ -40,177 +38,66 @@
         </div>
     {% else %}
 
-    {# Late classes: timetabled, no session LATE_AFTER minutes after the
-       start. One banner each, with the reminder button (remind_lecturer). #}
-    {% for row in today.alerts %}
-        <div class="now-banner" data-tone="warning">
-            <span class="now-banner-icon" data-tone="warning">
-                <span class="material-symbols-rounded text-xl" aria-hidden="true">schedule</span>
-            </span>
-            <div class="min-w-0 flex-1 text-sm text-ink">
-                <span class="font-semibold">{{ row.course.course_code }} {{ row.course.course_title }}</span>
-                was timetabled{% if row.slot.room %} in {{ row.slot.room }}{% endif %} at
-                {{ row.slot.start_time.strftime('%H:%M') }}, and no session has been started.
-                <span class="text-secondary">{{ row.course.lecturer_names or 'No lecturer assigned' }}.</span>
-                {% if row.reminded_at %}
-                    <span class="text-secondary">Reminded at {{ row.reminded_at|campus }}.</span>
-                {% endif %}
-            </div>
-            <form action="{{ url_for('admin.remind_lecturer', slot_id=row.slot.id) }}" method="POST" class="shrink-0">
-                {% include '_csrf_field.html' %}
-                <button type="submit" class="btn-secondary btn-sm">
-                    {{ 'Remind again' if row.reminded_at else 'Notify lecturer' }}
-                </button>
-            </form>
-        </div>
-    {% endfor %}
+    {# The door board: today's classes grouped by what they need, each with
+       what its room's reader shows (dashboard_today.door_board). It took
+       the place of the late-class banners, the three stat cards and the
+       Today's Classes table, which said the same things in three places. #}
+    {{ board_rows(board) }}
+
+    {# Find (or ?student=) opens a student's record over the board, which
+       stays in view and keeps refreshing beside it. #}
+    {% if record %}{{ record_drawer(record) }}{{ record_dialogs() }}{% endif %}
 
     {% set checkins = today.checkins %}
-    {% set not_running = today.slots|selectattr('status', 'in', ['late', 'missed'])|list %}
-    {# Three figures that each answer part of "is teaching happening today?".
-       A fourth card (total active students) was dropped 2026-10-17: it says
-       nothing about today. The decorative icons went with it. #}
-    <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
-        {{ stat_card('Live Sessions', today.live|length,
-                     (today.live|map(attribute='room')|select|join(' · ')) or 'In progress right now') }}
-        {{ stat_card('Check-ins Today',
-                     checkins.count ~ (' / ' ~ checkins.expected if checkins.expected else ''),
-                     (checkins.pct ~ '% present in the classes held') if checkins.pct is not none else 'No classes held yet') }}
-        {{ stat_card('Late or Missed', not_running|length,
-                     'Timetabled today, never started' if not_running else 'Every class so far has started') }}
-    </div>
+
+    {# Under the board: how today's check-ins arrived, as one line of figures
+       (if BLE or manual grows, NFC is failing somewhere -- look at that
+       room's reader), then the latest check-ins beside this semester's
+       department rates. Not a row of three equal cards: the board is the
+       page, these support it. #}
+    <p class="board-foot">
+        <span><b class="mono">{{ checkins.count }}</b> check-ins today{% if checkins.pct is not none %}, <b class="mono">{{ checkins.pct }}%</b> of those expected{% endif %}</span>
+        {% for m, n in checkins.by_method %}
+            <span><span class="dot" data-tone="{{ method_tone.get(m, 'muted') }}"></span>{{ method_label.get(m, m) }} <b class="mono">{{ (n / checkins.count * 100)|round|int }}%</b></span>
+        {% endfor %}
+    </p>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-
-        {# Today's timetable. Card rows below sm, a table above, the same
-           pattern as courses.html and students.html. #}
-        <div class="card-clip lg:col-span-2">
-            <div class="card-header flex items-center justify-between gap-3">
-                {{ card_heading("Today's Classes") }}
-                <a href="{{ url_for('admin.timetable_page') }}" class="btn-link">Full timetable</a>
-            </div>
-            {% if today.slots %}
-                <div class="divide-y divide-divider border-t border-divider sm:hidden">
-                    {% for row in today.slots %}
-                        {% set label, tone = status_pill[row.status] %}
-                        <div class="px-5 py-4">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="mono text-sm text-ink">{{ row.slot.start_time.strftime('%H:%M') }}</span>
-                                {{ pill(label, tone) }}
-                            </div>
-                            <div class="mt-2 flex items-center gap-2">
-                                {{ course_chip(row.course.course_code) }}
-                                <span class="truncate text-sm text-secondary">{{ row.slot.room or '' }}</span>
-                            </div>
-                            <p class="mt-1 truncate text-xs text-secondary">{{ row.course.lecturer_summary or 'No lecturer assigned' }}</p>
-                            <p class="mt-1 text-xs text-muted">
-                                {% if row.present is not none %}{{ row.present }} / {{ row.enrolled }} present{% else %}{{ row.enrolled }} enrolled{% endif %}
-                            </p>
-                        </div>
+        <section class="card-clip lg:col-span-2" aria-labelledby="latest-title">
+            <div class="card-header pb-3"><h2 class="card-title" id="latest-title">Latest check-ins</h2></div>
+            {% if recent_checkins %}
+                <ul class="checkin-log">
+                    {% for att in recent_checkins %}
+                        {% set m = att.method or 'unknown' %}
+                        <li>
+                            <span class="mono text-xs text-muted">{{ relative_time(att.time_in) }}</span>
+                            <span class="truncate font-medium text-ink">{{ att.student.full_name }}</span>
+                            <span class="mono truncate text-xs text-secondary">{{ att.session.course.course_code }}{% if att.session.room %} &middot; {{ att.session.room }}{% endif %}</span>
+                            <span>{{ pill(method_label.get(m, m), method_tone.get(m, 'neutral')) }}</span>
+                        </li>
                     {% endfor %}
-                </div>
-                <div class="table-wrap hidden border-t border-divider sm:block">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th class="th">Time</th>
-                                <th class="th">Course</th>
-                                <th class="th">Room</th>
-                                <th class="th">Status</th>
-                                <th class="th">Present</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for row in today.slots %}
-                                {% set label, tone = status_pill[row.status] %}
-                                <tr>
-                                    <td class="td mono whitespace-nowrap text-xs">{{ row.slot.start_time.strftime('%H:%M') }}&ndash;{{ row.slot.end_time.strftime('%H:%M') }}</td>
-                                    <td class="td">
-                                        <div class="flex items-center gap-2">
-                                            <span class="shrink-0 whitespace-nowrap">{{ course_chip(row.course.course_code) }}</span>
-                                            <span class="truncate text-secondary">{{ row.course.course_title }}</span>
-                                        </div>
-                                        {# Who to contact about a due, late or
-                                           missed class -- before 2026-10-17
-                                           only the late banner named them. A
-                                           second line, not its own column: a
-                                           sixth column pushed Present out of
-                                           the card at 1440px. #}
-                                        <p class="mt-1 truncate text-xs text-muted">{{ row.course.lecturer_summary or 'No lecturer assigned' }}</p>
-                                    </td>
-                                    <td class="td td-muted">{{ row.slot.room or '—' }}</td>
-                                    <td class="td whitespace-nowrap">{{ pill(label, tone) }}</td>
-                                    <td class="td">
-                                        {% if row.present is not none %}
-                                            {% set pct = (row.present / row.enrolled * 100)|round|int if row.enrolled else 0 %}
-                                            <div class="flex items-center gap-3">
-                                                <div class="w-24">{{ progress_bar(pct, grade_tone(pct)) }}</div>
-                                                <span class="mono text-xs text-ink">{{ row.present }}/{{ row.enrolled }}</span>
-                                            </div>
-                                        {% else %}
-                                            <span class="text-xs text-muted">{{ row.enrolled }} enrolled</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                </ul>
             {% else %}
-                <div class="border-t border-divider">
-                    {{ empty_state('No published classes on the timetable today.' if active_semester
-                                   else 'No active semester, so there is no timetable to follow.', 'event_available') }}
-                </div>
+                <div class="border-t border-divider">{{ empty_state('No check-ins yet.', 'history') }}</div>
             {% endif %}
-        </div>
-
-        {# Latest check-ins, with how each arrived. #}
-        <div class="card">
-            <div class="card-header">
-                {{ card_heading('Latest Check-ins') }}
-            </div>
-            <div class="card-body">
-                {% if recent_checkins %}
-                    <div class="space-y-4">
-                        {% for att in recent_checkins %}
-                            {% set m = att.method or 'unknown' %}
-                            <div class="flex items-start gap-3">
-                                <span class="w-16 shrink-0">{{ pill(method_label.get(m, m), method_tone.get(m, 'neutral')) }}</span>
-                                <div class="min-w-0 flex-1">
-                                    <p class="truncate text-sm font-medium text-ink">{{ att.student.full_name }}</p>
-                                    <p class="truncate text-2xs text-muted">
-                                        {{ att.session.course.course_code }}{% if att.session.room %} &middot; {{ att.session.room }}{% endif %}
-                                    </p>
-                                </div>
-                                <span class="shrink-0 text-2xs text-muted">{{ relative_time(att.time_in) }}</span>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    {{ empty_state('No check-ins yet.', 'history') }}
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        </section>
 
         {# Department rollup for the active semester. A portfolio view, so it
            uses the three-tier grade scale (see _macros.html). #}
-        <div class="card lg:col-span-2">
+        <section class="card" aria-labelledby="dept-title">
             <div class="card-header">
-                {{ card_heading('Department Attendance') }}
-                <p class="mt-1 text-2xs text-muted">This semester: check-ins &divide; (sessions &times; enrolled), per course</p>
+                <h2 class="card-title" id="dept-title">Department attendance</h2>
             </div>
             <div class="card-body">
+                <p class="mb-4 text-2xs text-muted">This semester: check-ins &divide; (sessions &times; enrolled), per course</p>
                 {% if department_attendance %}
-                    <div class="space-y-5">
+                    <div class="space-y-4">
                         {% for dept in department_attendance %}
                             {% set pct = dept.percentage %}
                             {% set tone = grade_tone(pct) %}
                             <div>
                                 <div class="mb-1.5 flex items-center justify-between gap-3">
-                                    <span class="text-sm font-medium text-ink">{{ dept.name }}</span>
+                                    <span class="text-sm text-ink">{{ dept.name }}</span>
                                     <span class="pill" data-tone="{{ tone }}">{{ pct }}%</span>
                                 </div>
                                 <div class="bar-track">
@@ -223,41 +110,63 @@
                     {{ empty_state('No classes held this semester yet.', 'query_stats') }}
                 {% endif %}
             </div>
-        </div>
-
-        {# How today's check-ins arrived. If BLE or manual grows, NFC taps
-           are failing somewhere -- worth a look at that room's terminal. #}
-        <div class="card">
-            <div class="card-header">
-                {{ card_heading('Check-in Method') }}
-                <p class="mt-1 text-2xs text-muted">Today &middot; {{ checkins.count }} check-ins</p>
-            </div>
-            <div class="card-body">
-                {% if checkins.count %}
-                    <div class="split-bar">
-                        {% for m, n in checkins.by_method %}
-                            <div class="split-seg" data-tone="{{ method_tone.get(m, 'neutral') }}"
-                                 style="width: {{ (n / checkins.count * 100)|round(1) }}%"
-                                 title="{{ method_label.get(m, m) }}: {{ n }}"></div>
-                        {% endfor %}
-                    </div>
-                    <div class="mt-4 space-y-2">
-                        {% for m, n in checkins.by_method %}
-                            <div class="flex items-center justify-between gap-3 text-sm">
-                                <span class="flex items-center gap-2 text-secondary">
-                                    {{ dot(method_tone.get(m, 'muted')) }}
-                                    {{ method_label.get(m, m) }}
-                                </span>
-                                <span class="mono text-xs text-ink">{{ n }} &middot; {{ (n / checkins.count * 100)|round|int }}%</span>
-                            </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    {{ empty_state('No check-ins today yet.', 'nfc') }}
-                {% endif %}
-            </div>
-        </div>
+        </section>
     </div>
 
     {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if not load_error %}
+<script>
+    // The board refreshes itself every 15 seconds while the tab is visible:
+    // the server renders the same macros (GET /admin/dashboard/board) and
+    // the figures and rows are swapped in place. Skipped while keyboard
+    // focus is inside the board, so a refresh never pulls the Notify button
+    // out from under someone about to press it. On an error the last board
+    // stays up and the next tick tries again.
+    (function () {
+        var url = {{ url_for('admin.dashboard_board')|tojson }};
+        var busy = false;
+        function swap(doc, id) {
+            var fresh = doc.getElementById(id), old = document.getElementById(id);
+            if (fresh && old) old.replaceWith(fresh);
+        }
+        function refresh() {
+            var board = document.getElementById('door-board');
+            if (busy || document.visibilityState !== 'visible') return;
+            if (board && board.contains(document.activeElement)) return;
+            busy = true;
+            var clock = document.getElementById('door-clock');
+            // A failed refresh says so beside the clock instead of leaving
+            // a board that looks current but isn't. An expired sign-in
+            // comes back as the login page (no #door-board): say that.
+            function stale(why) {
+                if (!clock) return;
+                clock.classList.add('stale');
+                clock.textContent = 'as of ' + (clock.dataset.asof || clock.textContent) + ' · ' + why;
+            }
+            fetch(url, {credentials: 'same-origin'})
+                .then(function (r) { return r.ok ? r.text() : null; })
+                .then(function (html) {
+                    if (!html) { stale('reconnecting'); return; }
+                    var doc = new DOMParser().parseFromString(html, 'text/html');
+                    if (!doc.getElementById('door-board')) { stale('signed out, reload the page'); return; }
+                    swap(doc, 'door-facts');
+                    swap(doc, 'door-board');
+                    var fresh = document.getElementById('door-board');
+                    if (fresh && clock && fresh.dataset.asof) {
+                        clock.dataset.asof = fresh.dataset.asof;
+                        clock.textContent = fresh.dataset.asof;
+                        clock.classList.remove('stale');
+                    }
+                })
+                .catch(function () { stale('reconnecting'); })
+                .then(function () { busy = false; });
+        }
+        setInterval(refresh, 15000);
+        document.addEventListener('visibilitychange', refresh);
+    })();
+</script>
+{% endif %}
 {% endblock %}

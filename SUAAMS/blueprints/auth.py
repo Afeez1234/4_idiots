@@ -1,4 +1,5 @@
 from flask import Blueprint, flash, render_template, redirect, request, session, url_for
+from icons import icon as _icon_svg
 import bcrypt
 from models import db, User  # Imported 'db' to allow committing password changes
 from extensions import limiter, login_username_key, client_ip
@@ -7,6 +8,9 @@ from api.auth import _DUMMY_HASH
 from utils import new_password_problem
 
 auth_bp = Blueprint('auth', __name__)
+# icon_svg() in templates (icons.py). Registered app-wide by every web
+# blueprint, so an app that registers any one of them can render pages.
+auth_bp.add_app_template_global(_icon_svg, 'icon_svg')
 
 # Pages a signed-in user may still reach while they owe a password change.
 # Everything else redirects to the change-password page.

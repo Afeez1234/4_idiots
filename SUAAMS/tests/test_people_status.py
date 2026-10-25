@@ -140,9 +140,33 @@ class PeopleStatusTestCase(unittest.TestCase):
         self.push_token(self.ada)
         self.sign_in()
         with mock.patch('blueprints.admin.send_push_notification'):
-            self.client.post(f'/admin/students/unbind/{self.ada.id}')
+            self.client.post(f'/admin/students/unbind/{self.ada.id}', data={'matric_tail': '001'})
         self.assertIsNone(db.session.get(Student, self.ada.id).device_id)
         self.assertEqual(DeviceToken.query.count(), 0)
+
+    def test_unbind_needs_the_end_of_the_matric_from_the_id_card(self):
+        # The dialog hides the last characters of the matric number; the
+        # admin types them from the card. Wrong or missing: nothing changes.
+        self.push_token(self.ada)
+        self.sign_in()
+        # '002' is Bayo's tail: the wrong student's card is refused too.
+        for typed in (None, '', '002', 'MCT/20/0001'):
+            data = {} if typed is None else {'matric_tail': typed}
+            self.client.post(f'/admin/students/unbind/{self.ada.id}', data=data)
+            self.assertEqual(db.session.get(Student, self.ada.id).device_id, 'phone-MCT/20/0001', typed)
+        self.assertEqual(DeviceToken.query.count(), 1)
+        self.assertEqual(AuditLog.query.filter_by(action='student.unbind').count(), 0)
+
+    def test_unbind_logs_the_id_check(self):
+        self.sign_in()
+        with mock.patch('blueprints.admin.send_push_notification'):
+            # Case and surrounding spaces don't matter.
+            self.client.post(f'/admin/students/unbind/{self.ada.id}', data={'matric_tail': ' 001 '})
+        self.assertIsNone(db.session.get(Student, self.ada.id).device_id)
+        self.assertIsNone(db.session.get(Student, self.ada.id).device_bound_at)
+        entry = AuditLog.query.filter_by(action='student.unbind').one()
+        self.assertTrue(entry.details['id_checked'])
+        self.assertIsNotNone(db.session.get(Student, self.bayo.id).device_id)   # only Ada
 
     def test_graduation_releases_the_phone(self):
         ps.set_student_status(self.ada, 'graduated', 'Class of 2026')
@@ -256,6 +280,76 @@ class PeopleStatusTestCase(unittest.TestCase):
             unfiltered = [st.matric_number for st in render.call_args.kwargs['students']]
         self.assertEqual(filtered, ['MCT/20/0000', 'MCT/20/0001', 'MCT/20/0002'])
         self.assertEqual(unfiltered[0], 'MCT/20/0000')            # newest first when unfiltered
+
+
+    # ---- the Students record drawer (2026-10-25) ----------------------------------
+
+    def render_pages(self):
+        """Render the real templates (most tests here only check redirects)."""
+        from campus_time import campus_fmt
+        self.app.template_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'templates')
+        self.app.jinja_env.filters['campus'] = campus_fmt
+        self.sign_in()
+
+    def test_drawer_shows_the_record_and_its_actions(self):
+        self.render_pages()
+        html = self.client.get(f'/admin/students?student={self.ada.id}').get_data(as_text=True)
+        self.assertIn('id="record-drawer"', html)
+        self.assertIn('Bound (date not recorded)', html)      # bound before device_bound_at
+        self.assertIn('Unbind phone', html)
+        self.assertIn('Reset password', html)
+        # Its actions come back to the drawer.
+        self.assertIn(f'student={self.ada.id}', html.split('id="record-drawer"')[1])
+
+    def test_find_opens_the_one_match(self):
+        self.render_pages()
+        exact = self.client.get('/admin/students?q=mct/20/0001&find=1').get_data(as_text=True)
+        self.assertIn('id="record-drawer"', exact)
+        self.assertIn('>Ada</h2>', exact)
+        # Two matches ("MCT/20/000" fits Ada and Bayo): the roster, no drawer.
+        many = self.client.get('/admin/students?q=MCT/20/000&find=1').get_data(as_text=True)
+        self.assertNotIn('id="record-drawer"', many)
+        # The roster's own search never opens it.
+        self.assertNotIn('id="record-drawer"',
+                         self.client.get('/admin/students?q=MCT/20/0001').get_data(as_text=True))
+
+    def test_unbind_from_the_drawer_returns_to_it(self):
+        self.sign_in()
+        with mock.patch('blueprints.admin.send_push_notification'):
+            resp = self.client.post(f'/admin/students/unbind/{self.ada.id}?student={self.ada.id}',
+                                    data={'matric_tail': '001'})
+        self.assertIn(f'student={self.ada.id}', resp.headers['Location'])
+
+    def test_new_password_is_shown_once_in_its_own_card(self):
+        self.render_pages()
+        self.client.post(f'/admin/students/{self.ada.id}/reset-password')
+        html = self.client.get('/admin/students').get_data(as_text=True)
+        self.assertIn('class="reveal"', html)
+        self.assertIn('New temporary password for Ada', html)
+        self.assertNotIn('class="reveal"', self.client.get('/admin/students').get_data(as_text=True))
+
+
+    def test_find_on_the_board_opens_the_record_over_it(self):
+        self.render_pages()
+        html = self.client.get('/admin/dashboard?q=MCT/20/0001&find=1').get_data(as_text=True)
+        self.assertIn('id="door-board"', html)
+        self.assertIn('id="record-drawer"', html)
+        # Its actions come back to the board.
+        self.assertIn('from=board', html.split('id="record-drawer"')[1])
+        # More than one match: the roster, searched.
+        resp = self.client.get('/admin/dashboard?q=MCT/20/000&find=1')
+        self.assertEqual(resp.status_code, 302)
+        self.assertIn('/admin/students', resp.headers['Location'])
+
+    def test_an_action_from_the_board_returns_to_the_board(self):
+        self.sign_in()
+        with mock.patch('blueprints.admin.send_push_notification'):
+            resp = self.client.post(f'/admin/students/unbind/{self.ada.id}?from=board&student={self.ada.id}',
+                                    data={'matric_tail': '001'})
+        self.assertIn('/admin/dashboard', resp.headers['Location'])
+        self.assertIn(f'student={self.ada.id}', resp.headers['Location'])
+        resp = self.client.post(f'/admin/students/{self.ada.id}/reset-password?from=board&student={self.ada.id}')
+        self.assertIn('/admin/dashboard', resp.headers['Location'])
 
 
 if __name__ == '__main__':

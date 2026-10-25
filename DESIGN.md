@@ -1,6 +1,6 @@
 ---
 name: SUAAMS
-description: Phone-as-ID class attendance. A dark precision instrument in the hand and on the public site, a light records desk on the web.
+description: Phone-as-ID class attendance. A dark precision instrument in the hand and on the public site, the same instrument in light at the records desk.
 colors:
   # Shared across both worlds
   brand-blue: "#2F6BEE"
@@ -44,24 +44,22 @@ colors:
   app-absent-light: "#991B1B"
   app-absent-fill-light: "#FEF2F2"
   app-absent-edge-light: "#FECACA"
-  # Portal (Flask + Tailwind v4), light only
-  portal-mist: "#F1F4F8"
-  portal-card: "#FFFFFF"
-  portal-raised: "#FAFBFD"
-  portal-navy-rail: "#14161F"
-  portal-navy-rail-hover: "#1E2130"
-  portal-hairline: "#E7EAF0"
-  portal-divider: "#F1F3F7"
-  portal-accent: "#2F6BEE"
-  portal-accent-hover: "#1E56CC"
-  portal-accent-soft: "#EAF1FE"
-  portal-accent-line: "#C7DBFC"
-  portal-ink: "#141824"
-  portal-secondary: "#5A6474"
-  portal-muted: "#646C7D"
-  portal-on-rail: "#E8EBF2"
-  portal-on-rail-muted: "#7C849A"
-  portal-on-rail-line: "#262A38"
+  # Portal (Flask + Tailwind v4), light only. The portal wears the app's
+  # world in light: every colour it shares with the app or the site is that
+  # token (Midnight rail, Graphite hover, white panels, ink, secondary text,
+  # light Contactless Indigo and its hover and soft steps, the rail's muted
+  # text). Only values the portal adds are listed here.
+  portal-paper: "#E9EBF6"
+  portal-raised: "#F7F8FC"
+  portal-hairline: "#D6D9EA"
+  portal-divider: "#E8EAF4"
+  portal-topbar: "#DCE0F6"
+  portal-topbar-line: "#C7CDEC"
+  portal-topbar-ink: "#3F3F6B"
+  portal-indigo-line: "#C7D2FE"
+  portal-muted: "#62626C"
+  portal-on-rail: "#E5E5E5"
+  portal-grid: "rgba(79, 70, 229, 0.07)"
   portal-success: "#12A150"
   portal-success-soft: "#E7F6EE"
   portal-success-ink: "#0B7A3B"
@@ -137,33 +135,52 @@ typography:
     fontFamily: "IBM Plex Mono"
     fontWeight: 400
   portal-page-title:
-    fontFamily: "Plus Jakarta Sans, sans-serif"
-    fontSize: "1.125rem"
+    fontFamily: "IBM Plex Sans, system-ui, sans-serif"
+    fontSize: "1.5rem"
     fontWeight: 700
-  portal-stat-value:
-    fontFamily: "Plus Jakarta Sans, sans-serif"
-    fontSize: "1.875rem"
-    fontWeight: 800
-    lineHeight: 1
+    letterSpacing: "-0.025em"
   portal-card-title:
-    fontFamily: "Plus Jakarta Sans, sans-serif"
+    fontFamily: "IBM Plex Sans, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 700
   portal-body:
-    fontFamily: "Plus Jakarta Sans, sans-serif"
+    fontFamily: "IBM Plex Sans, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
-  portal-label:
-    fontFamily: "Plus Jakarta Sans, sans-serif"
-    fontSize: "0.75rem"
-    fontWeight: 600
-    letterSpacing: "0.025em"
   portal-micro:
-    fontFamily: "Plus Jakarta Sans, sans-serif"
+    fontFamily: "IBM Plex Sans, system-ui, sans-serif"
     fontSize: "11px"
     fontWeight: 600
+  portal-column-label:
+    fontFamily: "IBM Plex Mono, ui-monospace, Consolas, monospace"
+    fontSize: "11px"
+    fontWeight: 400
+    letterSpacing: "0.1em"
+  portal-figure:
+    fontFamily: "IBM Plex Mono, ui-monospace, Consolas, monospace"
+    fontSize: "1.5rem"
+    fontWeight: 700
+    lineHeight: 1.25
+    fontFeature: "tnum"
+  portal-stat-value:
+    fontFamily: "IBM Plex Mono, ui-monospace, Consolas, monospace"
+    fontSize: "1.875rem"
+    fontWeight: 700
+    lineHeight: 1
+    fontFeature: "tnum"
+  portal-board-time:
+    fontFamily: "IBM Plex Mono, ui-monospace, Consolas, monospace"
+    fontSize: "15px"
+    fontWeight: 700
+    fontFeature: "tnum"
+  portal-reader:
+    fontFamily: "IBM Plex Mono, ui-monospace, Consolas, monospace"
+    fontSize: "11.5px"
+    fontWeight: 400
+    lineHeight: 1.375
+    letterSpacing: "0.025em"
   portal-mono:
-    fontFamily: "JetBrains Mono, monospace"
+    fontFamily: "IBM Plex Mono, ui-monospace, Consolas, monospace"
   site-display:
     fontFamily: "IBM Plex Sans, system-ui, sans-serif"
     fontSize: "clamp(40px, 5vw, 68px)"
@@ -229,8 +246,9 @@ rounded:
   app-md: "12px"
   app-lg: "16px"
   portal-btn-sm: "7px"
-  portal-btn: "9px"
-  portal-card: "14px"
+  portal-btn: "8px"
+  portal-nav: "9px"
+  portal-card: "12px"
   pill: "9999px"
   site-phone: "40px"
 spacing:
@@ -242,6 +260,7 @@ spacing:
   app-2xl: "32px"
   portal-card: "20px"
   portal-page: "28px"
+  portal-grid: "28px"
   site-gutter: "clamp(20px, 4.4vw, 64px)"
   site-section: "clamp(72px, 9vw, 120px)"
   site-section-head: "clamp(36px, 4vw, 56px)"
@@ -301,42 +320,64 @@ components:
     typography: "{typography.app-label-small}"
     rounded: "{rounded.app-md}"
   portal-button-primary:
-    backgroundColor: "{colors.portal-accent}"
-    textColor: "{colors.portal-card}"
+    backgroundColor: "{colors.app-contactless-indigo-light}"
+    textColor: "{colors.app-card-light}"
     typography: "{typography.portal-body}"
     rounded: "{rounded.portal-btn}"
     padding: "10px 16px"
   portal-button-primary-hover:
-    backgroundColor: "{colors.portal-accent-hover}"
+    backgroundColor: "{colors.site-indigo-hover-light}"
   portal-button-secondary:
     backgroundColor: "{colors.portal-raised}"
-    textColor: "{colors.portal-ink}"
+    textColor: "{colors.app-ink}"
     rounded: "{rounded.portal-btn}"
     padding: "10px 16px"
   portal-button-secondary-hover:
-    backgroundColor: "{colors.portal-accent-soft}"
-    textColor: "{colors.portal-accent}"
+    backgroundColor: "{colors.site-indigo-soft-light}"
+    textColor: "{colors.app-contactless-indigo-light}"
   portal-button-danger:
     backgroundColor: "{colors.portal-error}"
-    textColor: "{colors.portal-card}"
+    textColor: "{colors.app-card-light}"
     rounded: "{rounded.portal-btn}"
     padding: "10px 16px"
+  portal-button-danger-hover:
+    backgroundColor: "{colors.portal-error-hover}"
   portal-card:
-    backgroundColor: "{colors.portal-card}"
+    backgroundColor: "{colors.app-card-light}"
     rounded: "{rounded.portal-card}"
     padding: "{spacing.portal-card}"
   portal-input:
     backgroundColor: "{colors.portal-raised}"
-    textColor: "{colors.portal-ink}"
+    textColor: "{colors.app-ink}"
     rounded: "{rounded.portal-btn}"
     padding: "10px 16px"
-  portal-nav-link:
-    textColor: "{colors.portal-on-rail-muted}"
+  portal-topbar:
+    backgroundColor: "{colors.portal-topbar}"
+    textColor: "{colors.portal-topbar-ink}"
+    height: "56px"
+  portal-find:
+    backgroundColor: "{colors.app-card-light}"
+    textColor: "{colors.app-ink}"
     rounded: "{rounded.portal-btn}"
+    height: "36px"
+    width: "460px"
+  portal-rail:
+    backgroundColor: "{colors.app-midnight}"
+    textColor: "{colors.portal-on-rail}"
+    width: "232px"
+  portal-nav-link:
+    textColor: "{colors.site-faint-dark}"
+    rounded: "{rounded.portal-nav}"
     padding: "6px 12px"
   portal-nav-link-active:
-    backgroundColor: "{colors.portal-accent}"
-    textColor: "{colors.portal-card}"
+    backgroundColor: "{colors.app-graphite-card}"
+    textColor: "{colors.app-text-dark}"
+  portal-nav-badge:
+    backgroundColor: "{colors.app-contactless-indigo-light}"
+    textColor: "{colors.app-card-light}"
+    typography: "{typography.portal-column-label}"
+    rounded: "{rounded.pill}"
+    height: "20px"
   portal-pill-success:
     backgroundColor: "{colors.portal-success-soft}"
     textColor: "{colors.portal-success-ink}"
@@ -355,12 +396,80 @@ components:
     typography: "{typography.portal-micro}"
     rounded: "{rounded.pill}"
     padding: "2px 8px"
-  portal-chip-course:
-    backgroundColor: "{colors.portal-accent-soft}"
-    textColor: "{colors.portal-accent}"
+  portal-pill-neutral:
+    backgroundColor: "{colors.portal-paper}"
+    textColor: "{colors.app-text-secondary-light}"
     typography: "{typography.portal-micro}"
     rounded: "{rounded.pill}"
     padding: "2px 8px"
+  portal-pill-live:
+    backgroundColor: "{colors.site-indigo-soft-light}"
+    textColor: "{colors.site-indigo-hover-light}"
+    typography: "{typography.portal-micro}"
+    rounded: "{rounded.pill}"
+    padding: "2px 8px"
+  portal-pill-ink:
+    backgroundColor: "{colors.app-ink}"
+    textColor: "{colors.app-card-light}"
+    typography: "{typography.portal-micro}"
+    rounded: "{rounded.pill}"
+    padding: "2px 8px"
+  portal-facts:
+    backgroundColor: "{colors.app-card-light}"
+    textColor: "{colors.portal-muted}"
+    typography: "{typography.portal-figure}"
+    rounded: "{rounded.portal-card}"
+    padding: "10px 16px"
+  portal-board:
+    backgroundColor: "{colors.app-card-light}"
+    rounded: "{rounded.portal-card}"
+  portal-board-group-needs:
+    backgroundColor: "{colors.site-indigo-soft-light}"
+    textColor: "{colors.site-indigo-hover-light}"
+    typography: "{typography.portal-column-label}"
+    height: "32px"
+  portal-reader-lit:
+    backgroundColor: "{colors.app-midnight}"
+    textColor: "{colors.portal-on-rail}"
+    typography: "{typography.portal-reader}"
+    rounded: "{rounded.portal-btn-sm}"
+    padding: "4px 10px"
+  portal-reader-dim:
+    backgroundColor: "{colors.portal-raised}"
+    textColor: "{colors.portal-muted}"
+    typography: "{typography.portal-reader}"
+    rounded: "{rounded.portal-btn-sm}"
+    padding: "4px 10px"
+  portal-reader-off:
+    backgroundColor: "{colors.app-card-light}"
+    textColor: "{colors.app-ink}"
+    typography: "{typography.portal-reader}"
+    rounded: "{rounded.portal-btn-sm}"
+    padding: "4px 10px"
+  portal-drawer:
+    backgroundColor: "{colors.app-card-light}"
+    textColor: "{colors.app-ink}"
+    width: "400px"
+  portal-drawer-avatar:
+    backgroundColor: "{colors.app-midnight}"
+    textColor: "{colors.app-text-dark}"
+    rounded: "10px"
+    size: "44px"
+  portal-modal:
+    backgroundColor: "{colors.app-card-light}"
+    textColor: "{colors.app-ink}"
+    rounded: "{rounded.portal-card}"
+    padding: "24px"
+    width: "448px"
+  portal-reveal:
+    backgroundColor: "{colors.site-indigo-soft-light}"
+    rounded: "{rounded.portal-card}"
+    padding: "12px 16px"
+  portal-reveal-secret:
+    backgroundColor: "{colors.app-midnight}"
+    textColor: "{colors.app-text-dark}"
+    rounded: "{rounded.portal-btn}"
+    padding: "6px 12px"
   site-button-primary:
     backgroundColor: "{colors.app-contactless-indigo-dark}"
     textColor: "{colors.app-on-indigo-dark}"
@@ -438,7 +547,7 @@ components:
 # Design System: SUAAMS
 
 <!-- Scope: the Flutter app (SUAAMS_Mobile), the web portal (SUAAMS/templates,
-     static/src/input.css), and the public site at suaams.com.ng (landing/:
+     static/src/input.css, icons.py; rebuilt 2026-10-25), and the public site at suaams.com.ng (landing/:
      the story page index.html + hero.js, the student install page get/, the
      privacy policy privacy.html, all on styles.css; and the printable A4
      poster get/poster.html with its own inline print styles). The site
@@ -458,14 +567,19 @@ happens in a queue at a lecture-hall door, so everything on the screen must
 be readable in one glance and every control must respond the moment it is
 touched.
 
-The system has two worlds that share one set of meanings. The **app** is
-dark by default, with a light mode that follows the same rules. The **web
-portal** is where admins, lecturers and HODs keep records at a desk. It
-uses a light page, white cards and a dark navy sidebar, with a blue accent
-for emphasis. The two look different on purpose: one is held in a hand at a
-door, the other is worked at a desk all day. They share the brand blue in
-the logo, the four attendance status meanings, and the rule that no status
-is ever shown by colour alone.
+The **app** is dark by default, with a light mode that follows the same
+rules. The **web portal** is where admins, lecturers and HODs keep records
+at a desk, and since 2026-10-25 it is the app's Midnight Instrument in
+light, at desk width: a Midnight rail (the app's own #0F0F0F ground), an
+indigo-tinted Paper page under a soft indigo top bar, white panels on cool
+hairlines, the same Plex pair, and the same one indigo signal. A faint 28px
+measuring grid sits behind every page head. Its home screen is the door
+board, one row per class today, each showing what that room's reader is
+showing in the firmware's own words. It replaced a navy rail, mist page and
+Records Blue accent that read as a generic admin kit and shared nothing with
+the app. Every surface shares the brand blue in the logo, the four
+attendance status meanings, and the rule that no status is ever shown by
+colour alone.
 
 The **public site** at suaams.com.ng is not a third world. It is the app's
 Midnight Instrument opened up to page width: the same #0F0F0F ground and
@@ -483,7 +597,7 @@ change. It is never decoration.
 
 **Key Characteristics:**
 - App: midnight surfaces (#0F0F0F / #1C1C1C), one indigo accent, IBM Plex Sans + Plex Mono.
-- Portal: mist page, white hairline cards, navy rail, one blue accent, Plus Jakarta Sans + JetBrains Mono.
+- Portal: the app's world in light. Midnight rail, indigo-tinted Paper page and top bar, white hairline panels, Contactless Indigo the one signal, IBM Plex self-hosted, Lucide icons inlined as SVG.
 - Status meanings are identical everywhere: present green, late amber, absent red, excused grey. A text label is always shown.
 - Every text/surface pair is contrast-measured; values are chosen for AA, not by eye.
 - Flat surfaces separated by hairline borders; depth comes from tone, not shadow.
@@ -509,13 +623,18 @@ and was contrast-checked there. Change it in code first, then here.
   underline under the code's payload, the reader's "beep" ring and the
   lit beat numbers on the tap, the live dot, the sequence time markers, the /get step numerals, the privacy
   check marks, and one emphasised phrase in the display headline.
-- **Records Blue** (portal, #2F6BEE; hover #1E56CC): the portal's accent.
-  It marks the primary button, the active rail link, focus rings, course
-  chips and progress fills. Its soft tint (#EAF1FE) and line (#C7DBFC)
-  carry hover and selected states.
+  On the **portal** it is the light value (6.3:1 on white, white on it
+  6.3:1), with the site's light hover step, its soft tint, and a line
+  (#C7D2FE) for borders on the tint. Indigo text on the soft tint uses the
+  hover step (7.07:1). It marks: the primary button, the active rail link's
+  2px left edge, the active tab pill, the focus ring, the text caret and the
+  Find field's focus border, the door board's Needs you band and the "need
+  you" figure, the nav count badge, live pills, NFC as a check-in method,
+  info alerts, and the one-time password panel. On a lit reader screen
+  (Midnight) the live dot takes the dark value (#818CF8) instead.
 - **Brand Blue** (#2F6BEE): the dot and NFC arcs in the SUAAMS logo mark,
-  on every surface. In the app and on the site it appears only inside the
-  logo, never as a UI colour. Contactless Indigo has that job.
+  on every surface. It appears only inside the logo, never as a UI colour.
+  Contactless Indigo has that job.
 
 ### Status (shared meanings, per-world values)
 - **Present / success:** green. App text #10B981 dark, #065F46 light. Portal
@@ -524,7 +643,15 @@ and was contrast-checked there. Change it in code first, then here.
   #FBBF24 dark, #92400E light. Portal fill #C77700, text on tint #8F5300.
 - **Absent / danger:** red. App text #F87171 dark, #991B1B light. Portal
   fill #D93A3F, text on tint #B42328.
-- **Excused:** grey, using the world's secondary text colour on a 10% tint.
+- **Excused:** grey, using the world's secondary text colour on a 10% tint
+  (portal: secondary text on the Paper tint, the neutral pill).
+
+**Operational states (portal).** Machine and lifecycle states never borrow
+an attendance colour. An ordinary state (Active, Pending setup, Ended,
+Not started yet) is the neutral pill. "Needs you" and "live" are indigo. A
+state that should stand out without meaning attendance (a reader or sign-in
+switched off, a disabled reader, an invalid level in an upload, an expelled
+or deceased record) is the solid ink pill: #1A1A1A with white text.
 
 Each app status is a triple (fill, edge, text); the portal uses fill,
 -soft and -ink. Raw saturated hues (#10B981, #F59E0B, #EF4444) are for
@@ -538,12 +665,25 @@ fails as text.
 - **Graphite Edge** (#2A2A2A): app dark outline.
 - **Paper** (#F4F4F5) / **white cards** / **Edge** (#DDDDDD): app light scheme.
 - **App text ramp:** dark #FFFFFF / #D4D4D4 / #B0B0B0; light #1A1A1A / #52525B / #6A6A6A.
-- **Mist** (#F1F4F8): portal page. **Raised** (#FAFBFD): inputs and secondary
-  buttons sitting on the page.
-- **Navy Rail** (#14161F, hover #1E2130): the portal sidebar, the one dark
-  mass in the light UI. Text on it is #E8EBF2, muted #7C849A, rules #262A38.
-- **Portal text ramp:** ink #141824, secondary #5A6474, muted #646C7D.
-- **Portal Hairline** (#E7EAF0) and **Divider** (#F1F3F7): card borders and table rules.
+
+**Portal neutrals.** The portal reuses the app's Midnight, Graphite, white
+panels and light text ramp. What it adds:
+- **Midnight Rail**: the sidebar is the app's own ground (#0F0F0F), with
+  Graphite (#1C1C1C) for hover and the active link. Text on it is #E5E5E5
+  (15.2:1), muted the site's Faint #8A8A8A (5.5:1 on Midnight, 4.9:1 on
+  Graphite), rules Graphite Edge (#2A2A2A).
+- **Indigo Paper** (#E9EBF6): the page, the app's Paper tinted toward
+  indigo. **Raised** (#F7F8FC): inputs, secondary buttons, table heads, the
+  board's column and group bands, the drawer's action bar.
+- **Top Bar** (#DCE0F6, rule #C7CDEC, text #3F3F6B at 7.5:1): one step
+  deeper than the page.
+- **Portal text ramp:** ink #1A1A1A (14.7:1 on the page), secondary
+  #52525B (6.5:1 on the page, 5.9:1 on the top bar), muted #62626C (5.1:1
+  on the page, 6.0:1 on a panel, 4.6:1 on the top bar). Muted is not the
+  app's #6A6A6A, which measured 4.55:1 on the tinted page.
+- **Portal Hairline** (#D6D9EA), cooled to sit on the tint, and **Divider**
+  (#E8EAF4): panel borders, and inner rules and table row lines.
+- **Grid** (7% indigo): the 28px measuring grid behind page heads.
 
 **Site neutrals.** The site reuses the app's ground, panel, edge and text
 ramp. What it adds:
@@ -562,18 +702,24 @@ ramp. What it adds:
   above the footnotes, and the light Contactless Indigo (#4F46E5).
 
 ### Named Rules
-**The One Signal Rule.** Each world has exactly one accent, and it marks
+**The One Signal Rule.** Each surface has exactly one accent, and it marks
 where to act or where you are. In the app that is Contactless Indigo, and it
 always goes on the same few elements so students learn to find it. It never
-colours a status value. The site is in the app's world, so its one accent
-is Contactless Indigo too; Brand Blue stays inside the logo.
+colours a status value. The site and the portal are in the app's world, so
+their one accent is Contactless Indigo too (the portal uses the light
+value); Brand Blue stays inside the logo. In the portal indigo means act
+here, you are here, needs you, or live. It is never a record's status.
 
 **The Green Is Sacred Rule.** Green means "you're registered." Never spend
 it on branding, success toasts for unrelated actions, or decoration. A
 student reads green in well under a second, so that meaning must stay
 unambiguous. On the site green appears in two places only: the PRESENT
 label on the register, and the "75% or more" key that explains the app's
-Records colours. Both carry their words.
+Records colours. Both carry their words. In the portal green is attendance
+only: a present status, an attendance rate at or above 75%, and the fill of
+a course's exam standing bar. A live class is indigo, a lifecycle state is
+neutral or the ink pill, and amber stays "late" or "below 75%", so a
+check-in method or a draft count never wears it.
 
 **The Measured, Not Eyeballed Rule.** Any new text/surface pair is
 contrast-checked to WCAG AA (4.5:1 body) before it ships. Status text is
@@ -586,13 +732,16 @@ checked against the tinted fill it actually sits on, not the opaque colour.
 **Site Fonts:** IBM Plex Sans 400 / 600 / 700 and Plex Mono 400 / 700,
 self-hosted WOFF2 cut to Latin (about 70 KB for all five), from the TTFs
 the app bundles; `font-display: swap`, Sans Bold and Mono Regular preloaded
-**Portal UI Font:** Plus Jakarta Sans (Google Fonts; 400-800)
-**Portal Mono Font:** JetBrains Mono
+**Portal Fonts:** IBM Plex Sans 400 / 600 / 700 and Plex Mono 400 / 700,
+self-hosted WOFF2 from the portal's static fonts (the same files as the app
+and the site); `font-display: swap`, Sans Regular and SemiBold preloaded.
+Icons are Lucide, inlined as SVG (2px stroke, `currentColor`) by
+`icons.py`; there is no icon font.
 
 **Character:** Plex is engineered and neutral, a typeface for instruments.
 Its mono sibling carries the "terminal" voice without a second design
-language. Plus Jakarta Sans on the portal is rounder and friendlier for
-long desk sessions.
+language. The portal uses the same pair, so a course code or a time reads
+the same on a phone, on a reader's screen and at a desk.
 
 The app bundles its fonts instead of fetching them at runtime. Slow campus
 Wi-Fi must never leave the check-in screen in a fallback face. (CLAUDE.md
@@ -600,6 +749,8 @@ still says the app uses Plus Jakarta Sans. That is out of date: the app
 ships IBM Plex.) The site follows the same logic for the same audience:
 it serves its own Plex files rather than calling Google Fonts, because on
 campus Wi-Fi a third-party font request is the slowest thing on the page.
+The portal does too: it used to sit in a fallback face, with Material
+Symbols showing its ligature words in the rail, until Google Fonts arrived.
 
 ### Hierarchy (app, sp)
 - **Headline** (700, 24, -0.2 tracking): the one or two words a screen is about.
@@ -640,9 +791,20 @@ Headings use `text-wrap: balance` and paragraphs `text-wrap: pretty`, so no
 line ends on one stranded word. Nothing on the site renders below 12px.
 
 ### Hierarchy (portal)
-- **Page Title** (700, 18px), **Card Title** (700, 14px), **Stat Value**
-  (800, 30px, leading 1), **Body** (400, 14px), **Label / table head** (600,
-  12px, uppercase, wide tracking), **Micro** (600, 11px: pills, captions, help).
+- **Page Title** (Sans 700, 24px, tight tracking): one per page, in the
+  page head on the grid, over a 14px secondary subtitle.
+- **Card Title** (700, 14px) / **Body** (400, 14px) / **Micro** (600, 11px:
+  pills, captions, help text). 11px is the smallest step.
+- **Figure** (Mono 700, 24px, tabular): the facts strip's three numbers.
+- **Stat Value** (Mono 700, 30px, leading 1, tabular): the stat cards that
+  remain on lecturer, HOD and student pages.
+- **Board Time** (Mono 700, 15px, tabular): a board row's start time and
+  its checked-in count.
+- **Reader** (Mono 400, 11.5px, uppercase, slight tracking, leading 1.375):
+  the lines of a reader screen.
+- **Column Label** (Mono 400, 11px, uppercase, widest tracking): table and
+  board column heads, board group bands (bold), rail section labels,
+  drawer section labels, stat labels.
 
 ### Named Rules
 **The 11sp Floor Rule.** Nothing in the app renders below 11sp. The only
@@ -654,15 +816,19 @@ emits (times, session and course codes, terminal states). Never use it for
 labels, buttons or prose. On the site that means the check-in code, the
 decoded values, times, masked student IDs, the register count, the build
 version and the printed URL. Where a machine readout is followed by an
-explanation, the explanation drops back to the sans.
+explanation, the explanation drops back to the sans. The portal has one
+exception: its column labels (table and board heads, board group bands,
+rail and drawer section labels, stat labels) are 11px uppercase mono, the
+legend over columns of machine data. Titles, buttons, form labels and prose
+stay in the sans.
 
 **The Theme Scale Rule.** Text styles come from the theme's text scale
 (`Theme.of(context).textTheme`, the portal's Tailwind scale). Never
 hand-roll a font size per screen. That is how the app once had 15 sizes.
 
-**The Own Fonts Rule.** The app and the site ship their own Plex files. No
-Google Fonts or other third-party font host on anything a student opens on
-campus Wi-Fi.
+**The Own Fonts Rule.** The app, the site and the portal ship their own
+Plex files. No Google Fonts, icon font or other third-party font host on
+anything opened on campus Wi-Fi.
 
 ## Layout
 
@@ -673,10 +839,23 @@ stacked cards and stat boxes are 12dp. Stats sit in an equal-width row
 navigation bar. Keyboard handling uses `resizeToAvoidBottomInset` with
 `ClampingScrollPhysics`. Never hand-roll inset spacers.
 
-**Portal.** A 240px navy rail on the left (an off-canvas drawer on mobile)
-and a scrolling content column capped at 1400px, padded 20px (28px on large
-screens). Admin record pages use a "form column left, directory right" grid
-(1/3 + 2/3 at `lg`). Cards pad 20px. Tables pad cells 20px x 12-14px.
+**Portal.** A 232px Midnight rail on the left (below 1024px an
+off-canvas drawer, `inert` while closed), then a column with a 56px top bar
+over a scrolling page. The top bar holds Find (up to 460px, `/` to focus)
+and, from 640px, the semester chip at the right. The page head and the
+content share one box capped at 1680px and padded 20px (28px from 1024px),
+so the title lines up with the content edge at every width. The head holds
+the title and subtitle at left and the page's actions or the facts strip at
+right; content stacks below it in 24px gaps. Panels pad 20px; table cells
+20px x 14px, heads 20px x 10px.
+
+Records run full width. On the rebuilt pages (the door board, Students)
+occasional forms open in a dialog and rarer actions sit in a More menu
+beside the title, instead of a form column beside the directory. A record
+opens in a 400px drawer on the right, under the top bar; from 1280px the
+page column makes room for it, and below 1536px the roster drops its Level
+and Department columns while it is open. Older admin pages still use the
+1/3 + 2/3 form-and-directory grid.
 
 **Site.** A 1240px column with a fluid gutter (`site-gutter`). The story
 page runs as full-width bands separated by hairline rules (section padding
@@ -695,7 +874,7 @@ phone); at 640px primary buttons go full width and role rows stack.
 
 ## Elevation & Depth
 
-Both worlds are **flat**. Depth comes from tone and hairline borders.
+Every surface is **flat**. Depth comes from tone and hairline borders.
 
 The app uses `elevation: 0` everywhere. Cards are one tonal step above the
 background (#0F0F0F to #1C1C1C in dark), with an outline border at
@@ -705,9 +884,14 @@ screens, red-tinted on the change-password screen as a quiet caution
 signal. These are static, sized from `MediaQuery.sizeOf`, and isolated
 behind a `RepaintBoundary`.
 
-The portal has two shadows, both barely there:
-- **Card** (`0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06)`): every card, under its hairline border.
-- **Pop** (`0 8px 24px rgb(16 24 40 / 0.10), 0 2px 6px rgb(16 24 40 / 0.06)`): menus, the skip link, anything floating above the page.
+The portal is flat as the app is: panels separate by tone (Paper page,
+white panel, Raised band) and hairline, and the Midnight rail and lit reader
+screens are its only dark masses. Its shadows (values in the sidecar) are
+for things that float:
+- **Card**: a 1px line at 3% under each panel's hairline, barely there.
+- **Pop**: menus, dialogs and the skip link, anything floating above the page.
+- **Drawer**: a soft shadow off the record drawer's left edge, over the page.
+Dialogs dim the page behind them with Midnight at 50%.
 
 The site is flat too: no box shadows anywhere. Depth is the step from
 Midnight to Sunk to Graphite, and hairline rules do the separating. The
@@ -727,8 +911,11 @@ Gently rounded, never pill-soft except where a shape is meant to be a pill.
 - **App:** 12dp is the default for buttons, inputs, cards, stat boxes and
   nav tiles. 16dp for larger containers and sheets. 6-8dp for small tags
   and inner elements. Circles for avatars, status dots and the logo's head.
-- **Portal:** 14px cards, 9px buttons and inputs, 7px compact buttons, full
-  pills for status pills, course chips and tab pills.
+- **Portal:** 12px panels, dialogs, menus and the facts strip; 8px buttons,
+  inputs and the Find field; 9px rail links; 7px compact buttons and reader
+  screens; 10px for the drawer's initials tile. Full pills for status pills,
+  course chips, tab pills and the nav count badge. The one dashed border is
+  an offline or switched-off reader screen.
 - **Site:** the app's 12px for buttons, panels, the callout note and the QR
   plate; 16px for the privacy summary box; 8px for header nav links; 6px
   on the focus ring; 10px for the reader's bezel. Rows and bands have
@@ -751,37 +938,59 @@ Tactile and confident.
 - **Press:** Material ink splash at 10% of the foreground.
 
 ### Buttons (portal)
-- **Shape:** 9px corners, 10px x 16px padding, 14px semibold. Compact variant 7px / 6px x 12px / 12px.
-- **Primary:** Records Blue, white text, hover to #1E56CC.
-- **Secondary:** raised white with a hairline border. Hover tints to accent-soft with blue text.
-- **Ghost:** secondary text, hover to the mist page colour.
-- **Danger:** error red, white text.
-- **Text link** ("Edit", "Unbind"): 12px, dotted underline, 24px minimum hit
-  height. Hover turns it red, since these links lead to consequential actions.
+- **Shape:** 8px corners, 10px x 16px padding, 14px semibold. Compact variant 7px / 6px x 12px / 12px.
+- **Primary:** Contactless Indigo, white text, hover to the deeper indigo step.
+  The board's Notify lecturer, Add student, the drawer's Unbind phone.
+- **Secondary:** Raised with a hairline border and ink text. Hover tints to
+  the indigo soft step with an indigo line and indigo text.
+- **Ghost:** secondary text, hover to the Paper page with ink text.
+- **Danger:** error red, white text, hover #B72D32.
+- **Text link** ("Edit", "Change", "Unbind"): 12px semibold muted, dotted
+  underline, 24px minimum hit height. Hover turns it ink (it turned red until
+  2026-10-25, which made every Edit read as a warning).
 - **Disabled:** 40% opacity, no pointer events.
+- **Focus:** every link, button, summary, select and tabbable element gets
+  a 2px indigo outline at a 2px offset on keyboard focus.
 
 ### Status pills
 - **App:** a status triple (tinted fill, edge, text) from
   `attendance_status.dart`, with uppercase labels PRESENT / LATE / ABSENT / EXCUSED.
-- **Portal:** full pill, 2px x 8px, 11px semibold, `-soft` background with
-  `-ink` text, selected by `data-tone` (never an interpolated class name).
+- **Portal:** full pill, 2px x 8px, 11px semibold, selected by `data-tone`
+  (never an interpolated class name). Attendance tones are a `-soft`
+  background with `-ink` text. The operational tones are neutral (Paper,
+  secondary text), live (indigo soft, indigo text) and ink (solid ink,
+  white text); see Operational states under Colors.
 - One map per side: `attendanceStatusText` / `attendanceStatusSurface` in
   the app, the `attendance_status_pill` macro on the web. Never hand-write another.
 
 ### Cards / Containers
 - **App:** graphite (#1C1C1C) or white, 12dp corners, outline at 10% alpha,
   16dp padding. Record rows are 72% surfaceContainer with the same edge.
-- **Portal:** white, 14px corners, hairline border, card shadow, 20px body.
+- **Portal:** white, 12px corners, hairline border, card shadow, 20px body.
   Header row, then body, then a footer separated by a divider rule. Use the
   clipped variant when a table bleeds to the edge.
+- **Portal dialogs:** native `<dialog>`, white, 12px corners, 24px padding,
+  up to 448px wide, centred, pop shadow over a 50% Midnight backdrop. A tall
+  form scrolls inside it.
+- **Portal menus:** native `<details>` (opens with Enter or Space, no
+  script): a 256px white list, 12px corners, pop shadow, 8px rows that hover
+  to Raised.
+- **Portal alerts:** 8px corners, the tone's soft tint with its ink text
+  and a 25% border; info is indigo. Errors and warnings are `role="alert"`,
+  the rest a polite status.
 
 ### Inputs / Fields
 - **App:** filled (graphite or white), no border at rest, 12dp corners, 16dp
   padding. Focus adds a 1dp border in the primary colour (white or black).
   Error adds a 1.5dp #FF5252 border. Text fields sit inside a
   `RepaintBoundary` so the blinking cursor doesn't repaint the backdrop.
-- **Portal:** raised fill, hairline border, 9px corners. Focus turns the
-  border blue and adds a 1px blue ring. Destructive fields focus in red.
+- **Portal:** Raised fill, hairline border, 8px corners, indigo caret.
+  Focus turns the border indigo and adds a 1px indigo ring. Destructive
+  fields focus in red.
+- **Find** (top bar): a 36px white field with the top bar's rule, a search
+  icon at left and a `/` key hint in mono at right. Focus gives an indigo
+  border and a 3px soft-indigo ring. One match or an exact matric number
+  opens that student's record; more go to the roster.
 
 ### Navigation
 - **App bottom nav:** surfaceContainer bar with a top hairline, five equal
@@ -789,18 +998,101 @@ Tactile and confident.
   with a 28% border, and scales from 0.96 to 1.0 over 180ms ease-out-cubic.
   Labels are 11sp, never all-caps. Count badges use the primary colour;
   "something is live" uses an accent dot. Red is reserved for failure.
-- **Portal rail:** navy, 240px. Links are muted-on-navy and lighten on
-  hover. The active link is filled Records Blue with white text. Section
-  labels are 11px uppercase with wide tracking. The scroll edge is marked
-  with a fade, not a scrollbar.
+- **Portal rail:** Midnight, 232px. The brand block (64px) has the mark
+  and the portal's name. Links are 14px medium in muted grey, 9px corners,
+  and hover to Graphite with light text. The active link is Graphite with
+  white text and a 2px indigo edge on its left. Section labels (Column
+  Label) fold their group with a chevron that turns when closed; the choice
+  is remembered per portal, and the group holding the current page always
+  opens. The scroll edge is marked with a fade, not a scrollbar. A count
+  that needs you (unpublished drafts) is an indigo badge with white mono
+  figures. The foot holds the person's initial, name, role and Log out.
+- **Portal top bar:** 56px, Top Bar indigo with its rule, Find at left and
+  the semester chip at right: the term name in mono on a white plate,
+  dashed and muted when no semester is active.
+- **Portal page head:** the title on the 28px grid, which fades out from
+  30% of the head's height toward the content. The grid is drawn on its
+  own layer so only the grid fades, never the title.
 
 ### Stat boxes (signature)
 A value over a caption, in an equal-width row. Neutral stats sit on a 78%
 surfaceContainer with a faint edge. A success or warning stat tints its
 box with the status colour at 12% fill and 35% border. Tone is set
 explicitly (`AppStatTone`) and is never derived from the label text. The
-portal's equivalent is the stat card: an uppercase label, an 800-weight
-30px value, and an 11px caption.
+portal's equivalent, the stat card, remains on lecturer, HOD and student
+pages: a mono column label, a 30px mono value, and an 11px caption. The
+admin home replaced its row of stat cards with the facts strip.
+
+### Door board (portal signature)
+The admin home: every room's class today, and what its reader is showing,
+on one board.
+- **Facts strip:** three figures in a white hairline strip beside the title
+  (need you, classes live, readers online), Figure over a muted line.
+  "Need you" turns indigo when it isn't zero.
+- **Board:** one white panel. A Raised column header in Column Label, then
+  groups as Raised bands with the group's name and count: Needs you, Live
+  now, Due now, Later today, Ended. The Needs you band and its rows take the
+  indigo soft tint and line.
+- **Rows:** five columns that never move. Time (Board Time) over the room;
+  course code in mono and title, then lecturer and the reason in secondary
+  ("no session 42 min after start", "reader last seen 27 min ago"); checked
+  in ("188 of 204") over a 4px ink bar on Divider, or "Not started" /
+  "in 78 min"; the reader screen; the action at the right (Notify lecturer
+  primary; Remind again or Open reader secondary; otherwise a mono note,
+  "ends 11:00"). Below 1024px a row stacks.
+- **Refresh:** every 15 seconds the server re-renders the facts and rows
+  and they are swapped in place, skipped while keyboard focus is inside the
+  board. A failed refresh turns the clock in the subtitle into "as of 10:42"
+  followed by "reconnecting", in indigo mono.
+- **Under the board:** one line of today's check-ins by method (a dot, the
+  method, a mono percentage; NFC's dot indigo, the rest neutral), then a
+  ruled Latest check-ins log beside the department attendance bars.
+
+### Reader screen (portal)
+What the room's reader shows, in the firmware's own words
+(`oled_display.ino`): Reader type, uppercase, 7px corners, at least 40px
+tall. Never an attendance colour: these are machine states.
+- **Lit** (a class is running): Midnight with light text, as the reader's
+  own screen, with a dark-value indigo live dot ringed at 25% before the
+  first line: "MCT 401", "188 / 204 CHECKED IN", "ENDS 11:00".
+- **Dim** (idle): Raised with a hairline and muted text ("NO CLASS", the
+  next class).
+- **Off** (offline or switched off): white with a dashed ink border:
+  "READER OFFLINE", "TAPS HELD ON READER".
+- **None** (no reader, or no room on the timetable): a plain muted
+  sentence-case line, no box. A later class whose reader is lit for another
+  class says so in a line instead of repeating that screen.
+
+### Record drawer (portal)
+A student's record and everything you can do to them, opened from Find or
+a name on the board or the roster, while the page behind stays in view.
+- **Frame:** fixed on the right under the top bar, 400px (full width on a
+  phone), white with a hairline left border and the drawer shadow. Its URL
+  can be shared; the close link and Escape go back.
+- **Head:** a 44px Midnight initials tile, the name (18px bold), matric
+  number, level and department in mono secondary, a 32px close button.
+- **Sections**, ruled by Divider, each under a Column Label: Account (a key
+  and value list, muted keys), Phone (binding and its date), Attendance this
+  semester (standing), Recent changes (a dated log with who made each).
+- **Actions** pinned on a Raised bar at the bottom, so they sit in the same
+  place whatever the record holds: Unbind phone... (primary, full width, only
+  while a phone is bound), Change status, Reset password, Edit record.
+- The roster row of the open record takes the indigo soft tint.
+
+### Exam standing (portal)
+One line per course: the code in mono, a 6px bar on Divider, the
+percentage in mono. The bar fills green at or above the exam line and amber
+below it, and every bar carries a 1px ink tick (45% opacity) at the line,
+75% today. Below it the percentage turns bold amber ink and a line says so
+in words ("Below 75%: not yet eligible for the exam"). A key under the
+list explains the tick.
+
+### One-time password (portal)
+A new temporary password is shown once, as an indigo soft panel with an
+indigo line: who it is for and a muted note, then the password on a Midnight
+plate in 18px mono with wide tracking (select-all on click) and a Copy
+button, which says "Copied" or selects the text where the clipboard isn't
+allowed.
 
 ### Buttons (site)
 - **Shape:** 12px corners, 52px tall, 0 x 22px padding, 16px semibold,
@@ -934,15 +1226,17 @@ always says "(demo account)".
 
 ### SUAAMS logo mark (signature)
 A figure with an NFC signal: white or black body strokes, Brand Blue head
-dot and arcs. Drawn by `SuaamsLogo` (CustomPainter) in the app and by one
-inline SVG symbol on the site (same geometry as the portal's `suaams_mark`
-macro), with the body strokes in `currentColor`. Never recolour the arcs
-to the indigo accent.
+dot and arcs. Drawn by `SuaamsLogo` (CustomPainter) in the app, by one
+inline SVG symbol on the site, and by the portal's `suaams_mark` macro (same
+geometry), with the body strokes in `currentColor` (white on the rail, ink
+on a light card). Never recolour the dot or arcs to the indigo accent.
 
 ## Do's and Don'ts
 
 ### Do:
 - **Do** use Contactless Indigo only on the active tab, the check-in action, contactless glyphs and live dots.
+- **Do** keep portal indigo to act here, you are here, needs you and live: the primary button, the active rail edge and tab, focus, the Needs you band and figure, live pills.
+- **Do** show portal machine and lifecycle states as neutral, indigo or the solid ink pill, and reader screens in the firmware's own words.
 - **Do** pair every status colour with its text label, from the one shared map on each side.
 - **Do** read colours from `AppTerminal` / `colorScheme` (app) or the `@theme` tokens (portal). Never retype a hex at a call site.
 - **Do** keep app tap targets at 48dp or more, and full-width primary buttons at 56dp tall.
@@ -952,7 +1246,8 @@ to the indigo accent.
 - **Do** label every piece of sample data as demo, next to it: the tap, the demo code, the lecturer's live list, and every screenshot caption.
 - **Do** separate site lists with ruled rows (hairline top and bottom), not cards.
 - **Do** make every site animation finish into the page's static markup, so no script or reduced motion shows the complete state.
-- **Do** self-host fonts for anything a student opens (Plex WOFF2, `font-display: swap`).
+- **Do** self-host fonts on every surface (Plex WOFF2, `font-display: swap`), and inline portal icons as SVG from `icons.py`.
+- **Do** run portal records full width, with occasional forms in a dialog and the record in the drawer.
 
 ### Don't:
 - **Don't** use green for anything except "present / success".
@@ -960,8 +1255,9 @@ to the indigo accent.
 - **Don't** use the raw status hues (#10B981, #F59E0B, #EF4444) as text. They are fills only.
 - **Don't** add drop shadows to app surfaces. Step the tone instead.
 - **Don't** build portal tone classes by string interpolation (`bg-{{ tone }}`). Use `data-tone`.
-- **Don't** load Google Fonts or any third-party font on the app or the site.
-- **Don't** add a second accent to the site, or use Brand Blue anywhere but the logo mark.
+- **Don't** load Google Fonts, an icon font or any third-party font on the app, the site or the portal.
+- **Don't** add a second accent to the site or the portal, or use Brand Blue anywhere but the logo mark.
+- **Don't** colour a live class, a check-in method, a draft count or a lifecycle state green or amber in the portal; those are attendance's colours.
 - **Don't** set prose, headings, labels or buttons in Plex Mono on the site; explanations under a readout go back to the sans.
 - **Don't** add box shadows to the site. Step from Midnight to Sunk to Graphite instead.
 - **Don't** carry the poster's light sheet onto screen pages; it is the print exception.

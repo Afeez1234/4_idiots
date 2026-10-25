@@ -4,13 +4,6 @@
 {% block title %}SUAAMS Student{% endblock %}
 {% block brand_subtitle %}Student Portal{% endblock %}
 
-{% block rail_pill %}
-  {# active_semester is supplied by the student_bp context processor. #}
-  <span class="rail-pill" data-tone="{{ 'semester' if active_semester else 'inactive' }}">
-    <span class="material-symbols-rounded text-sm" aria-hidden="true">event_available</span>
-    <span class="rail-label">{{ active_semester.name if active_semester else 'No active semester' }}</span>
-  </span>
-{% endblock %}
 
 {% block rail_nav %}
   <div>
@@ -18,7 +11,7 @@
     <div class="space-y-1">
       <a href="{{ url_for('student.dashboard') }}"
          class="nav-link {{ 'nav-link-active' if active_page == 'dashboard' }}" {% if active_page == 'dashboard' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">dashboard</span>
+        {{ icon_svg('dashboard', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Dashboard</span>
       </a>
     </div>
@@ -28,11 +21,11 @@
     <p class="nav-section">Academics</p>
     <div class="space-y-1">
       <a href="{{ url_for('student.my_courses') }}" class="nav-link {{ 'nav-link-active' if active_page == 'my_courses' }}" {% if active_page == 'my_courses' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">book</span>
+        {{ icon_svg('book', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">My Courses</span>
       </a>
       <a href="{{ url_for('student.attendance_history') }}" class="nav-link {{ 'nav-link-active' if active_page == 'attendance_history' }}" {% if active_page == 'attendance_history' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">history</span>
+        {{ icon_svg('history', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Attendance History</span>
       </a>
     </div>
@@ -42,7 +35,7 @@
     <p class="nav-section">Communication</p>
     <div class="space-y-1">
       <a href="{{ url_for('student.announcements') }}" class="nav-link {{ 'nav-link-active' if active_page == 'announcements' }}" {% if active_page == 'announcements' %}aria-current="page"{% endif %}>
-        <span class="material-symbols-rounded text-xl" aria-hidden="true">campaign</span>
+        {{ icon_svg('campaign', 'h-5 w-5 shrink-0') }}
         <span class="rail-label">Announcements</span>
       </a>
     </div>

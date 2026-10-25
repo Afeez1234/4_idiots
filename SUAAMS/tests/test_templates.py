@@ -31,6 +31,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 TEMPLATES = ROOT / "templates"
 INPUT_CSS = ROOT / "static" / "src" / "input.css"
+sys.path.insert(0, str(ROOT))  # for icons.py
 
 
 def _templates():
@@ -109,15 +110,21 @@ def test_no_split_tailwind_class_names():
 
 
 def test_theme_is_light():
-    """Guards against a copy-pasted revert to the pre-redesign dark values."""
+    """Guards against a copy-pasted revert to an old theme: the pre-2026-09
+    dark surfaces, or the 2026-09-30 navy rail and Records Blue that the
+    Midnight Instrument portal (2026-10-25) replaced."""
     css = INPUT_CSS.read_text(encoding="utf-8")
-    for dark_hex in ("#0F1117", "#1C1E26", "#111318", "#2A2D3A"):
-        assert dark_hex.lower() not in css.lower(), (
-            f"{dark_hex} is one of the old dark-theme surfaces; the redesign "
-            "is a light theme"
+    for old_hex in ("#0F1117", "#1C1E26", "#111318", "#2A2D3A", "#14161F"):
+        assert old_hex.lower() not in css.lower(), (
+            f"{old_hex} is an old theme value; the portal is the app's "
+            "Midnight Instrument in light (DESIGN.md)"
         )
-    # The rail stays dark on purpose -- that contrast is the whole design.
-    assert "#14161F" in css, "the dark navy rail token is missing"
+    # The rail stays dark on purpose: Midnight, the app's own ground.
+    assert "--color-sidebar:  #0F0F0F" in css, "the Midnight rail token is missing"
+    assert "--color-accent:       #4F46E5" in css, "the accent is Contactless Indigo"
+    # Brand Blue lives on in the logo only, under its own token.
+    assert "--color-brand: #2F6BEE" in css
+    assert css.count("#2F6BEE") == 1, "Brand Blue is the logo's colour, not a UI colour"
 
 
 def test_form_inputs_are_not_white_on_white():
@@ -135,36 +142,34 @@ def test_form_inputs_are_not_white_on_white():
     )
 
 
-def test_material_symbol_hidden_guard_is_unlayered():
-    """Guards a bug that showed two eye icons at once on the login page.
+def test_icons_are_inline_svg_and_hide_with_hidden():
+    """The Material Symbols font is gone (2026-10-25): icons are inline SVG
+    from icons.py, and nothing loads Google Fonts.
 
-    Google Fonts' Material Symbols stylesheet is UNLAYERED and declares
-        .material-symbols-rounded { display: inline-block }
-    Tailwind v4 puts everything in cascade layers, and unlayered author styles
-    beat every layered rule regardless of specificity. So Tailwind's `.hidden`
-    silently does nothing on an icon span, and the password eye toggles --
-    which are two spans, one carrying `hidden` -- rendered both.
-
-    The fix only works if it is UNLAYERED too: inside `@layer utilities` it
-    still loses to Google no matter how many classes the selector has. This
-    asserts the guard is present AND not inside a layer block, because moving
-    it back into a layer looks harmless and reintroduces the bug.
-    """
-    css = INPUT_CSS.read_text(encoding="utf-8")
-
-    assert ".material-symbols-rounded.hidden" in css, (
-        "the Material Symbols / .hidden cascade guard is missing from input.css"
-    )
-
-    # Find the rule and make sure no enclosing @layer wraps it.
-    idx = css.index(".material-symbols-rounded.hidden")
+    The .icon rule must stay inside an @layer. Tailwind's `hidden` is a
+    layered utility, and an unlayered rule beats every layered one whatever
+    its specificity: an unlayered `.icon { display: inline-block }` would
+    defeat `hidden` and show both password eye icons at once -- the bug the
+    old font's unlayered stylesheet caused."""
+    for path in _templates():
+        source = path.read_text(encoding="utf-8")
+        rel = path.relative_to(TEMPLATES).as_posix()
+        assert "material-symbols" not in source, f"{rel}: Material Symbols markup is back"
+        assert "fonts.googleapis.com" not in source, f"{rel}: loads Google Fonts again"
+    # Inside a block (more { than } before it) whose opener is an @layer.
+    css = re.sub(r"/\*.*?\*/", "", INPUT_CSS.read_text(encoding="utf-8"), flags=re.S)
+    idx = css.index(".icon {")
     before = css[:idx]
-    opens = before.count("@layer")
-    closes = before.count("}")
-    assert opens <= closes, (
-        "the .material-symbols-rounded.hidden guard is inside an @layer block; "
-        "it must stay unlayered or it will lose to the Google Fonts icon "
-        "stylesheet again (this is what caused the doubled eye icon)"
+    depth, opener = 0, None
+    for m in re.finditer(r"([^{};]*)\{|\}", before):
+        if m.group(0) == "}":
+            depth -= 1
+        else:
+            depth += 1
+            if depth == 1:
+                opener = m.group(1).strip()
+    assert depth >= 1 and opener and opener.startswith("@layer"), (
+        "the .icon rule is unlayered; it would beat `hidden` (see docstring)"
     )
 
 
@@ -182,51 +187,6 @@ def test_password_eye_toggle_semantics():
         )
 
 
-# Every Material Symbols ligature this app is allowed to use. Verified by
-# rendering each one in a real browser and looking at it: a name that is NOT
-# in the font does not error and does not draw a box -- it renders as literal
-# text ("graduation_cap" appears on screen as the word GRADUATION_CAP), which
-# is completely silent.
-#
-# The trap is that Material Icons (the other font family) has names Material
-# Symbols does not -- graduation_cap, for one, is a Material Icons name. Both
-# families are served from the same Google endpoint, so it is easy to reach for
-# the wrong one. Adding a name here means you have looked at it rendered.
-VERIFIED_MATERIAL_SYMBOLS = {
-    "account_tree", "analytics", "book", "calendar_month", "campaign",
-    "check", "chevron_right", "close", "co_present", "dashboard",
-    "date_range", "delete", "download", "event_available", "expand_more",
-    "groups_2", "history", "info", "layers", "left_panel_close", "lock",
-    "login", "logout", "menu", "person", "play_circle", "schedule",
-    "school", "sensors", "stop_circle", "summarize", "task_alt",
-    "visibility", "visibility_off", "warning",
-    # `inbox` is the empty_state() macro's default only -- no page passes it.
-    "inbox",
-    # "Accept all" on the lecturer's offline-tap review. Checked 2026-10-12
-    # against Google's MaterialSymbolsRounded codepoints file (e877), which
-    # also confirms graduation_cap above is absent from this family.
-    "done_all",
-    # Assigned from JS rather than markup: the rail collapse control swaps its
-    # glyph via textContent so it keeps pointing the way the rail is about to
-    # move. Included here because the markup scan below cannot see it.
-    "left_panel_open",
-    # Passed positionally to empty_state() / stat_card(), which the scan
-    # below did not read until 2026-10-16, plus the Terminals page's key and
-    # nfc. All rendered side by side in headless Chrome against the same
-    # Google Fonts stylesheet the app loads, and looked at, on 2026-10-16.
-    "key", "nfc", "domain", "domain_disabled", "event", "event_busy",
-    "event_note", "group", "groups", "how_to_reg", "insights", "query_stats",
-    "search_off", "verified", "event_available", "trending_up", "trending_down",
-    # Admin rail, 2026-10-19: HODs (was workspace_premium, a medal -- read as
-    # an award) and Activity (was history, the same glyph as the two history
-    # pages, for what is an audit log). Rendered and looked at that day.
-    "supervisor_account", "manage_history",
-    # Student dashboard phone pill (replaced the RFID pill), 2026-10-23.
-    # In Google's MaterialSymbolsRounded codepoints file (smartphone e7ba,
-    # phonelink_off f7a5), and looked at rendered via tests/preview.py.
-    "smartphone", "phonelink_off",
-}
-
 # The icon passed positionally to the macros that take one: the second
 # argument of empty_state(message, icon) and the fourth of
 # stat_card(label, value, caption, icon, ...). Only quoted literals count.
@@ -234,10 +194,8 @@ _POSITIONAL_ICON = re.compile(
     r"empty_state\([^,()]+(?:\([^()]*\))?[^,()]*,\s*'([a-z_0-9]+)'\s*\)"
     r"|stat_card\((?:[^,()]+(?:\([^()]*\))?[^,()]*,\s*){3}'([a-z_0-9]+)'")
 
-# Names a script writes into a Material Symbols element. The markup regex
-# cannot see these, and a glyph that does not exist renders as its own name in
-# body text -- exactly as invisible here as it is in a template.
-_JS_ICON_ASSIGNMENT = re.compile(r"textContent\s*=\s*'([a-z_0-9]+)'")
+# icon_svg('name', ...) called directly.
+_ICON_SVG_CALL = re.compile(r"icon_svg\('([a-z_0-9]+)'")
 
 
 def test_rail_keyboard_and_screen_reader_contract():
@@ -251,9 +209,8 @@ def test_rail_keyboard_and_screen_reader_contract():
         for m in re.finditer(r"\{\{ 'nav-link-active' if (.+?) \}\}\"", source):
             tail = source[m.end():m.end() + 200]
             assert 'aria-current="page"' in tail, f"{name}: active link without aria-current ({m.group(1)})"
-        icons = re.findall(r'<span class="material-symbols-rounded[^"]*"[^>]*>', source)
-        unhidden = [i for i in icons if 'aria-hidden="true"' not in i]
-        assert not unhidden, f"{name}: rail icons read aloud: {unhidden[:3]}"
+        # Rail icons are icon_svg() calls, which are always aria-hidden.
+        assert "material-symbols" not in source, f"{name}: icon font markup is back"
     shell = (TEMPLATES / "_shell.html").read_text(encoding="utf-8")
     assert '<a href="#main" class="skip-link">' in shell
     assert 'id="main"' in shell
@@ -303,26 +260,20 @@ def test_admin_dropdowns_dont_submit_on_change():
     assert not offenders, f"submit-on-change is back in: {offenders}"
 
 
-def test_icon_names_exist_in_the_font():
-    """Guards against the silent 'renders as text' failure described above."""
-    pattern = re.compile(r"material-symbols-rounded[^>]*>([^<>{}]{2,30})<")
-    arg_pattern = re.compile(r"\bicon='([a-z_0-9]+)'")
-
+def test_icon_names_exist():
+    """Every icon a template names is in icons.ICONS. icon_svg() raises on
+    an unknown name, so a typo would break the page; this catches it
+    before a page is rendered, including names passed into macros."""
+    from icons import ICONS
+    arg_pattern = re.compile(r"icon='([a-z_0-9]+)'")
     used = set()
     for path in _templates():
         source = path.read_text(encoding="utf-8")
-        used.update(m.group(1).strip() for m in pattern.finditer(source))
-        # only icon= arguments that name a glyph, not prose
+        used.update(m.group(1) for m in _ICON_SVG_CALL.finditer(source))
         used.update(m.group(1) for m in arg_pattern.finditer(source))
-        used.update(m.group(1) for m in _JS_ICON_ASSIGNMENT.finditer(source))
         used.update(m.group(1) or m.group(2) for m in _POSITIONAL_ICON.finditer(source))
-
-    unknown = sorted(used - VERIFIED_MATERIAL_SYMBOLS)
-    assert not unknown, (
-        "icon name(s) not in the verified Material Symbols set. A name that is "
-        "not in the font renders as literal text with no error, so confirm the "
-        f"glyph visually before adding it: {unknown}"
-    )
+    unknown = sorted(used - set(ICONS))
+    assert not unknown, f"icon name(s) not in icons.ICONS: {unknown}"
 
 
 def test_data_tone_contract_is_complete():

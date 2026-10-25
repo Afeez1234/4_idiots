@@ -32,7 +32,7 @@
            said "N students at 300L" only by accident of placement. #}
         {% if flagged_count %}
             <div class="alert" data-tone="warning" role="status">
-                <span class="material-symbols-rounded">warning</span>
+                {{ icon_svg('warning', 'h-5 w-5 shrink-0') }}
                 <p>
                     {{ flagged_count }} student{{ '' if flagged_count == 1 else 's' }} at
                     {{ selected_level }}L {{ 'is' if flagged_count == 1 else 'are' }}
@@ -84,7 +84,7 @@
                                     {% endif %}
                                 </div>
                                 <div class="px-5 py-3">
-                                    <span class="material-symbols-rounded text-secondary transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span>
+                                    {{ icon_svg('expand_more', 'h-5 w-5 text-secondary transition-transform group-open:rotate-180 shrink-0') }}
                                 </div>
                             </summary>
 

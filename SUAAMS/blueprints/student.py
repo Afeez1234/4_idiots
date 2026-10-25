@@ -1,9 +1,13 @@
 from flask import Blueprint, flash, render_template, redirect, session, url_for
+from icons import icon as _icon_svg
 from utils import login_required, student_course_attendance
 from models import db, Student, Course, Session as SessionModel, Attendance, Announcement, Semester
 from extensions import log_exception
 
 student_bp = Blueprint('student', __name__)
+# icon_svg() in templates (icons.py). Registered app-wide by every web
+# blueprint, so an app that registers any one of them can render pages.
+student_bp.add_app_template_global(_icon_svg, 'icon_svg')
 
 
 @student_bp.context_processor
