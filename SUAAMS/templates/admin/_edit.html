@@ -126,11 +126,14 @@
                     if (field) field.focus();
                 });
             });
-            del.addEventListener('submit', function (e) {
-                if (!confirm(label + ': ' + current + '? This cannot be undone.')) e.preventDefault();
+            SUAAMS.confirmSubmit(del, function () {
+                return {title: label + ' ' + current + '?', message: 'This cannot be undone.',
+                        confirm: label, danger: true};
             });
-            reset.addEventListener('submit', function (e) {
-                if (!confirm('Reset the password of ' + current + '? Their current password stops working at once.')) e.preventDefault();
+            SUAAMS.confirmSubmit(reset, function () {
+                return {title: 'Reset the password of ' + current + '?',
+                        message: 'They get a new temporary password, shown to you once. Their current one stops working at once.',
+                        confirm: 'Reset password'};
             });
             document.getElementById('edit-close').addEventListener('click', close);
             document.getElementById('edit-cancel').addEventListener('click', close);

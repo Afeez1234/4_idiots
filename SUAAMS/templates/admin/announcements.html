@@ -47,7 +47,8 @@
                                can't recall notifications already sent. The old text said
                                "cannot be undone", which wasn't the point. #}
                             <form action="{{ url_for('admin.delete_announcement', announcement_id=a.id) }}" method="POST"
-                                  onsubmit="return confirm('Delete this announcement? Students stop seeing it now. Notifications already sent to phones can\'t be recalled.');">
+                                  data-confirm-title="Delete this announcement?" data-confirm-ok="Delete" data-confirm-danger
+                                  data-confirm="Students stop seeing it now. Notifications already sent to phones can't be recalled.">
                                 {% include '_csrf_field.html' %}
                                 <button type="submit" title="Delete announcement" class="btn-link ml-auto">
                                     Delete
@@ -155,7 +156,7 @@
 
         // Posting pushes to every student it reaches: say how many first.
         const form = document.getElementById('announcement-form');
-        form.addEventListener('submit', function (e) {
+        SUAAMS.confirmSubmit(form, function () {
             let count = parseInt(form.dataset.audience, 10);
             let who = 'every student';
             const picked = scopeSelect.value === 'department' ? departmentSelect
@@ -169,7 +170,7 @@
                 ? 'No students would receive this (' + who + '). Post it anyway?'
                 : 'Post this and send a notification to ' + count.toLocaleString() + ' student'
                   + (count === 1 ? '' : 's') + ' (' + who + ')?';
-            if (!confirm(message)) e.preventDefault();
+            return {title: 'Post this announcement?', message: message, confirm: 'Post'};
         });
     })();
 </script>

@@ -144,14 +144,11 @@
 <script>
     // Both act on thousands of students at once, so both ask first.
     document.querySelectorAll('.promote-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            if (!window.confirm(form.dataset.message)) e.preventDefault();
-        });
+        SUAAMS.confirmSubmit(form, {title: 'Promote these students?', message: form.dataset.message, confirm: 'Promote'});
     });
     document.querySelectorAll('.undo-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            if (!window.confirm('Move everyone this promotion moved back down a level?')) e.preventDefault();
-        });
+        SUAAMS.confirmSubmit(form, {title: 'Undo this promotion?',
+                                    message: 'Everyone it moved goes back down a level.', confirm: 'Undo promotion'});
     });
 </script>
 {% endblock %}

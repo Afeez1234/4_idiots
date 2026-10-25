@@ -594,9 +594,7 @@
     // Publishing swaps classes and sends notifications, so ask first. The
     // message (with counts) is rendered server-side into data-message.
     document.querySelectorAll('.publish-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            if (!window.confirm(form.dataset.message)) e.preventDefault();
-        });
+        SUAAMS.confirmSubmit(form, {title: 'Publish these classes?', message: form.dataset.message, confirm: 'Publish'});
     });
 </script>
 {# Everything below drives the grid, the slot modal and the banner, which
@@ -731,9 +729,11 @@
         });
         document.getElementById('slot-delete-btn').addEventListener('click', function () {
             var courseCode = document.getElementById('slot-view-course').textContent;
-            if (window.confirm('Remove this timetable slot (' + courseCode + ')?')) {
-                document.getElementById('slot-delete-form').submit();
-            }
+            SUAAMS.ask({title: 'Remove this ' + courseCode + ' slot?',
+                        message: 'Students and lecturers stop seeing this class on their week.',
+                        confirm: 'Remove slot', danger: true}).then(function (yes) {
+                if (yes) document.getElementById('slot-delete-form').submit();
+            });
         });
 
         // ---------- mobile agenda day-tab switcher ----------

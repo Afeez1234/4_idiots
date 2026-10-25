@@ -780,16 +780,16 @@ CONTEXTS = {
         entries=[
             ({"actor_label": "tunde", "created_at": datetime(2026, 10, 12, 9, 5),
               "summary": "Created student Ada Obi (MCT/19/0001)",
-              "action": "student.create"}, "success"),
+              "action": "student.create"}, "neutral"),
             ({"actor_label": "amaka", "created_at": datetime(2026, 10, 12, 8, 40),
               "summary": "Deleted department Physics and everything under it (3 students)",
-              "action": "department.delete"}, "error"),
+              "action": "department.delete"}, "ink"),
             ({"actor_label": "cli:N9ne", "created_at": datetime(2026, 10, 11, 18, 0),
               "summary": "Failed sign-in attempt for tunde",
-              "action": "auth.login_failed"}, "warning"),
+              "action": "auth.login_failed"}, "ink"),
             ({"actor_label": "tunde", "created_at": datetime(2026, 10, 11, 17, 0),
               "summary": "tunde set a new password",
-              "action": "auth.password_change"}, "neutral"),
+              "action": "auth.password_change"}, "accent"),
         ],
         pagination=_pagination(total=120, page=2, pages=3),
         people=["amaka", "cli:N9ne", "tunde"],
@@ -797,6 +797,8 @@ CONTEXTS = {
         filters={"who": "tunde", "what": ""},
         filter_args={"who": "tunde"},
         is_filtered=True,
+        # The real labeller, so the preview reads as the page does.
+        action_label=__import__("blueprints.admin", fromlist=["x"])._activity_label,
     ),
 
     # ---- HOD portal (blueprints/hod.py) ---------------------------------

@@ -1099,6 +1099,18 @@ plate in 18px mono with wide tracking (select-all on click) and a Copy
 button, which says "Copied" or selects the text where the clipboard isn't
 allowed.
 
+### Confirm dialog (portal)
+Every "are you sure" is the portal's own dialog (`SUAAMS.ask`,
+`_head_assets.html`), never the browser's `confirm()`: a title that names
+the thing ("Make 2026/2027 First Semester the active semester?"), one plain
+sentence on what changes, Cancel, and a button that names the action
+("Make active", "Publish", "Disable reader"). The action is indigo, or red
+only when it destroys something, and then Cancel takes the first focus so
+Enter can't destroy. An action that can't be undone and stops hardware
+(a reader's new secret) asks for the record's own code to be typed before
+its button enables. Forms opt in with `data-confirm` (plus
+`-title`, `-ok`, `-danger`) or `SUAAMS.confirmSubmit`.
+
 ### Buttons (site)
 - **Shape:** 12px corners, 52px tall, 0 x 22px padding, 16px semibold,
   20px icon. Small variant 44px tall, 15px.

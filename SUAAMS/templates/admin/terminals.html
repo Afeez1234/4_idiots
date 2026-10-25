@@ -25,9 +25,12 @@
             <div class="min-w-0 flex-1 text-sm text-ink">
                 <p class="font-semibold">Secret for {{ new_secret_for.code }}: copy it into that reader's <span class="mono">secrets.h</span> now.</p>
                 <p class="mt-1 text-secondary">It won't be shown again. If it's lost, issue a new one.</p>
-                <pre class="mono mt-3 overflow-x-auto rounded-card bg-surface p-3 text-xs text-ink">#define TERMINAL_ID     "{{ new_secret_for.code }}"
+                {# Wraps on a phone instead of scrolling sideways (the copied text
+                   is the same); Copy uses the shell's data-copy handler. #}
+                <pre id="reader-secret" class="mono mt-3 rounded-card bg-surface p-3 text-xs text-ink whitespace-pre-wrap break-all">#define TERMINAL_ID     "{{ new_secret_for.code }}"
 #define TERMINAL_SECRET "{{ new_secret }}"{% if new_secret_for.ble_number %}
 #define BLE_TERMINAL_NUMBER {{ new_secret_for.ble_number }}{% endif %}</pre>
+                <button type="button" class="btn-secondary btn-sm mt-2" data-copy="reader-secret">Copy</button>
             </div>
         </div>
     {% endif %}
@@ -183,19 +186,21 @@
 {% block extra_scripts %}
 <script>
     // A new secret stops the reader's current one working at once.
+    // The reader's code has to be typed: the old secret can't be brought
+    // back, and the reader takes no check-ins until it is reflashed.
     document.querySelectorAll('.secret-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            if (!confirm('Issue a new secret for ' + form.dataset.code + '? Its current secret stops working now, so the reader must be reflashed.')) {
-                e.preventDefault();
-            }
+        SUAAMS.confirmSubmit(form, {
+            title: 'Issue a new secret for ' + form.dataset.code + '?',
+            message: 'Its current secret stops working now. The reader takes no check-ins until it is reflashed with the new one, which is shown to you once.',
+            confirm: 'Issue new secret', danger: true, typeToConfirm: form.dataset.code,
         });
     });
     document.querySelectorAll('.disable-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            var where = form.dataset.room ? ' in ' + form.dataset.room : '';
-            if (!confirm('Disable reader ' + form.dataset.code + where + '? Check-ins at it stop now, until it is enabled again.')) {
-                e.preventDefault();
-            }
+        var where = form.dataset.room ? ' in ' + form.dataset.room : '';
+        SUAAMS.confirmSubmit(form, {
+            title: 'Disable reader ' + form.dataset.code + where + '?',
+            message: 'Check-ins at it stop now, until it is enabled again.',
+            confirm: 'Disable reader', danger: true,
         });
     });
 </script>

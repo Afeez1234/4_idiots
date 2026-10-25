@@ -302,3 +302,16 @@ if __name__ == "__main__":
     print()
     print(f"{len(tests) - failed} passed, {failed} failed")
     sys.exit(1 if failed else 0)
+
+
+def test_status_picker_groups_match_people_status():
+    """The status dialog groups "Leaving for good" from a list in the
+    template; it must be exactly the statuses that end an account
+    (people_status.STUDENT_EXITS, and Left for lecturers)."""
+    import people_status
+    source = (TEMPLATES / "admin" / "_status.html").read_text(encoding="utf-8")
+    m = re.search(r"\{% set leaving = \[([^\]]*)\] %\}", source)
+    assert m, "the leaving list is gone from _status.html"
+    listed = set(re.findall(r"'([a-z_]+)'", m.group(1)))
+    assert listed == people_status.STUDENT_EXITS | {"left"}
+

@@ -2980,6 +2980,44 @@ ACTIVITY_CATEGORIES = {
 }
 
 
+# The Activity page's words for an action key. It showed the raw key
+# ("student.create", "auth.login_failed") in a pill. Irregular ones are
+# listed; the rest read as thing + past tense ("Course created").
+_ACTION_WORDS = {
+    'auth.login': 'Signed in', 'auth.login_failed': 'Failed sign-in',
+    'auth.password_change': 'Changed own password', 'admin.disable': 'Admin switched off',
+    'student.unbind': 'Phone unbound', 'student.promote': 'Students promoted',
+    'student.promote_undo': 'Promotion undone', 'hod.promote': 'Lecturer made HOD',
+    'hod.remove': 'HOD removed', 'semester.activate': 'Semester made active',
+    'course.lecturer_add': 'Course lecturer added', 'course.lecturer_remove': 'Course lecturer removed',
+    'course.coordinator_change': 'Coordinator changed', 'terminal.secret': 'Reader given a new secret',
+    'terminal.enable': 'Reader enabled', 'terminal.disable': 'Reader switched off',
+    'timetable.remind': 'Lecturer reminded', 'timetable.import': 'Timetable imported',
+    'timetable.publish': 'Timetable published', 'timetable.copy': 'Timetable copied',
+    'analytics.export': 'Attendance list exported', 'report.export': 'Report exported',
+    'enrollment.create': 'Student enrolled',
+}
+_ACTION_VERBS = {
+    'create': 'created', 'delete': 'deleted', 'edit': 'edited', 'update': 'changed',
+    'status': 'status changed', 'bulk_status': 'given a new status from a CSV',
+    'password_reset': 'password reset', 'bulk_import': 'uploaded',
+}
+_ACTION_THINGS = {'hod': 'HOD', 'timetable': 'Timetable slot', 'announcement': 'Announcement',
+                  'terminal': 'Reader', 'enrollment': 'Enrolment'}
+
+
+def _activity_label(action):
+    """"student.create" -> "Student created"; an unknown key reads as it is."""
+    if action in _ACTION_WORDS:
+        return _ACTION_WORDS[action]
+    thing, _, verb = action.partition('.')
+    if verb in _ACTION_VERBS:
+        name = _ACTION_THINGS.get(thing, thing.capitalize())
+        # A bulk action is about many: "Students uploaded", not "Student".
+        return f"{name}s {_ACTION_VERBS[verb]}" if verb.startswith('bulk_') else f"{name} {_ACTION_VERBS[verb]}"
+    return action
+
+
 def _activity_tone(action):
     """Pill tone for an action: deletions, switched-off admins and failed
     sign-ins in solid ink, the ones worth a second look in indigo, the rest
@@ -3020,6 +3058,7 @@ def activity_page():
     return render_template(
         'admin/activity.html',
         entries=[(e, _activity_tone(e.action)) for e in pagination.items],
+        action_label=_activity_label,
         pagination=pagination,
         people=people,
         categories=ACTIVITY_CATEGORIES,

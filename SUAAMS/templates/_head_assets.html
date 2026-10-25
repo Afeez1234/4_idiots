@@ -8,3 +8,83 @@
 <link rel="preload" href="{{ url_for('static', filename='fonts/IBMPlexSans-Regular.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="{{ url_for('static', filename='fonts/IBMPlexSans-SemiBold.woff2') }}" as="font" type="font/woff2" crossorigin>
 <link href="{{ url_for('static', filename='css/output.css') }}" rel="stylesheet">
+{# The portal's confirm dialog (2026-10-25), in place of the browser's
+   confirm(): one look for every "are you sure", in the page's own style,
+   naming the action on its button, red only when it destroys something,
+   and asking for the record's own name to be typed when an action can't be
+   undone and stops hardware (a reader's new secret). Here in the head so a
+   script anywhere on the page can use it; the dialog is built on first use.
+
+     SUAAMS.ask({title, message, confirm, danger, typeToConfirm}) -> Promise<bool>
+     SUAAMS.confirmSubmit(form, opts or function returning opts)
+       -- asks on submit, then submits the form for real (with the button
+          that was pressed) on yes. #}
+<script>
+    (function () {
+        var S = window.SUAAMS = window.SUAAMS || {};
+        var dlg;
+        function build() {
+            dlg = document.createElement('dialog');
+            dlg.className = 'modal';
+            dlg.id = 'ask-dialog';
+            dlg.setAttribute('aria-labelledby', 'ask-title');
+            dlg.setAttribute('aria-describedby', 'ask-message');
+            dlg.innerHTML =
+                '<form method="dialog">' +
+                '<h2 class="card-title" id="ask-title"></h2>' +
+                '<p class="mt-2 text-sm leading-relaxed text-secondary" id="ask-message"></p>' +
+                '<div class="mt-4" id="ask-type" hidden>' +
+                '<label class="form-label" for="ask-input">Type <b class="mono text-ink" id="ask-word"></b> to confirm</label>' +
+                '<input class="form-input mono" id="ask-input" autocomplete="off" spellcheck="false">' +
+                '</div>' +
+                '<div class="mt-5 flex gap-3">' +
+                '<button class="btn-secondary flex-1" value="cancel" id="ask-cancel">Cancel</button>' +
+                '<button class="btn-primary flex-1" value="ok" id="ask-ok"></button>' +
+                '</div></form>';
+            document.body.appendChild(dlg);
+        }
+        S.ask = function (o) {
+            if (!dlg) build();
+            var ok = dlg.querySelector('#ask-ok');
+            var input = dlg.querySelector('#ask-input');
+            var typeBox = dlg.querySelector('#ask-type');
+            // textContent throughout: names are data, never markup.
+            dlg.querySelector('#ask-title').textContent = o.title || 'Are you sure?';
+            dlg.querySelector('#ask-message').textContent = o.message || '';
+            ok.textContent = o.confirm || 'Continue';
+            ok.className = (o.danger ? 'btn-danger' : 'btn-primary') + ' flex-1';
+            var word = o.typeToConfirm || '';
+            typeBox.hidden = !word;
+            dlg.querySelector('#ask-word').textContent = word;
+            input.value = '';
+            ok.disabled = !!word;
+            input.oninput = function () {
+                ok.disabled = input.value.trim().toUpperCase() !== word.toUpperCase();
+            };
+            dlg.returnValue = '';
+            return new Promise(function (resolve) {
+                dlg.addEventListener('close', function done() {
+                    dlg.removeEventListener('close', done);
+                    resolve(dlg.returnValue === 'ok');
+                });
+                dlg.showModal();
+                // Typing first when asked; otherwise Cancel for a destructive
+                // action (Enter shouldn't destroy), the action itself if not.
+                (word ? input : o.danger ? dlg.querySelector('#ask-cancel') : ok).focus();
+            });
+        };
+        S.confirmSubmit = function (form, opts) {
+            form.addEventListener('submit', function (e) {
+                if (form.dataset.asked === 'yes') { delete form.dataset.asked; return; }
+                e.preventDefault();
+                var submitter = e.submitter;
+                S.ask(typeof opts === 'function' ? opts(form) : opts).then(function (yes) {
+                    if (!yes) return;
+                    form.dataset.asked = 'yes';
+                    if (form.requestSubmit) form.requestSubmit(submitter || undefined);
+                    else form.submit();
+                });
+            });
+        };
+    })();
+</script>

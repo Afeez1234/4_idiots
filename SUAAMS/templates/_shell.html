@@ -299,11 +299,14 @@
                 });
             });
 
-            // Forms that ask first (data-confirm="<question>"), e.g. a
-            // password reset, whose current password stops working at once.
+            // Forms that ask first: data-confirm="<what happens>", with
+            // data-confirm-title, data-confirm-ok (the button's words) and
+            // data-confirm-danger for a destructive one. SUAAMS.ask is the
+            // portal's confirm dialog (_head_assets.html).
             document.querySelectorAll('form[data-confirm]').forEach(function (form) {
-                form.addEventListener('submit', function (e) {
-                    if (!confirm(form.dataset.confirm)) e.preventDefault();
+                SUAAMS.confirmSubmit(form, function () {
+                    return {title: form.dataset.confirmTitle, message: form.dataset.confirm,
+                            confirm: form.dataset.confirmOk, danger: 'confirmDanger' in form.dataset};
                 });
             });
 

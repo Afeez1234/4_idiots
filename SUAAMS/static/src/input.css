@@ -730,7 +730,14 @@
   /* The roster's filters: one toolbar row above the table. Labels are for
      screen readers at desk width (the selects say what they filter). */
   .roster-tools { @apply flex flex-wrap items-end gap-2 px-5 py-3; }
-  .roster-tools > div:not(:last-child) { @apply min-w-40 flex-1 lg:max-w-56; }
+  /* Each filter is as wide as its text (a semester name was cut to
+     "2025/2026 Second Semest..."), within the row; where field-sizing isn't
+     supported the field falls back to an even share of the row. */
+  .roster-tools > div:not(:last-child) { @apply min-w-36 flex-1; }
+  @supports (field-sizing: content) {
+    .roster-tools > div:not(:last-child) { flex: 0 1 auto; }
+    .roster-tools .form-select-sm { field-sizing: content; min-width: 9rem; max-width: 100%; }
+  }
   .roster-q { @apply mr-2 self-center text-sm text-secondary; }
   .form-select-sm { @apply h-9 py-1.5 pl-3 text-sm; }
   @media (width >= 64rem) { .sr-only-lg { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } }
