@@ -22,6 +22,16 @@
             {% if unchanged %}{{ unchanged }} already {{ 'has' if unchanged == 1 else 'have' }} that status.{% endif %}
             Reason: &ldquo;{{ reason }}&rdquo;
         </p>
+        {# What the change does besides the label (people_status.consequences),
+           so "Set 300 to Expelled" says it releases 300 phones. #}
+        {% if changing and consequences %}
+            <ul class="consequences" aria-label="What this does">
+                {% for line in consequences %}<li>{{ line }}</li>{% endfor %}
+                {% if kind == 'students' and final and phones_bound %}
+                    <li><b>{{ phones_bound }}</b> of them {{ 'has' if phones_bound == 1 else 'have' }} a phone bound now.</li>
+                {% endif %}
+            </ul>
+        {% endif %}
 
         {% if missing or blocked %}
             <div class="alert" data-tone="warning">
@@ -35,14 +45,25 @@
             </div>
             <a href="{{ back_url }}" class="btn-secondary">Back</a>
         {% elif changing %}
-            <form action="{{ url_for('admin.bulk_status', kind=kind) }}" method="POST" class="flex flex-wrap gap-2">
+            <form action="{{ url_for('admin.bulk_status', kind=kind) }}" method="POST" class="flex flex-wrap items-end gap-2">
                 {% include '_csrf_field.html' %}
                 <input type="hidden" name="confirm" value="1">
                 <input type="hidden" name="ids" value="{{ ids_json }}">
                 <input type="hidden" name="status" value="{{ status }}">
                 <input type="hidden" name="reason" value="{{ reason }}">
                 {% if source %}<input type="hidden" name="source" value="{{ source }}">{% endif %}
-                <button type="submit" class="btn-primary">Set {{ changing|length }} to {{ names[status] }}</button>
+                {% if must_type %}
+                    {# Many people, for good: type the count. The server checks it too. #}
+                    <div class="w-full sm:w-auto">
+                        <label class="form-label" for="typed-count">Type <b class="mono text-ink">{{ changing|length }}</b> to confirm</label>
+                        <input type="text" name="typed_count" id="typed-count" inputmode="numeric" autocomplete="off"
+                               required class="form-input mono w-40" data-expect="{{ changing|length }}"
+                               {% if typed_wrong %}aria-invalid="true" aria-describedby="typed-error"{% endif %}>
+                        {% if typed_wrong %}<p class="form-help text-error-ink" id="typed-error">That isn't {{ changing|length }}. Nobody has been changed.</p>{% endif %}
+                    </div>
+                {% endif %}
+                {# Red for leaving for good; indigo for a change that can be set back. #}
+                <button type="submit" id="status-go" class="{{ 'btn-danger' if final else 'btn-primary' }}">Set {{ changing|length }} to {{ names[status] }}</button>
                 <a href="{{ back_url }}" class="btn-ghost">Cancel</a>
             </form>
         {% else %}
@@ -83,4 +104,18 @@
         </div>
     </div>
     {% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // The confirm button waits for the typed count (the server checks it too).
+    (function () {
+        var input = document.getElementById('typed-count');
+        var go = document.getElementById('status-go');
+        if (!input || !go) return;
+        function sync() { go.disabled = input.value.trim() !== input.dataset.expect; }
+        input.addEventListener('input', sync);
+        sync();
+    })();
+</script>
 {% endblock %}

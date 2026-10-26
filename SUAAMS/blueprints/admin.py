@@ -826,12 +826,21 @@ def bulk_status(kind):
             codes = [c.course_code for c in people_status.running_courses(p)]
             if codes:
                 blocked[p.id] = ', '.join(codes)
-    if not request.form.get('confirm') or missing or blocked:
+    # Removing many people for good: the count is typed on the preview, and
+    # checked here too, against the count at confirm time (2026-10-26).
+    final = people_status.is_final(kind, status)
+    must_type = final and len(changing) > people_status.TYPE_COUNT_OVER
+    typed_ok = request.form.get('typed_count', '').strip() == str(len(changing))
+    if not request.form.get('confirm') or missing or blocked or (must_type and not typed_ok):
         return render_template(
             'admin/status_preview.html', kind=kind, names=names, status=status, reason=reason,
             changing=changing, unchanged=len(found) - len(changing), missing=missing, blocked=blocked,
             ids_json=json.dumps(ids), back_url=back, active_page=kind,
             source=request.form.get('source', ''),
+            final=final, must_type=must_type,
+            typed_wrong=bool(request.form.get('confirm')) and must_type and not typed_ok,
+            consequences=people_status.consequences(kind, status),
+            phones_bound=sum(1 for p in changing if getattr(p, 'device_id', None)),
         )
     try:
         changed = sum(1 for p in changing if _set_status(kind, p, status, reason))

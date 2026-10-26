@@ -43,6 +43,32 @@ LECTURER_STATUSES = {
 
 REASON_MAX = 255
 MAX_ROWS = 2000         # a whole graduating set fits in one file
+# A bulk change that removes people for good, above this many, asks for the
+# count to be typed on the preview (2026-10-26): "Set 300 to Expelled" was
+# one click on the same button as any save.
+TYPE_COUNT_OVER = 20
+
+
+def is_final(kind, status):
+    """Leaving for good: a student's exit, or a lecturer who has left."""
+    return status in STUDENT_EXITS if kind == 'students' else status == 'left'
+
+
+def consequences(kind, status):
+    """What setting this status does besides the label, in plain words for
+    the bulk preview. Kept here, next to the rules above, so the words can't
+    drift from what set_student_status / set_lecturer_status actually do."""
+    if status == 'active':
+        return ['They can sign in again.']
+    lines = ["They can't sign in, and their phones stop getting the school's notifications"
+             + (", until they're set back to Active." if not is_final(kind, status) else '.')]
+    if kind == 'students':
+        lines.append('Their phones are released, so another student can bind them.'
+                     if status in STUDENT_EXITS else 'Their phones stay bound to them.')
+    elif status == 'left':
+        lines.append("They're taken off the co-lecturer list of every course still running.")
+    lines.append('Nothing is deleted: attendance and results stay.')
+    return lines
 
 
 class StatusError(ValueError):

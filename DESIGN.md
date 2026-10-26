@@ -1139,6 +1139,15 @@ status... (a dialog that goes through the same preview as a status CSV),
 Export CSV, and Clear. Hidden while nothing is ticked. Unbinding is never
 on it: that needs the student's ID card, one at a time.
 
+### Bulk status preview (portal)
+The summary is followed by a plain list of what the change does besides
+the label (sign-in off, phones released or kept, nothing deleted), from
+`people_status.consequences`. Leaving for good (a student's exit, a
+lecturer who left) is the red button; a change that can be set back stays
+indigo. Above 20 people leaving for good, the count is typed into the page
+before the button enables. The bulk status selects open on an empty
+"Choose a status", never on Active.
+
 ### Bulk preview cells (portal)
 A row that can't be saved lists first and marks the cell it fails on
 (`.td.is-bad`): error-soft fill, error-ink semibold text, a 2px error rule

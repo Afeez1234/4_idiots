@@ -21,6 +21,7 @@ Run with:  python tests/test_people_status.py
 """
 
 import io
+import json
 import os
 import sys
 import unittest
@@ -400,6 +401,39 @@ class PeopleStatusTestCase(unittest.TestCase):
         self.assertEqual(db.session.get(Student, self.ada.id).status, 'graduated')
         entry = AuditLog.query.filter_by(action='student.bulk_status').one()
         self.assertIn('picked on the roster', entry.summary)
+
+    def test_bulk_preview_says_what_a_status_does(self):
+        # Graduating releases phones and switches off sign-in; the preview
+        # says so, counts the bound phones and uses the red button.
+        self.sign_in()
+        with mock.patch('blueprints.admin.render_template', return_value='') as render:
+            self.client.post('/admin/students/status/bulk', data={
+                'source': 'roster', 'ids': '["MCT/20/0001", "MCT/20/0002"]',
+                'status': 'graduated', 'reason': 'Class of 2026'})
+        kw = render.call_args.kwargs
+        self.assertTrue(kw['final'])
+        self.assertFalse(kw['must_type'])                       # 2 people: no typing
+        self.assertEqual(kw['phones_bound'], 2)
+        self.assertTrue(any('released' in line for line in kw['consequences']))
+        # Suspension can be set back: not final, phones stay.
+        self.assertFalse(ps.is_final('students', 'suspended'))
+        self.assertIn('Their phones stay bound to them.', ps.consequences('students', 'suspended'))
+        self.assertTrue(ps.is_final('lecturers', 'left'))
+
+    def test_many_leaving_for_good_needs_the_count_typed(self):
+        many = [self.student(f'S{i}', f'MCT/20/1{i:03d}') for i in range(ps.TYPE_COUNT_OVER + 1)]
+        db.session.commit()
+        ids = json.dumps([s.matric_number for s in many])
+        n = str(len(many))
+        self.sign_in()
+        data = {'source': 'roster', 'confirm': '1', 'ids': ids, 'status': 'expelled', 'reason': 'Senate list'}
+        with mock.patch('blueprints.admin.render_template', return_value='') as render:
+            self.client.post('/admin/students/status/bulk', data=data)                     # no count typed
+            self.client.post('/admin/students/status/bulk', data=dict(data, typed_count='20'))
+        self.assertTrue(render.call_args.kwargs['typed_wrong'])
+        self.assertEqual(Student.query.filter_by(status='expelled').count(), 0)            # nobody changed
+        self.client.post('/admin/students/status/bulk', data=dict(data, typed_count=f' {n} '))
+        self.assertEqual(Student.query.filter_by(status='expelled').count(), len(many))
 
     def test_export_of_picked_students(self):
         self.ada.full_name = '=cmd|calc'

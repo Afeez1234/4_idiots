@@ -117,10 +117,16 @@
                 </div>
                 <div>
                     <label class="form-label" for="bulk-status-select">New status</label>
+                    {# No default, and grouped like the one-person dialog (2026-10-26). #}
+                    {% set leaving = ['graduated', 'withdrawn', 'expelled', 'deceased', 'left'] %}
                     <select name="status" id="bulk-status-select" required class="form-select">
-                        {% for key, label in names.items() %}
-                            <option value="{{ key }}">{{ label }}</option>
-                        {% endfor %}
+                        <option value="" disabled selected>Choose a status</option>
+                        <optgroup label="Still with the school">
+                            {% for key, label in names.items() if key not in leaving %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+                        </optgroup>
+                        <optgroup label="Leaving for good">
+                            {% for key, label in names.items() if key in leaving %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+                        </optgroup>
                     </select>
                 </div>
                 <div>

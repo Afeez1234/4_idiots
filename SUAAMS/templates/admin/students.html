@@ -307,7 +307,10 @@
             {% set leaving = ['graduated', 'withdrawn', 'expelled', 'deceased', 'left'] %}
             <div>
                 <label class="form-label" for="pick-status">Status</label>
-                <select name="status" id="pick-status" required class="form-select">
+                {# No default (2026-10-26): it opened on Active. autofocus: the
+                   dialog lands here, not on Close. #}
+                <select name="status" id="pick-status" required autofocus class="form-select">
+                    <option value="" disabled selected>Choose a status</option>
                     <optgroup label="Still with the school">
                         {% for key, label in student_statuses.items() if key not in leaving %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
                     </optgroup>

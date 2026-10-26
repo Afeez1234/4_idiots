@@ -813,6 +813,8 @@
     @apply sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-accent-line bg-accent-soft px-5 py-2.5;
   }
   .pick-bar[hidden] { display: none; }
+  /* A bulk status preview's "what this does" list (people_status.consequences). */
+  .consequences { @apply list-disc space-y-1 pl-5 text-sm text-ink; }
   /* The cell a bulk-preview row fails on (bulk_upload.BulkRow.bad_fields). */
   .td.is-bad { @apply bg-error-soft font-semibold text-error-ink; box-shadow: inset 0 -2px 0 var(--color-error); }
   .table tbody tr.is-open .record-link { @apply text-accent-ink; }
