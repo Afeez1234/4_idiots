@@ -359,7 +359,10 @@ database it stops with "no such table: users".
 Give each person who manages the dashboard their own login the same way
 (`python create_admin.py <their-username>`), and never share one. To switch
 someone off: `python create_admin.py <username> --disable`. Their past
-changes stay on the Activity page under their name.
+changes stay on the Activity page under their name. An admin who forgot
+their password: `python create_admin.py <username> --reset` prints a new
+one-time password (run it against the production database: Render's Shell,
+or production's `DB_*` values, not a `.env` pointed at dev).
 
 The server refuses to start until `.env` has the database details,
 `SECRET_KEY` and `JWT_SECRET_KEY`. Check-in also needs

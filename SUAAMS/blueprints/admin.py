@@ -958,7 +958,7 @@ def reset_password(kind, record_id):
     app's refresh token is revoked, so a phone still signed in is signed out
     within one access-token lifetime. The device binding is untouched:
     unbinding stays its own action, done after checking the student's ID.
-    Admins reset their own through create_admin.py, not here.
+    Admins are reset with `python create_admin.py <name> --reset`, not here.
     """
     if kind not in ('students', 'lecturers'):
         return redirect(url_for('admin.dashboard'))
