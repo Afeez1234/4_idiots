@@ -1,0 +1,117 @@
+{% extends "base_admin.html" %}
+{% from '_macros.html' import card_heading %}
+
+{# The semester changeover checklist (changeover.py, 2026-10-26). Every
+   step's state comes from the data; the first open one carries the one
+   indigo action. Nothing is locked except promotion, which needs the
+   semester to be active. Steps that don't apply (a second semester has no
+   graduation, promotion or intake) aren't listed at all. #}
+
+{% block title %}Changeover · {{ semester.name }} | SUAAMS Admin{% endblock %}
+{% block page_title %}Changeover{% endblock %}
+{% block page_subtitle %}
+    <p class="page-subtitle">
+        {{ semester.name }} &middot; <span class="mono">{{ state.done }}</span> of <span class="mono">{{ state.total }}</span> done
+    </p>
+{% endblock %}
+
+{% block page_actions %}
+    <div class="ml-auto flex items-center gap-2">
+        <a href="{{ url_for('admin.semesters_page') }}" class="btn-secondary btn-sm">All semesters</a>
+    </div>
+{% endblock %}
+
+{# One step's action: primary on the next open step, secondary on other
+   open ones, a quiet link once done. #}
+{% macro act(step, label, href) -%}
+    <a href="{{ href }}" class="{{ 'btn-primary btn-sm' if state.next == step.key else ('btn-link' if step.done else 'btn-secondary btn-sm') }}">{{ label }}</a>
+{%- endmacro %}
+
+{% macro tick_form(step) -%}
+    <form action="{{ url_for('admin.changeover_tick', semester_id=semester.id) }}" method="POST">
+        {% include '_csrf_field.html' %}
+        <input type="hidden" name="step" value="{{ step.key }}">
+        {% if step.done %}
+            <input type="hidden" name="undo" value="1">
+            <button type="submit" class="btn-link">Not done</button>
+        {% else %}
+            <button type="submit" class="{{ 'btn-primary btn-sm' if state.next == step.key else 'btn-secondary btn-sm' }}">{{ icon_svg('check', 'h-4 w-4') }}Mark done</button>
+        {% endif %}
+    </form>
+{%- endmacro %}
+
+{% block content %}
+    <div class="card-clip">
+        <div class="card-header">
+            {{ card_heading(semester.start_date.strftime('%d %b %Y') ~ ' – ' ~ semester.end_date.strftime('%d %b %Y')) }}
+        </div>
+        <ol class="steps" aria-label="Changeover steps">
+            {% for step in state.steps %}
+                <li class="step {{ 'is-next' if state.next == step.key }}" data-state="{{ 'done' if step.done else ('blocked' if step.blocked else 'open') }}">
+                    <span class="step-mark" aria-hidden="true">
+                        {% if step.done %}{{ icon_svg('check', 'h-4 w-4') }}{% else %}{{ loop.index }}{% endif %}
+                    </span>
+                    <div class="min-w-0">
+                        <p class="step-title">
+                            {{ step.title }}
+                            <span class="sr-only">: {{ 'done' if step.done else ('waiting on an earlier step' if step.blocked else 'still to do') }}</span>
+                        </p>
+                        <p class="step-fact">{{ step.fact }}</p>
+                        {% if step.tick %}
+                            <p class="step-note">Marked done by {{ step.tick.user.username if step.tick.user else 'a removed account' }}, {{ relative_time(step.tick.done_at) }}</p>
+                        {% endif %}
+                        {% if step.note %}<p class="step-note">{{ step.note }}</p>{% endif %}
+                    </div>
+                    <div class="step-actions">
+                        {% if step.key == 'semester' %}
+                            {{ act(step, 'Edit dates', url_for('admin.semesters_page')) }}
+                        {% elif step.key == 'courses' %}
+                            {% if copy_source and not step.done %}
+                                <form action="{{ url_for('admin.courses_copy') }}" method="POST">
+                                    {% include '_csrf_field.html' %}
+                                    <input type="hidden" name="source_id" value="{{ copy_source.id }}">
+                                    <input type="hidden" name="semester_id" value="{{ semester.id }}">
+                                    <button type="submit" class="{{ 'btn-primary btn-sm' if state.next == step.key else 'btn-secondary btn-sm' }}">Copy from {{ copy_source.name }}</button>
+                                </form>
+                                <a href="{{ url_for('admin.courses_page', semester=semester.id) }}" class="btn-link">Upload instead</a>
+                            {% else %}
+                                {{ act(step, 'Open Courses', url_for('admin.courses_page', semester=semester.id)) }}
+                            {% endif %}
+                        {% elif step.key == 'coordinators' %}
+                            {{ act(step, 'Open Courses', url_for('admin.courses_page', semester=semester.id)) }}
+                        {% elif step.key == 'timetable' %}
+                            {{ act(step, 'Open Timetable', url_for('admin.timetable_page', semester=semester.id)) }}
+                        {% elif step.key == 'active' %}
+                            {% if not step.done %}
+                                {# The Semesters page's confirm and warnings (_activate_confirm.html). #}
+                                <form action="{{ url_for('admin.semesters_page') }}" method="POST" class="activate-form"
+                                      data-name="{{ semester.name }}" data-courses="{{ n_courses }}" data-slots="{{ n_slots }}">
+                                    {% include '_csrf_field.html' %}
+                                    <input type="hidden" name="action" value="activate">
+                                    <input type="hidden" name="semester_id" value="{{ semester.id }}">
+                                    <input type="hidden" name="back" value="changeover">
+                                    <button type="submit" class="{{ 'btn-primary btn-sm' if state.next == step.key else 'btn-secondary btn-sm' }}">Make active</button>
+                                </form>
+                            {% endif %}
+                        {% elif step.key == 'graduate' %}
+                            {% if not step.done %}
+                                <a href="{{ url_for('admin.promotion_due_csv') }}" class="btn-link">{{ icon_svg('download', 'h-4 w-4') }}The list</a>
+                                <a href="{{ url_for('admin.students_page') }}" class="btn-link">Change status</a>
+                            {% endif %}
+                            {{ tick_form(step) }}
+                        {% elif step.key == 'promote' %}
+                            {% if not step.blocked %}{{ act(step, 'Open Promotion', url_for('admin.promotion_page')) }}{% endif %}
+                        {% elif step.key == 'intake' %}
+                            {% if not step.done %}<a href="{{ url_for('admin.students_page') }}" class="btn-link">Upload</a>{% endif %}
+                            {{ tick_form(step) }}
+                        {% endif %}
+                    </div>
+                </li>
+            {% endfor %}
+        </ol>
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+    {% include 'admin/_activate_confirm.html' %}
+{% endblock %}

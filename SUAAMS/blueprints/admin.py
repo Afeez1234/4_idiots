@@ -38,6 +38,7 @@ import promotion
 import record_edits
 import terminal_rooms
 import dashboard_today
+import changeover
 import analytics
 from people_status import STUDENT_STATUSES, LECTURER_STATUSES
 
@@ -132,6 +133,8 @@ def dashboard():
             **(_drawer_context() if record else {}),
             department_attendance=dashboard_today.department_rates(semester),
             recent_checkins=dashboard_today.recent_checkins(),
+            # A semester changeover under way: one line above the board.
+            changeover=changeover.banner(),
             relative_time=_relative_time,
             active_page='dashboard',
         )
@@ -2707,6 +2710,9 @@ def semesters_page():
                 db.session.rollback()
                 flash('Failed to activate semester.', 'error')
                 log_exception("Semester Activation Error")
+            # Made active from its changeover checklist: back there.
+            if request.form.get('back') == 'changeover' and semester_id:
+                return redirect(url_for('admin.changeover_page', semester_id=int(semester_id)))
         else:
             # Each failure says what it is. Every exception here used to be
             # reported as "Semester name must be unique", a bad date included,
@@ -2757,8 +2763,51 @@ def semesters_page():
         delete_blockers=record_edits.delete_blockers('semesters', semesters),
         course_counts=courses,
         slot_counts=slots,
+        today=campus_today(),
         active_page='semesters',
     )
+
+
+@admin_bp.route('/semesters/<int:semester_id>/changeover', methods=['GET'])
+def changeover_page(semester_id):
+    """The changeover checklist for one semester (changeover.py): every
+    step's state from the data, the next one as the action. Read-only apart
+    from the two manual ticks."""
+    semester = db.session.get(Semester, semester_id)
+    if semester is None:
+        flash('That semester no longer exists.', 'error')
+        return redirect(url_for('admin.semesters_page'))
+    semesters = Semester.query.order_by(Semester.start_date.desc()).all()
+    return render_template(
+        'admin/changeover.html',
+        semester=semester,
+        state=changeover.checklist(semester),
+        copy_source=tt_import.default_copy_source(semester, semesters),
+        n_courses=Course.query.filter_by(semester_id=semester.id).count(),
+        n_slots=Timetable.query.filter_by(semester_id=semester.id, is_published=True).count(),
+        relative_time=_relative_time,
+        active_page='semesters',
+    )
+
+
+@admin_bp.route('/semesters/<int:semester_id>/changeover/tick', methods=['POST'])
+@limiter.limit("30 per minute")
+def changeover_tick(semester_id):
+    """Mark a manual step done, or (undo=1) not done after all. Logged."""
+    semester = db.session.get(Semester, semester_id)
+    step = request.form.get('step', '')
+    if semester is None or step not in changeover.MANUAL:
+        flash('That step can\'t be marked by hand.', 'error')
+        return redirect(url_for('admin.semesters_page'))
+    titles = {'graduate': 'Graduate the final years', 'intake': 'Upload the new intake'}
+    undo = bool(request.form.get('undo'))
+    changed = changeover.untick(semester, step) if undo else changeover.tick(semester, step, session.get('user_id'))
+    if changed:
+        log_action('semester.changeover', f"{'Unmarked' if undo else 'Marked'} \"{titles[step]}\" "
+                   f"{'as not done' if undo else 'done'} for {semester.name}",
+                   'semester', semester.id, {'step': step, 'done': not undo})
+        db.session.commit()
+    return redirect(url_for('admin.changeover_page', semester_id=semester.id))
 
 
 # ==========================================
@@ -3105,6 +3154,7 @@ _ACTION_WORDS = {
     'timetable.publish': 'Timetable published', 'timetable.copy': 'Timetable copied',
     'analytics.export': 'Attendance list exported', 'report.export': 'Report exported',
     'student.export': 'Students exported',
+    'semester.changeover': 'Changeover step marked',
     'enrollment.create': 'Student enrolled',
 }
 _ACTION_VERBS = {

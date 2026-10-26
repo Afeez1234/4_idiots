@@ -111,7 +111,7 @@ changeover. History screens deliberately don't. `courses_taught_by` and
 
 **Architecture:** Blueprint-based — auth, admin, lecturer, student, api.
 bcrypt auth, role-based `login_required` decorator. JWT-based endpoints for
-mobile (auth + lecturer flows). 20-table schema (see `models.py`), grown
+mobile (auth + lecturer flows). 21-table schema (see `models.py`), grown
 from an original seven-table design built around ESP32 + RFID capture.
 
 ### Known active issue

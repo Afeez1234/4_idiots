@@ -1139,6 +1139,17 @@ function can return null to let one button through unasked (an offline
 tap's Accept; only Reject asks). This holds on the lecturer pages too, and
 `tests/test_templates.py` fails on any `confirm(...)` call in a template.
 
+### Changeover checklist (portal)
+An ordered list, one row per step: a 28px round mark (the step number;
+solid ink with a tick once done), the step as an instruction ("Get its
+courses in") over its live fact in secondary text ("41 courses in
+2026/2027 First Semester"), and its action on the right. The first open
+step is marked like an open record (indigo-soft, 3px indigo rule, indigo
+ring on its number) and carries the one primary button; other open steps
+get secondary buttons, done ones a quiet text link. Steps that don't apply
+aren't shown. Below 40rem the action drops under the text. The door board
+announces a changeover under way in one indigo banner line above the board.
+
 ### Roster selection (portal)
 Students only. A checkbox column (indigo `accent-color`, select-all with an
 indeterminate state for "some") and, once one row is ticked, the pick bar:

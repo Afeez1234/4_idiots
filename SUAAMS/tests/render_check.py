@@ -30,6 +30,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import app as application  # noqa: E402
+from changeover import Step  # noqa: E402
 
 fa = application.app
 
@@ -250,6 +251,9 @@ CONTEXTS = {
         role="admin",
         active_page="dashboard",
         active_semester={"name": "2026/2027 First Semester"},
+        # changeover.banner(): a semester starting soon, half ready.
+        changeover={"semester": {"id": 3, "name": "2026/2027 Second Semester"},
+                    "done": 3, "total": 5, "starts_in": 9},
         today=dict(_DOOR_TODAY, checkins={
             "count": 216, "expected": 244, "pct": 89,
             "by_method": [("nfc", 170), ("ble", 30), ("manual", 10), ("unknown", 6)]}),
@@ -598,10 +602,40 @@ CONTEXTS = {
                    {"id": 2, "name": "2024/2025 First Semester", "is_active": False}],
     ),
 
+    # The changeover checklist (changeover.checklist) for a new academic
+    # year's first semester: courses in, coordinators short, timetable not
+    # imported, not active, graduation ticked, promotion waiting on activation.
+    "admin/changeover.html": dict(
+        role="admin",
+        active_page="semesters",
+        active_semester=None,
+        semester={"id": 3, "name": "2026/2027 First Semester",
+                  "start_date": date(2026, 9, 14), "end_date": date(2027, 1, 29), "is_active": False},
+        state={"steps": [
+            Step("semester", "Create the semester", "14 Sep 2026 to 29 Jan 2027", True),
+            Step("courses", "Get its courses in", "41 courses in 2026/2027 First Semester", True),
+            Step("coordinators", "Give every course an active coordinator",
+                 "2 courses without an active coordinator: MCT401, CPE405", False),
+            Step("timetable", "Import and publish the timetable", "Not imported yet", False,
+                 note="It doesn't hold up making the semester active: the Student Affairs PDFs can arrive after classes start."),
+            Step("active", "Make it the active semester", "Not active yet", False),
+            Step("graduate", "Graduate the final years", "212 active students at or past their final level", True,
+                 tick=SimpleNamespace(user=SimpleNamespace(username="tunde"), done_at=datetime(2026, 9, 2, 10, 0))),
+            Step("promote", "Promote everyone for 2026/2027", "Make the semester active first", False, blocked=True),
+            Step("intake", "Upload the new intake", "0 active students at 100 level", False),
+        ], "next": "coordinators", "done": 3, "total": 8},
+        copy_source={"id": 1, "name": "2025/2026 First Semester"},
+        n_courses=41,
+        n_slots=0,
+        relative_time=lambda dt: "3 days ago",
+    ),
+
     "admin/semesters.html": dict(
         role="admin",
         active_page="semesters",
         active_semester=None,
+        # Both still running on this date, so both get a Checklist link.
+        today=date(2026, 1, 15),
         semesters=[
             {
                 "id": 1,

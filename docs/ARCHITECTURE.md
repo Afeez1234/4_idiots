@@ -253,7 +253,7 @@ shows a "Happening Now" banner for the class that *should* be running.
 
 ---
 
-## 7. Data model (20 tables)
+## 7. Data model (21 tables)
 
 Defined in [models.py](../SUAAMS/models.py).
 
@@ -264,7 +264,7 @@ Defined in [models.py](../SUAAMS/models.py).
 | Teaching | `courses` (unique per code + semester; `lecturer_id` = coordinator), `course_lecturers` (co-lecturers), `enrollments`, `timetable` (`kind` L/T/P, `is_published`), `sessions` (`started_by`) |
 | Attendance | `attendance` (unique per student + session, `status`, `method`, `marked_by`), `offline_checkin_logs` (unique per student + session) |
 | Comms | `announcements`, `notifications`, `device_tokens` (FCM) |
-| Admin | `audit_logs` (who changed what), `promotion_runs` (one per academic year, undoable) |
+| Admin | `audit_logs` (who changed what), `promotion_runs` (one per academic year, undoable), `changeover_ticks` (the changeover checklist's two hand-ticked steps, per semester) |
 | Other | `results` |
 
 Deletes cascade downwards (for example, deleting a session deletes its

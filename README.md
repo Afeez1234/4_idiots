@@ -51,7 +51,7 @@ there is no limit on how many students can enrol.
 | Part | What it is | Where in the repo |
 |---|---|---|
 | **Mobile app** | Flutter app for students and lecturers, Android and iOS | [SUAAMS_Mobile/suaams/](SUAAMS_Mobile/suaams/) |
-| **Server** | Python/Flask API, plus web dashboards for admin, HOD, lecturer, student. MySQL database (20 tables) hosted on Clever Cloud, server hosted on Render | [SUAAMS/](SUAAMS/) |
+| **Server** | Python/Flask API, plus web dashboards for admin, HOD, lecturer, student. MySQL database (21 tables) hosted on Clever Cloud, server hosted on Render | [SUAAMS/](SUAAMS/) |
 | **Terminal** | ESP32 microcontroller + PN532 NFC reader. Also broadcasts a Bluetooth signal for phones without NFC | [ESP32_ARDUINO CODE/SUAAMS_HCE/](ESP32_ARDUINO%20CODE/SUAAMS_HCE/) |
 
 The original prototype read plastic RFID cards with an MFRC522 reader. The

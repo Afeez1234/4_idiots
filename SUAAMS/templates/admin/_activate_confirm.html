@@ -1,0 +1,31 @@
+{# Make a semester active, asking first (Semesters page and the changeover
+   checklist): what students and lecturers see follows the active semester,
+   so it says plainly when the semester has nothing in it yet. Forms opt in
+   with class activate-form and data-name / data-courses / data-slots. #}
+<script>
+    // Set Active changes what every student and lecturer sees (the "now"
+    // screens follow the active semester), so it asks -- and says plainly
+    // when the semester has nothing in it yet.
+    document.querySelectorAll('.activate-form').forEach(function (form) {
+        function activateMessage() {
+            var name = form.dataset.name;
+            var courses = parseInt(form.dataset.courses, 10);
+            var slots = parseInt(form.dataset.slots, 10);
+            var message;
+            if (courses === 0) {
+                message = name + ' has no courses yet. Once it is active, students and lecturers will see no courses '
+                    + 'or classes until courses are copied in (Courses page) and a timetable is published. Make it active anyway?';
+            } else if (slots === 0) {
+                message = name + ' has ' + courses + ' course(s) but no published timetable, so the Today and Week '
+                    + 'screens will be empty until one is published. Make it active anyway?';
+            } else {
+                message = 'Students and lecturers see, and register for, its courses from now on.';
+            }
+            return message;
+        }
+        SUAAMS.confirmSubmit(form, function () {
+            return {title: 'Make ' + form.dataset.name + ' the active semester?', message: activateMessage(),
+                    confirm: 'Make active'};
+        });
+    });
+</script>

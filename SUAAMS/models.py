@@ -37,6 +37,22 @@ class Department(db.Model):
     courses = db.relationship('Course', backref='department', lazy=True, cascade="all, delete-orphan")
 
 
+class ChangeoverTick(db.Model):
+    # A changeover step an admin marked done by hand (changeover.py): the
+    # ones the data can't confirm -- graduating the final years (the system
+    # never decides someone has graduated) and uploading the new intake.
+    # One row per semester and step; deleting it is "not done after all".
+    __tablename__ = 'changeover_ticks'
+    id = db.Column(db.Integer, primary_key=True)
+    semester_id = db.Column(db.Integer, db.ForeignKey('semesters.id', ondelete='CASCADE'), nullable=False)
+    step = db.Column(db.String(20), nullable=False)
+    done_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    done_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    user = db.relationship('User')
+
+    __table_args__ = (db.UniqueConstraint('semester_id', 'step', name='uq_changeover_tick'),)
+
+
 class PromotionRun(db.Model):
     # One row per academic year in which students were moved up a level
     # (promotion.py). academic_year is unique, which is what stops the same
@@ -83,6 +99,10 @@ class Semester(db.Model):
     courses = db.relationship('Course', backref='semester', lazy=True)
     timetable_entries = db.relationship('Timetable', backref='semester', lazy=True)
     results = db.relationship('Result', backref='semester', lazy=True)
+    # The changeover checklist's manual ticks belong to the semester outright
+    # (no history of their own), so unlike the above they go with it.
+    changeover_ticks = db.relationship('ChangeoverTick', backref='semester', lazy=True,
+                                       cascade='all, delete-orphan')
 
 
 # ==========================================

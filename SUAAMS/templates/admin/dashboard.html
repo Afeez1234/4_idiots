@@ -43,6 +43,21 @@
        what its room's reader shows (dashboard_today.door_board). It took
        the place of the late-class banners, the three stat cards and the
        Today's Classes table, which said the same things in three places. #}
+    {# A semester changeover under way (changeover.banner): one line, gone
+       once every step is done. #}
+    {% if changeover %}
+        <div class="now-banner mb-4" data-tone="warning">
+            <span class="now-banner-icon" data-tone="warning">{{ icon_svg('date_range', 'h-5 w-5 shrink-0') }}</span>
+            <p class="min-w-0 flex-1 text-sm text-ink">
+                <span class="font-semibold">{{ changeover.semester.name }}</span>
+                {% if changeover.starts_in > 0 %}starts in {{ changeover.starts_in }} day{{ '' if changeover.starts_in == 1 else 's' }}
+                {% elif changeover.starts_in == 0 %}starts today
+                {% else %}started {{ -changeover.starts_in }} day{{ '' if changeover.starts_in == -1 else 's' }} ago{% endif %}
+                &middot; <span class="mono">{{ changeover.done }}</span> of <span class="mono">{{ changeover.total }}</span> changeover steps done
+            </p>
+            <a href="{{ url_for('admin.changeover_page', semester_id=changeover.semester.id) }}" class="btn-secondary btn-sm shrink-0">Open checklist</a>
+        </div>
+    {% endif %}
     {{ board_rows(board) }}
     {# Spoken only: a change in how many classes need you, and a refresh
        that has stopped. The board's values change silently otherwise. #}
