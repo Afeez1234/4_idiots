@@ -325,7 +325,7 @@
             <div class="flex items-center justify-between gap-3 px-5 pt-5 pb-4">
                 <div>
                     {{ card_heading(view.dept_name ~ ' · ' ~ (view.level ~ ' level' if view.level != 'other' else 'other courses')) }}
-                    <a href="{{ url_for('admin.timetable_page', semester=view.semester_id) }}" class="text-xs text-accent">&larr; All departments</a>
+                    <a href="{{ url_for('admin.timetable_page', semester=view.semester_id) }}" class="inline-flex min-h-6 items-center text-xs text-accent">&larr; All departments</a>
                 </div>
                 <span class="text-xs text-muted">{{ timetable_entries|length }} slot{{ '' if timetable_entries|length == 1 else 's' }}</span>
             </div>
