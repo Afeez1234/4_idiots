@@ -435,6 +435,35 @@ class PeopleStatusTestCase(unittest.TestCase):
         self.client.post('/admin/students/status/bulk', data=dict(data, typed_count=f' {n} '))
         self.assertEqual(Student.query.filter_by(status='expelled').count(), len(many))
 
+    def test_select_all_matching_uses_the_roster_filters(self):
+        # scope=filtered: every student the roster's filters match (from the
+        # action URL), not just the ticked page. Here: phone bound, which
+        # leaves out the one whose phone was released.
+        loose = self.student('Chi', 'MCT/20/0003')
+        loose.device_id = None
+        db.session.commit()
+        self.sign_in()
+        with mock.patch('blueprints.admin.render_template', return_value='') as render:
+            self.client.post('/admin/students/status/bulk?device=bound', data={
+                'source': 'roster', 'scope': 'filtered', 'ids': '[]',
+                'status': 'suspended', 'reason': 'Fees'})
+        kw = render.call_args.kwargs
+        self.assertEqual(sorted(p.matric_number for p in kw['changing']), ['MCT/20/0001', 'MCT/20/0002'])
+        # The preview carries that fixed list to the confirm.
+        self.assertEqual(json.loads(kw['ids_json']), ['MCT/20/0001', 'MCT/20/0002'])
+        resp = self.client.post('/admin/students/export?device=unbound', data={'scope': 'filtered', 'ids': '[]'})
+        lines = resp.get_data(as_text=True).splitlines()
+        self.assertEqual(len(lines), 2)
+        self.assertTrue(lines[1].startswith('MCT/20/0003'))
+
+    def test_select_all_matching_is_capped(self):
+        self.sign_in()
+        with mock.patch.object(ps, 'MAX_ROWS', 1):
+            resp = self.client.post('/admin/students/status/bulk', data={
+                'source': 'roster', 'scope': 'filtered', 'status': 'suspended', 'reason': 'Fees'})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(Student.query.filter_by(status='suspended').count(), 0)
+
     def test_export_of_picked_students(self):
         self.ada.full_name = '=cmd|calc'
         db.session.commit()

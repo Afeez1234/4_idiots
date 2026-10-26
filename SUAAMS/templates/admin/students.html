@@ -37,10 +37,12 @@
        class. #}
     <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
         <button type="button" class="btn-primary btn-sm" data-dialog="dlg-add">{{ icon_svg('add', 'h-4 w-4') }}Add student</button>
+        {# Out of the More menu (2026-10-26): uploads of hundreds of rows are
+           how admins add most students. #}
+        <button type="button" class="btn-secondary btn-sm" data-dialog="dlg-upload">{{ icon_svg('upload', 'h-4 w-4') }}Upload</button>
         <details class="menu">
             <summary class="btn-secondary btn-sm">More {{ icon_svg('expand_more', 'h-4 w-4') }}</summary>
             <div class="menu-list">
-                <button type="button" data-dialog="dlg-upload">{{ icon_svg('upload', 'h-4 w-4') }}Upload students</button>
                 <button type="button" data-dialog="dlg-status">{{ icon_svg('upload_file', 'h-4 w-4') }}Change status from a CSV</button>
                 <a href="{{ url_for('admin.promotion_page') }}">{{ icon_svg('school', 'h-4 w-4') }}Promote students (new session)</a>
             </div>
@@ -178,11 +180,19 @@
                 </div>
                 {# Appears once a student is picked. Unbinding stays one student at
                    a time: it needs that student's ID card. #}
-                <div id="pick-bar" class="pick-bar" hidden>
-                    <span class="text-sm text-ink"><b class="mono" id="pick-count">0</b> selected</span>
+                {# "Select all N matching" (2026-10-26): with this page's rows all
+                   ticked and more students matching, the bar offers the rest;
+                   the forms then send scope=filtered and the server takes the
+                   roster's filters from the action URL (admin._picked_matrics). #}
+                <div id="pick-bar" class="pick-bar" hidden data-total="{{ pagination.total }}">
+                    <span class="text-sm text-ink" aria-live="polite"><b class="mono" id="pick-count">0</b> selected<span id="pick-scope-note"></span></span>
+                    {% if pagination.total > students|length %}
+                        <button type="button" class="btn-link" id="pick-matching" hidden>Select all {{ '{:,}'.format(pagination.total) }} matching</button>
+                    {% endif %}
                     <button type="button" class="btn-secondary btn-sm" data-dialog="dlg-pickstatus">Change status&hellip;</button>
                     <form action="{{ url_for('admin.export_students', **filter_args) }}" method="POST">
                         {% include '_csrf_field.html' %}
+                        <input type="hidden" name="scope" class="pick-scope" value="picked">
                         <input type="hidden" name="ids" class="pick-ids" value="[]">
                         <button type="submit" class="btn-secondary btn-sm">{{ icon_svg('download', 'h-4 w-4') }}Export CSV</button>
                     </form>
@@ -300,9 +310,10 @@
     <dialog class="modal" id="dlg-pickstatus" aria-labelledby="dlg-pickstatus-title">
         <div class="modal-head"><h2 class="card-title" id="dlg-pickstatus-title">Change status of <span class="pick-count-copy">0</span> students</h2>
             <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
-        <form action="{{ url_for('admin.bulk_status', kind='students') }}" method="POST" class="space-y-4">
+        <form action="{{ url_for('admin.bulk_status', kind='students', **filter_args) }}" method="POST" class="space-y-4">
             {% include '_csrf_field.html' %}
             <input type="hidden" name="source" value="roster">
+            <input type="hidden" name="scope" class="pick-scope" value="picked">
             <input type="hidden" name="ids" class="pick-ids" value="[]">
             {% set leaving = ['graduated', 'withdrawn', 'expelled', 'deceased', 'left'] %}
             <div>
@@ -346,18 +357,29 @@
     // shared behaviour, in _shell.html.
 
     // Picking students: the bar shows the count, and the picked matric
-    // numbers ride in each of its forms.
+    // numbers ride in each of its forms. With every row on this page ticked
+    // and more students matching, "Select all N matching" switches the forms
+    // to scope=filtered; changing any tick switches back.
     (function () {
         var bar = document.getElementById('pick-bar');
         var all = document.getElementById('pick-all');
+        var matching = document.getElementById('pick-matching');
         var rows = Array.prototype.slice.call(document.querySelectorAll('.row-pick'));
         if (!bar || !rows.length) return;
+        var total = parseInt(bar.dataset.total, 10) || rows.length;
+        var filtered = false;
         function sync() {
             var picked = rows.filter(function (r) { return r.checked; }).map(function (r) { return r.value; });
+            if (picked.length < rows.length) filtered = false;
+            var count = filtered ? total : picked.length;
             bar.hidden = !picked.length;
-            document.getElementById('pick-count').textContent = picked.length;
-            document.querySelectorAll('.pick-count-copy').forEach(function (e) { e.textContent = picked.length; });
+            document.getElementById('pick-count').textContent = count.toLocaleString();
+            document.getElementById('pick-scope-note').textContent =
+                filtered ? ', every student matching these filters' : (picked.length === rows.length && matching ? ' on this page' : '');
+            if (matching) matching.hidden = filtered || picked.length !== rows.length;
+            document.querySelectorAll('.pick-count-copy').forEach(function (e) { e.textContent = count.toLocaleString(); });
             document.querySelectorAll('.pick-ids').forEach(function (i) { i.value = JSON.stringify(picked); });
+            document.querySelectorAll('.pick-scope').forEach(function (i) { i.value = filtered ? 'filtered' : 'picked'; });
             all.checked = picked.length === rows.length;
             all.indeterminate = picked.length > 0 && picked.length < rows.length;
         }
@@ -366,8 +388,10 @@
             rows.forEach(function (r) { r.checked = all.checked; });
             sync();
         });
+        if (matching) matching.addEventListener('click', function () { filtered = true; sync(); });
         document.getElementById('pick-clear').addEventListener('click', function () {
             rows.forEach(function (r) { r.checked = false; });
+            filtered = false;
             sync();
         });
         sync();

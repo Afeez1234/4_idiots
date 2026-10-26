@@ -1144,7 +1144,11 @@ Students only. A checkbox column (indigo `accent-color`, select-all with an
 indeterminate state for "some") and, once one row is ticked, the pick bar:
 a sticky accent-soft strip under the table with the count in mono, Change
 status... (a dialog that goes through the same preview as a status CSV),
-Export CSV, and Clear. Hidden while nothing is ticked. Unbinding is never
+Export CSV, and Clear. Hidden while nothing is ticked. With every row on the
+page ticked and more students matching, a text link offers "Select all N
+matching"; the count then reads "N selected, every student matching these
+filters", and the count is announced (polite live region). Upload sits
+beside Add student as a secondary button; the rarer bulk jobs stay in More. Unbinding is never
 on it: that needs the student's ID card, one at a time.
 
 ### Bulk status preview (portal)
@@ -1161,7 +1165,10 @@ A row that can't be saved lists first and marks the cell it fails on
 (`.td.is-bad`): error-soft fill, error-ink semibold text, a 2px error rule
 along the bottom. The row's pill is the solid ink Problem, not red: the
 red is for the one cell. A Download the N problem rows button hands back
-just those rows, with a `problem` column, to fix and upload again.
+just those rows, with a `problem` column, to fix and upload again. On a
+file that is blocked (lecturers, courses), that download is the primary
+button beside Back, and the rows that are fine fold away below the problems
+behind "Show the N rows that are fine".
 
 ### Buttons (site)
 - **Shape:** 12px corners, 52px tall, 0 x 22px padding, 16px semibold,

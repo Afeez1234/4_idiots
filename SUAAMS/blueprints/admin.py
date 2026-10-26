@@ -797,9 +797,12 @@ def bulk_status(kind):
     back = url_for(page)
     status, reason = request.form.get('status', ''), request.form.get('reason', '')
     try:
-        if request.form.get('confirm') or request.form.get('source') == 'roster':
-            # The confirm step, or students picked on the roster (2026-10-26):
-            # the IDs come straight from the form instead of a CSV.
+        if request.form.get('source') == 'roster' and not request.form.get('confirm'):
+            # Students picked on the roster (2026-10-26): ticked rows, or
+            # every student matching its filters. The preview then carries
+            # that fixed list to the confirm.
+            ids = _picked_matrics()
+        elif request.form.get('confirm'):
             ids = json.loads(request.form.get('ids') or '[]')
         else:
             upload = request.files.get('file')
@@ -1172,6 +1175,53 @@ def _student_filter_args():
     return {k: request.args[k] for k in STUDENT_FILTER_ARGS if request.args.get(k)}
 
 
+def _roster_query(args):
+    """The Students roster's filters (q, dept, level, device, status) as a
+    query. One place, so "Select all N matching" acts on exactly the
+    students the roster lists (2026-10-26)."""
+    q = (args.get('q') or '').strip()
+    dept_id = args.get('dept', type=int)
+    level = (args.get('level') or '').strip()
+    device, status = args.get('device', ''), args.get('status', '')
+    query = Student.query
+    if q:
+        # Partial, case-insensitive. Matric number first because that's what
+        # the admin is usually holding -- the student presents their ID card.
+        pattern = f'%{_escape_like(q)}%'
+        query = query.filter(or_(
+            Student.matric_number.ilike(pattern, escape='\\'),
+            Student.full_name.ilike(pattern, escape='\\'),
+        ))
+    if dept_id:
+        query = query.filter(Student.department_id == dept_id)
+    if level:
+        query = query.filter(Student.level == level)
+    if device == 'bound':
+        query = query.filter(Student.device_id.isnot(None))
+    elif device == 'unbound':
+        query = query.filter(Student.device_id.is_(None))
+    if status in STUDENT_STATUSES:
+        query = query.filter(Student.status == status)
+    return query
+
+
+def _picked_matrics():
+    """The students a roster action is for: the ticked rows (ids, JSON), or
+    with scope=filtered every student matching the roster's filters (in the
+    action URL's query string). Raises StatusError past MAX_ROWS."""
+    if request.form.get('scope') == 'filtered':
+        rows = (_roster_query(request.args).with_entities(Student.matric_number)
+                .order_by(Student.matric_number).limit(people_status.MAX_ROWS + 1).all())
+        if len(rows) > people_status.MAX_ROWS:
+            raise people_status.StatusError(
+                f'More than {people_status.MAX_ROWS} students match. Narrow the filters and try again.')
+        return [m for (m,) in rows]
+    try:
+        return [str(m) for m in json.loads(request.form.get('ids') or '[]')][:people_status.MAX_ROWS]
+    except ValueError:
+        return []
+
+
 def _escape_like(text):
     """Makes % and _ in a search term match literally rather than as LIKE wildcards."""
     return text.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
@@ -1297,25 +1347,7 @@ def students_page():
     status = request.args.get('status', '')
     page = request.args.get('page', 1, type=int)
 
-    query = Student.query
-    if q:
-        # Partial, case-insensitive. Matric number first because that's what
-        # the admin is usually holding -- the student presents their ID card.
-        pattern = f'%{_escape_like(q)}%'
-        query = query.filter(or_(
-            Student.matric_number.ilike(pattern, escape='\\'),
-            Student.full_name.ilike(pattern, escape='\\'),
-        ))
-    if dept_id:
-        query = query.filter(Student.department_id == dept_id)
-    if level:
-        query = query.filter(Student.level == level)
-    if device == 'bound':
-        query = query.filter(Student.device_id.isnot(None))
-    elif device == 'unbound':
-        query = query.filter(Student.device_id.is_(None))
-    if status in STUDENT_STATUSES:
-        query = query.filter(Student.status == status)
+    query = _roster_query(request.args)
 
     # joinedload: the template reads student.department and student.user on
     # every row, which would otherwise be two extra queries per student.
@@ -1405,9 +1437,10 @@ def export_students():
     level, department, status, and whether a phone is bound. Personal data
     leaving the system, so it's logged. Formula-safe."""
     try:
-        matrics = [str(m) for m in json.loads(request.form.get('ids') or '[]')][:STUDENTS_PER_PAGE * 20]
-    except ValueError:
-        matrics = []
+        matrics = _picked_matrics()
+    except people_status.StatusError as e:
+        flash(str(e), 'error')
+        return redirect(url_for('admin.students_page', **_student_filter_args()))
     students = (Student.query.options(joinedload(Student.department))
                 .filter(Student.matric_number.in_(matrics))
                 .order_by(Student.matric_number).all()) if matrics else []
