@@ -85,7 +85,9 @@
                             {% if a.is_active %}
                                 <form action="{{ url_for('lecturer.delete_announcement', announcement_id=a.id) }}"
                                       method="POST" class="shrink-0"
-                                      onsubmit="return confirm('Delete this announcement? This cannot be undone.');">
+                                      data-confirm-title="Delete this announcement?"
+                                      data-confirm="Students stop seeing it. It stays on this list as Inactive and can't be switched back on."
+                                      data-confirm-ok="Delete" data-confirm-danger>
                                     {% include '_csrf_field.html' %}
                                     <button type="submit" title="Delete announcement"
                                             aria-label="Delete announcement" class="btn-icon btn-ghost hover:text-error">

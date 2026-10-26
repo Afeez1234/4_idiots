@@ -572,9 +572,9 @@
                 </div>
             </form>
 
-            {# Submitted via JS after a confirm() -- no cascade risk beyond the
-               FK-RESTRICT the backend already handles gracefully, so a
-               lightweight native confirm is enough here (unlike the
+            {# Submitted via JS after the portal's confirm (SUAAMS.ask) -- no
+               cascade risk beyond the FK-RESTRICT the backend already handles
+               gracefully, so a plain confirm is enough here (unlike the
                type-the-name modal organization.html uses for cascading
                faculty/department deletes). #}
             <form id="slot-delete-form" action="{{ url_for('admin.timetable_page', **view.args) }}" method="POST" class="hidden">

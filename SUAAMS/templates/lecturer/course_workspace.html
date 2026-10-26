@@ -148,15 +148,18 @@
         }
         if (liveSearch) liveSearch.addEventListener('input', applySearch);
 
-        // End Session asks first, with how many have checked in.
+        // End Session asks first, with how many have checked in (read when
+        // asked, so the live count is current). The portal's dialog, not
+        // the browser's confirm(); red, as check-ins stop for good.
         document.querySelectorAll('.end-session-form').forEach(function (form) {
-            form.addEventListener('submit', function (e) {
+            SUAAMS.confirmSubmit(form, function () {
                 var count = document.querySelector('[data-live-count] .stat-value');
                 var n = count ? count.textContent.trim() : '?';
-                if (!confirm('End ' + form.dataset.course + "'s class now? " + n + ' student(s) have checked in; '
-                             + "anyone who hasn't won't be able to after this.")) {
-                    e.preventDefault();
-                }
+                return {
+                    title: 'End ' + form.dataset.course + "'s class now?",
+                    message: n + " student(s) have checked in. Anyone who hasn't won't be able to after this.",
+                    confirm: 'End class', danger: true,
+                };
             });
         });
 

@@ -1126,7 +1126,10 @@ only when it destroys something, and then Cancel takes the first focus so
 Enter can't destroy. An action that can't be undone and stops hardware
 (a reader's new secret) asks for the record's own code to be typed before
 its button enables. Forms opt in with `data-confirm` (plus
-`-title`, `-ok`, `-danger`) or `SUAAMS.confirmSubmit`.
+`-title`, `-ok`, `-danger`) or `SUAAMS.confirmSubmit`, whose options
+function can return null to let one button through unasked (an offline
+tap's Accept; only Reject asks). This holds on the lecturer pages too, and
+`tests/test_templates.py` fails on any `confirm(...)` call in a template.
 
 ### Roster selection (portal)
 Students only. A checkbox column (indigo `accent-color`, select-all with an

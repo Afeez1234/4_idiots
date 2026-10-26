@@ -72,6 +72,22 @@ def test_shell_dom_contract():
         assert f'id="{hook}"' in shared, f"_shell.html is missing id=\"{hook}\""
 
 
+def test_no_browser_confirm():
+    """Every "are you sure" is the portal's own dialog (SUAAMS.ask /
+    confirmSubmit / data-confirm, in _head_assets.html), never the browser's
+    confirm(): its box can't name the action on its button, can't be red
+    for a destructive one, and looks like a different program. The lecturer
+    pages were the last to move (2026-10-26). Comments that say "confirm()"
+    are fine; a call with an argument is not."""
+    pattern = re.compile(r'(?<![\w.$])confirm\([^)]')
+    violations = []
+    for path in _templates():
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if pattern.search(line):
+                violations.append(f"{path.relative_to(TEMPLATES).as_posix()}:{lineno}: {line.strip()[:110]}")
+    assert not violations, "Use SUAAMS.confirmSubmit or data-confirm:\n" + "\n".join(violations)
+
+
 def test_no_split_tailwind_class_names():
     """The redesign's biggest silent-failure mode.
 

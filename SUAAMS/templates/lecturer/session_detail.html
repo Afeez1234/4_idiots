@@ -329,10 +329,10 @@
     // Confirm before a manual mark -- it vouches for presence under the
     // lecturer's name, so a stray click shouldn't do it.
     document.querySelectorAll('.mark-present-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            if (!confirm(`Mark ${form.dataset.studentName} present?`)) {
-                e.preventDefault();
-            }
+        SUAAMS.confirmSubmit(form, {
+            title: `Mark ${form.dataset.studentName} present?`,
+            message: 'Recorded as marked by you, not a tap.',
+            confirm: 'Mark present',
         });
     });
 
@@ -341,20 +341,22 @@
     // evidence the student was there.
     // e.submitter is the button that was clicked (decision=accept|reject).
     document.querySelectorAll('.offline-tap-form').forEach(function (form) {
-        form.addEventListener('submit', function (e) {
-            if (e.submitter && e.submitter.value === 'reject' &&
-                !confirm(`Reject ${form.dataset.studentName}'s offline tap? They won't be marked present.`)) {
-                e.preventDefault();
-            }
+        SUAAMS.confirmSubmit(form, function (form, submitter) {
+            if (!submitter || submitter.value !== 'reject') return null;
+            return {
+                title: `Reject ${form.dataset.studentName}'s offline tap?`,
+                message: "They won't be marked present, and the tap can't be accepted later.",
+                confirm: 'Reject tap', danger: true,
+            };
         });
     });
 
     const acceptAllForm = document.getElementById('accept-all-offline-form');
     if (acceptAllForm) {
-        acceptAllForm.addEventListener('submit', function (e) {
-            if (!confirm(`Accept all ${acceptAllForm.dataset.count} offline taps? Each student is marked at the time they tapped, under your name.`)) {
-                e.preventDefault();
-            }
+        SUAAMS.confirmSubmit(acceptAllForm, {
+            title: `Accept all ${acceptAllForm.dataset.count} offline taps?`,
+            message: 'Each student is marked at the time they tapped, under your name.',
+            confirm: 'Accept all',
         });
     }
 </script>

@@ -16,9 +16,11 @@
    script anywhere on the page can use it; the dialog is built on first use.
 
      SUAAMS.ask({title, message, confirm, danger, typeToConfirm}) -> Promise<bool>
-     SUAAMS.confirmSubmit(form, opts or function returning opts)
+     SUAAMS.confirmSubmit(form, opts or function(form, submitter) returning opts)
        -- asks on submit, then submits the form for real (with the button
-          that was pressed) on yes. #}
+          that was pressed) on yes. A function that returns null lets that
+          submit through without asking (e.g. only a form's Reject button
+          asks). #}
 <script>
     (function () {
         var S = window.SUAAMS = window.SUAAMS || {};
@@ -88,9 +90,11 @@
         S.confirmSubmit = function (form, opts) {
             form.addEventListener('submit', function (e) {
                 if (form.dataset.asked === 'yes') { delete form.dataset.asked; return; }
-                e.preventDefault();
                 var submitter = e.submitter;
-                S.ask(typeof opts === 'function' ? opts(form) : opts).then(function (yes) {
+                var o = typeof opts === 'function' ? opts(form, submitter) : opts;
+                if (!o) return;   // nothing to ask for this button
+                e.preventDefault();
+                S.ask(o).then(function (yes) {
                     if (!yes) return;
                     form.dataset.asked = 'yes';
                     if (form.requestSubmit) form.requestSubmit(submitter || undefined);
