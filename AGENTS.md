@@ -1,3 +1,6 @@
+<!-- A copy of CLAUDE.md for agents that read AGENTS.md. Keep the two identical:
+     edit CLAUDE.md, then copy it here. -->
+
 # SUAAMS — Smart Universal Automated Attendance Management System
 
 ## Overview
@@ -9,6 +12,11 @@ SQLAlchemy backend, physical ESP32 terminal hardware.
 Repo layout:
 - `SUAAMS/` — Flask API
 - `SUAAMS_Mobile/` — Flutter mobile frontend
+- `landing/` — static landing page and privacy policy for `suaams.com.ng`
+  (plain HTML/CSS on Netlify: a push to `main` deploys it; the APKs are
+  GitHub Release files; the domain's DNS stays at WhoGoHost). Every claim on it must
+  be true of the shipped system; update `privacy.html` when the app starts
+  collecting something new.
 
 Changes to one side (e.g. an API response shape) often require corresponding
 changes on the other (e.g. a Flutter model). Always consider both sides when
@@ -23,7 +31,10 @@ Explain the approach and tradeoffs, confirm direction, then implement.
   Flutter Secure Storage (hardware cryptographic key store)
 - **Backend**: Python/Flask, Flask-SQLAlchemy (ORM), Flask-JWT-Extended
   (stateless auth), Flask-Migrate (version tracking), MySQL (Clever Cloud),
-  deployed on Render
+  deployed on Render at `portal.suaams.com.ng` (dashboards and API alike;
+  `suaams.onrender.com` still answers, unredirected, for old builds and
+  unflashed terminals). Landing page at `suaams.com.ng`. See
+  `docs/ARCHITECTURE.md` section 11.
 - **Hardware**: ESP32 microcontrollers via NFC HCE (APDU ISO 7816-4) and BLE
   (RSSI proximity)
 
@@ -55,12 +66,33 @@ duplicate type definitions and generic bound errors in Riverpod compilation.
 **Design system:** midnight-black theme, Plus Jakarta Sans, terminal-style
 language conventions, custom SUAAMS logo via `CustomPainter`.
 
+**Attendance status colours (app and web):** present green, late amber (still
+counts as attended), absent red, excused grey -- always with its text label.
+One map each side: `lib/shared/utils/attendance_status.dart` and the web's
+`attendance_status_pill` macro in `templates/_macros.html`. Don't hand-write
+another; `tests/test_status_pills.py` fails if a template does.
+
 **Status:** full auth flow implemented; student dashboard with four tabs;
 50-item phased roadmap in place for remaining work.
 
 ### Known active issue
 
 ## Backend (`SUAAMS/`) standards
+
+**Credentials come from the environment, never from source.** `app.py` reads
+`SECRET_KEY`, `JWT_SECRET_KEY`, `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+through `_require_env()`, which **raises at startup if any is missing**. Copy
+`SUAAMS/.env.example` to `SUAAMS/.env` for local work; the real values live
+in Render's environment for production.
+
+Never reintroduce an `os.environ.get(NAME, '<literal>')` fallback for a
+credential. That pattern is what put the production database password and
+both signing keys into git history — and because the resolved value was never
+empty, the "missing environment variable" check beneath it could never fire.
+It read like enforcement and enforced nothing. `BEACON_SIGNING_SECRET`,
+`TERMINAL_ID` and `TERMINAL_SECRET` are checked lazily where they're used, so
+their absence disables check-in only, with a logged reason, rather than
+preventing the app from booting.
 
 **Database — ORM only.** Never execute raw SQL or open direct cursors
 (`cursor = connection.cursor()`). Always use SQLAlchemy ORM
@@ -73,9 +105,16 @@ Define strict cascades (`cascade="all, delete-orphan"`) on model relationships
 so child records (e.g. attendance ledger nodes) are pruned cleanly when
 parents (e.g. sessions) are cleared.
 
+**Current semester.** Enrolments and published timetables never expire, so
+any screen that shows "now" (a student's Today/Week/Dashboard, a lecturer's
+courses or week, an HOD's figures) must scope through `utils.current_courses`
+/ `current_slot_filter`, or it mixes last year with this year after a
+changeover. History screens deliberately don't. `courses_taught_by` and
+`student.courses` are every semester ever.
+
 **Architecture:** Blueprint-based — auth, admin, lecturer, student, api.
 bcrypt auth, role-based `login_required` decorator. JWT-based endpoints for
-mobile (auth + lecturer flows). 17-table schema (see `models.py`), grown
+mobile (auth + lecturer flows). 21-table schema (see `models.py`), grown
 from an original seven-table design built around ESP32 + RFID capture.
 
 ### Known active issue
@@ -90,6 +129,19 @@ Verify new code and flows against these anti-spoofing vectors:
   (`device_id`) at first login. Logging in from a different device is an
   instant lockout. Resetting requires an admin manually nulling the value via
   the Admin Web Dashboard (student presents physical school ID to request it).
+  The binding runs both ways: a phone can hold **one student account only**
+  (`students.device_id` is unique; `mobile_login` returns `DEVICE IN USE`).
+  Without that, one phone could bind several classmates' accounts and its
+  owner could check them all in with their own fingerprint. The app must
+  never send a placeholder ID when the hardware ID can't be read — a shared
+  constant makes every failing phone look like the same device — and the
+  backend rejects the old placeholder strings (`DEVICE UNVERIFIED`).
+  **Never change the Android release signing key** (`android/key.properties`
+  + `suaams-release.jks`, not in git, created 2026-10-15). `ANDROID_ID` is
+  scoped to the signing key, so a new key gives every phone a new ID and
+  every bound student is locked out until an admin unbinds them. The same
+  certificate's hash is freeRASP's `signingCertHashes`; a mismatch blocks
+  check-in on every release build.
 - **Biometric invalidation — PLANNED, NOT BUILT.** Check-in today uses
   `local_auth.authenticate()`: a yes/no prompt that also accepts the device
   PIN, with no key behind it. So the "add a classmate's print, let them
@@ -107,12 +159,13 @@ Verify new code and flows against these anti-spoofing vectors:
   older than that, regardless of how long the phone kept broadcasting.
   (`BEACON_TOKEN_TTL_SECONDS` in `beacon.py` is the single source of truth;
   it was 3 until 2026-09-27, when a hardware bench run showed the window was
-  being spent on the wrong thing — the student's walk-up to the terminal, not
-  the radio. See that constant for the full reasoning.)
-  A relay attacker must capture *and* present the token within this window and
-  be within NFC range (~4cm) to do it. For calibration, TOTP/dynamic-password
+  being spent on the wrong thing. See that constant for the full reasoning.)
+  A relay attacker must capture *and* present the token within this window,
+  and be within NFC range (~4cm) to do it — at 10s they cannot walk a
+  captured phone anywhere meaningful. For calibration, TOTP/dynamic-password
   systems use 30s and Apple BLE proximity beacons run 5–30s, so this remains
-  a tight bound.
+  a tight bound; 3s was strict enough to break legitimate use while
+  defending against little that 10s would not.
   The mobile app itself may keep the payload broadcasting a couple seconds
   longer as a UX/hardware buffer before wiping its buffers — those late reads
   are expected to fail server-side validation once the token has expired;
@@ -120,6 +173,61 @@ Verify new code and flows against these anti-spoofing vectors:
 - **Rooted/jailbroken devices**: on startup, run integrity-checking (e.g.
   `freerasp`) and refuse to generate transaction payloads if the OS is
   compromised — closes the runtime-injection bypass of the biometric check.
+
+### Check-in beacon format (rebuilt 2026-09-25)
+
+The beacon is **not** a JWT. It is a compact stateless HMAC handle defined in
+`SUAAMS/beacon.py`:
+
+```
+payload = student_id(4B) || session_id(4B) || exp_unix(4B)   # 12 bytes
+sig     = HMAC-SHA256(BEACON_SIGNING_SECRET, payload)[:12]  # 12 bytes
+token   = base64url(payload || sig)                          # 32 chars
+```
+
+It replaces a ~360-byte Flask JWT that had to be chunked across six
+`61xx`/GET RESPONSE round-trips (~650ms) to cross the PN532 radio link. The
+link was measured degrading after ~119 bytes, so taps were unreliable. At
+34 bytes the whole read is **one APDU exchange** — do not reintroduce
+chunking; `tests/test_beacon.py` fails if the token outgrows a single frame.
+
+Three rules that are load-bearing:
+- **`BEACON_SIGNING_SECRET` and `TERMINAL_ID`/`TERMINAL_SECRET` have no
+  defaults.** Unset means disabled, not weak. Never give them a fallback
+  literal — that pattern is what made the guard in `app.py` dead code.
+  Since 2026-10-16 each reader has its own code + secret (`terminals`
+  table, admin Terminals page, `terminal_rooms.py`); the shared env pair is
+  only a changeover path. Readers have rooms, and `ROOM_CHECK` (flag by
+  default, enforce, off) governs a check-in at a reader in another room.
+- **The session is bound at mint time**, not looked up at submit time. Both
+  the mint and `/checkin/status` endpoints resolve it through
+  `_active_session_for_student()`; they must agree or the app polls forever
+  while attendance lands correctly.
+- **The expiry is enforced natively** (`SystemClock.elapsedRealtime()`
+  deadline in `SuaamsHceService`), not by a Dart `Timer`. Dart timers are
+  throttled, don't fire when backgrounded, and used to be skipped entirely
+  when the provider was disposed mid-flow.
+
+### Minimum app build (added 2026-10-21)
+
+The app sends its build number (pubspec `version: x.y.z+BUILD`) as
+`X-App-Build` on every request, through `lib/core/network/api_client.dart`,
+which the services import **as `http` in place of `package:http`**. Use
+that import for any new service too, or its calls skip the gate. When
+`MIN_APP_BUILD` is set, older builds get 426 `UPDATE REQUIRED`
+(`SUAAMS/app_version.py`) and the router sends every route to
+`/update-required`. **Any change to the app/server wire format bumps the
+pubspec build and `MIN_APP_BUILD` in the same release.** Never gate the
+readers' routes: they send no app build.
+
+The header is Android's versionCode, and the sideloaded APKs are built
+with `--split-per-abi`, which adds 1000 x the ABI (build 2 arrives as 1002
+on armv7, 2002 on arm64). The server reads it modulo 1000
+(`ABI_OFFSET` in `app_version.py`), so the pubspec build must stay below
+1000. Publish split APKs only: a phone on a split build (2002) can't install
+a universal one (2) over it. When the app moves to the Play Store (an App
+Bundle, no offset), start the build number above the highest split code
+(e.g. 3000) so Play can update sideloaded phones.
 
 ## Core differentiator (production vision)
 Smart ID via Android NFC HCE, with PN532 replacing MFRC522 as reader hardware.
@@ -135,17 +243,22 @@ ever handles a 32-character signed beacon (not a JWT; see `beacon.py`), so the s
 without hardware/template-sync limits.
 
 ## Roadmap (planned, not yet built)
-- **Timetable automation**: soft version first — web dashboard compares
-  current time to the `Timetable` table and shows an "Open Terminal" banner
-  when a class is due. Later, a fully autonomous version (Flask-APScheduler
+- **Timetable automation**: soft version **built 2026-10-14**
+  (`dashboard_today.py`): the admin dashboard marks each of today's slots
+  upcoming / due / late / missed / live / ended, bannering a class with no
+  session 30 minutes after its start (`LATE_AFTER`) with a "Notify lecturer"
+  button. Sessions now record `timetable_id`, so a course's lecture and
+  tutorial on one day stay apart. Later, a fully autonomous version (Flask-APScheduler
   background worker) auto-starts/stops sessions at scheduled times and
   computes absentees hands-free. ESP32 caches each day's timetable each
   morning so it can log scans offline and push the backlog once
   connectivity returns. (This is why `Session.planned_start`/`planned_end`
   exist as fields distinct from actual check-in timestamps.)
 - **Enrollment at scale**: self-service course registration in the Flutter
-  app, plus an admin-side bulk CSV uploader (parses registration numbers,
-  links to courses, generates default authorization codes).
+  app (built), plus admin bulk CSV uploads for students, lecturers and
+  courses (built). Timetables are imported from Student Affairs PDFs and
+  published (built 2026-10-13; see `timetable_import.py`), which is the
+  input the autonomous session scheduler above would use.
 
 ## File structure reference
 - `lib/core/constants/api_constants.dart` — endpoint constants

@@ -377,12 +377,14 @@
     {% if record %}
         {% call edit_dialog('Edit course', 'Removes the course with its enrollments and timetable slots. Only possible before any class session or result has been recorded for it.') %}
             <div>
-                <label class="form-label" for="edit-code">Course Code</label>
+                <label class="form-label" for="edit-code">Course code</label>
                 <input type="text" name="code" id="edit-code" required maxlength="20" class="form-input mono">
             </div>
             <div>
-                <label class="form-label" for="edit-title">Course Title</label>
-                <input type="text" name="title" id="edit-title" required maxlength="150" class="form-input">
+                {# Not "edit-title": that's the dialog's heading (_edit.html), and the
+                   shared id left this field unlabelled. #}
+                <label class="form-label" for="edit-course-title">Course title</label>
+                <input type="text" name="title" id="edit-course-title" required maxlength="150" class="form-input">
             </div>
             <div>
                 <label class="form-label" for="edit-department">Department</label>
