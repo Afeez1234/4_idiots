@@ -67,7 +67,7 @@
                                     {% include '_csrf_field.html' %}
                                     <input type="hidden" name="action" value="activate">
                                     <input type="hidden" name="semester_id" value="{{ semester.id }}">
-                                    <button type="submit" class="btn-secondary btn-sm">Set Active</button>
+                                    <button type="submit" class="btn-secondary btn-sm">Make active</button>
                                 </form>
                             {% endif %}
                             </div>
@@ -88,24 +88,24 @@
                         {% include '_csrf_field.html' %}
 
                         <div>
-                            <label class="form-label" for="semester-name">Semester Name</label>
+                            <label class="form-label" for="semester-name">Semester name</label>
                             <input type="text" name="name" id="semester-name" required
                                    placeholder="e.g. 2025/2026 First Semester" class="form-input">
                         </div>
 
                         <div>
-                            <label class="form-label" for="semester-start">Start Date</label>
+                            <label class="form-label" for="semester-start">Start date</label>
                             <input type="date" name="start_date" id="semester-start" required class="form-input">
                         </div>
 
                         <div>
-                            <label class="form-label" for="semester-end">End Date</label>
+                            <label class="form-label" for="semester-end">End date</label>
                             <input type="date" name="end_date" id="semester-end" required class="form-input">
                         </div>
 
-                        <button type="submit" class="btn-primary mt-2 w-full">Create Semester</button>
+                        <button type="submit" class="btn-primary mt-2 w-full">Create semester</button>
                         <p class="form-help">
-                            New semesters start inactive. Use &ldquo;Set Active&rdquo; in the list
+                            New semesters start inactive. Use &ldquo;Make active&rdquo; in the list
                             once you&rsquo;re ready to switch to it.
                         </p>
                     </form>
@@ -114,16 +114,16 @@
 
     {% call edit_dialog('Edit semester', 'Removes the semester. Only possible while it is empty (no courses, timetable or results) and not active.') %}
         <div>
-            <label class="form-label" for="edit-semester-name">Semester Name</label>
+            <label class="form-label" for="edit-semester-name">Semester name</label>
             <input type="text" name="name" id="edit-semester-name" required maxlength="100" class="form-input">
         </div>
         <div class="grid grid-cols-2 gap-3">
             <div>
-                <label class="form-label" for="edit-semester-start">Start Date</label>
+                <label class="form-label" for="edit-semester-start">Start date</label>
                 <input type="date" name="start_date" id="edit-semester-start" required class="form-input">
             </div>
             <div>
-                <label class="form-label" for="edit-semester-end">End Date</label>
+                <label class="form-label" for="edit-semester-end">End date</label>
                 <input type="date" name="end_date" id="edit-semester-end" required class="form-input">
             </div>
         </div>

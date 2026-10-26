@@ -1090,8 +1090,7 @@ On the Readers page each reader is a row of three columns: its screen
 name and status pill over a muted meta line, and its actions together on
 the right (Edit as a secondary button, New secret and Disable as text
 links). Below 40rem the three stack. The reader the board's Open reader
-points at is marked like an open record: indigo-soft fill with a 3px indigo
-rule on the left.
+points at is marked like an open record: the indigo-soft fill.
 
 ### Record drawer (portal)
 A student's record and everything you can do to them, opened from Find or
@@ -1144,8 +1143,8 @@ An ordered list, one row per step: a 28px round mark (the step number;
 solid ink with a tick once done), the step as an instruction ("Get its
 courses in") over its live fact in secondary text ("41 courses in
 2026/2027 First Semester"), and its action on the right. The first open
-step is marked like an open record (indigo-soft, 3px indigo rule, indigo
-ring on its number) and carries the one primary button; other open steps
+step is marked like an open record (indigo-soft fill, indigo ring on its
+number) and carries the one primary button; other open steps
 get secondary buttons, done ones a quiet text link. Steps that don't apply
 aren't shown. Below 40rem the action drops under the text. The door board
 announces a changeover under way in one indigo banner line above the board.

@@ -191,7 +191,7 @@ def _bulk_course_plan():
                   resolved={"lecturer_names": ["Dr Ade", "Dr Bola"]})
     exists = BulkRow(3, {"course_code": "GST212", "course_title": "Logic", "department": "",
                          "credit_units": "", "lecturers": "STF/3"},
-                     status="exists", note="Already in 2025/2026 Second Semester -- skipped, not changed.")
+                     status="exists", note="Already in 2025/2026 Second Semester: skipped, not changed.")
     bad = BulkRow(4, {"course_code": "MCT405", "course_title": "Robotics", "department": "Mechatronics",
                       "credit_units": "x", "lecturers": "STF/9"},
                   status="error", errors=["No lecturer with staff ID STF/9. Upload the lecturers file first."],

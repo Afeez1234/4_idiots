@@ -1,5 +1,4 @@
 {% extends "base_admin.html" %}
-{% from '_macros.html' import card_heading %}
 
 {# The semester changeover checklist (changeover.py, 2026-10-26). Every
    step's state comes from the data; the first open one carries the one
@@ -41,10 +40,8 @@
 {%- endmacro %}
 
 {% block content %}
+    {# No card heading: the dates it carried are step 1's fact. #}
     <div class="card-clip">
-        <div class="card-header">
-            {{ card_heading(semester.start_date.strftime('%d %b %Y') ~ ' – ' ~ semester.end_date.strftime('%d %b %Y')) }}
-        </div>
         <ol class="steps" aria-label="Changeover steps">
             {% for step in state.steps %}
                 <li class="step {{ 'is-next' if state.next == step.key }}" data-state="{{ 'done' if step.done else ('blocked' if step.blocked else 'open') }}">

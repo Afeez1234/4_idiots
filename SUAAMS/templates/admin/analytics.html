@@ -57,7 +57,7 @@
             </select>
         </div>
         <div class="flex items-end gap-2">
-            <button type="submit" class="btn-primary flex-1">Apply</button>
+            <button type="submit" class="btn-secondary">Apply</button>
             {% if filters.dept or filters.level or not semester.is_active %}
                 <a href="{{ url_for('admin.analytics_page') }}" class="btn-ghost">Clear</a>
             {% endif %}
@@ -75,7 +75,7 @@
     <div class="card-clip">
         <div class="card-header flex flex-wrap items-start justify-between gap-3">
             <div>
-                {{ card_heading('Below ' ~ e.threshold ~ '% Attendance') }}
+                {{ card_heading('Below ' ~ e.threshold ~ '% attendance') }}
                 <p class="mt-1 text-xs text-secondary">
                     {% if e.students %}
                         <span class="font-semibold text-ink">{{ e.students|length }}</span>
@@ -174,7 +174,7 @@
     <div class="card-clip">
         <div class="card-header">
           <div>
-            {{ card_heading('Classes Held vs Timetabled') }}
+            {{ card_heading('Classes held vs timetabled') }}
             <p class="mt-1 text-xs text-secondary">
                 {% if d.teaching_start %}
                     Each published timetable slot is due once a week from {{ d.teaching_start.strftime('%d %b %Y') }},

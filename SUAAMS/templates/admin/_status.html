@@ -104,7 +104,7 @@
 {% macro bulk_status_card(kind, names, id_label) -%}
     <div class="card">
         <div class="card-header">
-            {{ card_heading('Change Status (CSV)') }}
+            {{ card_heading('Change status (CSV)') }}
         </div>
         <div class="card-body">
             <form action="{{ url_for('admin.bulk_status', kind=kind) }}" method="POST"

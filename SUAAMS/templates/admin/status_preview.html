@@ -59,12 +59,12 @@
                         <input type="text" name="typed_count" id="typed-count" inputmode="numeric" autocomplete="off"
                                required class="form-input mono w-40" data-expect="{{ changing|length }}"
                                {% if typed_wrong %}aria-invalid="true" aria-describedby="typed-error"{% endif %}>
-                        {% if typed_wrong %}<p class="form-help text-error-ink" id="typed-error">That isn't {{ changing|length }}. Nobody has been changed.</p>{% endif %}
                     </div>
                 {% endif %}
                 {# Red for leaving for good; indigo for a change that can be set back. #}
                 <button type="submit" id="status-go" class="{{ 'btn-danger' if final else 'btn-primary' }}">Set {{ changing|length }} to {{ names[status] }}</button>
                 <a href="{{ back_url }}" class="btn-ghost">Cancel</a>
+                {% if typed_wrong %}<p class="form-help w-full text-error-ink" id="typed-error">That isn't {{ changing|length }}. Nobody has been changed.</p>{% endif %}
             </form>
         {% else %}
             <p class="text-sm text-secondary">Everyone in the file already has that status.</p>
@@ -90,9 +90,9 @@
                             <td class="td">{{ p.full_name }}</td>
                             <td class="td td-muted mono text-xs">{{ p.matric_number if kind == 'students' else p.staff_id }}</td>
                             <td class="td td-muted">{{ names.get(p.status, p.status) }}</td>
-                            <td class="td">
+                            <td class="td {{ 'is-bad' if blocked.get(p.id) }}">
                                 {% if blocked.get(p.id) %}
-                                    <p class="text-xs text-error">Still coordinates {{ blocked[p.id] }}.</p>
+                                    Still coordinates {{ blocked[p.id] }}
                                 {% else %}
                                     {{ pill(names[status], 'neutral' if status == 'active' else 'ink') }}
                                 {% endif %}

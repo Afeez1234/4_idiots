@@ -296,7 +296,7 @@ def plan_students(rows, filename):
             continue
         seen_matric[key] = r.line
         if key in students:
-            r.status, r.note = 'exists', 'Already registered -- skipped, not changed.'
+            r.status, r.note = 'exists', 'Already registered: skipped, not changed.'
             continue
         if key in usernames:
             # A lecturer or admin already signs in with this as a username.
@@ -338,7 +338,7 @@ def plan_lecturers(rows, filename):
             continue
         seen[key] = r.line
         if key in lecturers:
-            r.status, r.note = 'exists', 'Already registered -- skipped, not changed.'
+            r.status, r.note = 'exists', 'Already registered: skipped, not changed.'
             continue
         if key in usernames:
             # A student or admin already signs in with this as a username.
@@ -379,7 +379,7 @@ def plan_courses(rows, filename, semester):
             continue
         seen[code] = r.line
         if code in existing:
-            r.status, r.note = 'exists', f'Already in {semester.name} -- skipped, not changed.'
+            r.status, r.note = 'exists', f'Already in {semester.name}: skipped, not changed.'
             continue
 
         if v['department']:

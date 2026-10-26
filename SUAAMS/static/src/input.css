@@ -711,7 +711,7 @@
   @media (min-width: 40rem) {
     .reader-row { grid-template-columns: 13rem minmax(0, 1fr) auto; }
   }
-  .reader-row.is-open { @apply bg-accent-soft; box-shadow: inset 3px 0 0 var(--color-accent); }
+  .reader-row.is-open { @apply bg-accent-soft; }
   .reader-row-actions { @apply flex flex-wrap items-center gap-3; }
   .reader-screen .live-dot {
     @apply mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle;
@@ -827,7 +827,7 @@
   /* The changeover checklist (admin/changeover.html): a numbered mark, the
      step and its live fact, its action. The next open step is marked like
      an open record; done steps go quiet. */
-  .steps { @apply divide-y divide-divider border-t border-divider; }
+  .steps { @apply divide-y divide-divider; }
   .step {
     @apply grid gap-3 px-5 py-4 sm:items-center;
     grid-template-columns: 2rem minmax(0, 1fr);
@@ -835,7 +835,7 @@
   @media (min-width: 40rem) {
     .step { grid-template-columns: 2rem minmax(0, 1fr) auto; }
   }
-  .step.is-next { @apply bg-accent-soft; box-shadow: inset 3px 0 0 var(--color-accent); }
+  .step.is-next { @apply bg-accent-soft; }
   .step-mark {
     @apply grid h-7 w-7 place-items-center rounded-full border border-border bg-card font-mono text-xs text-secondary;
   }
