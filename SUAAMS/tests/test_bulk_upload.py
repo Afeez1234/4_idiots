@@ -187,6 +187,9 @@ class BulkUploadTestCase(unittest.TestCase):
         self.assertIn('No lecturer with staff ID STF/9999', plan.rows[0].errors[0])
         self.assertIn('credit_units', plan.rows[1].errors[0])
         self.assertIn('lecturers is empty', plan.rows[3].errors[0])
+        # The preview marks the cell each row fails on.
+        self.assertEqual([r.bad_fields for r in plan.rows],
+                         [{'lecturers'}, {'credit_units'}, {'department'}, {'lecturers'}])
 
     # ---- routes ----------------------------------------------------------------------
 
@@ -223,6 +226,23 @@ class BulkUploadTestCase(unittest.TestCase):
         with mock.patch('blueprints.admin.render_template', return_value=''):
             self.client.post('/admin/bulk/confirm', data={'plan': json.dumps(payload)})
         self.assertEqual(Course.query.count(), 0)
+
+    def test_problem_rows_download(self):
+        # Only the rows that can't be saved, in the upload's own columns plus
+        # what's wrong, ready to fix and upload again. Formula-safe.
+        kwargs = self.upload('lecturers', csv_bytes(
+            'staff_id,full_name,department',
+            'STF/0002,Dr New,Mechatronics Engineering',
+            'STF/0003,=HYPERLINK("x"),Basket Weaving'))
+        resp = self.client.post('/admin/bulk/problems', data={'plan': kwargs['plan_json']})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn('attachment; filename=x_problems.csv', resp.headers['Content-Disposition'])
+        body = resp.get_data(as_text=True).splitlines()
+        self.assertEqual(body[0], 'staff_id,full_name,department,problem')
+        self.assertEqual(len(body), 2)                                  # the good row isn't in it
+        self.assertIn("'=HYPERLINK", body[1])                           # not a live formula
+        self.assertIn('No department', body[1])
+        self.assertEqual(Lecturer.query.count(), 1)                     # nothing saved
 
     def test_courses_need_a_semester(self):
         self.assertIsNone(self.upload('courses', csv_bytes('course_code,course_title,lecturers',

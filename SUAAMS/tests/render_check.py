@@ -193,7 +193,8 @@ def _bulk_course_plan():
                      status="exists", note="Already in 2025/2026 Second Semester -- skipped, not changed.")
     bad = BulkRow(4, {"course_code": "MCT405", "course_title": "Robotics", "department": "Mechatronics",
                       "credit_units": "x", "lecturers": "STF/9"},
-                  status="error", errors=["No lecturer with staff ID STF/9. Upload the lecturers file first."])
+                  status="error", errors=["No lecturer with staff ID STF/9. Upload the lecturers file first."],
+                  bad_fields={"lecturers"})
     return BulkPlan("courses", "courses.csv", [new, exists, bad], semester_id=1)
 
 

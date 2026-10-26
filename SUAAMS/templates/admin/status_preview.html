@@ -26,11 +26,11 @@
         {% if missing or blocked %}
             <div class="alert" data-tone="warning">
                 <span>
-                    {% if missing %}{{ missing|length }} ID{{ '' if missing|length == 1 else 's' }} in the file
+                    {% if missing %}{{ missing|length }} ID{{ '' if missing|length == 1 else 's' }} {{ 'picked' if source == 'roster' else 'in the file' }}
                         {{ 'matches' if missing|length == 1 else 'match' }} nobody: {{ missing[:20]|join(', ') }}{% if missing|length > 20 %} and {{ missing|length - 20 }} more{% endif %}.{% endif %}
                     {% if blocked %}{{ blocked|length }} lecturer{{ '' if blocked|length == 1 else 's' }} still coordinate{{ 's' if blocked|length == 1 else '' }}
                         a running course (below): choose new coordinators on the Courses page first.{% endif %}
-                    Fix the file and try again. Nobody has been changed.
+                    {{ 'Go back and try again.' if source == 'roster' else 'Fix the file and try again.' }} Nobody has been changed.
                 </span>
             </div>
             <a href="{{ back_url }}" class="btn-secondary">Back</a>
@@ -41,6 +41,7 @@
                 <input type="hidden" name="ids" value="{{ ids_json }}">
                 <input type="hidden" name="status" value="{{ status }}">
                 <input type="hidden" name="reason" value="{{ reason }}">
+                {% if source %}<input type="hidden" name="source" value="{{ source }}">{% endif %}
                 <button type="submit" class="btn-primary">Set {{ changing|length }} to {{ names[status] }}</button>
                 <a href="{{ back_url }}" class="btn-ghost">Cancel</a>
             </form>

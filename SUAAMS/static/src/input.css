@@ -796,6 +796,15 @@
 
   .record-link { @apply text-ink underline-offset-2 hover:text-accent hover:underline; }
   .table tbody tr.is-open { @apply bg-accent-soft; }
+  /* Roster selection: the checkbox, and the bar of what to do with the
+     picked rows (sticky at the bottom of the roster while it's on screen). */
+  .pick { @apply h-4 w-4 cursor-pointer; accent-color: var(--color-accent); }
+  .pick-bar {
+    @apply sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-accent-line bg-accent-soft px-5 py-2.5;
+  }
+  .pick-bar[hidden] { display: none; }
+  /* The cell a bulk-preview row fails on (bulk_upload.BulkRow.bad_fields). */
+  .td.is-bad { @apply bg-error-soft font-semibold text-error-ink; box-shadow: inset 0 -2px 0 var(--color-error); }
   .table tbody tr.is-open .record-link { @apply text-accent-ink; }
 
   /* Native <dialog> for the occasional forms (Students page). */

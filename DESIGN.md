@@ -1120,6 +1120,21 @@ Enter can't destroy. An action that can't be undone and stops hardware
 its button enables. Forms opt in with `data-confirm` (plus
 `-title`, `-ok`, `-danger`) or `SUAAMS.confirmSubmit`.
 
+### Roster selection (portal)
+Students only. A checkbox column (indigo `accent-color`, select-all with an
+indeterminate state for "some") and, once one row is ticked, the pick bar:
+a sticky accent-soft strip under the table with the count in mono, Change
+status... (a dialog that goes through the same preview as a status CSV),
+Export CSV, and Clear. Hidden while nothing is ticked. Unbinding is never
+on it: that needs the student's ID card, one at a time.
+
+### Bulk preview cells (portal)
+A row that can't be saved lists first and marks the cell it fails on
+(`.td.is-bad`): error-soft fill, error-ink semibold text, a 2px error rule
+along the bottom. The row's pill is the solid ink Problem, not red: the
+red is for the one cell. A Download the N problem rows button hands back
+just those rows, with a `problem` column, to fix and upload again.
+
 ### Buttons (site)
 - **Shape:** 12px corners, 52px tall, 0 x 22px padding, 16px semibold,
   20px icon. Small variant 44px tall, 15px.

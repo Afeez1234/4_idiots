@@ -385,5 +385,36 @@ class PeopleStatusTestCase(unittest.TestCase):
         self.assertEqual(Enrollment.query.filter_by(student_id=self.ada.id, course_id=course.id).count(), 1)
 
 
+    def test_students_picked_on_the_roster_go_through_the_preview(self):
+        self.sign_in()
+        ids = '["MCT/20/0001", "MCT/20/0002"]'
+        with mock.patch('blueprints.admin.render_template', return_value='') as render:
+            self.client.post('/admin/students/status/bulk', data={
+                'source': 'roster', 'ids': ids, 'status': 'graduated', 'reason': 'Class of 2026'})
+        kwargs = render.call_args.kwargs
+        self.assertEqual(len(kwargs['changing']), 2)                    # the preview, nothing changed yet
+        self.assertEqual(kwargs['source'], 'roster')
+        self.assertEqual(db.session.get(Student, self.ada.id).status, 'active')
+        self.client.post('/admin/students/status/bulk', data={
+            'source': 'roster', 'confirm': '1', 'ids': ids, 'status': 'graduated', 'reason': 'Class of 2026'})
+        self.assertEqual(db.session.get(Student, self.ada.id).status, 'graduated')
+        entry = AuditLog.query.filter_by(action='student.bulk_status').one()
+        self.assertIn('picked on the roster', entry.summary)
+
+    def test_export_of_picked_students(self):
+        self.ada.full_name = '=cmd|calc'
+        db.session.commit()
+        self.sign_in()
+        resp = self.client.post('/admin/students/export', data={'ids': '["MCT/20/0001"]'})
+        lines = resp.get_data(as_text=True).splitlines()
+        self.assertEqual(lines[0], 'matric_number,full_name,level,department,status,phone_bound')
+        self.assertEqual(len(lines), 2)                                  # only the picked one
+        self.assertIn("'=cmd|calc", lines[1])                            # not a live formula
+        self.assertTrue(lines[1].endswith(',yes'))
+        self.assertEqual(AuditLog.query.filter_by(action='student.export').count(), 1)
+        # Nothing picked: back to the roster.
+        self.assertEqual(self.client.post('/admin/students/export', data={'ids': '[]'}).status_code, 302)
+
+
 if __name__ == '__main__':
     unittest.main()

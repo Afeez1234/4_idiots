@@ -101,6 +101,14 @@ class BulkRow:
     errors: list[str] = field(default_factory=list)
     note: str = ''                  # e.g. why it's skipped
     resolved: dict = field(default_factory=dict)   # ids found while checking
+    # Which cells are wrong, so the preview can mark them (2026-10-26):
+    # the reason alone said "credit_units isn't a number" with nothing on
+    # the row pointing at the cell.
+    bad_fields: set = field(default_factory=set)
+
+    def fail(self, column, message):
+        self.errors.append(message)
+        self.bad_fields.add(column)
 
 
 @dataclass
@@ -279,12 +287,12 @@ def plan_students(rows, filename):
         v = r.values
         for col in STUDENT_COLUMNS:
             if col in REQUIRED['students'] and not v[col]:
-                r.errors.append(f"{col} is empty.")
+                r.fail(col, f"{col} is empty.")
         if r.errors:
             continue
         key = v['matric_number'].lower()
         if key in seen_matric:
-            r.errors.append(f"Matric number {v['matric_number']} is also on line {seen_matric[key]}.")
+            r.fail('matric_number', f"Matric number {v['matric_number']} is also on line {seen_matric[key]}.")
             continue
         seen_matric[key] = r.line
         if key in students:
@@ -292,15 +300,15 @@ def plan_students(rows, filename):
             continue
         if key in usernames:
             # A lecturer or admin already signs in with this as a username.
-            r.errors.append(f"{v['matric_number']} is already another account's login.")
+            r.fail('matric_number', f"{v['matric_number']} is already another account's login.")
             continue
         level = normalize_level(v['level'])
         if level is None:
-            r.errors.append(f"Level \"{v['level']}\" isn't 100-500.")
+            r.fail('level', f"Level \"{v['level']}\" isn't 100-500.")
             continue
         department = departments.get(v['department'].lower())
         if not department:
-            r.errors.append(f"No department \"{v['department']}\". Create it on the Organization page first.")
+            r.fail('department', f"No department \"{v['department']}\". Create it on the Organization page first.")
             continue
         r.resolved.update(level=level, department_id=department.id)
 
@@ -321,12 +329,12 @@ def plan_lecturers(rows, filename):
         v = r.values
         for col in LECTURER_COLUMNS:
             if not v[col]:
-                r.errors.append(f"{col} is empty.")
+                r.fail(col, f"{col} is empty.")
         if r.errors:
             continue
         key = v['staff_id'].lower()
         if key in seen:
-            r.errors.append(f"Staff ID {v['staff_id']} is also on line {seen[key]}.")
+            r.fail('staff_id', f"Staff ID {v['staff_id']} is also on line {seen[key]}.")
             continue
         seen[key] = r.line
         if key in lecturers:
@@ -334,11 +342,11 @@ def plan_lecturers(rows, filename):
             continue
         if key in usernames:
             # A student or admin already signs in with this as a username.
-            r.errors.append(f"{v['staff_id']} is already another account's login.")
+            r.fail('staff_id', f"{v['staff_id']} is already another account's login.")
             continue
         department = departments.get(v['department'].lower())
         if not department:
-            r.errors.append(f"No department \"{v['department']}\". Create it on the Organization page first.")
+            r.fail('department', f"No department \"{v['department']}\". Create it on the Organization page first.")
             continue
         r.resolved['department_id'] = department.id
 
@@ -361,13 +369,13 @@ def plan_courses(rows, filename, semester):
         v = r.values
         for col in REQUIRED['courses']:
             if not v[col]:
-                r.errors.append(f"{col} is empty.")
+                r.fail(col, f"{col} is empty.")
         if r.errors:
             continue
         v['course_code'] = v['course_code'].upper()
         code = normalize_code(v['course_code'])
         if code in seen:
-            r.errors.append(f"{v['course_code']} is also on line {seen[code]}.")
+            r.fail('course_code', f"{v['course_code']} is also on line {seen[code]}.")
             continue
         seen[code] = r.line
         if code in existing:
@@ -379,7 +387,7 @@ def plan_courses(rows, filename, semester):
             if department:
                 r.resolved['department_id'] = department.id
             else:
-                r.errors.append(f"No department \"{v['department']}\". Create it on the Organization page first.")
+                r.fail('department', f"No department \"{v['department']}\". Create it on the Organization page first.")
         else:
             r.resolved['department_id'] = None      # a general course (GST)
 
@@ -387,19 +395,19 @@ def plan_courses(rows, filename, semester):
             if v['credit_units'].isdigit() and 1 <= int(v['credit_units']) <= 10:
                 r.resolved['credit_units'] = int(v['credit_units'])
             else:
-                r.errors.append(f"credit_units \"{v['credit_units']}\" isn't a number from 1 to 10.")
+                r.fail('credit_units', f"credit_units \"{v['credit_units']}\" isn't a number from 1 to 10.")
 
         ids = list(dict.fromkeys(s for s in re.split(r'[;,]', v['lecturers']) if s.strip()))
         found = []
         for sid in (s.strip() for s in ids):
             lecturer = staff.get(sid.lower())
             if lecturer and lecturer.status != 'active':
-                r.errors.append(f"{lecturer.full_name} ({sid}) is marked {lecturer.status.replace('_', ' ')} "
+                r.fail('lecturers', f"{lecturer.full_name} ({sid}) is marked {lecturer.status.replace('_', ' ')} "
                                 f"and can't be given a course.")
             elif lecturer:
                 found.append(lecturer)
             else:
-                r.errors.append(f"No lecturer with staff ID {sid}. Upload the lecturers file first.")
+                r.fail('lecturers', f"No lecturer with staff ID {sid}. Upload the lecturers file first.")
         if found and not r.errors:
             r.resolved['lecturer_ids'] = list(dict.fromkeys(l.id for l in found))
             r.resolved['lecturer_names'] = [l.full_name for l in found]
@@ -456,6 +464,7 @@ def plan_course_copy(source, target):
             # plan_courses says "lecturers is empty."; say why, and what to do.
             r.errors = [f"No active lecturer to copy ({no_active[r.line]}). Add an active lecturer to "
                         f"{r.values['course_code']} in {source.name} with Course Lecturers, then copy again."]
+            r.bad_fields = {'lecturers'}
             r.status = 'error'
         elif r.status == 'new' and r.line in notes:
             # Upper-case the first letter only: str.capitalize() would also
@@ -555,6 +564,22 @@ def courses_workbook(rows):
     sheet.freeze_panes = 'A2'
     out = io.BytesIO()
     book.save(out)
+    return out.getvalue()
+
+
+def problem_rows_csv(plan):
+    """The rows that can't be saved, as a CSV in the upload's own columns
+    plus a `problem` column: fix those cells and upload just this file.
+    Formula-safe (_csv_safe), like the register export."""
+    from utils import _csv_safe
+    out = io.StringIO()
+    writer = csv.writer(out)
+    columns = list(COLUMNS[plan.kind])
+    writer.writerow(columns + ['problem'])
+    for r in plan.rows:
+        if r.errors:
+            writer.writerow([_csv_safe(r.values.get(c, '')) for c in columns]
+                            + [_csv_safe(' '.join(r.errors))])
     return out.getvalue()
 
 

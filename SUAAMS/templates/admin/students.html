@@ -140,6 +140,11 @@
                     <table class="table">
                         <thead>
                             <tr>
+                                {# Pick students for a status change or an export
+                                   (the bar below). This page's rows; a filter
+                                   narrows the roster to the ones you mean. #}
+                                <th class="th w-10"><input type="checkbox" id="pick-all" class="pick"
+                                    aria-label="Select every student on this page"></th>
                                 <th class="th">Student</th>
                                 <th class="th">Matric no.</th>
                                 <th class="th col-wide">Level</th>
@@ -151,6 +156,8 @@
                         <tbody>
                             {% for student in students %}
                                 <tr class="{{ 'is-open' if record and record.student.id == student.id }}">
+                                    <td class="td w-10"><input type="checkbox" class="pick row-pick" value="{{ student.matric_number }}"
+                                        aria-label="Select {{ student.full_name }}"></td>
                                     <td class="td">
                                         <div class="flex items-center gap-3">
                                             {{ avatar(student.full_name) }}
@@ -164,11 +171,24 @@
                                     <td class="td">{{ status_pill(student) }}</td>
                                 </tr>
                             {% else %}
-                                {{ table_empty(6, 'No students match these filters.' if is_filtered else 'No students registered yet.') }}
+                                {{ table_empty(7, 'No students match these filters.' if is_filtered else 'No students registered yet.') }}
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
+                {# Appears once a student is picked. Unbinding stays one student at
+                   a time: it needs that student's ID card. #}
+                <div id="pick-bar" class="pick-bar" hidden>
+                    <span class="text-sm text-ink"><b class="mono" id="pick-count">0</b> selected</span>
+                    <button type="button" class="btn-secondary btn-sm" data-dialog="dlg-pickstatus">Change status&hellip;</button>
+                    <form action="{{ url_for('admin.export_students', **filter_args) }}" method="POST">
+                        {% include '_csrf_field.html' %}
+                        <input type="hidden" name="ids" class="pick-ids" value="[]">
+                        <button type="submit" class="btn-secondary btn-sm">{{ icon_svg('download', 'h-4 w-4') }}Export CSV</button>
+                    </form>
+                    <button type="button" class="btn-ghost btn-sm" id="pick-clear">Clear</button>
+                </div>
+
                 {% if pagination.pages > 1 %}
                     <div class="card-foot justify-between text-xs text-muted">
                         <span>
@@ -275,6 +295,37 @@
                     </form>
     </dialog>
 
+    {# The picked students' new status: the same preview, rules and confirm
+       as a status CSV (bulk_status, source=roster). #}
+    <dialog class="modal" id="dlg-pickstatus" aria-labelledby="dlg-pickstatus-title">
+        <div class="modal-head"><h2 class="card-title" id="dlg-pickstatus-title">Change status of <span class="pick-count-copy">0</span> students</h2>
+            <button type="button" class="btn-ghost btn-icon" data-close aria-label="Close">{{ icon_svg('close', 'h-5 w-5') }}</button></div>
+        <form action="{{ url_for('admin.bulk_status', kind='students') }}" method="POST" class="space-y-4">
+            {% include '_csrf_field.html' %}
+            <input type="hidden" name="source" value="roster">
+            <input type="hidden" name="ids" class="pick-ids" value="[]">
+            {% set leaving = ['graduated', 'withdrawn', 'expelled', 'deceased', 'left'] %}
+            <div>
+                <label class="form-label" for="pick-status">Status</label>
+                <select name="status" id="pick-status" required class="form-select">
+                    <optgroup label="Still with the school">
+                        {% for key, label in student_statuses.items() if key not in leaving %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+                    </optgroup>
+                    <optgroup label="Leaving for good">
+                        {% for key, label in student_statuses.items() if key in leaving %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+                    </optgroup>
+                </select>
+            </div>
+            <div>
+                <label class="form-label" for="pick-reason">Reason</label>
+                <input type="text" name="reason" id="pick-reason" required maxlength="255"
+                       placeholder="e.g. Senate list 14 Oct 2026" class="form-input">
+                <p class="form-help">You'll see who changes before anything is saved. Recorded in the activity log.</p>
+            </div>
+            <button type="submit" class="btn-primary w-full">Preview the change</button>
+        </form>
+    </dialog>
+
     <dialog class="modal" id="dlg-status" aria-labelledby="dlg-status-title">
         <div class="modal-head"><h2 class="sr-only" id="dlg-status-title">Change status from a CSV</h2>
             <span></span>
@@ -290,6 +341,34 @@
 <script>
     // Header dialogs, confirm-first forms and Escape on the drawer are
     // shared behaviour, in _shell.html.
+
+    // Picking students: the bar shows the count, and the picked matric
+    // numbers ride in each of its forms.
+    (function () {
+        var bar = document.getElementById('pick-bar');
+        var all = document.getElementById('pick-all');
+        var rows = Array.prototype.slice.call(document.querySelectorAll('.row-pick'));
+        if (!bar || !rows.length) return;
+        function sync() {
+            var picked = rows.filter(function (r) { return r.checked; }).map(function (r) { return r.value; });
+            bar.hidden = !picked.length;
+            document.getElementById('pick-count').textContent = picked.length;
+            document.querySelectorAll('.pick-count-copy').forEach(function (e) { e.textContent = picked.length; });
+            document.querySelectorAll('.pick-ids').forEach(function (i) { i.value = JSON.stringify(picked); });
+            all.checked = picked.length === rows.length;
+            all.indeterminate = picked.length > 0 && picked.length < rows.length;
+        }
+        rows.forEach(function (r) { r.addEventListener('change', sync); });
+        all.addEventListener('change', function () {
+            rows.forEach(function (r) { r.checked = all.checked; });
+            sync();
+        });
+        document.getElementById('pick-clear').addEventListener('click', function () {
+            rows.forEach(function (r) { r.checked = false; });
+            sync();
+        });
+        sync();
+    })();
     // The filter dropdowns used to submit on change. With a keyboard, an
     // arrow key on a closed <select> fires change, so the page reloaded on
     // the first press -- you couldn't arrow down to a department -- and

@@ -616,6 +616,31 @@ def bulk_upload_preview(kind):
     return _render_bulk_preview(plan, semester)
 
 
+@admin_bp.route('/bulk/problems', methods=['POST'])
+@limiter.limit("20 per minute")
+def bulk_upload_problems():
+    """The preview's problem rows as a CSV, in the upload's own columns plus
+    the problem: fix those and upload just this file. Re-checked from the
+    posted preview, like confirm, so it reflects the database now."""
+    try:
+        payload = json.loads(request.form.get('plan') or '{}')
+    except ValueError:
+        payload = {}
+    kind = payload.get('kind')
+    if kind not in BULK_PAGES:
+        flash('That preview is no longer valid. Upload the file again.', 'error')
+        return redirect(url_for('admin.dashboard'))
+    semester = db.session.get(Semester, payload.get('semester_id') or 0) if kind == 'courses' else None
+    try:
+        plan = bulk_upload.plan_from_json(payload, semester)
+    except bulk_upload.BulkCsvError as e:
+        flash(f"{e} Upload the file again.", 'error')
+        return redirect(_bulk_back(kind, semester))
+    stem = re.sub(r'[^A-Za-z0-9]+', '_', plan.filename.rsplit('.', 1)[0]).strip('_') or kind
+    return Response(bulk_upload.problem_rows_csv(plan), mimetype='text/csv',
+                    headers={'Content-Disposition': f'attachment; filename={stem}_problems.csv'})
+
+
 @admin_bp.route('/bulk/confirm', methods=['POST'])
 @limiter.limit("10 per minute")
 def bulk_upload_confirm():
@@ -772,7 +797,9 @@ def bulk_status(kind):
     back = url_for(page)
     status, reason = request.form.get('status', ''), request.form.get('reason', '')
     try:
-        if request.form.get('confirm'):
+        if request.form.get('confirm') or request.form.get('source') == 'roster':
+            # The confirm step, or students picked on the roster (2026-10-26):
+            # the IDs come straight from the form instead of a CSV.
             ids = json.loads(request.form.get('ids') or '[]')
         else:
             upload = request.files.get('file')
@@ -804,12 +831,14 @@ def bulk_status(kind):
             'admin/status_preview.html', kind=kind, names=names, status=status, reason=reason,
             changing=changing, unchanged=len(found) - len(changing), missing=missing, blocked=blocked,
             ids_json=json.dumps(ids), back_url=back, active_page=kind,
+            source=request.form.get('source', ''),
         )
     try:
         changed = sum(1 for p in changing if _set_status(kind, p, status, reason))
         # The per-person entries above say who; this one says it was a file.
+        where = 'picked on the roster' if request.form.get('source') == 'roster' else 'from a CSV'
         log_action(f"{kind[:-1]}.bulk_status",
-                   f"Set {changed} {kind} to {names[status]} from a CSV. Reason: {' '.join(reason.split())}",
+                   f"Set {changed} {kind} to {names[status]} ({where}). Reason: {' '.join(reason.split())}",
                    kind[:-1], None, {'status': status, 'count': changed})
         db.session.commit()
         flash(f"{changed} {kind} set to {names[status]}.", 'success')
@@ -1358,6 +1387,36 @@ UNBIND_MATRIC_TAIL = 3
 
 def unbind_matric_tail(matric_number):
     return matric_number.strip().upper()[-UNBIND_MATRIC_TAIL:]
+
+
+@admin_bp.route('/students/export', methods=['POST'])
+@limiter.limit("20 per minute")
+def export_students():
+    """The students picked on the roster as a CSV: matric number, name,
+    level, department, status, and whether a phone is bound. Personal data
+    leaving the system, so it's logged. Formula-safe."""
+    try:
+        matrics = [str(m) for m in json.loads(request.form.get('ids') or '[]')][:STUDENTS_PER_PAGE * 20]
+    except ValueError:
+        matrics = []
+    students = (Student.query.options(joinedload(Student.department))
+                .filter(Student.matric_number.in_(matrics))
+                .order_by(Student.matric_number).all()) if matrics else []
+    if not students:
+        flash('Pick at least one student to export.', 'error')
+        return redirect(url_for('admin.students_page', **_student_filter_args()))
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(['matric_number', 'full_name', 'level', 'department', 'status', 'phone_bound'])
+    for s in students:
+        writer.writerow([_csv_safe(s.matric_number), _csv_safe(s.full_name), s.level,
+                         _csv_safe(s.department.name if s.department else ''),
+                         STUDENT_STATUSES.get(s.status, s.status), 'yes' if s.device_id else 'no'])
+    log_action('student.export', f"Exported {len(students)} students picked on the roster",
+               'student', None, {'count': len(students)})
+    db.session.commit()
+    return Response(out.getvalue(), mimetype='text/csv',
+                    headers={'Content-Disposition': 'attachment; filename=suaams_students.csv'})
 
 
 @admin_bp.route('/students/unbind/<int:student_id>', methods=['POST'])
@@ -2995,6 +3054,7 @@ _ACTION_WORDS = {
     'timetable.remind': 'Lecturer reminded', 'timetable.import': 'Timetable imported',
     'timetable.publish': 'Timetable published', 'timetable.copy': 'Timetable copied',
     'analytics.export': 'Attendance list exported', 'report.export': 'Report exported',
+    'student.export': 'Students exported',
     'enrollment.create': 'Student enrolled',
 }
 _ACTION_VERBS = {
