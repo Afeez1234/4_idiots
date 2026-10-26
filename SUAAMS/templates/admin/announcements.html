@@ -30,7 +30,7 @@
                            audience an announcement reached is the fact an admin
                            scans the feed for. #}
                         {% if a.scope == 'university' %}
-                            {{ pill('University-wide', 'accent') }}
+                            {{ pill('University-wide', 'neutral') }}
                         {% elif a.scope == 'department' %}
                             {{ pill(a.department.name if a.department else 'Department', 'neutral') }}
                         {% else %}

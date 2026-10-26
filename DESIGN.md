@@ -709,6 +709,14 @@ colours a status value. The site and the portal are in the app's world, so
 their one accent is Contactless Indigo too (the portal uses the light
 value); Brand Blue stays inside the logo. In the portal indigo means act
 here, you are here, needs you, or live. It is never a record's status.
+Not avatars (neutral initials), not labels ("New", "University-wide", a
+check-in method), not log entries (ink when worth a second look). A reader
+that is offline is the indigo pill; online is neutral. Attendance colours
+stay on attendance figures: a delivery rate (classes held) or a headcount
+(students below 75%) is an ink bar, and an attendance percentage as text
+uses the `-ink` shades (`.tone-text`). `tests/test_templates.py` holds the
+admin pages to a short list of indigo pills and bans colour through an
+inline style.
 
 **The Green Is Sacred Rule.** Green means "you're registered." Never spend
 it on branding, success toasts for unrelated actions, or decoration. A

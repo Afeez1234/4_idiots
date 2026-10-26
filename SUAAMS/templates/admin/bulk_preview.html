@@ -139,7 +139,9 @@
                                 {% elif r.status == 'exists' %}
                                     {{ pill('Exists', 'neutral') }} <span class="text-2xs text-muted">{{ r.note }}</span>
                                 {% else %}
-                                    {{ pill('New', 'accent') }}
+                                    {# Neutral (2026-10-26): an 800-row file was 800 indigo pills; the
+                                       count of new rows is in the summary. #}
+                                    {{ pill('New', 'neutral') }}
                                     {# A course copy notes lecturers left out or a new
                                        coordinator (bulk_upload.plan_course_copy). #}
                                     {% if r.note %}<span class="text-2xs text-secondary">{{ r.note }}</span>{% endif %}

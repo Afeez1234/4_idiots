@@ -142,7 +142,7 @@
                                     <span class="font-medium mono">{{ s.code }}</span>
                                     {% if s.course %}<span class="text-2xs text-muted"> {{ s.course.course_title }}</span>{% endif %}
                                     {# Missing at the last check, matched now: added since. #}
-                                    {% if s.code in just_added %} {{ pill('Just added', 'accent') }}{% endif %}
+                                    {% if s.code in just_added %} {{ pill('Just added', 'neutral') }}{% endif %}
                                 </td>
                                 <td class="td td-muted">{{ kind_names[s.kind] if s.kind in kind_names else (s.kind or '—') }}</td>
                                 <td class="td td-muted">{{ s.room or '—' }}</td>

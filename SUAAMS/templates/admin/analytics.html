@@ -108,8 +108,10 @@
                                         <span class="mono shrink-0 text-xs text-secondary">{{ r.below }} / {{ r.total }} &middot; {{ pct }}%</span>
                                     </div>
                                     <div class="bar-track">
-                                        {# Share BELOW, so a long bar is bad: tone by the share still eligible. #}
-                                        <div class="bar-fill" data-tone="{{ grade_tone(100 - pct) }}" style="width: {{ pct }}%"></div>
+                                        {# A headcount, not an attendance figure: ink (2026-10-26).
+                                           It was toned by the share still eligible, an inverted
+                                           green/amber/red that read as attendance. #}
+                                        <div class="bar-fill" data-tone="ink" style="width: {{ pct }}%"></div>
                                     </div>
                                 </div>
                             {% endfor %}
@@ -145,7 +147,7 @@
                                             <span class="inline-flex items-center gap-1.5 whitespace-nowrap"
                                                   title="{{ c.attended }} of {{ c.held }} classes">
                                                 {{ course_chip(c.course.course_code) }}
-                                                <span class="mono text-xs" style="color: var(--color-{{ grade_tone(c.pct) }})">{{ c.pct|round|int }}%</span>
+                                                <span class="mono text-xs tone-text" data-tone="{{ grade_tone(c.pct) }}">{{ c.pct|round|int }}%</span>
                                             </span>
                                         {% endfor %}
                                     </div>
@@ -205,7 +207,8 @@
                             </div>
                             <div class="bar-track">
                                 {% if r.rate is not none %}
-                                    <div class="bar-fill" data-tone="{{ grade_tone(r.rate) }}" style="width: {{ r.rate }}%"></div>
+                                    {# Classes held is delivery, not attendance: ink (2026-10-26). #}
+                                    <div class="bar-fill" data-tone="ink" style="width: {{ r.rate }}%"></div>
                                 {% endif %}
                             </div>
                         </div>

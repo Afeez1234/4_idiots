@@ -63,10 +63,12 @@
                                         <span><span class="mono">{{ t.code }}</span> &middot; {{ t.name }}</span>
                                         {% if not t.is_active %}
                                             {{ pill('Disabled', 'ink') }}
+                                        {# Offline is the one that needs you (the board puts
+                                           it under Needs you); online is the normal state. #}
                                         {% elif t.id in online %}
-                                            {{ pill('Online', 'accent') }}
+                                            {{ pill('Online', 'neutral') }}
                                         {% else %}
-                                            {{ pill('Offline', 'neutral') }}
+                                            {{ pill('Offline', 'accent') }}
                                         {% endif %}
                                     </p>
                                     <p class="mt-0.5 text-xs text-muted">

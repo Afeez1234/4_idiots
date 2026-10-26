@@ -795,7 +795,7 @@ CONTEXTS = {
               "action": "auth.login_failed"}, "ink"),
             ({"actor_label": "tunde", "created_at": datetime(2026, 10, 11, 17, 0),
               "summary": "tunde set a new password",
-              "action": "auth.password_change"}, "accent"),
+              "action": "auth.password_change"}, "neutral"),
         ],
         pagination=_pagination(total=120, page=2, pages=3),
         people=["amaka", "cli:N9ne", "tunde"],

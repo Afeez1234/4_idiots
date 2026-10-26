@@ -451,6 +451,12 @@
   .bar-fill[data-tone="success"] { @apply bg-success; }
   .bar-fill[data-tone="warning"] { @apply bg-warning; }
   .bar-fill[data-tone="error"]   { @apply bg-error; }
+  .bar-fill[data-tone="ink"]     { @apply bg-ink; }
+  /* An attendance figure as text: the -ink shades, which pass AA at 12px
+     (the raw hues are 3.4:1 on white). Was an interpolated style="color". */
+  .tone-text[data-tone="success"] { @apply text-success-ink; }
+  .tone-text[data-tone="warning"] { @apply text-warning-ink; }
+  .tone-text[data-tone="error"]   { @apply text-error-ink; }
 
   /* Donut. Set style="--pct: 76" and the ring fills to 76%. --pct-thickness
      controls the ring weight; --donut-color the fill. */
@@ -556,9 +562,11 @@
     @apply rounded-card bg-sidebar p-5 text-white;
   }
 
+  /* Neutral (2026-10-26): every initial was indigo, the colour that means
+     act here / needs you. */
   .avatar {
-    @apply grid h-8 w-8 shrink-0 place-items-center rounded-full bg-accent-soft
-           text-xs font-bold text-accent;
+    @apply grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface
+           text-xs font-bold text-ink;
   }
   .avatar-muted { @apply bg-surface text-secondary; }
 

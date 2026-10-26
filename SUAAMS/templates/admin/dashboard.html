@@ -15,9 +15,10 @@
 {% endblock %}
 
 {# Shared by the check-in pill and the method split. NFC, the primary
-   channel, is indigo; the rest are neutral. BLE was amber until
-   2026-10-25, but amber means "late" on every attendance screen. #}
-{% set method_tone = {'nfc': 'accent'} %}
+   channel, was indigo; since 2026-10-26 every method is neutral: indigo
+   means act here / needs you / live, and a method is a label. BLE was amber
+   until 2026-10-25, but amber means "late" on every attendance screen. #}
+{% set method_tone = {} %}
 {% set method_label = {'nfc': 'NFC', 'ble': 'BLE', 'rfid': 'RFID card', 'manual': 'Manual',
                        'offline': 'Offline tap', 'unknown': 'Unknown'} %}
 

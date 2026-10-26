@@ -72,6 +72,36 @@ def test_shell_dom_contract():
         assert f'id="{hook}"' in shared, f"_shell.html is missing id=\"{hook}\""
 
 
+def test_indigo_keeps_its_four_meanings():
+    """On the admin pages indigo means act here, you are here, needs you, or
+    live (DESIGN.md, One Signal Rule). By 2026-10-26 it had spread to
+    avatars, every "New" upload row, log entries and labels, and stopped
+    meaning anything. An indigo pill must be one of these; anything else is
+    neutral or ink. Add to the list only for a pill that needs the admin."""
+    allowed = {
+        'No HOD yet',       # needs you
+        'Draft waiting',    # needs you: unpublished classes
+        'Offline',          # needs you: the board files it under Needs you
+        'Active',           # the current semester ("you are here")
+    }
+    found = set()
+    for path in (TEMPLATES / "admin").glob("*.html"):
+        found |= set(re.findall(r"pill\('([^']*)',\s*'accent'", path.read_text(encoding="utf-8")))
+    assert found <= allowed, f"Indigo pills outside the four meanings: {sorted(found - allowed)}"
+
+
+def test_no_colour_through_an_inline_style():
+    # style="color: var(--color-{{ tone }})" put the raw hue on 12px text
+    # (3.4:1); tones go through data-tone so the -ink shades apply. Text
+    # only: an icon is a graphic (3:1 is its bar, which the raw hues pass),
+    # and a custom property like --donut-color isn't a text colour.
+    pattern = re.compile(r'style="[^"]*(?<![-\w])color:\s*var\(--color-\{\{')
+    hits = [f"{p.relative_to(TEMPLATES).as_posix()}:{i}" for p in _templates()
+            for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
+            if pattern.search(line) and 'icon_svg(' not in line]
+    assert not hits, hits
+
+
 def test_no_browser_confirm():
     """Every "are you sure" is the portal's own dialog (SUAAMS.ask /
     confirmSubmit / data-confirm, in _head_assets.html), never the browser's

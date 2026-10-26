@@ -3096,16 +3096,17 @@ def _activity_label(action):
 
 
 def _activity_tone(action):
-    """Pill tone for an action: deletions, switched-off admins and failed
-    sign-ins in solid ink, the ones worth a second look in indigo, the rest
-    neutral. Not green/amber/red (2026-10-25): those are attendance's
-    present/late/absent everywhere else in the portal."""
-    if action.endswith('.delete') or action == 'admin.disable' or action == 'auth.login_failed':
-        return 'ink'
-    if action in ('student.unbind', 'semester.activate') \
+    """Pill tone for an action: the ones worth a second look (deletions,
+    switched-off admins, failed sign-ins, unbinds, status changes, password
+    resets, a new active semester) in solid ink, the rest neutral. Not
+    green/amber/red (2026-10-25): those are attendance's present/late/absent.
+    Not indigo either (2026-10-26): indigo means act here, you are here,
+    needs you, or live, and a log entry is none of them."""
+    if action.endswith('.delete') or action in ('admin.disable', 'auth.login_failed',
+                                                 'student.unbind', 'semester.activate') \
             or action.endswith('.status') or action.endswith('.bulk_status') \
             or action.endswith('.password_reset'):
-        return 'accent'
+        return 'ink'
     return 'neutral'
 
 
