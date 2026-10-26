@@ -1138,6 +1138,25 @@ function can return null to let one button through unasked (an offline
 tap's Accept; only Reject asks). This holds on the lecturer pages too, and
 `tests/test_templates.py` fails on any `confirm(...)` call in a template.
 
+### Motion (portal)
+An operations desk, often on a projector: motion is rare, quick, and only
+where something enters. Two curves, `--ease-out` (0.23, 1, 0.32, 1) and
+`--ease-drawer` (0.32, 0.72, 0, 1); only opacity and transform animate.
+- **Dialogs:** fade in from 97%, centred, with the backdrop; 200ms in,
+  150ms out (`@starting-style`, no script).
+- **More menu:** fades in from 97% out of its top-right corner, 150ms;
+  closes at once.
+- **Pick bar:** rises 4px and fades in, 180ms; leaves at once.
+- **Buttons:** press to 97%, 120ms.
+- **Phone rail:** slides on the drawer curve, 250ms, its backdrop fading
+  with it.
+
+Never animated: the door board's 15-second refresh (rows, counts, bars),
+the live dot (no pulse), the record drawer (it arrives with a page load),
+Find on `/`, rail sections folding, page content and flash messages on
+load. With reduced motion nothing moves or scales; dialogs and the menu
+keep their fade.
+
 ### Changeover checklist (portal)
 An ordered list, one row per step: a 28px round mark (the step number;
 solid ink with a tick once done), the step as an instruction ("Get its

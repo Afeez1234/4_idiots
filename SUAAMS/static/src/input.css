@@ -109,6 +109,12 @@
   /* Flat, as in the app: panels separate by tone and hairline. */
   --shadow-card: 0 1px 0 rgb(26 26 46 / 0.03);
   --shadow-pop:  0 12px 32px rgb(26 26 46 / 0.16), 0 2px 6px rgb(26 26 46 / 0.06);
+
+  /* --- Motion (2026-10-26). Strong ease-out for things entering; the
+     iOS-style drawer curve for the phone rail. Only opacity and transform
+     ever animate. See DESIGN.md, Motion (portal). */
+  --ease-out:    cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* Browser surfaces carry the palette too: selection, caret, focus. Every
@@ -153,8 +159,12 @@
 }
 @utility btn {
   @apply inline-flex items-center justify-center gap-2 rounded-btn px-4 py-2.5
-         text-sm font-semibold transition-colors
+         text-sm font-semibold
          disabled:pointer-events-none disabled:opacity-40;
+  /* Colours as before, plus scale for the press (below). */
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease,
+              scale 120ms var(--ease-out);
+  &:active { scale: 0.97; }
 }
 
 @layer components {
@@ -810,7 +820,11 @@
   .menu > summary::-webkit-details-marker { display: none; }
   .menu-list {
     @apply absolute right-0 z-20 mt-1.5 flex w-64 flex-col rounded-card border border-border bg-card p-1.5 shadow-pop;
+    /* Grows out of its button (right-aligned under it); closes at once. */
+    transform-origin: top right;
+    transition: opacity 150ms var(--ease-out), scale 150ms var(--ease-out);
   }
+  @starting-style { details[open] > .menu-list { opacity: 0; scale: 0.97; } }
   .menu-list > * {
     @apply flex items-center gap-2.5 rounded-btn px-3 py-2 text-left text-sm text-ink hover:bg-raised;
   }
@@ -824,6 +838,31 @@
     @apply sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-accent-line bg-accent-soft px-5 py-2.5;
   }
   .pick-bar[hidden] { display: none; }
+  /* Rises into place when the first row is ticked, so it isn't missed
+     under the table; leaves at once. */
+  .pick-bar { transition: opacity 180ms var(--ease-out), translate 180ms var(--ease-out); }
+  @starting-style { .pick-bar { opacity: 0; translate: 0 4px; } }
+
+  /* The phone rail: the drawer curve, and its backdrop fades with it
+     (it used to snap in while the rail slid). */
+  #sidebar { transition: transform 250ms var(--ease-drawer); }
+  #sidebar-backdrop {
+    transition: opacity 250ms var(--ease-drawer), display 250ms allow-discrete;
+  }
+  #sidebar-backdrop.hidden { opacity: 0; }
+  @starting-style { #sidebar-backdrop { opacity: 0; } }
+
+  /* Reduced motion: nothing moves or resizes; dialogs and the menu keep a
+     short fade, the rail and pick bar appear in place, buttons don't press. */
+  /* html-prefixed: Tailwind may emit these before the rules they undo, so
+     they win on specificity, not order. */
+  @media (prefers-reduced-motion: reduce) {
+    html .modal, html .modal:not([open]), html .menu-list { scale: none; }
+    @starting-style { html .modal[open], html details[open] > .menu-list { scale: none; } }
+    html .pick-bar, html #sidebar, html #sidebar-backdrop { transition: none; }
+    html .btn:active, html .btn-primary:active, html .btn-secondary:active,
+    html .btn-ghost:active, html .btn-danger:active { scale: none; }
+  }
   /* The changeover checklist (admin/changeover.html): a numbered mark, the
      step and its live fact, its action. The next open step is marked like
      an open record; done steps go quiet. */
@@ -862,6 +901,26 @@
   .modal:modal { position: fixed; top: 50%; left: 0; right: 0; bottom: auto; margin: 0 auto; translate: 0 -50%;
                   max-height: calc(100dvh - 2rem); overflow-y: auto; }
   .modal::backdrop { background: rgb(15 15 15 / 0.5); }
+
+  /* Dialogs fade in from 97% (centred: a dialog has no trigger to grow
+     from), the backdrop with them; closing is quicker than opening.
+     @starting-style + allow-discrete, so the native <dialog> needs no
+     script; older browsers just show it, as before. scale, not transform:
+     .modal:modal centres itself with translate. */
+  .modal {
+    transition: opacity 150ms var(--ease-out), scale 150ms var(--ease-out),
+                overlay 150ms allow-discrete, display 150ms allow-discrete;
+  }
+  .modal:not([open]) { opacity: 0; scale: 0.97; }
+  .modal[open] { transition-duration: 200ms; }
+  @starting-style { .modal[open] { opacity: 0; scale: 0.97; } }
+  .modal::backdrop {
+    transition: background-color 150ms var(--ease-out),
+                overlay 150ms allow-discrete, display 150ms allow-discrete;
+  }
+  .modal:not([open])::backdrop { background-color: rgb(15 15 15 / 0); }
+  .modal[open]::backdrop { transition-duration: 200ms; }
+  @starting-style { .modal[open]::backdrop { background-color: rgb(15 15 15 / 0); } }
   .modal-head { @apply mb-4 flex items-center justify-between gap-3; }
   /* The status CSV card inside its dialog: no second border. */
   .modal > .card { @apply border-0 shadow-none; }
