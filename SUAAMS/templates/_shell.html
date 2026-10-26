@@ -141,7 +141,7 @@
 
                     {% with messages = get_flashed_messages(with_categories=true) %}
                         {% if messages %}
-                            <div class="space-y-2">
+                            <div class="space-y-2" id="flashes">
                                 {% from '_macros.html' import flash, flash_password %}
                                 {% for category, message in messages %}
                                     {% if category == 'password' and message.password is defined %}
@@ -314,6 +314,15 @@
             // data-close-url), unless a dialog is open over it.
             var recordDrawer = document.getElementById('record-drawer');
             if (recordDrawer) {
+                // The outcome of what was just done in the drawer shows in
+                // the drawer: behind it, on a phone, it was never seen.
+                var flashes = document.getElementById('flashes');
+                var body = recordDrawer.querySelector('.drawer-body');
+                if (flashes && body) { flashes.classList.add('px-5', 'pt-4'); body.prepend(flashes); }
+                // Keyboard and screen reader land on the record, not at the
+                // top of the roster it sits after in the page.
+                var heading = recordDrawer.querySelector('#drawer-name');
+                if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus({preventScroll: true}); }
                 document.addEventListener('keydown', function (e) {
                     if (e.key !== 'Escape' || e.defaultPrevented) return;
                     if (document.querySelector('dialog[open]')) return;

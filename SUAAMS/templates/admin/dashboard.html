@@ -43,6 +43,9 @@
        the place of the late-class banners, the three stat cards and the
        Today's Classes table, which said the same things in three places. #}
     {{ board_rows(board) }}
+    {# Spoken only: a change in how many classes need you, and a refresh
+       that has stopped. The board's values change silently otherwise. #}
+    <p id="door-announce" class="sr-only" aria-live="polite"></p>
 
     {# Find (or ?student=) opens a student's record over the board, which
        stays in view and keeps refreshing beside it. #}
@@ -141,10 +144,14 @@
             // A failed refresh says so beside the clock instead of leaving
             // a board that looks current but isn't. An expired sign-in
             // comes back as the login page (no #door-board): say that.
+            var announce = document.getElementById('door-announce');
             function stale(why) {
                 if (!clock) return;
+                var first = !clock.classList.contains('stale');
                 clock.classList.add('stale');
                 clock.textContent = 'as of ' + (clock.dataset.asof || clock.textContent) + ' · ' + why;
+                // Said once when it goes stale, not on every failed tick.
+                if (first && announce) announce.textContent = 'The board stopped updating at ' + clock.dataset.asof + ': ' + why + '.';
             }
             fetch(url, {credentials: 'same-origin'})
                 .then(function (r) { return r.ok ? r.text() : null; })
@@ -152,8 +159,15 @@
                     if (!html) { stale('reconnecting'); return; }
                     var doc = new DOMParser().parseFromString(html, 'text/html');
                     if (!doc.getElementById('door-board')) { stale('signed out, reload the page'); return; }
+                    var before = board ? board.dataset.needs : null;
                     swap(doc, 'door-facts');
                     swap(doc, 'door-board');
+                    var now = document.getElementById('door-board').dataset.needs;
+                    if (announce && before !== null && now !== before) {
+                        var n = parseInt(now, 10);
+                        announce.textContent = n === 0 ? 'No classes need you now.'
+                            : n + (n === 1 ? ' class needs' : ' classes need') + ' you.';
+                    }
                     var fresh = document.getElementById('door-board');
                     if (fresh && clock && fresh.dataset.asof) {
                         clock.dataset.asof = fresh.dataset.asof;

@@ -855,7 +855,10 @@ form column beside a directory any more. Filters are one toolbar row above
 the list (labels visually hidden from 1024px). Students, Lecturers and
 Courses open a record in a 400px drawer on the right, under the top bar;
 from 1280px the page column makes room for it, and below 1536px the list
-drops its wide columns (`.col-wide`) while it is open. A drawer holds the
+drops its wide columns (`.col-wide`) while it is open. The door board
+instead reflows each row (time and room | class and reason | action, with
+the count and the reader screen beneath) while a drawer is open from 1280
+to 1535px, so its actions stay in view; its reason lines wrap, never clip. A drawer holds the
 jobs about that one record (a course's lecturers, enrolling a student), so
 no form asks you to pick the record from a dropdown. Organization keeps its
 two lists side by side (faculties and departments are peers); the

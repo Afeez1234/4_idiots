@@ -342,7 +342,7 @@
                 <div class="no-scrollbar flex gap-2 overflow-x-auto px-4 pt-4 pb-1">
                     {% for day in weekday_names %}
                         <button type="button"
-                                class="day-tab shrink-0"
+                                class="day-tab tab-pill shrink-0"
                                 aria-pressed="{{ 'true' if loop.index0 == grid.today_weekday else 'false' }}"
                                 aria-label="{{ day }}"
                                 data-day="{{ loop.index0 }}">
@@ -505,7 +505,7 @@
                 </dl>
                 <div class="mt-6 flex gap-3">
                     <button type="button" id="slot-edit-btn" class="btn-secondary flex-1">Edit</button>
-                    <button type="button" id="slot-delete-btn" class="btn-secondary flex-1 border-error/30 text-error hover:border-error hover:bg-error-soft hover:text-error">Remove</button>
+                    <button type="button" id="slot-delete-btn" class="btn-secondary flex-1 border-error/30 text-error-ink hover:border-error hover:bg-error-soft hover:text-error-ink">Remove</button>
                 </div>
             </div>
 

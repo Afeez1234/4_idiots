@@ -619,6 +619,25 @@
   .board-group:first-of-type { @apply border-t-0; }
   .board-group em { @apply font-normal not-italic text-muted; }
   .board-row { @apply gap-y-2 border-t border-divider py-3 lg:min-h-15 lg:py-2.5; }
+
+  /* A record drawer open over the board at laptop width (1280-1535px)
+     leaves the board about 600px: its five columns cut the action column
+     off. There the row reflows -- time + room | class + reason | action,
+     with the count and the reader screen on a second line -- so the board
+     really does stay usable beside the drawer. */
+  @media (width >= 80rem) and (width < 96rem) {
+    main:has(#record-drawer) .board-cols { display: none; }
+    main:has(#record-drawer) .board-row {
+      grid-template-columns: 5rem minmax(0, 1fr) auto;
+      grid-template-areas: "when cls act" "when cnt scr";
+      align-items: start;
+    }
+    main:has(#record-drawer) .board-when { grid-area: when; }
+    main:has(#record-drawer) .board-class { grid-area: cls; }
+    main:has(#record-drawer) .board-count { grid-area: cnt; }
+    main:has(#record-drawer) .board-reader { grid-area: scr; width: 12rem; }
+    main:has(#record-drawer) .board-act { grid-area: act; }
+  }
   .board-section[data-group="needs"] .board-group { @apply border-accent-line bg-accent-soft text-accent-ink; }
   .board-section[data-group="needs"] .board-row  { @apply border-accent-line bg-accent-soft; }
   /* One line on a phone (10:00  ENG-LT2), two at desk width. */
@@ -627,7 +646,9 @@
   .board-when span { @apply font-mono text-xs text-muted; }
   .board-class { @apply min-w-0; }
   .board-class p:first-child { @apply truncate font-semibold text-ink; }
-  .board-sub { @apply mt-0.5 truncate text-xs text-secondary; }
+  /* Wraps, never clipped: the reason is why the row is there. */
+  .board-sub { @apply mt-0.5 text-xs text-secondary; }
+  .board-reader { @apply min-w-0; }
   .board-count b { @apply font-mono text-[15px] font-bold text-ink tabular-nums; }
   .board-count small { @apply font-mono text-xs font-normal text-muted; }
   .board-count .track { @apply mt-1.5 h-1 rounded-full bg-divider; }
@@ -645,7 +666,16 @@
 
   /* Latest check-ins: a ruled log, not a card of stacked tiles. */
   .checkin-log li {
-    @apply grid grid-cols-[5.5rem_minmax(0,1fr)_minmax(0,1fr)_5.5rem] items-center gap-3 border-t border-divider px-5 py-2.5 text-sm;
+    @apply grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 border-t border-divider px-5 py-2.5 text-sm
+           sm:grid-cols-[5.5rem_minmax(0,1fr)_minmax(0,1fr)_5.5rem];
+  }
+  /* On a phone: name | method, then class and time under the name (the
+     four columns cut names to 48px at 390). */
+  @media (width < 40rem) {
+    .checkin-log li > :nth-child(1) { grid-row: 3; grid-column: 1; }
+    .checkin-log li > :nth-child(2) { grid-row: 1; grid-column: 1; }
+    .checkin-log li > :nth-child(3) { grid-row: 2; grid-column: 1; }
+    .checkin-log li > :nth-child(4) { grid-row: 1; grid-column: 2; }
   }
 
   /* What the room's reader shows, in its own words (oled_display.ino):
@@ -686,6 +716,8 @@
     @apply grid h-11 w-11 shrink-0 place-items-center rounded-[10px] bg-sidebar text-base font-bold text-white;
   }
   .drawer-name { @apply text-lg leading-tight font-bold text-ink; }
+  /* Focused by script when the record opens (a landing point, not a control). */
+  .drawer-name:focus { outline: none; }
   .drawer-id { @apply mt-1 font-mono text-xs leading-relaxed text-secondary; }
   .drawer-close {
     @apply ml-auto grid h-8 w-8 shrink-0 place-items-center rounded-btn border border-border text-secondary

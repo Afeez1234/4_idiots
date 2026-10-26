@@ -51,10 +51,13 @@
 
 {% macro board_row(row) -%}
   {% set code = row.course.course_code if row.course else '?' %}
-  <div class="board-row">
+  {# A list item whose cells each carry a spoken label (sr-only): the
+     column header row is visual only, and a screen reader read the cells
+     as one run of words with no idea which was which (2026-10-26). #}
+  <li class="board-row">
     <div class="board-when">
       <b>{{ row.start.strftime('%H:%M') if row.start else 'Unscheduled' }}</b>
-      <span>{{ row.room or 'No room' }}</span>
+      <span><span class="sr-only">, room </span>{{ row.room or 'No room' }}</span>
     </div>
     <div class="board-class">
       <p><span class="mono">{{ code }}</span>&ensp;{{ row.course.course_title if row.course else '' }}</p>
@@ -67,6 +70,7 @@
       </p>
     </div>
     <div class="board-count">
+      <span class="sr-only">Checked in: </span>
       {% if row.present is not none %}
         {% set pct = (row.present / row.enrolled * 100)|round|int if row.enrolled else 0 %}
         <b>{{ row.present }} <small>of {{ row.enrolled }}</small></b>
@@ -79,7 +83,7 @@
         <span class="board-count-note">{{ row.enrolled }} enrolled</span>
       {% endif %}
     </div>
-    {{ reader_cell(row) }}
+    <div class="board-reader"><span class="sr-only">Reader shows: </span>{{ reader_cell(row) }}</div>
     <div class="board-act">
       {% if row.reason == 'late' and row.slot %}
         <form action="{{ url_for('admin.remind_lecturer', slot_id=row.slot.id) }}" method="POST">
@@ -98,11 +102,11 @@
         <span class="board-act-note">missed</span>
       {% endif %}
     </div>
-  </div>
+  </li>
 {%- endmacro %}
 
 {% macro board_rows(board) -%}
-  <div class="board" id="door-board" data-asof="{{ board.now.strftime('%H:%M') }}">
+  <div class="board" id="door-board" data-asof="{{ board.now.strftime('%H:%M') }}" data-needs="{{ board.facts.needs }}">
     {% if board.rows %}
       <div class="board-cols" aria-hidden="true">
         <span>Time &middot; room</span><span>Class &middot; lecturer</span><span>Checked in</span><span>Reader shows</span><span></span>
@@ -110,7 +114,7 @@
       {% for key, label, rows in board.groups %}
         <section class="board-section" data-group="{{ key }}" aria-label="{{ label }}">
           <h2 class="board-group">{{ label }} <em>{{ rows|length }}</em></h2>
-          {% for row in rows %}{{ board_row(row) }}{% endfor %}
+          <ul role="list">{% for row in rows %}{{ board_row(row) }}{% endfor %}</ul>
         </section>
       {% endfor %}
     {% else %}
