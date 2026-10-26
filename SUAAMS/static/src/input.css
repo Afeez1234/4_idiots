@@ -488,7 +488,9 @@
      green: green means "present" (Green Is Sacred). */
   .alert[data-tone="success"] { @apply border-border bg-card text-ink; }
   .alert[data-tone="error"]   { @apply border-error/25   bg-error-soft   text-error-ink; }
-  .alert[data-tone="warning"] { @apply border-warning/25 bg-warning-soft text-warning-ink; }
+  /* A warning is a raised panel with an ink edge, not amber: amber is
+     attendance's "late" (Green Is Sacred, and its siblings). 2026-10-26. */
+  .alert[data-tone="warning"] { @apply border-ink/30 bg-raised text-ink; }
   .alert[data-tone="info"]    { @apply border-accent-line bg-accent-soft text-accent-ink; }
 
   /* ======================================================================
@@ -570,13 +572,14 @@
     @apply flex items-center gap-4 rounded-card border p-4;
   }
   .now-banner[data-tone="live"]    { @apply border-accent-line bg-accent-soft; }
-  .now-banner[data-tone="warning"] { @apply border-warning/25 bg-warning-soft; }
+  /* "Act here" banners (a reader's new secret, no active semester): indigo. */
+  .now-banner[data-tone="warning"] { @apply border-accent-line bg-accent-soft; }
   .now-banner[data-tone="neutral"] { @apply border-border bg-card; }
   .now-banner-icon {
     @apply grid h-9 w-9 shrink-0 place-items-center rounded-full;
   }
   .now-banner-icon[data-tone="live"]    { @apply bg-accent/15 text-accent; }
-  .now-banner-icon[data-tone="warning"] { @apply bg-warning/15 text-warning; }
+  .now-banner-icon[data-tone="warning"] { @apply bg-accent/15 text-accent-ink; }
   .now-banner-icon[data-tone="neutral"] { @apply bg-surface text-muted; }
 
   /* Count on a nav link (Timetable: unpublished drafts). Pushed to the

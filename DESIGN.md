@@ -979,13 +979,19 @@ Tactile and confident.
   clipped variant when a table bleeds to the edge.
 - **Portal dialogs:** native `<dialog>`, white, 12px corners, 24px padding,
   up to 448px wide, centred, pop shadow over a 50% Midnight backdrop. A tall
-  form scrolls inside it.
+  form scrolls inside it. Every portal modal is one (unbind, edit,
+  status, delete, the confirm dialog), so focus, Tab and Escape come from
+  the browser; a click on the backdrop, not the dialog's own padding,
+  closes it (`SUAAMS.onBackdrop`).
 - **Portal menus:** native `<details>` (opens with Enter or Space, no
   script): a 256px white list, 12px corners, pop shadow, 8px rows that hover
   to Raised.
 - **Portal alerts:** 8px corners, the tone's soft tint with its ink text
-  and a 25% border; info is indigo. Errors and warnings are `role="alert"`,
-  the rest a polite status.
+  and a 25% border; info is indigo, a warning a Raised panel with a 30% ink
+  edge (never amber, which is attendance's "late"), and an "act here"
+  banner (a reader's new secret) indigo. Errors and warnings are
+  `role="alert"`, the rest a polite status. Filter rows end in one verb,
+  Apply.
 
 ### Inputs / Fields
 - **App:** filled (graphite or white), no border at rest, 12dp corners, 16dp

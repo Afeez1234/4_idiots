@@ -59,7 +59,7 @@
                 </select>
             </div>
             <div class="flex items-end gap-2">
-                <button type="submit" class="btn-secondary btn-sm h-9">Show</button>
+                <button type="submit" class="btn-secondary btn-sm h-9">Apply</button>
                 {% if view.dept or view.level %}
                     <a href="{{ url_for('admin.timetable_page', semester=view.semester_id) }}" class="btn-ghost btn-sm h-9">Clear</a>
                 {% endif %}

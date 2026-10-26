@@ -26,9 +26,7 @@
 {%- endmacro %}
 
 {% macro status_dialog(names, exits_note) -%}
-    <div id="status-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
-        <div class="w-full max-w-md rounded-card border border-border bg-card p-6 shadow-pop"
-             role="dialog" aria-modal="true" aria-labelledby="status-title">
+    <dialog id="status-modal" class="modal" aria-labelledby="status-title">
             <div class="mb-4 flex items-center justify-between">
                 <h3 class="card-title" id="status-title">Change status</h3>
                 <button type="button" id="status-close" class="btn-ghost btn-icon" aria-label="Close">
@@ -71,8 +69,7 @@
                     <button type="submit" class="btn-primary flex-1">Save</button>
                 </div>
             </form>
-        </div>
-    </div>
+    </dialog>
     <script>
         (function () {
             var modal = document.getElementById('status-modal');
@@ -82,19 +79,9 @@
             // (the edit dialog in _edit.html does the same).
             var opener = null;
             function close() {
-                modal.classList.add('hidden'); modal.classList.remove('flex');
+                if (modal.open) modal.close();
                 if (opener) opener.focus();
             }
-            modal.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape') { close(); return; }
-                if (e.key !== 'Tab') return;
-                var items = Array.prototype.filter.call(
-                    modal.querySelectorAll('button, select, input:not([type=hidden]), textarea, a[href]'),
-                    function (el) { return el.offsetParent !== null; });
-                var first = items[0], last = items[items.length - 1];
-                if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
-                else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
-            });
             document.querySelectorAll('.status-open').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     opener = btn;
@@ -103,14 +90,13 @@
                     document.getElementById('status-name').textContent = btn.dataset.name;
                     document.getElementById('status-select').value = btn.dataset.status;
                     document.getElementById('status-reason').value = '';
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
+                    modal.showModal();
                     document.getElementById('status-select').focus();
                 });
             });
             document.getElementById('status-close').addEventListener('click', close);
             document.getElementById('status-cancel').addEventListener('click', close);
-            modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+            SUAAMS.onBackdrop(modal, close);
         })();
     </script>
 {%- endmacro %}

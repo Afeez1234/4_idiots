@@ -25,11 +25,7 @@
 {%- endmacro %}
 
 {% macro edit_dialog(title, delete_note, delete_label='Delete') -%}
-    <div id="edit-modal" class="fixed inset-0 z-50 hidden justify-center overflow-y-auto bg-black/50 p-4">
-        {# my-auto, not items-center: centres the dialog but lets a tall one
-           scroll on a phone instead of clipping its top off. #}
-        <div class="my-auto h-fit w-full max-w-md rounded-card border border-border bg-card p-6 shadow-pop"
-             role="dialog" aria-modal="true" aria-labelledby="edit-title">
+    <dialog id="edit-modal" class="modal" aria-labelledby="edit-title">
             <div class="mb-4 flex items-center justify-between">
                 <h3 class="card-title" id="edit-title">{{ title }}</h3>
                 <button type="button" id="edit-close" class="btn-ghost btn-icon" aria-label="Close">
@@ -66,8 +62,7 @@
                     <button type="submit" class="btn-danger w-full">{{ delete_label }}</button>
                 </form>
             </div>
-        </div>
-    </div>
+    </dialog>
     <script>
         (function () {
             var modal = document.getElementById('edit-modal');
@@ -87,19 +82,9 @@
             // Escape closes, and focus returns to the button that opened it.
             var opener = null;
             function close() {
-                modal.classList.add('hidden'); modal.classList.remove('flex');
+                if (modal.open) modal.close();
                 if (opener) opener.focus();
             }
-            modal.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape') { close(); return; }
-                if (e.key !== 'Tab') return;
-                var items = Array.prototype.filter.call(
-                    modal.querySelectorAll('button, select, input:not([type=hidden]), textarea, a[href]'),
-                    function (el) { return el.offsetParent !== null; });
-                var first = items[0], last = items[items.length - 1];
-                if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
-                else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
-            });
             document.querySelectorAll('.edit-open').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     opener = btn;
@@ -120,8 +105,7 @@
                         ? "Can't be deleted: " + btn.dataset.blocker : '';
                     blocker.classList.toggle('hidden', !btn.dataset.blocker);
                     del.classList.toggle('hidden', !!btn.dataset.blocker);
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
+                    modal.showModal();
                     var field = form.querySelector('input:not([type=hidden]), select, textarea');
                     if (field) field.focus();
                 });
@@ -137,7 +121,7 @@
             });
             document.getElementById('edit-close').addEventListener('click', close);
             document.getElementById('edit-cancel').addEventListener('click', close);
-            modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+            SUAAMS.onBackdrop(modal, close);
         })();
     </script>
 {%- endmacro %}

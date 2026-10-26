@@ -198,7 +198,7 @@
                 </select>
             </div>
             <div class="flex items-end gap-2">
-                <button type="submit" class="btn-secondary btn-sm h-9">Show</button>
+                <button type="submit" class="btn-secondary btn-sm h-9">Apply</button>
                 {% if is_filtered %}
                     <a href="{{ url_for('admin.courses_page', semester=view_semester.id if view_semester else None) }}" class="btn-ghost btn-sm h-9">Clear</a>
                 {% endif %}

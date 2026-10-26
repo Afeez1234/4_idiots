@@ -293,7 +293,7 @@
                     dlg.showModal();
                 });
                 dlg.addEventListener('close', function () { btn.focus(); });
-                dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+                SUAAMS.onBackdrop(dlg);
                 dlg.querySelectorAll('[data-close]').forEach(function (c) {
                     c.addEventListener('click', function () { dlg.close(); });
                 });
@@ -326,7 +326,6 @@
                 document.addEventListener('keydown', function (e) {
                     if (e.key !== 'Escape' || e.defaultPrevented) return;
                     if (document.querySelector('dialog[open]')) return;
-                    if (document.querySelector('#unbind-modal.flex, #status-modal.flex, #edit-modal.flex')) return;
                     window.location = recordDrawer.dataset.closeUrl;
                 });
             }

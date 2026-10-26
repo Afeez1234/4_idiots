@@ -138,8 +138,7 @@
          The scrim carries `hidden` in the markup below and `flex` is added
          by the script when it opens -- both are literal classes here, so the
          scanner emits them even though the script only touches them by name. -->
-    <div id="delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
-        <div class="card w-full max-w-md p-6" role="dialog" aria-modal="true" aria-labelledby="delete-modal-title">
+    <dialog id="delete-modal" class="modal" aria-labelledby="delete-modal-title">
             <div class="mb-4 flex items-center gap-3">
                 <div class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-error-soft text-error" aria-hidden="true">
                     {{ icon_svg('warning', 'h-5 w-5 shrink-0') }}
@@ -165,8 +164,7 @@
                    needs no bespoke styling here. #}
                 <button type="submit" id="delete-modal-confirm" disabled class="btn-danger flex-1">Delete</button>
             </form>
-        </div>
-    </div>
+    </dialog>
 
     <dialog class="modal" id="dlg-faculty" aria-labelledby="dlg-faculty-title">
         <div class="modal-head"><h2 class="card-title" id="dlg-faculty-title">Add faculty</h2>
@@ -255,8 +253,7 @@
                 // lenient compare would let "engineering" through for
                 // "Faculty of Engineering".
                 confirmBtn.disabled = true;
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
+                modal.showModal();
                 input.focus();
             });
         });
@@ -266,25 +263,11 @@
         });
 
         function closeModal() {
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
+            if (modal.open) modal.close();
             if (opener) opener.focus();
         }
-        // Keyboard, as in admin/_edit.html: Escape closes, Tab stays inside.
-        modal.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') { closeModal(); return; }
-            if (e.key !== 'Tab') return;
-            var items = Array.prototype.filter.call(
-                modal.querySelectorAll('button, input:not([type=hidden])'),
-                function (el) { return el.offsetParent !== null && !el.disabled; });
-            var first = items[0], last = items[items.length - 1];
-            if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
-            else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
-        });
         document.getElementById('delete-modal-cancel').addEventListener('click', closeModal);
-        modal.addEventListener('click', function (e) {
-            if (e.target === modal) closeModal();
-        });
+        SUAAMS.onBackdrop(modal, closeModal);
     })();
 </script>
 {% endblock %}

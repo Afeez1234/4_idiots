@@ -159,9 +159,7 @@
     {# Unbind: one dialog per page, filled from the clicked button (the same
        pattern as the status dialog). The admin types the hidden end of the
        matric number from the student's ID card; the server checks it. #}
-    <div id="unbind-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
-        <div class="w-full max-w-md rounded-card border border-border bg-card p-6 shadow-pop"
-             role="dialog" aria-modal="true" aria-labelledby="unbind-title" aria-describedby="unbind-help">
+    <dialog id="unbind-modal" class="modal" aria-labelledby="unbind-title" aria-describedby="unbind-help">
             <div class="mb-4 flex items-center justify-between">
                 <h3 class="card-title" id="unbind-title">Unbind phone</h3>
                 <button type="button" id="unbind-close" class="btn-ghost btn-icon" aria-label="Close">
@@ -191,8 +189,7 @@
                     <button type="submit" class="btn-primary flex-1">Unbind phone</button>
                 </div>
             </form>
-        </div>
-    </div>
+    </dialog>
 
     {% call edit_dialog('Edit student', 'Removes the student, their login and their course registrations. Only possible before any attendance or result is recorded for them.') %}
         <div>
@@ -238,19 +235,9 @@
         var input = document.getElementById('unbind-tail');
         var opener = null;
         function close() {
-            modal.classList.add('hidden'); modal.classList.remove('flex');
+            if (modal.open) modal.close();
             if (opener) opener.focus();
         }
-        modal.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') { close(); return; }
-            if (e.key !== 'Tab') return;
-            var items = Array.prototype.filter.call(
-                modal.querySelectorAll('button, input:not([type=hidden])'),
-                function (el) { return el.offsetParent !== null; });
-            var first = items[0], last = items[items.length - 1];
-            if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
-            else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
-        });
         document.querySelectorAll('.unbind-open').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 opener = btn;
@@ -259,14 +246,13 @@
                 document.getElementById('unbind-detail').textContent = btn.dataset.detail;
                 document.getElementById('unbind-prefix').textContent = btn.dataset.prefix;
                 input.value = '';
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
+                modal.showModal();
                 input.focus();
             });
         });
         document.getElementById('unbind-close').addEventListener('click', close);
         document.getElementById('unbind-cancel').addEventListener('click', close);
-        modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+        SUAAMS.onBackdrop(modal, close);
     })();
 </script>
 {%- endmacro %}

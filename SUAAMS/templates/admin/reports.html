@@ -27,7 +27,7 @@
                             {% endfor %}
                         </select>
                     </div>
-                    <button type="submit" class="btn-secondary btn-sm">Show</button>
+                    <button type="submit" class="btn-secondary btn-sm">Apply</button>
                 </form>
                 <a href="{{ url_for('admin.export_reports', **({'semester': semester.id} if semester else {})) }}" class="btn-secondary btn-sm">
                     {{ icon_svg('download', 'h-4 w-4 shrink-0') }}

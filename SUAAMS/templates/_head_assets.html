@@ -73,6 +73,18 @@
                 (word ? input : o.danger ? dlg.querySelector('#ask-cancel') : ok).focus();
             });
         };
+        // A click on the dark backdrop of a modal <dialog> closes it. The
+        // click's target is the dialog itself for its own padding too, so
+        // this checks the point is outside the dialog's box.
+        S.onBackdrop = function (dlg, close) {
+            dlg.addEventListener('click', function (e) {
+                if (e.target !== dlg) return;
+                var r = dlg.getBoundingClientRect();
+                if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) {
+                    (close || function () { dlg.close(); })();
+                }
+            });
+        };
         S.confirmSubmit = function (form, opts) {
             form.addEventListener('submit', function (e) {
                 if (form.dataset.asked === 'yes') { delete form.dataset.asked; return; }
