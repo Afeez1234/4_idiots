@@ -692,6 +692,16 @@
   .reader-screen[data-state="dim"]  { @apply border border-border bg-raised text-muted; }
   .reader-screen[data-state="off"]  { @apply border border-dashed border-ink bg-card text-ink; }
   .reader-screen[data-state="none"] { @apply normal-case tracking-normal text-muted; }
+  /* A row on the Readers page: screen | who | actions. Stacks on a phone. */
+  .reader-row {
+    @apply grid scroll-mt-24 gap-3 px-5 py-4 sm:items-center;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  @media (min-width: 40rem) {
+    .reader-row { grid-template-columns: 13rem minmax(0, 1fr) auto; }
+  }
+  .reader-row.is-open { @apply bg-accent-soft; box-shadow: inset 3px 0 0 var(--color-accent); }
+  .reader-row-actions { @apply flex flex-wrap items-center gap-3; }
   .reader-screen .live-dot {
     @apply mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-middle;
     background: #818CF8;   /* the app's dark-mode Contactless Indigo, on Midnight */

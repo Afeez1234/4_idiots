@@ -93,7 +93,8 @@
           </button>
         </form>
       {% elif row.reason == 'reader' %}
-        <a href="{{ url_for('admin.terminals_page') }}" class="btn-secondary btn-sm">Open reader</a>
+        {# Straight to that reader on the Readers page, marked. #}
+        <a href="{{ url_for('admin.terminals_page', reader=row.reader.terminal.id, _anchor='reader-' ~ row.reader.terminal.id) }}" class="btn-secondary btn-sm">Open reader</a>
       {% elif row.status == 'live' %}
         <span class="board-act-note">{{ 'ends ' ~ row.end.strftime('%H:%M') if row.end else 'live' }}</span>
       {% elif row.status == 'ended' %}

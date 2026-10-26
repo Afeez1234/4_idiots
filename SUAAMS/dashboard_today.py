@@ -376,6 +376,32 @@ def door_board(data, terminals, online_within, now_utc=None):
     }
 
 
+def reader_screens(data, terminals, online_within, now_utc=None):
+    """{terminal id: screen} for the Readers page (2026-10-26): what each
+    reader is showing now, decided as the board decides it (_room_screens),
+    so the two pages agree. screen is {'state', 'lines'} with the board's
+    states: lit / dim (the firmware's door screen), off (switched off or not
+    heard from within online_within), none (no room set: the firmware only
+    draws a door screen for a reader placed in a room)."""
+    now_utc = now_utc or datetime.now(timezone.utc).replace(tzinfo=None)
+    screens = _room_screens(data, data['now'])
+    out = {}
+    for t in terminals:
+        seen_ago = (now_utc - t.last_seen_at) if t.last_seen_at else None
+        if not t.is_active:
+            out[t.id] = {'state': 'off', 'lines': ['Reader switched off']}
+        elif seen_ago is None or seen_ago > online_within:
+            out[t.id] = {'state': 'off', 'lines': [
+                'Reader offline', 'never seen' if seen_ago is None else 'taps held on reader']}
+        elif not normalize_room(t.room):
+            out[t.id] = {'state': 'none', 'lines': ['No room set, so no class screen']}
+        else:
+            # A room with nothing on today's timetable shows the empty door.
+            out[t.id] = screens.get(normalize_room(t.room)) or {
+                'state': 'dim', 'lines': ['NO CLASS', 'Nothing else today']}
+    return out
+
+
 def recent_checkins(limit=8):
     """The latest check-ins, with student, course and session loaded up
     front (the old feed ran two extra queries per row)."""

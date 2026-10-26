@@ -1077,6 +1077,14 @@ tall. Never an attendance colour: these are machine states.
   sentence-case line, no box. A later class whose reader is lit for another
   class says so in a line instead of repeating that screen.
 
+On the Readers page each reader is a row of three columns: its screen
+(13rem, the same states, plus None for a reader with no room set), its code,
+name and status pill over a muted meta line, and its actions together on
+the right (Edit as a secondary button, New secret and Disable as text
+links). Below 40rem the three stack. The reader the board's Open reader
+points at is marked like an open record: indigo-soft fill with a 3px indigo
+rule on the left.
+
 ### Record drawer (portal)
 A student's record and everything you can do to them, opened from Find or
 a name on the board or the roster, while the page behind stays in view.

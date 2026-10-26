@@ -405,6 +405,47 @@ class DashboardTodayTestCase(unittest.TestCase):
         self.assertEqual(rows["MCT 405"]["screen"]["lines"], ["MCT 405", "Not started yet", "10:30 - 12:30"])
         self.assertEqual(rows["MCT 403"]["screen"]["lines"], ["NO CLASS", "Next: MCT 403 at 14:00"])
 
+    def test_readers_page_screens_match_the_board(self):
+        """The Readers page (2026-10-26) shows each reader's screen by the
+        board's rule, plus the states only a reader has: switched off,
+        offline, no room set, and a room with nothing on today."""
+        sess = self.session(self.course401, active=True,
+                            slot=self.slot(self.course401, (10, 0), (12, 0), room="LT 1"))
+        self.checkin(self.students(self.course401, 2)[0], sess)
+        lit = self.reader("LT 1")
+        quiet = self.reader("LT 7")
+        off = self.reader("LT 2", active=False)
+        gone = self.reader("LT 3", seen_min_ago=40)
+        never = self.reader("LT 4", seen_min_ago=None)
+        roomless = self.reader("LT 5")
+        roomless.room = None
+        db.session.commit()
+        screens = dt.reader_screens(dt.today(self.sem, now=at(10, 40)), Terminal.query.all(),
+                                    timedelta(minutes=15), now_utc=datetime(2026, 10, 8, 10, 0))
+        self.assertEqual(screens[lit.id], self.by_course(self.board(at(10, 40)))["MCT 401"]["screen"])
+        self.assertEqual(screens[quiet.id], {"state": "dim", "lines": ["NO CLASS", "Nothing else today"]})
+        self.assertEqual(screens[off.id], {"state": "off", "lines": ["Reader switched off"]})
+        self.assertEqual(screens[gone.id]["lines"], ["Reader offline", "taps held on reader"])
+        self.assertEqual(screens[never.id]["lines"], ["Reader offline", "never seen"])
+        self.assertEqual(screens[roomless.id]["state"], "none")
+
+    def test_open_reader_lands_on_that_reader(self):
+        # The board's Open reader carries the reader's id; the Readers page
+        # marks that row and shows its screen.
+        self.app.template_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
+        self.session(self.course401, active=True,
+                     slot=self.slot(self.course401, (10, 0), (12, 0), room="LT 1"))
+        t = self.reader("LT 1", seen_min_ago=None)
+        db.session.commit()
+        with self.client.session_transaction() as sess:
+            sess["user_id"], sess["username"], sess["role"] = self.admin.id, "tunde", "admin"
+        with mock.patch("dashboard_today.campus_now", return_value=at(10, 45)):
+            board = self.client.get("/admin/dashboard/board").get_data(as_text=True)
+            self.assertIn(f"/admin/terminals?reader={t.id}#reader-{t.id}", board)
+            page = self.client.get(f"/admin/terminals?reader={t.id}").get_data(as_text=True)
+        self.assertIn(f'id="reader-{t.id}" class="reader-row is-open"', page)
+        self.assertIn("never seen", page)
+
     def test_a_room_without_a_reader_has_no_screen(self):
         self.session(self.course401, active=True,
                      slot=self.slot(self.course401, (10, 0), (12, 0), room="LT 9"))

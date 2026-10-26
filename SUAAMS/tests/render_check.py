@@ -342,6 +342,11 @@ CONTEXTS = {
              "is_active": True, "last_seen_at": datetime(2026, 10, 15, 16, 0)},
         ],
         online={1},
+        # dashboard_today.reader_screens: lit, off (disabled), off (offline).
+        screens={1: {"state": "lit", "lines": ["MCT401", "23 / 40 checked in", "ends 11:00"]},
+                 2: {"state": "off", "lines": ["Reader switched off"]},
+                 3: {"state": "off", "lines": ["Reader offline", "taps held on reader"]}},
+        picked_reader=3,
         # admin._secret_fingerprint per reader, for the New secret forms.
         fingerprints={1: "a1b2c3d4e5f60718", 2: "0f1e2d3c4b5a6978", 3: "1122334455667788"},
         rooms=["Eng. Lab B", "LT 1", "LT 2"],

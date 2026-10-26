@@ -2527,9 +2527,17 @@ def _secret_fingerprint(terminal):
 def _terminals_page(new_secret=None, for_terminal=None):
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     terminals = Terminal.query.order_by(Terminal.code).all()
+    # Each reader's screen, worked out as the door board works it out
+    # (2026-10-26), so "Open reader" on the board lands on the same thing.
+    semester = Semester.query.filter_by(is_active=True).first()
+    screens = dashboard_today.reader_screens(dashboard_today.today(semester), terminals,
+                                             TERMINAL_ONLINE_WITHIN, now_utc=now)
     return render_template(
         'admin/terminals.html',
         terminals=terminals,
+        screens=screens,
+        # The reader the board's "Open reader" points at, marked on arrival.
+        picked_reader=request.args.get('reader', type=int),
         fingerprints={t.id: _secret_fingerprint(t) for t in terminals},
         online={t.id for t in terminals if t.last_seen_at and now - t.last_seen_at <= TERMINAL_ONLINE_WITHIN},
         rooms=sorted({r for (r,) in db.session.query(Timetable.room).distinct() if r}),
