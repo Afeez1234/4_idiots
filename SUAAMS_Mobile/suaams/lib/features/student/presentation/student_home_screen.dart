@@ -564,6 +564,19 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                         : colorScheme.onSurface.withValues(alpha: 0.45),
                   ),
                 ),
+                // Who teaches it (every lecturer, coordinator first).
+                if (display?.lecturer != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    display!.lecturer!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurface.withValues(
+                        alpha: isLive ? 0.7 : 0.45,
+                      ),
+                    ),
+                  ),
+                ],
                 if (timeRange != null) ...[
                   const SizedBox(height: 4),
                   Text(

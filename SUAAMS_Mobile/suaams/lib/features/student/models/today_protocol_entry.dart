@@ -11,6 +11,8 @@ class TodayProtocolEntry {
   final String? startTime;
   final String? endTime;
   final String? room;
+  // Who teaches it, as WeekScheduleEntry.lecturer.
+  final String? lecturer;
 
   TodayProtocolEntry({
     required this.courseId,
@@ -22,6 +24,7 @@ class TodayProtocolEntry {
     this.startTime,
     this.endTime,
     this.room,
+    this.lecturer,
   });
 
   factory TodayProtocolEntry.fromJson(Map<String, dynamic> json) {
@@ -46,6 +49,7 @@ class TodayProtocolEntry {
       startTime: json['start_time'] as String?,
       endTime: json['end_time'] as String?,
       room: json['room'] as String?,
+      lecturer: json['lecturer'] as String?,
     );
   }
 }

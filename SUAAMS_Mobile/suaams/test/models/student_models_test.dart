@@ -134,6 +134,8 @@ void main() {
       expect(e.status, 'PENDING');
       expect(e.sessionLive, isTrue);
       expect(e.room, 'LT 2');
+      // Every lecturer, coordinator first (Course.lecturer_names).
+      expect(e.lecturer, 'Dr A. Okafor, Dr B. Musa');
     });
 
     test('scheduled rows omit ad_hoc entirely and default to false', () {
@@ -185,6 +187,9 @@ void main() {
       expect(week[0].startTime, '09:00');
       expect(week[1].startTime, isNull);
       expect(week[1].room, isNull);
+      // Who teaches it; absent (an older server) parses as null.
+      expect(week[0].lecturer, 'Dr A. Okafor, Dr B. Musa');
+      expect(week[1].lecturer, isNull);
     });
   });
 

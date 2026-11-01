@@ -62,8 +62,8 @@ the feature.
 | Feature | What it does | Server | App | Firmware | Tables |
 |---|---|---|---|---|---|
 | Dashboard stats | Attendance summary | `api/student.py` `/dashboard` | `features/student/providers/student_provider.dart`, `student_home_screen.dart` | — | `attendance`, `enrollments` |
-| Today's classes | Live status per class today | `api/student.py` `/schedule/today` | `today_schedule_provider.dart` | — | `timetable`, `sessions` |
-| Weekly timetable | Recurring schedule | `api/student.py` `/schedule/week` | `week_schedule_provider.dart`, `student_timetable_screen.dart`, `day_detail_screen.dart` | — | `timetable` |
+| Today's classes | Live status per class today, with who teaches it (`lecturer`: every lecturer, coordinator first) | `api/student.py` `/schedule/today` | `today_schedule_provider.dart` | — | `timetable`, `sessions` |
+| Weekly timetable | Recurring schedule; each class names every lecturer, coordinator first (`lecturer`, as on Today) | `api/student.py` `/schedule/week` | `week_schedule_provider.dart`, `student_timetable_screen.dart`, `day_detail_screen.dart` | — | `timetable` |
 | Attendance records | By course / session / day | `api/student.py` `/course/<id>/history` | `course_attendance_history_provider.dart`, `records_view.dart`, `course_attendance_detail_screen.dart`, `session_history_screen.dart` | — | `attendance`, `sessions` |
 | Course registration | Register/drop for the active semester | `api/student.py` `/courses/available`, `/courses/<id>/register`, `/drop` | `course_registration_provider.dart`, `course_registration_screen.dart` | — | `enrollments`, `semesters` |
 | Digital ID card | On-screen student ID | — | `student_id_card_screen.dart`, `core/providers/card_privacy_provider.dart` | — | — |

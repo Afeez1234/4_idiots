@@ -10,6 +10,10 @@ class WeekScheduleEntry {
   final String? startTime;
   final String? endTime;
   final String? room;
+  // Every lecturer on the course, coordinator first, comma-separated
+  // (Course.lecturer_names on the server). Null from a server that predates
+  // it (2026-11-01), or for a course with nobody assigned.
+  final String? lecturer;
 
   WeekScheduleEntry({
     required this.dayOfWeek,
@@ -19,6 +23,7 @@ class WeekScheduleEntry {
     this.startTime,
     this.endTime,
     this.room,
+    this.lecturer,
   });
 
   factory WeekScheduleEntry.fromJson(Map<String, dynamic> json) {
@@ -30,6 +35,7 @@ class WeekScheduleEntry {
       startTime: json['start_time'] as String?,
       endTime: json['end_time'] as String?,
       room: json['room'] as String?,
+      lecturer: json['lecturer'] as String?,
     );
   }
 }

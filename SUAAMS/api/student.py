@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 # Import db and our elegant SQLAlchemy models
 # (added Enrollment here for the check-in endpoints, Timetable for the
 # today's-schedule endpoint below)
-from models import db, Student, Course, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester, Announcement, OfflineCheckinLog, Terminal
+from models import db, Student, Course, Lecturer, Session as SessionModel, Attendance, Enrollment, Timetable, DeviceToken, Notification, Semester, Announcement, OfflineCheckinLog, Terminal
 # Which reader is calling, and whether it's in the class's room.
 import terminal_rooms
 from extensions import limiter, jwt_identity_or_ip, api_error_response, client_ip
@@ -718,6 +718,20 @@ def submit_ble_checkin():
     }), 200
 
 
+def _load_coordinators(courses):
+    """Each course's coordinator in one query, before the schedule reads
+    course.lecturer_names (2026-11-01: the timetable now names who teaches).
+    Course.lecturer is a lazy many-to-one, so this fills the identity map and
+    each course's lookup then costs no query; co-lecturers already come in
+    batches (selectin). /schedule/today is polled every 30 s by every open
+    app, so a query per course would add up fast.
+
+    Returns the lecturers: the caller keeps the list until it's done, as the
+    identity map holds objects only weakly."""
+    ids = {c.lecturer_id for c in courses if c.lecturer_id}
+    return Lecturer.query.filter(Lecturer.id.in_(ids)).all() if ids else []
+
+
 @api_student_bp.route('/schedule/today', methods=['GET'])
 @jwt_required()
 def get_today_schedule():
@@ -769,6 +783,7 @@ def get_today_schedule():
                          if in_current_semester(course, semester)}
         if not courses_by_id:
             return jsonify({"success": True, "today_protocol": []}), 200
+        coordinators = _load_coordinators(courses_by_id.values())  # noqa: F841 (held, see helper)
 
         timetable_entries = Timetable.query.filter(
             Timetable.day_of_week == today_weekday,
@@ -855,6 +870,9 @@ def get_today_schedule():
                 # SCHEMA UPDATE: course_title/course_code.
                 'course_name': course.course_title,
                 'course_code': course.course_code,
+                # Every lecturer, coordinator first, comma-separated -- the
+                # same field and form as the course registration list.
+                'lecturer': course.lecturer_names,
                 'status': status,
                 # Narrows the PENDING ambiguity described above. Consumed by
                 # the dashboard's check-in card to decide whether the tap
@@ -912,6 +930,7 @@ def get_today_schedule():
                 'course_id': course.id,
                 'course_name': course.course_title,
                 'course_code': course.course_code,
+                'lecturer': course.lecturer_names,
                 'status': 'PRESENT' if attended else 'PENDING',
                 'session_live': session_live,
                 # Fall back to the real start time the lecturer recorded
@@ -971,6 +990,7 @@ def get_week_schedule():
                          if in_current_semester(course, semester)}
         if not courses_by_id:
             return jsonify({"success": True, "week": []}), 200
+        coordinators = _load_coordinators(courses_by_id.values())  # noqa: F841 (held, see helper)
 
         entries = Timetable.query.filter(
             Timetable.course_id.in_(courses_by_id.keys()),
@@ -988,6 +1008,8 @@ def get_week_schedule():
                 'course_id': course.id,
                 'course_name': course.course_title,
                 'course_code': course.course_code,
+                # Every lecturer, coordinator first (as on /schedule/today).
+                'lecturer': course.lecturer_names,
                 'start_time': entry.start_time.strftime('%H:%M') if entry.start_time else None,
                 'end_time': entry.end_time.strftime('%H:%M') if entry.end_time else None,
                 'room': entry.room,

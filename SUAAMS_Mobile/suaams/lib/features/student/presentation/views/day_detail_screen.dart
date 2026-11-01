@@ -133,6 +133,17 @@ class _ClassCard extends StatelessWidget {
                   entry.courseName,
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
+                // Who teaches it -- all of them, wrapping if a team is long.
+                if (entry.lecturer != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    entry.lecturer!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 4),
                 Text(
                   entry.room != null

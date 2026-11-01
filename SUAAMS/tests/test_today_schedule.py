@@ -180,6 +180,47 @@ class TodayScheduleTestCase(unittest.TestCase):
         self.session(self.course('HOC'), active=True)
         self.assertEqual(self.queries_for_today(), two)
 
+    # ---- who teaches (2026-11-01) ------------------------------------------------------
+
+    def lecturer(self, name, staff_id):
+        lect = Lecturer(full_name=name, staff_id=staff_id, department_id=self.dept.id,
+                        user_id=self.user(staff_id, 'lecturer').id)
+        db.session.add(lect)
+        db.session.flush()
+        return lect
+
+    def taught(self, code, hour, n):
+        """A course with its own coordinator and one co-lecturer."""
+        c = self.course(code, hour=hour)
+        c.lecturer_id = self.lecturer(f'Dr Lead {n}', f'STF/L{n}').id
+        c.co_lecturers = [self.lecturer(f'Dr Co {n}', f'STF/C{n}')]
+        db.session.commit()
+        return c
+
+    def test_classes_name_every_lecturer(self):
+        self.taught('MCT401', 8, 1)
+        self.session(self.course('HOC402'), active=True)        # ad-hoc entries too
+        today = self.today()
+        self.assertEqual(today['MCT401']['lecturer'], 'Dr Lead 1, Dr Co 1')   # coordinator first
+        self.assertEqual(today['HOC402']['lecturer'], 'Dr Lead')
+        token = create_access_token(identity=str(self.student.user_id),
+                                    additional_claims={'role': 'student'})
+        week = self.client.get('/api/v1/student/schedule/week',
+                               headers={'Authorization': f'Bearer {token}'}).get_json()['week']
+        self.assertEqual(week[0]['lecturer'], 'Dr Lead 1, Dr Co 1')
+
+    def test_naming_lecturers_costs_no_query_per_class(self):
+        # Each class with its own coordinator: read lazily, that would be a
+        # query per class on an endpoint every open app polls every 30 s.
+        for i in range(2):
+            self.taught(f'A{i}', 8 + i, i)
+        db.session.expire_all()
+        two = self.queries_for_today()
+        for i in range(2, 8):
+            self.taught(f'B{i}', 8 + i, i)
+        db.session.expire_all()
+        self.assertEqual(self.queries_for_today(), two)
+
 
 if __name__ == '__main__':
     unittest.main()

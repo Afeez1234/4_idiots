@@ -92,8 +92,8 @@ end for completeness.
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/dashboard` | Summary stats |
-| GET | `/schedule/today` | Today's classes with live status |
-| GET | `/schedule/week` | Weekly timetable |
+| GET | `/schedule/today` | Today's classes with live status and `lecturer` (every lecturer, coordinator first) |
+| GET | `/schedule/week` | Weekly timetable, each class with `lecturer` |
 | GET | `/course/<course_id>/history` | Per-session attendance for one course |
 | GET | `/courses/available` | Courses open for registration this semester |
 | POST | `/courses/<course_id>/register` | Register (10/min) |
