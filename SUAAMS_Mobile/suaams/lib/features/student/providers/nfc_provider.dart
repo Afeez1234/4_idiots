@@ -604,9 +604,13 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
         // HCE is purely passive -- this is the only way to know whether
         // any reader was ever actually in range during the broadcast.
-        final tapped = await _nfcService?.wasTapDetected() ?? false;
-        // Latch it before the stop below resets the native flag, so
-        // confirmation polling (gated on _tapSeen) starts or keeps going.
+        // _tapSeen first: confirmation polling may already have seen the
+        // tap. Reading only the native flag here lost it whenever the
+        // native deadline cleared the token first (older builds reset the
+        // flag on clear), and the student was told no reader was found.
+        final tapped =
+            _tapSeen || (await _nfcService?.wasTapDetected() ?? false);
+        // Latch it so confirmation polling (gated on _tapSeen) keeps going.
         if (tapped) _tapSeen = true;
         await _nfcService?.stopHceEmulation();
 

@@ -70,6 +70,10 @@ class _FakeBleScanService extends Fake implements BleScanService {}
 class _FakeStudentService extends Fake implements StudentService {
   int statusPolls = 0;
 
+  /// Has the terminal's POST recorded attendance yet? False models a slow
+  /// or cold-starting backend.
+  bool landed = true;
+
   @override
   Future<BeaconMintResult> mintCheckinBeacon(String token) async =>
       BeaconMintResult(beaconToken: 'B' * 32, expiresIn: 10);
@@ -77,7 +81,7 @@ class _FakeStudentService extends Fake implements StudentService {
   @override
   Future<CheckinStatusResult> checkCheckinStatus(String token) async {
     statusPolls++;
-    return CheckinStatusResult(checkedIn: true, courseCode: 'MCT 401');
+    return CheckinStatusResult(checkedIn: landed, courseCode: 'MCT 401');
   }
 }
 
@@ -212,5 +216,28 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 1500));
     expect(server.statusPolls, greaterThanOrEqualTo(1));
     expect(container.read(nfcCheckInProvider).status, NfcCheckInStatus.success);
+  });
+
+  // The native deadline clears the token a few ms before the Dart countdown
+  // ends, and used to reset the tap flag as it did. So a phone the reader
+  // HAD read, with the server not yet confirming, was told "no reader
+  // detected" at 10 s. The tap seen earlier must carry it to `confirming`.
+  // Real timers: about 11 s.
+  test('a tap seen earlier survives the native flag being cleared', () async {
+    server.landed = false; // backend slow: nothing confirmed yet
+    final (:run) = await startUpToPrompt();
+    auth.answer.complete(true);
+    await run;
+
+    nfc.tapped = true; // the reader reads the phone...
+    await Future<void>.delayed(const Duration(milliseconds: 2300));
+    expect(server.statusPolls, greaterThanOrEqualTo(1)); // tap was seen
+    nfc.tapped = false; // ...then the native clear drops the flag
+
+    await Future<void>.delayed(const Duration(milliseconds: 8500)); // past 10 s
+    expect(
+      container.read(nfcCheckInProvider).status,
+      NfcCheckInStatus.confirming,
+    );
   });
 }

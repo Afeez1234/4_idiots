@@ -140,11 +140,16 @@ class SuaamsHceService : HostApduService() {
 
             beaconToken = null
             deadlineElapsedMs = 0L
-            // Reset here too, not just in setBeaconToken. wasTapDetected()
-            // is read after the window closes, and the invariant "a fresh
-            // attempt starts with tapDetected == false" has to hold in one
-            // place or it silently breaks when a new field is added.
-            tapDetected = false
+            // tapDetected is deliberately NOT reset here; setBeaconToken is
+            // the one place a fresh attempt starts at false. Dart reads
+            // wasTapDetected() as the window closes, and this clear runs at
+            // the native deadline, which is armed a few ms BEFORE Dart's
+            // countdown starts. Resetting here meant the clear nearly always
+            // won that race: a phone the reader had read was reported as
+            // "no reader detected" whenever the server hadn't confirmed by
+            // 10 s (a cold-starting backend, a slow POST). The flag means
+            // "a reader engaged since the last setBeaconToken()", and
+            // keeping it past the clear is what makes that true.
 
             Log.d(TAG, "Beacon cleared (reason=$reason, t=${System.currentTimeMillis()})")
         }
