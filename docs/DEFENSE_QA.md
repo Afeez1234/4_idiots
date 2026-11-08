@@ -93,8 +93,13 @@ The server only accepts check-ins with the terminal's ID and secret. The
 terminal verifies the server's TLS certificate against the public root CAs
 built into the ESP32 core, so someone on the venue Wi-Fi can't pose as the
 server and collect the secret.
-*Limitation:* Every terminal shares one secret, so dumping one board's flash
-exposes it. Per-terminal secrets are the next step.
+Each reader has its own code and secret (the server stores only a hash), so
+a lost board is disabled on the Terminals page without touching the others.
+*Limitation:* every board still holds the same Bluetooth secret, so a dumped
+board could forge Bluetooth codes under any reader's number. The fix is
+rotating that secret, which means reflashing every reader because the
+terminals have no over-the-air update. NFC codes are unaffected: only the
+server can mint them.
 
 ## Reliability
 

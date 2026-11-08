@@ -27,16 +27,27 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:suaams/features/auth/models/auth_user.dart';
+import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/features/student/data/ble_scan_service.dart';
 import 'package:suaams/features/student/data/nfc_service.dart';
+import 'package:suaams/features/student/data/student_service.dart';
 import 'package:suaams/features/student/providers/checkin_method_provider.dart';
 import 'package:suaams/features/student/providers/nfc_provider.dart';
+import 'package:suaams/features/student/providers/student_provider.dart';
 
 /// Records what reached the native HCE service. Extends Fake, so any call a
 /// test didn't plan for throws instead of passing silently.
 class _FakeNfcService extends Fake implements NfcService {
   final List<String> broadcast = [];
   int stops = 0;
+
+  /// What SuaamsHceService.wasTapDetected() reports: has a reader engaged
+  /// the beacon? A test flips this to simulate the tap.
+  bool tapped = false;
+
+  @override
+  Future<bool> wasTapDetected() async => tapped;
 
   @override
   Future<NfcAvailability> getAvailability() async => NfcAvailability.ready;
@@ -53,6 +64,35 @@ class _FakeNfcService extends Fake implements NfcService {
 }
 
 class _FakeBleScanService extends Fake implements BleScanService {}
+
+/// The server, as the check-in flow sees it: one mint, then status polls.
+/// [statusPolls] is what the polling test counts.
+class _FakeStudentService extends Fake implements StudentService {
+  int statusPolls = 0;
+
+  @override
+  Future<BeaconMintResult> mintCheckinBeacon(String token) async =>
+      BeaconMintResult(beaconToken: 'B' * 32, expiresIn: 10);
+
+  @override
+  Future<CheckinStatusResult> checkCheckinStatus(String token) async {
+    statusPolls++;
+    return CheckinStatusResult(checkedIn: true, courseCode: 'MCT 401');
+  }
+}
+
+/// A signed-in student, so withAuthRetry has a token to hand the service.
+class _SignedInAuth extends AuthNotifier {
+  @override
+  AuthState build() => AuthState(
+    user: AuthUser(
+      id: 23,
+      role: 'student',
+      username: 'MCT/2022/014',
+      token: 'access-token',
+    ),
+  );
+}
 
 /// The OS prompt, answered when the test completes [answer]. authenticate()
 /// is caught in noSuchMethod rather than overridden, so this doesn't break
@@ -80,16 +120,20 @@ class _FakeLocalAuth implements LocalAuthentication {
 void main() {
   late _FakeNfcService nfc;
   late _FakeLocalAuth auth;
+  late _FakeStudentService server;
   late ProviderContainer container;
 
   setUp(() {
     nfc = _FakeNfcService();
     auth = _FakeLocalAuth();
+    server = _FakeStudentService();
     container = ProviderContainer(
       overrides: [
         nfcServiceProvider.overrideWithValue(nfc),
         bleScanServiceProvider.overrideWithValue(_FakeBleScanService()),
         localAuthProvider.overrideWithValue(auth),
+        studentServiceProvider.overrideWithValue(server),
+        authProvider.overrideWith(_SignedInAuth.new),
       ],
     );
   });
@@ -112,17 +156,19 @@ void main() {
     return (run: run);
   }
 
-  test('closing the sheet during the fingerprint prompt broadcasts nothing',
-      () async {
-    final (:run) = await startUpToPrompt();
+  test(
+    'closing the sheet during the fingerprint prompt broadcasts nothing',
+    () async {
+      final (:run) = await startUpToPrompt();
 
-    container.dispose(); // the sheet is swiped away; the provider goes
-    auth.answer.complete(true); // ...and then the fingerprint succeeds
-    await run;
+      container.dispose(); // the sheet is swiped away; the provider goes
+      auth.answer.complete(true); // ...and then the fingerprint succeeds
+      await run;
 
-    expect(nfc.broadcast, isEmpty);
-    expect(nfc.stops, greaterThanOrEqualTo(1)); // onDispose still wipes
-  });
+      expect(nfc.broadcast, isEmpty);
+      expect(nfc.stops, greaterThanOrEqualTo(1)); // onDispose still wipes
+    },
+  );
 
   test('a second start while one is running is ignored', () async {
     final (run: first) = await startUpToPrompt();
@@ -140,5 +186,31 @@ void main() {
     await first;
     expect(container.read(nfcCheckInProvider).status, NfcCheckInStatus.error);
     expect(nfc.broadcast, isEmpty);
+  });
+
+  // Every student in a hall used to poll /checkin/status once a second from
+  // the moment the beacon went live, though nothing can land before the
+  // tap. Those polls queue for the same 4-connection DB pool as the
+  // terminal's /checkin POST. This pins "no server polls until a reader
+  // has touched the phone, then polling finds the result". Real timers
+  // (the poll tick is 1 s), so it takes about 4 s.
+  test('polls the server only after a reader has touched the phone', () async {
+    final (:run) = await startUpToPrompt();
+    auth.answer.complete(true);
+    await run;
+    expect(nfc.broadcast, hasLength(1));
+    expect(
+      container.read(nfcCheckInProvider).status,
+      NfcCheckInStatus.broadcasting,
+    );
+
+    // Two poll ticks with no reader: the phone is asked, the server isn't.
+    await Future<void>.delayed(const Duration(milliseconds: 2300));
+    expect(server.statusPolls, 0);
+
+    nfc.tapped = true; // the student taps the reader
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    expect(server.statusPolls, greaterThanOrEqualTo(1));
+    expect(container.read(nfcCheckInProvider).status, NfcCheckInStatus.success);
   });
 }

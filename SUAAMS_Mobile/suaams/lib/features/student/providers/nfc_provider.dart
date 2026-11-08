@@ -202,6 +202,19 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   static const int _broadcastWindowSeconds = 10;
   int _confirmationTicks = 0;
 
+  // Has a reader engaged this attempt's beacon yet? Confirmation polling
+  // doesn't ask the server anything until it has: before the tap there is
+  // nothing for /checkin/status to find, and every student in a hall used
+  // to poll once a second from the moment the beacon went live -- about
+  // five database queries each, against a pool of four connections that
+  // the terminal's own /checkin POST waits in too.
+  //
+  // Latched on the Dart side because the native flag doesn't last:
+  // SuaamsHceService resets tapDetected when it clears the token, which
+  // happens at its own deadline whether or not Dart is watching. A tap
+  // seen once must keep polling alive after the token is wiped.
+  bool _tapSeen = false;
+
   @override
   NfcCheckInState build() {
     // Captured here, NOT inside onDispose below -- calling ref.read() from
@@ -592,6 +605,9 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
         // HCE is purely passive -- this is the only way to know whether
         // any reader was ever actually in range during the broadcast.
         final tapped = await _nfcService?.wasTapDetected() ?? false;
+        // Latch it before the stop below resets the native flag, so
+        // confirmation polling (gated on _tapSeen) starts or keeps going.
+        if (tapped) _tapSeen = true;
         await _nfcService?.stopHceEmulation();
 
         // Re-check after the awaits above: confirmation polling runs on
@@ -625,6 +641,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
   void _startConfirmationPolling() {
     _confirmationTimer?.cancel();
     _confirmationTicks = 0;
+    _tapSeen = false;
 
     _confirmationTimer = Timer.periodic(const Duration(seconds: 1), (
       timer,
@@ -646,6 +663,23 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       }
 
       _confirmationTicks++;
+
+      // No reader yet: ask the phone, not the server. wasTapDetected() is
+      // an in-memory flag read over the platform channel, so this costs
+      // nothing off the device. The tick still counts toward the window
+      // above, so the overall timing is what it was. A beacon that is
+      // never tapped is resolved by the broadcast countdown
+      // (noHardwareDetected), which cancels this timer.
+      if (!_tapSeen) {
+        final tapped = await _nfcService?.wasTapDetected() ?? false;
+        if (!ref.mounted) {
+          timer.cancel();
+          return;
+        }
+        if (!tapped) return;
+        _tapSeen = true;
+      }
+
       _pollInFlight = true;
 
       CheckinStatusResult? result;

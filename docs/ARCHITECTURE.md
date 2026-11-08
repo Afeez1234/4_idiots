@@ -100,7 +100,7 @@ sequenceDiagram
     F->>D: INSERT attendance (status present/late, method nfc)
     F-->>T: 200 Attendance recorded
     F-)A: Push notification (FCM, background thread after the 200)
-    loop every 1 s, up to 25 s
+    loop every 1 s once a reader has touched the phone, until 25 s after the code went live
         A->>F: GET /student/checkin/status
         F-->>A: checked_in true/false (+ reason)
     end
@@ -117,6 +117,11 @@ Points that are easy to forget:
   would land but the app would poll forever.
 - **The phone never learns the result over NFC.** NFC is one-way, so the app
   polls `/checkin/status`. "Unconfirmed" means *unknown*, not *failed*.
+- **Polling starts at the tap, not when the code goes live.** Until the HCE
+  service reports a reader (`wasTapDetected()`), there is nothing for the
+  server to find, so the app asks the phone instead. In a full hall this
+  keeps the waiting students off the 4-connection database pool that the
+  terminal's own POST needs.
 - **If the phone has no code armed**, it answers `6A 88`. The terminal treats
   that as "nothing to do", not an error.
 - **"Late"** means more than 10 minutes after `planned_start`

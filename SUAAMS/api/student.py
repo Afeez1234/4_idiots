@@ -517,15 +517,14 @@ def get_checkin_status():
     correctly but the app would poll to "unconfirmed" and tell the student
     their tap failed when it hadn't.
 
-    checked_in=False alone doesn't say WHY -- "not enrolled in this
-    course" is a definite, permanent failure (waiting longer never fixes
-    it), while "no Attendance row yet" might just be a slow ESP32/backend
-    round-trip still in flight. Without the `reason` field these look
-    identical to the polling client, so it can't tell "stop waiting, this
-    was never going to work" apart from "keep waiting, it might still
-    land". Same idea for "no active session" -- checking it BEFORE
-    enrollment (rather than after, like submit_checkin_beacon does) since
-    there's nothing to be enrolled *in* if no session is running at all.
+    checked_in=False alone doesn't say WHY. `reason: no_active_session`
+    means no class this student is enrolled in is running today; a bare
+    checked_in=False means "no Attendance row yet", which might just be a
+    slow ESP32/backend round-trip still in flight.
+
+    The app polls this only after its HCE service has seen a reader
+    (nfc_provider.dart, _tapSeen), so keep it cheap: it runs on every
+    student's tap, through the same small DB pool as the terminal's POST.
     """
     claims = get_jwt()
     if claims.get("role") != "student":
@@ -540,16 +539,13 @@ def get_checkin_status():
     if not active_session:
         return jsonify({"success": True, "checked_in": False, "reason": "no_active_session"}), 200
 
-    enrolled = Enrollment.query.filter_by(
-        student_id=student.id, course_id=active_session.course_id
-    ).first()
-    if not enrolled:
-        return jsonify({
-            "success": True,
-            "checked_in": False,
-            "reason": "not_enrolled",
-            "course_code": active_session.course.course_code if active_session.course else None,
-        }), 200
+    # No separate enrollment lookup here. _active_session_for_student only
+    # returns sessions of courses this student is enrolled in (it joins
+    # Enrollment), so a "not_enrolled" check after it could never fire --
+    # it was one wasted query on every poll, and this endpoint is polled
+    # by every student checking in. A student with no enrolled class
+    # running gets no_active_session above. The app still understands
+    # 'not_enrolled' (older servers sent it), so dropping it breaks nothing.
 
     record = Attendance.query.filter_by(
         session_id=active_session.id, student_id=student.id

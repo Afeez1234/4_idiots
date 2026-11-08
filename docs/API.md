@@ -48,7 +48,7 @@ end for completeness.
 
 ### `GET /api/v1/student/checkin/status`: did my tap land?
 - **Caller:** app, polled about once a second for up to 25 s. **Auth:** JWT (student). **Limit:** 30/min.
-- **200:** `{"success": true, "checked_in": true|false, "reason"?: "no_active_session"|"not_enrolled", "course_code"?}`
+- **200:** `{"success": true, "checked_in": true|false, "reason"?: "no_active_session", "course_code"?}`. (`not_enrolled` is no longer sent: the session lookup only finds classes the student is enrolled in. The app still accepts it.) The app polls only after a reader has touched the phone.
   `checked_in: false` with no `reason` means "not yet", so keep polling.
 
 ### `GET /api/v1/student/checkin/methods`: which channels are on
