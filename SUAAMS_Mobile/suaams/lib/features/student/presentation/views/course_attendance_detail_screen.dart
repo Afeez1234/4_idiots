@@ -133,7 +133,7 @@ class _SessionRow extends StatelessWidget {
               Text(
                 '${_fmtTime(session.plannedStart)} – ${_fmtTime(session.plannedEnd)}',
                 style: AppTheme.accent(
-                  size: 10,
+                  size: 12,
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),

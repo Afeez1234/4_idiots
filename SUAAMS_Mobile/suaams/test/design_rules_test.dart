@@ -52,6 +52,25 @@ void main() {
     expect(hits, isEmpty, reason: 'boxShadow in: $hits');
   });
 
+  // The 11sp floor (DESIGN.md). Added 2026-11-09 after 38 text styles
+  // were found at 9-10sp. The two exceptions are the notification badge's
+  // single digit (named in DESIGN.md) and the wordmark drawn inside the
+  // logo painter, which is a picture rather than UI text.
+  test('no text below 11sp', () {
+    const exempt = {
+      'lib/shared/widgets/app_badge.dart',
+      'lib/shared/widgets/suaams_logo.dart',
+    };
+    final small = RegExp(
+      r'fontSize: *(\d|10)(\.\d+)?\b|AppTheme\.accent\(\s*size: *(\d|10)(\.\d+)?\b',
+    );
+    final hits = [
+      for (final (path, src) in _sources())
+        if (!exempt.contains(path))
+          for (final m in small.allMatches(src)) '$path: ${m[0]}',
+    ];
+    expect(hits, isEmpty, reason: 'text below 11sp: $hits');
+  });
 
   test('attendance colours stay on attendance', () {
     // Both spellings: the raw AppStatus hues and the theme's text shades

@@ -240,7 +240,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Text(
       text,
       style: TextStyle(
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: FontWeight.bold,
         letterSpacing: 1.5,
         color: colorScheme.onSurface.withValues(alpha: 0.6),

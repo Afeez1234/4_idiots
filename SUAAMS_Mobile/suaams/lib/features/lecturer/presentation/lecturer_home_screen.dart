@@ -344,7 +344,10 @@ class _CourseCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${course.code} · ${course.enrolledCount} enrolled · ${course.avgAttendance}% avg',
-                    style: AppTheme.accent(size: 10, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                    style: AppTheme.accent(
+                      size: 12,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                   ),
                 ],
               ),

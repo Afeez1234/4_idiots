@@ -229,7 +229,7 @@ class _NotificationTile extends StatelessWidget {
                   Text(
                     _relativeTime(item.createdAt),
                     style: AppTheme.accent(
-                      size: 10,
+                      size: 12,
                       color: colorScheme.onSurface.withValues(alpha: 0.4),
                     ),
                   ),

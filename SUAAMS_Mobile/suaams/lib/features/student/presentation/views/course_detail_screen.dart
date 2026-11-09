@@ -113,7 +113,7 @@ class CourseDetailScreen extends ConsumerWidget {
                   Text(
                     isAtRisk ? 'BELOW 75% THRESHOLD' : 'ATTENDANCE ON TRACK',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 11,
                       letterSpacing: 1.5,
                       fontWeight: FontWeight.bold,
                       color: isAtRisk
@@ -202,7 +202,7 @@ class _RecordCard extends StatelessWidget {
               Text(
                 record.time,
                 style: AppTheme.accent(
-                  size: 10,
+                  size: 12,
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
               ),

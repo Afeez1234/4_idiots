@@ -304,7 +304,7 @@ class _PreferenceTile extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       color: colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),

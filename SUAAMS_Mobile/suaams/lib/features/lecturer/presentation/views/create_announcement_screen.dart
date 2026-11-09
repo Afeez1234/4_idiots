@@ -81,7 +81,7 @@ class _CreateAnnouncementScreenState
             Text(
               'COURSE',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 letterSpacing: 1.5,
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onSurface.withValues(alpha: 0.5),
@@ -129,7 +129,7 @@ class _CreateAnnouncementScreenState
             Text(
               'TITLE',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 letterSpacing: 1.5,
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onSurface.withValues(alpha: 0.5),
@@ -154,7 +154,7 @@ class _CreateAnnouncementScreenState
             Text(
               'MESSAGE',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 letterSpacing: 1.5,
                 fontWeight: FontWeight.bold,
                 color: colorScheme.onSurface.withValues(alpha: 0.5),

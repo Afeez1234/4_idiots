@@ -142,7 +142,6 @@ class AppStatBox extends StatelessWidget {
             // all-caps run-ins under a numeric value, and the wide tracking
             // is what makes them readable at this size.
             style: textTheme.labelSmall?.copyWith(
-              fontSize: 10,
               letterSpacing: 0.6,
               color: isNeutral
                   ? colorScheme.onSurface.withValues(alpha: 0.55)

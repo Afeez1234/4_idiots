@@ -204,7 +204,7 @@ class _AnnouncementCard extends ConsumerWidget {
                   child: Text(
                     item.courseCode!,
                     style: AppTheme.accent(
-                      size: 9,
+                      size: 11,
                       weight: FontWeight.w700,
                       color: colorScheme.primary,
                     ),
@@ -237,7 +237,7 @@ class _AnnouncementCard extends ConsumerWidget {
             Text(
               item.createdAt!,
               style: AppTheme.accent(
-                size: 10,
+                size: 12,
                 color: colorScheme.onSurface.withValues(alpha: 0.4),
               ),
             ),

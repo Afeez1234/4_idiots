@@ -532,7 +532,7 @@ class _NextSessionCardState extends ConsumerState<_NextSessionCard> {
                       child: Text(
                         subtitle,
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           letterSpacing: 1.5,
                           fontWeight: FontWeight.bold,
                           color: isLive

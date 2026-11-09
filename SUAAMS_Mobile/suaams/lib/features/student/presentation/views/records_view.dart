@@ -372,7 +372,7 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                       Text(
                         dateText.toUpperCase(),
                         style: AppTheme.accent(
-                          size: 10,
+                          size: 11,
                           weight: FontWeight.w600,
                           color: colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
@@ -389,7 +389,7 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                       Text(
                         statusText,
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1,
                           color: statusColor,

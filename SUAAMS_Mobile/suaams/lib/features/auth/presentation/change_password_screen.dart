@@ -174,7 +174,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                               ? 'PLEASE UPDATE YOUR DEFAULT PASSWORD'
                               : 'ENTER YOUR CURRENT PASSWORD FIRST',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                             letterSpacing: 2.0,
                             color: colorScheme.onSurface.withValues(alpha: 0.5),
@@ -298,7 +298,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     return Text(
       text,
       style: TextStyle(
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: FontWeight.bold,
         letterSpacing: 1.5,
         color: colorScheme.onSurface.withValues(alpha: 0.6),

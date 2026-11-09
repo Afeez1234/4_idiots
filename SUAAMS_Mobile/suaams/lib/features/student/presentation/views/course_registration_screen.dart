@@ -204,7 +204,7 @@ class _CourseRow extends StatelessWidget {
                       Text(
                         '${course.creditUnits} UNITS',
                         style: TextStyle(
-                          fontSize: 10,
+                          fontSize: 11,
                           letterSpacing: 0.5,
                           fontWeight: FontWeight.bold,
                           color: colorScheme.onSurface.withValues(alpha: 0.4),

@@ -148,7 +148,7 @@ class _ActiveCourseCard extends StatelessWidget {
                   Text(
                     '${course.code} · ${course.enrolledCount} enrolled',
                     style: AppTheme.accent(
-                      size: 10,
+                      size: 12,
                       color: colorScheme.onSurface.withValues(alpha: 0.5),
                     ),
                   ),

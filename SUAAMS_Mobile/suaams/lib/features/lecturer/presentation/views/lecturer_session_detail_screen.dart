@@ -186,7 +186,7 @@ class _AttendanceCard extends StatelessWidget {
                 Text(
                   record.matricNumber,
                   style: AppTheme.accent(
-                    size: 10,
+                    size: 12,
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
@@ -218,7 +218,7 @@ class _AttendanceCard extends StatelessWidget {
                 Text(
                   label,
                   style: AppTheme.accent(
-                    size: 9,
+                    size: 11,
                     letterSpacing: 0.5,
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
@@ -230,7 +230,7 @@ class _AttendanceCard extends StatelessWidget {
                 Text(
                   'WRONG ROOM',
                   style: AppTheme.accent(
-                    size: 9,
+                    size: 11,
                     letterSpacing: 0.5,
                     color: colorScheme.error,
                   ),
@@ -342,7 +342,7 @@ class _NotCheckedInSectionState extends ConsumerState<_NotCheckedInSection> {
                           Text(
                             student.matricNumber,
                             style: AppTheme.accent(
-                              size: 10,
+                              size: 12,
                               color: colorScheme.onSurface.withValues(
                                 alpha: 0.5,
                               ),
@@ -508,7 +508,7 @@ class _OfflineTapsSectionState extends ConsumerState<_OfflineTapsSection> {
                         Text(
                           '${tap.matricNumber} · ${tap.tappedAt ?? '--:--'}',
                           style: AppTheme.accent(
-                            size: 10,
+                            size: 12,
                             color: colorScheme.onSurface.withValues(
                               alpha: 0.5,
                             ),
@@ -521,7 +521,7 @@ class _OfflineTapsSectionState extends ConsumerState<_OfflineTapsSection> {
                           Text(
                             'WRONG ROOM',
                             style: AppTheme.accent(
-                              size: 9,
+                              size: 11,
                               letterSpacing: 0.5,
                               color: colorScheme.error,
                             ),

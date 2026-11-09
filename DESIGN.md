@@ -817,7 +817,11 @@ line ends on one stranded word. Nothing on the site renders below 12px.
 ### Named Rules
 **The 11sp Floor Rule.** Nothing in the app renders below 11sp. The only
 exception is the numeric count inside the notification badge, a single
-glyph inside a pill. Sub-11 text is a bug, not a style.
+glyph inside a pill. Sub-11 text is a bug, not a style. Mono meta lines
+(codes, times, matric numbers) sit at 12 (Body Small), small labels and
+tags at 11 (Label Small). `test/design_rules_test.dart` fails on any
+`fontSize` or `AppTheme.accent(size:)` below 11, exempting only the badge
+and the wordmark inside the logo painter.
 
 **The Mono Means Machine Rule.** Monospace is only for data the system
 emits (times, session and course codes, terminal states). Never use it for

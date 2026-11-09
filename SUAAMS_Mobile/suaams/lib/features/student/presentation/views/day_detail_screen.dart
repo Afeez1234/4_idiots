@@ -150,7 +150,7 @@ class _ClassCard extends StatelessWidget {
                       ? '${entry.courseCode} · ${entry.room}'
                       : entry.courseCode,
                   style: AppTheme.accent(
-                    size: 10,
+                    size: 12,
                     color: colorScheme.onSurface.withValues(alpha: 0.5),
                   ),
                 ),

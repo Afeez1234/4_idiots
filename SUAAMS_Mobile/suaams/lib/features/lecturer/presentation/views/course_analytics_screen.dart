@@ -5,6 +5,7 @@ import 'package:suaams/features/lecturer/models/course_analytics_model.dart';
 import 'package:suaams/shared/widgets/app_stat_box.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
 import 'package:suaams/shared/widgets/app_skeleton.dart';
@@ -159,7 +160,7 @@ class _TrendRow extends StatelessWidget {
           width: 84,
           child: Text(
             point.date ?? '--',
-            style: AppTheme.accent(size: 10, color: colorScheme.onSurface.withValues(alpha: 0.6)),
+            style: AppTheme.accent(size: 12, color: colorScheme.onSurface.withValues(alpha: 0.6)),
           ),
         ),
         Expanded(
@@ -173,12 +174,23 @@ class _TrendRow extends StatelessWidget {
             ),
           ),
         ),
+        // 92dp fits "100% · 30/30" at 11sp; the old 60dp column was
+        // too narrow for it even at the 9sp it used before 2026-11-09.
         SizedBox(
-          width: 60,
+          width: 92,
           child: Text(
             '${point.pct}% · ${point.presentCount}/${point.enrolledCount}',
             textAlign: TextAlign.right,
-            style: AppTheme.accent(size: 9, weight: FontWeight.w700, color: barColor),
+            // The label takes the theme's text shades, not the bar's fill:
+            // raw AppStatus.success as text fails AA on a light surface
+            // (DESIGN.md: raw status hues are for fills only). 2026-11-09.
+            style: AppTheme.accent(
+              size: 11,
+              weight: FontWeight.w700,
+              color: point.pct < 75
+                  ? terminalOf(context).dangerText
+                  : terminalOf(context).successText,
+            ),
           ),
         ),
       ],
@@ -218,7 +230,7 @@ class _StudentRow extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   student.matricNumber,
-                  style: AppTheme.accent(size: 10, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                  style: AppTheme.accent(size: 12, color: colorScheme.onSurface.withValues(alpha: 0.5)),
                 ),
               ],
             ),
@@ -237,7 +249,7 @@ class _StudentRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 '${student.attended}/${student.total}',
-                style: AppTheme.accent(size: 9, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                style: AppTheme.accent(size: 11, color: colorScheme.onSurface.withValues(alpha: 0.5)),
               ),
             ],
           ),

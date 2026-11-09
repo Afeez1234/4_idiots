@@ -234,7 +234,7 @@ class CoursesView extends ConsumerWidget {
                 Text(
                   '${course.attended} / ${course.total} SESSIONS',
                   style: AppTheme.accent(
-                    size: 10,
+                    size: 11,
                     weight: FontWeight.w700,
                     color: colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
