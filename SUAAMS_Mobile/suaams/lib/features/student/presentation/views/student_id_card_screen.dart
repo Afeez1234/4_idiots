@@ -48,7 +48,7 @@ class StudentIdCardScreen extends ConsumerWidget {
       channel: channel,
     );
     final colorScheme = Theme.of(context).colorScheme;
-                            final terminal = terminalOf(context);
+    final terminal = terminalOf(context);
 
     final data = state.data;
 
@@ -98,7 +98,7 @@ class StudentIdCardScreen extends ConsumerWidget {
                         // premise of the system -- so say so.
                         Text(
                           'Your ID lives on this phone rather than in a '
-                          'wallet. Present it at any SUAAMS terminal to '
+                          'wallet. Hold it to any SUAAMS reader to '
                           'record your attendance.',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(

@@ -1346,6 +1346,7 @@ on a light card). Never recolour the dot or arcs to the indigo accent.
 - **Do** read colours from `AppTerminal` / `colorScheme` (app) or the `@theme` tokens (portal). Never retype a hex at a call site.
 - **Do** keep app tap targets at 48dp or more, and full-width primary buttons at 56dp tall.
 - **Do** set times, codes and terminal strings in the mono face, and everything else in the sans.
+- **Do** write the check-in sheet in plain, sentence-case words ("Hold your phone to the reader", "Cancel"), and call the door hardware the **reader** wherever a student sees it. Its uppercase "protocol" voice was retired on 2026-11-01; only the seconds count stays mono.
 - **Do** contrast-check new pairs against the surface they actually sit on, including tinted fills.
 - **Do** build site pages from the app's tokens and the `styles.css` custom properties; dark by default, light by `prefers-color-scheme`.
 - **Do** label every piece of sample data as demo, next to it: the tap, the demo code, the lecturer's live list, and every screenshot caption.

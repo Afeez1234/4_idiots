@@ -292,8 +292,11 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       // gated to release builds only.
       if (SecurityService.instance.isCompromised) {
         throw Exception(
-          'Security check failed: ${SecurityService.instance.threatDescription}. '
-          'Attendance check-in is disabled on this device.',
+          // Plain wording since 2026-11-01; names the way out (the
+          // lecturer), since this phone will never get past this check.
+          'This phone failed a security check '
+          '(${SecurityService.instance.threatDescription}), so it can\'t '
+          'check in. Ask your lecturer to mark you present.',
         );
       }
 
@@ -418,14 +421,14 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
 
     if (!canAuthenticateWithBiometrics || !isDeviceSupported) {
       throw Exception(
-        'Hardware security mismatch: Biometrics are disabled or unsupported.',
+        'Set up a fingerprint or screen lock on this phone to check in.',
       );
     }
 
     // 2. Cross-Version Safe Biometric Call
     // This call is structurally supported on all versions of local_auth to prevent compile crashes
     final authenticated = await localAuth.authenticate(
-      localizedReason: 'Verify identity to activate attendance beacon',
+      localizedReason: "Confirm it's you to check in",
     );
 
     // THE critical guard. This await is the widest window in the whole
@@ -438,7 +441,7 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
     if (!ref.mounted) return false;
 
     if (!authenticated) {
-      throw Exception('Identity verification failed.');
+      throw Exception('Fingerprint not confirmed. Try again.');
     }
     return true;
   }
@@ -547,8 +550,8 @@ class NfcCheckInNotifier extends Notifier<NfcCheckInState> {
       debugPrint('[BLE] code rejected (attempt ${attempt + 1}), rescanning');
     }
     throw Exception(
-      "The terminal's code couldn't be verified. Make sure you're near the "
-      'SUAAMS terminal and try again.',
+      "The reader's code couldn't be checked. Move closer to the reader "
+      'and try again.',
     );
   }
 

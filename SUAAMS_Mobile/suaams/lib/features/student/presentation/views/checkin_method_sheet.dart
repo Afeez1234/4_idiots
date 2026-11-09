@@ -80,13 +80,13 @@ class CheckInMethodSheet extends ConsumerWidget {
               option(
                 CheckInMethodPref.nfc,
                 'NFC (tap)',
-                'Always hold your phone to the terminal.',
+                'Always hold your phone to the reader.',
               ),
               option(
                 CheckInMethodPref.bluetooth,
                 'Bluetooth',
                 bleOn
-                    ? 'Always check in by staying near the terminal. Use this '
+                    ? 'Always check in by staying near the reader. Use this '
                           'if tapping keeps failing on your phone.'
                     : 'Not switched on for your institution yet.',
                 enabled: bleOn,

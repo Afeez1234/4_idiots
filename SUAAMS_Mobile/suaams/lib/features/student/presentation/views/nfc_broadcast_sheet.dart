@@ -41,7 +41,7 @@ class NfcBroadcastSheet extends ConsumerStatefulWidget {
       return (
         Icons.bluetooth_searching_rounded,
         "You'll confirm with your fingerprint, then stay close to the "
-            'terminal.',
+            'reader.',
       );
     }
     return switch (availability) {
@@ -61,7 +61,7 @@ class NfcBroadcastSheet extends ConsumerStatefulWidget {
       NfcAvailability.ready => (
         Icons.fingerprint_rounded,
         "You'll confirm with your fingerprint, then hold your phone to the "
-            'terminal.',
+            'reader.',
       ),
     };
   }
@@ -268,19 +268,17 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
               Navigator.pop(context);
             },
             child: Text(
-              // Wording follows the state. "CANCEL PROTOCOL" on a screen
-              // showing ATTENDANCE VERIFIED asks the user to cancel
-              // something that has already finished, which reads as though
-              // dismissing the sheet might undo it. Once the flow reaches a
-              // terminal state the action is just "leave".
-              _isTerminalState(nfcState.status)
-                  ? 'CLOSE'
-                  : 'CANCEL PROTOCOL',
+              // Wording follows the state. "Cancel" on a screen showing
+              // "You're checked in" asks the user to cancel something that
+              // has already finished, which reads as though dismissing the
+              // sheet might undo it. Once the flow reaches a terminal state
+              // the action is just "leave". (Was "CANCEL PROTOCOL" until
+              // 2026-11-01; plain words, sentence case, like the portal.)
+              _isTerminalState(nfcState.status) ? 'Close' : 'Cancel',
               style: TextStyle(
-                color: colorScheme.onSurface.withValues(alpha: 0.5),
-                letterSpacing: 2,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
             ),
           ),
@@ -303,13 +301,10 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           color: colorScheme.onSurface.withValues(alpha: 0.35),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'PROTOCOL IDLE',
-          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2),
-        ),
+        _title('Getting ready'),
         const SizedBox(height: 8),
         Text(
-          'Awaiting initialization signal...',
+          'Starting check-in…',
           style: TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.5),
             fontSize: 12,
@@ -325,13 +320,12 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
       children: [
         CircularProgressIndicator(color: colorScheme.primary, strokeWidth: 3),
         const SizedBox(height: 24),
-        const Text(
-          'VERIFYING IDENTITY',
-          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2),
-        ),
+        _title("Confirm it's you"),
         const SizedBox(height: 8),
         Text(
-          'Please verify biometric key on your terminal...',
+          // "or screen lock" because local_auth also accepts the device PIN
+          // today; the copy mustn't promise a fingerprint-only check.
+          'Use your fingerprint or screen lock.',
           style: TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.5),
             fontSize: 12,
@@ -395,13 +389,20 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           ),
         ),
         const SizedBox(height: 32),
+        // The instruction leads; the countdown is a machine readout under
+        // it, so only the seconds stay in mono.
+        _title('Hold your phone to the reader'),
+        const SizedBox(height: 4),
         Text(
-          'BEAMING ATTENDANCE SIGNAL: ${state.secondsRemaining}s',
-          style: AppTheme.accent(weight: FontWeight.w700, letterSpacing: 2),
+          '${state.secondsRemaining} s',
+          style: AppTheme.accent(
+            weight: FontWeight.w700,
+            color: colorScheme.primary,
+          ),
         ),
         const SizedBox(height: 8),
         Text(
-          'Hold your terminal close to the door sensor...',
+          'Hold the back of your phone flat against the reader.',
           style: TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.5),
             fontSize: 12,
@@ -429,19 +430,12 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           child: const Icon(Icons.check_rounded, color: Colors.white, size: 36),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'ATTENDANCE VERIFIED',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-            color: AppStatus.success,
-          ),
-        ),
+        _title("You're checked in", color: AppStatus.success),
         const SizedBox(height: 8),
         Text(
           state.courseCode != null
-              ? 'Checked in for ${state.courseCode}.'
-              : 'Your signature has been committed to database ledger.',
+              ? 'Marked for ${state.courseCode}.'
+              : 'Your attendance is recorded.',
           style: TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.5),
             fontSize: 12,
@@ -455,24 +449,18 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
   // 4b. Confirming State -- broadcast window closed, still polling
   // /checkin/status for server-side confirmation. No radar here: nothing
   // is being transmitted anymore, this is purely "waiting to hear back".
-  Widget _buildConfirmingState(
-    NfcCheckInState state,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildConfirmingState(NfcCheckInState state, ColorScheme colorScheme) {
     return Column(
       children: [
         CircularProgressIndicator(color: colorScheme.primary, strokeWidth: 3),
         const SizedBox(height: 24),
-        const Text(
-          'CONFIRMING',
-          style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 2),
-        ),
+        _title('Checking…'),
         const SizedBox(height: 8),
         Text(
           state.channel == CheckInChannel.ble
               // Bluetooth: the phone itself is asking the server.
-              ? 'Checking the terminal\'s code with the server...'
-              : 'Waiting for the terminal to confirm your check-in...',
+              ? "Checking the reader's code with the server."
+              : 'Waiting for the reader to confirm your check-in.',
           style: TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.5),
             fontSize: 12,
@@ -503,14 +491,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           ),
         ),
         const SizedBox(height: 24),
-        const Text(
-          'COULD NOT CONFIRM',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-            color: AppStatus.warning,
-          ),
-        ),
+        _title("Couldn't confirm", color: AppStatus.warning),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -521,9 +502,9 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
             // or walk away (which might cost them the session). The point of
             // the amber state is that this is genuinely UNKNOWN, so say that
             // plainly and tell them the one thing that resolves it.
-            'Your attendance was probably recorded, but the terminal didn\'t '
-            'confirm it back in time. Do not tap again — close this and check '
-            'your Records tab; it updates within a minute.',
+            "Your check-in probably went through, but the reader didn't "
+            "confirm it in time. Don't tap again. Close this and check "
+            'Records; it updates within a minute.',
             style: TextStyle(
               color: colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 12,
@@ -566,22 +547,19 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           ),
         ),
         const SizedBox(height: 24),
-        Text(
-          ble ? "COULDN'T HEAR THE TERMINAL" : 'NO TERMINAL DETECTED',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-            color: AppStatus.warning,
-          ),
+        _title(
+          ble ? "Couldn't find the reader" : 'No reader found',
+          color: AppStatus.warning,
         ),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
             ble
-                ? 'No SUAAMS terminal was heard nearby. Move closer to it and '
-                      'try again.'
-                : 'No reader responded during the transmission window. Hold your phone closer to the terminal and try again.',
+                ? 'No SUAAMS reader was nearby. Move closer to it and try '
+                      'again.'
+                : 'Nothing read your phone in time. Hold the back of your '
+                      'phone flat against the reader and try again.',
             style: TextStyle(
               color: colorScheme.onSurface.withValues(alpha: 0.5),
               fontSize: 12,
@@ -591,7 +569,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         ),
         const SizedBox(height: 24),
         _actionButton(
-          label: 'TRY AGAIN',
+          label: 'Try again',
           icon: Icons.refresh_rounded,
           onPressed: () => ref
               .read(nfcCheckInProvider.notifier)
@@ -600,7 +578,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         if (offerBle) ...[
           const SizedBox(height: 12),
           _actionButton(
-            label: 'TRY BLUETOOTH INSTEAD',
+            label: 'Try Bluetooth instead',
             icon: Icons.bluetooth_rounded,
             primary: false,
             onPressed: () => ref
@@ -637,14 +615,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           ),
         ),
         const SizedBox(height: 24),
-        Text(
-          'NOT REGISTERED',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-            color: colorScheme.error,
-          ),
-        ),
+        _title('Not registered', color: colorScheme.error),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -681,20 +652,20 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
     ) = switch (availability) {
       NfcAvailability.off => (
         Icons.nfc_rounded,
-        'NFC IS OFF',
+        'NFC is off',
         'Turn on NFC to tap in. Come back to this screen afterwards and '
             'check-in will continue.',
       ),
       NfcAvailability.iphone => (
         Icons.phonelink_off_rounded,
-        "IPHONES CAN'T TAP IN YET",
+        "iPhones can't tap in yet",
         "Apple doesn't allow apps to use NFC this way. Tell your lecturer "
             'before the class ends.',
       ),
       _ => (
         Icons.phonelink_off_rounded,
-        "THIS PHONE CAN'T TAP IN",
-        "It doesn't have the NFC needed to check in at the terminal. Tell "
+        "This phone can't tap in",
+        "It doesn't have the NFC needed to check in at the reader. Tell "
             'your lecturer before the class ends.',
       ),
     };
@@ -711,15 +682,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           child: Icon(icon, color: Colors.white, size: 36),
         ),
         const SizedBox(height: 24),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-            color: fixable ? AppStatus.warning : null,
-          ),
-        ),
+        _title(title, color: fixable ? AppStatus.warning : null),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -747,8 +710,8 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
                 ref.read(nfcCheckInProvider.notifier).openNfcSettings(),
             icon: const Icon(Icons.settings_rounded, size: 18),
             label: const Text(
-              'OPEN NFC SETTINGS',
-              style: TextStyle(letterSpacing: 1.5, fontWeight: FontWeight.bold),
+              'Open NFC settings',
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -757,7 +720,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
         if (ref.watch(checkinMethodsProvider).value?.ble ?? false) ...[
           const SizedBox(height: 12),
           _actionButton(
-            label: 'USE BLUETOOTH INSTEAD',
+            label: 'Use Bluetooth instead',
             icon: Icons.bluetooth_rounded,
             primary: false,
             onPressed: () => ref
@@ -807,15 +770,12 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           ),
         ),
         const SizedBox(height: 32),
-        Text(
-          state.weakSignal ? 'SIGNAL WEAK' : 'LISTENING FOR TERMINAL',
-          style: AppTheme.accent(weight: FontWeight.w700, letterSpacing: 2),
-        ),
+        _title(state.weakSignal ? 'Signal weak' : 'Looking for the reader'),
         const SizedBox(height: 8),
         Text(
           state.weakSignal
-              ? 'The terminal is faint. Move closer to it...'
-              : 'Stay close to the SUAAMS terminal...',
+              ? 'The reader is faint. Move closer to it.'
+              : 'Stay near the reader.',
           style: TextStyle(
             color: colorScheme.onSurface.withValues(alpha: 0.5),
             fontSize: 12,
@@ -839,52 +799,55 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
 
     final (String title, String message) = switch (readiness) {
       BleReadiness.off => (
-        'BLUETOOTH IS OFF',
+        'Bluetooth is off',
         isIos
             ? 'Turn on Bluetooth in Control Centre, then come back here.'
-            : 'Turn on Bluetooth to check in near the terminal.',
+            : 'Turn on Bluetooth to check in near the reader.',
       ),
       BleReadiness.needsPermission => (
-        'ALLOW NEARBY DEVICES',
-        'SUAAMS needs permission to listen for the terminal. It does not '
-            'use your location.',
+        'Allow nearby devices',
+        'SUAAMS needs permission to find the reader. It does not use your '
+            'location.',
       ),
       BleReadiness.permissionBlocked => (
-        'BLUETOOTH PERMISSION OFF',
+        'Bluetooth permission off',
         'Bluetooth permission was turned off for SUAAMS. Turn it on in '
             'Settings, then come back here.',
       ),
       BleReadiness.locationOff => (
-        'LOCATION IS OFF',
+        'Location is off',
         'On this Android version, listening for Bluetooth devices needs '
             'Location switched on. SUAAMS does not use your location.',
       ),
       _ => (
-        "THIS PHONE CAN'T CHECK IN",
+        "This phone can't check in",
         "It doesn't support the Bluetooth needed to check in. Tell your "
             'lecturer before the class ends.',
       ),
     };
 
-    final (String? actionLabel, IconData? actionIcon, VoidCallback? action) =
-        switch (readiness) {
-          BleReadiness.off when !isIos => (
-            'TURN ON BLUETOOTH',
-            Icons.bluetooth_rounded,
-            notifier.turnOnBluetooth,
-          ),
-          BleReadiness.needsPermission => (
-            'ALLOW',
-            Icons.check_rounded,
-            notifier.requestBlePermission,
-          ),
-          BleReadiness.permissionBlocked => (
-            'OPEN SETTINGS',
-            Icons.settings_rounded,
-            notifier.openBleSettings,
-          ),
-          _ => (null, null, null),
-        };
+    final (
+      String? actionLabel,
+      IconData? actionIcon,
+      VoidCallback? action,
+    ) = switch (readiness) {
+      BleReadiness.off when !isIos => (
+        'Turn on Bluetooth',
+        Icons.bluetooth_rounded,
+        notifier.turnOnBluetooth,
+      ),
+      BleReadiness.needsPermission => (
+        'Allow',
+        Icons.check_rounded,
+        notifier.requestBlePermission,
+      ),
+      BleReadiness.permissionBlocked => (
+        'Open settings',
+        Icons.settings_rounded,
+        notifier.openBleSettings,
+      ),
+      _ => (null, null, null),
+    };
 
     final tone = fixable
         ? AppStatus.warning
@@ -903,15 +866,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           ),
         ),
         const SizedBox(height: 24),
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-            color: fixable ? AppStatus.warning : null,
-          ),
-        ),
+        _title(title, color: fixable ? AppStatus.warning : null),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -951,7 +906,7 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
     );
     final text = Text(
       label,
-      style: const TextStyle(letterSpacing: 1.5, fontWeight: FontWeight.bold),
+      style: const TextStyle(fontWeight: FontWeight.bold),
     );
     return primary
         ? ElevatedButton.icon(
@@ -975,6 +930,20 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           );
   }
 
+  /// State headline. Sentence case in the theme's title style since
+  /// 2026-11-01: the old uppercase, 2px-tracked titles ("PROTOCOL IDLE")
+  /// read as terminal output at the one moment a student needs plain words.
+  Widget _title(String text, {Color? color}) {
+    return Text(
+      text,
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+        color: color,
+      ),
+    );
+  }
+
   // 5. Error Failure State (Red Warning)
   // DEEP FIX 2: Restored parameter signature (NfcCheckInState state) to solve undefined compiler error
   Widget _buildErrorState(NfcCheckInState state, ColorScheme colorScheme) {
@@ -990,25 +959,34 @@ class _NfcBroadcastSheetState extends ConsumerState<NfcBroadcastSheet>
           child: const Icon(Icons.close_rounded, color: Colors.white, size: 36),
         ),
         const SizedBox(height: 24),
-        Text(
-          'CHECK-IN ABORTED',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            letterSpacing: 2,
-            color: colorScheme.error,
-          ),
-        ),
+        _title("Check-in didn't work", color: colorScheme.error),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Text(
-            state.errorMessage ?? 'Unknown security error.',
+            // The fallback used to be "Unknown security error.", which named
+            // no problem and no next step. Every message here is now
+            // followed by the same way out: try again, or the lecturer.
+            '${state.errorMessage ?? 'Something went wrong on this phone.'}\n'
+            'If it keeps failing, ask your lecturer to mark you present.',
             style: TextStyle(
-              color: colorScheme.onSurface.withValues(alpha: 0.5),
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
               fontSize: 12,
+              height: 1.45,
             ),
             textAlign: TextAlign.center,
           ),
+        ),
+        const SizedBox(height: 24),
+        // Until 2026-11-01 this state's only control was Close, so a
+        // cancelled fingerprint prompt meant closing the sheet and starting
+        // over from the ID card.
+        _actionButton(
+          label: 'Try again',
+          icon: Icons.refresh_rounded,
+          onPressed: () => ref
+              .read(nfcCheckInProvider.notifier)
+              .initiateCheckInProtocol(channel: state.channel),
         ),
       ],
     );
