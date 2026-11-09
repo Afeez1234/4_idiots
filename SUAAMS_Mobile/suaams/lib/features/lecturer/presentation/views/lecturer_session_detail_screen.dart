@@ -95,7 +95,7 @@ class LecturerSessionDetailScreen extends ConsumerWidget {
                   kind: AppStateKind.empty,
                   icon: Icons.contactless_rounded,
                   title: 'No check-ins yet',
-                  message: 'Students appear here as they tap the terminal.',
+                  message: 'Students appear here as they tap the reader.',
                   compact: true,
                 )
               else
@@ -277,7 +277,7 @@ class _NotCheckedInSectionState extends ConsumerState<_NotCheckedInSection> {
           'Mark ${student.fullName} present for this session? '
           'Only do this if you can see them in class. '
           'It is recorded under your name.',
-      confirmLabel: 'MARK PRESENT',
+      confirmLabel: 'Mark present',
     );
     if (!confirmed || !mounted) return;
 
@@ -365,7 +365,7 @@ class _NotCheckedInSectionState extends ConsumerState<_NotCheckedInSection> {
                         onPressed: _busyStudentId == null
                             ? () => _markPresent(student)
                             : null,
-                        child: const Text('MARK PRESENT'),
+                        child: const Text('Mark present'),
                       ),
                   ],
                 ),
@@ -417,7 +417,7 @@ class _OfflineTapsSectionState extends ConsumerState<_OfflineTapsSection> {
       message:
           "Reject ${tap.fullName}'s offline tap? "
           "They won't be marked present for this session.",
-      confirmLabel: 'REJECT',
+      confirmLabel: 'Reject',
       destructive: true,
     );
     if (!confirmed || !mounted) return;
@@ -431,7 +431,7 @@ class _OfflineTapsSectionState extends ConsumerState<_OfflineTapsSection> {
       message:
           'Accept all ${widget.taps.length} offline taps? Each student is '
           'marked at the time they tapped, under your name.',
-      confirmLabel: 'ACCEPT ALL',
+      confirmLabel: 'Accept all',
     );
     if (!confirmed || !mounted) return;
     await _run(_acceptingAll, _notifier.acceptAllOfflineTaps);
@@ -468,13 +468,13 @@ class _OfflineTapsSectionState extends ConsumerState<_OfflineTapsSection> {
                     )
                   : TextButton(
                       onPressed: idle ? _acceptAll : null,
-                      child: const Text('ACCEPT ALL'),
+                      child: const Text('Accept all'),
                     ),
           ],
         ),
         const SizedBox(height: 4),
         Text(
-          "The terminal read these phones but couldn't reach the server. "
+          'These phones tapped the reader while it was offline. '
           'Accepted taps count at the time shown.',
           style: TextStyle(
             fontSize: 12,
@@ -547,7 +547,7 @@ class _OfflineTapsSectionState extends ConsumerState<_OfflineTapsSection> {
                     ),
                     TextButton(
                       onPressed: idle ? () => _accept(tap) : null,
-                      child: const Text('ACCEPT'),
+                      child: const Text('Accept'),
                     ),
                   ],
                 ],

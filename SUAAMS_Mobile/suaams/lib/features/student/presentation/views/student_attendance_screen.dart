@@ -23,12 +23,12 @@ class StudentAttendanceScreen extends StatelessWidget {
           TextButton.icon(
             onPressed: () => context.push('/student/attendance/register'),
             icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
-            label: const Text('REGISTER'),
+            label: const Text('Register'),
           ),
           TextButton.icon(
             onPressed: () => context.push('/student/attendance/history'),
             icon: const Icon(Icons.history_rounded, size: 18),
-            label: const Text('HISTORY'),
+            label: const Text('History'),
           ),
           const SizedBox(width: 8),
         ],

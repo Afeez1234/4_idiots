@@ -68,7 +68,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             : 'Your lectures,\nfrom your phone',
         body: isStudent
             ? 'SUAAMS records your attendance by tapping your phone against a '
-                'terminal in the lecture hall. No queue, no paper sheet, and '
+                'reader at the lecture-hall door. No queue, no paper sheet, and '
                 'no book to sign.'
             : 'SUAAMS records who attended what, and when. You open a '
                 'session from a course and students record themselves by '
@@ -106,7 +106,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   '2',
                   'Confirm with your fingerprint — this is required, not optional'
                 ),
-                ('3', 'Hold the back of your phone near the terminal'),
+                ('3', 'Hold the back of your phone near the reader'),
               ]
             : const [
                 ('1', 'Open a course from your Home tab'),

@@ -89,7 +89,7 @@ class DayDetailScreen extends ConsumerWidget {
                 kind: AppStateKind.empty,
                 icon: Icons.beach_access_rounded,
                 title: 'Nothing scheduled',
-                message: 'No protocols are assigned to this day.',
+                message: 'No classes on this day.',
                 compact: true,
               )
             else

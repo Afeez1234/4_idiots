@@ -60,8 +60,11 @@ duplicate type definitions and generic bound errors in Riverpod compilation.
 - Declare with `NotifierProvider.autoDispose<MyNotifier, MyState>(MyNotifier.new)`.
 - Use `ref.mounted` for async lifecycle safety, not legacy notifier params.
 
-**Design system:** midnight-black theme, Plus Jakarta Sans, terminal-style
-language conventions, custom SUAAMS logo via `CustomPainter`.
+**Design system:** midnight-black theme, IBM Plex Sans with Plex Mono for
+machine data (codes, times), plain sentence-case wording ("reader", not
+"terminal"), custom SUAAMS logo via `CustomPainter`. `DESIGN.md` is the
+full system; `test/design_rules_test.dart` enforces its colour, shadow
+and 11sp rules.
 
 **Attendance status colours (app and web):** present green, late amber (still
 counts as attended), absent red, excused grey -- always with its text label.

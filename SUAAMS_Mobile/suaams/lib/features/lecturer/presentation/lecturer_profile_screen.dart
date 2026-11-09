@@ -28,9 +28,9 @@ class LecturerProfileScreen extends ConsumerWidget {
     // but is no longer used here -- showConfirmDialog reads the theme itself.
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Log Out',
+      title: 'Log out',
       message: 'Are you sure you want to log out of your account?',
-      confirmLabel: 'LOG OUT',
+      confirmLabel: 'Log out',
       destructive: true,
     );
     if (confirmed) {
@@ -70,7 +70,7 @@ class LecturerProfileScreen extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('CONTINUE'),
+            child: const Text('Continue'),
           ),
         ],
       ),
@@ -120,7 +120,7 @@ class LecturerProfileScreen extends ConsumerWidget {
             children: [
               if (profile != null) ...[
                 Text(
-                  'LECTURER DOSSIER',
+                  'YOUR DETAILS',
                   style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
                 ),
                 const SizedBox(height: 16),
@@ -177,9 +177,8 @@ class LecturerProfileScreen extends ConsumerWidget {
                     Icon(Icons.power_settings_new_rounded, size: 20),
                     SizedBox(width: 12),
                     Text(
-                      'LOG OUT',
+                      'Log out',
                       style: TextStyle(
-                        letterSpacing: 2,
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),

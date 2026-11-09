@@ -130,7 +130,7 @@ class CourseRegistrationScreen extends ConsumerWidget {
               message:
                   'You will be unregistered from '
                   '${course.courseTitle}. This cannot be undone.',
-              confirmLabel: 'DROP',
+              confirmLabel: 'Drop',
               destructive: true,
             );
             if (!confirmed || !context.mounted) return;
@@ -280,10 +280,10 @@ class _ActionButton extends StatelessWidget {
           foregroundColor: AppStatus.danger,
           side: const BorderSide(color: AppStatus.danger),
         ),
-        child: const Text('DROP'),
+        child: const Text('Drop'),
       );
     }
 
-    return FilledButton(onPressed: onRegister, child: const Text('REGISTER'));
+    return FilledButton(onPressed: onRegister, child: const Text('Register'));
   }
 }

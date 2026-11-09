@@ -28,7 +28,7 @@ class ProfileView extends ConsumerWidget {
       context,
       title: 'Log Out',
       message: 'Are you sure you want to log out of your account?',
-      confirmLabel: 'LOG OUT',
+      confirmLabel: 'Log out',
       destructive: true,
     );
     if (confirmed) {
@@ -68,7 +68,7 @@ class ProfileView extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('CONTINUE'),
+            child: const Text('Continue'),
           ),
         ],
       ),
@@ -119,7 +119,7 @@ class ProfileView extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('STUDENT DOSSIER', style: AppTheme.eyebrow(terminal.textMuted)),
+          Text('YOUR DETAILS', style: AppTheme.eyebrow(terminal.textMuted)),
           const SizedBox(height: 16),
 
           // 1. Personal info
@@ -216,9 +216,8 @@ class ProfileView extends ConsumerWidget {
                 Icon(Icons.power_settings_new_rounded, size: 20),
                 SizedBox(width: 12),
                 Text(
-                  'LOG OUT',
+                  'Log out',
                   style: TextStyle(
-                    letterSpacing: 2,
                     fontWeight: FontWeight.bold,
                     fontSize: 12,
                   ),

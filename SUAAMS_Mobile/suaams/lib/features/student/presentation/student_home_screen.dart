@@ -157,7 +157,7 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
                   const SizedBox(height: 32),
 
                   Text(
-                    'TODAY\'S PROTOCOL',
+                    'TODAY',
                     style: AppTheme.eyebrow(
                       colorScheme.onSurface.withValues(alpha: 0.55),
                     ),
@@ -201,9 +201,9 @@ class _DashboardHeader extends ConsumerWidget {
     // SESSION" for the same action.
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Log Out',
+      title: 'Log out',
       message: 'Are you sure you want to log out of your account?',
-      confirmLabel: 'LOG OUT',
+      confirmLabel: 'Log out',
       destructive: true,
     );
     if (confirmed) {
@@ -857,7 +857,7 @@ class _ProtocolList extends ConsumerWidget {
       return const AppStateView(
         kind: AppStateKind.empty,
         icon: Icons.beach_access_rounded,
-        title: 'No protocols scheduled today',
+        title: 'No classes today',
         message:
             'Enjoy the free day — check-in opens when a lecturer starts a session.',
         compact: true,

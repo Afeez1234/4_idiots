@@ -126,7 +126,7 @@ class SuaamsLogoFull extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'SECURE ATTENDANCE TERMINAL',
+          'CLASS ATTENDANCE',
           style: TextStyle(
             fontSize: 9,
             fontWeight: FontWeight.bold,

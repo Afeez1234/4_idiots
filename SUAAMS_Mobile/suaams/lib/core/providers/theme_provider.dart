@@ -57,9 +57,10 @@ class ThemeNotifier extends Notifier<ThemeMode> {
   }
 }
 
-/// Subtitle for the profile tiles. Keeps the existing mode names.
+/// Subtitle for the profile tiles. Plain names since 2026-11-09 (were
+/// "Stealth Mode" and "Blueprint Mode").
 String themeModeLabel(ThemeMode mode) => switch (mode) {
   ThemeMode.system => 'Automatic (follows your phone)',
-  ThemeMode.dark => 'Stealth Mode (Dark)',
-  ThemeMode.light => 'Blueprint Mode (Light)',
+  ThemeMode.dark => 'Dark',
+  ThemeMode.light => 'Light',
 };

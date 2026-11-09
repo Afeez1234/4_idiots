@@ -157,9 +157,9 @@ class _DashboardHeader extends ConsumerWidget {
     // student_home_screen.dart's version for why they were consolidated.
     final confirmed = await showConfirmDialog(
       context,
-      title: 'Log Out',
+      title: 'Log out',
       message: 'Are you sure you want to log out of your account?',
-      confirmLabel: 'LOG OUT',
+      confirmLabel: 'Log out',
       destructive: true,
     );
     if (confirmed) {
@@ -187,7 +187,7 @@ class _DashboardHeader extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'LECTURER PORTAL',
+                'LECTURER',
                 style: AppTheme.eyebrow(
                   colorScheme.onSurface.withValues(alpha: 0.55),
                 ),

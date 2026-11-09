@@ -102,11 +102,11 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('CANCEL'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('END SESSION'),
+            child: const Text('End session'),
           ),
         ],
       ),
@@ -173,7 +173,7 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
             onPressed: () =>
                 context.push('${GoRouterState.of(context).uri.path}/history'),
             icon: const Icon(Icons.history_rounded, size: 18),
-            label: const Text('HISTORY'),
+            label: const Text('History'),
           ),
           const SizedBox(width: 8),
         ],
@@ -226,7 +226,7 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
                     kind: AppStateKind.empty,
                     icon: Icons.contactless_rounded,
                     title: 'No check-ins yet',
-                    message: 'Students appear here as they tap the terminal.',
+                    message: 'Students appear here as they tap the reader.',
                     compact: true,
                   )
                 else
@@ -252,7 +252,7 @@ class _CourseWorkspaceScreenState extends ConsumerState<CourseWorkspaceScreen> {
                       '/history/session/${data.activeSession!.id}',
                     ),
                     icon: const Icon(Icons.how_to_reg_rounded, size: 18),
-                    label: const Text('MARK A STUDENT PRESENT'),
+                    label: const Text('Mark a student present'),
                   ),
                 ),
               ],

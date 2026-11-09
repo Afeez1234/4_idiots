@@ -111,7 +111,7 @@ class CoursesView extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'ACADEMIC MODULES',
+            'YOUR COURSES',
             style: AppTheme.eyebrow(
               colorScheme.onSurface.withValues(alpha: 0.6),
             ),

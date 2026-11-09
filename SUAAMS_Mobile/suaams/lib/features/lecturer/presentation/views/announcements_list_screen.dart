@@ -46,7 +46,7 @@ class AnnouncementsListScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/lecturer/announce/create'),
         icon: const Icon(Icons.add_rounded),
-        label: const Text('NEW'),
+        label: const Text('New'),
       ),
     );
   }
@@ -157,7 +157,7 @@ class _AnnouncementCard extends ConsumerWidget {
               foregroundColor: colorScheme.onError,
             ),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('DELETE'),
+            child: const Text('Delete'),
           ),
         ],
       ),
