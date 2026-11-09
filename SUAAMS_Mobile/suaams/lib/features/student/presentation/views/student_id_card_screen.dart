@@ -258,13 +258,8 @@ class _DigitalIdCard extends StatelessWidget {
           color: colorScheme.outline.withValues(alpha: 0.15),
           width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDarkMode ? 0.4 : 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        // No drop shadow (removed 2026-11-01): app surfaces are flat, and
+        // the card already steps up a tone with its own border.
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,18 +271,19 @@ class _DigitalIdCard extends StatelessWidget {
               Container(
                 width: 40,
                 height: 30,
+                // Neutral since 2026-11-01. It was Material amber, which is
+                // the app's "late" colour spent on decoration.
                 decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: Colors.amber.withValues(alpha: 0.5),
+                    color: colorScheme.onSurface.withValues(alpha: 0.25),
                   ),
                 ),
-                child: const Center(
+                child: Center(
                   child: Icon(
                     Icons.memory_rounded,
                     size: 20,
-                    color: Colors.amber,
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ),

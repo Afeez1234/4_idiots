@@ -10,7 +10,6 @@ import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/shared/widgets/app_skeleton.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
-import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
 import 'package:suaams/features/lecturer/presentation/views/lecturer_today_section.dart';
 
@@ -273,12 +272,10 @@ class _StatsGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppStatRow([
       AppStatValue('${stats.totalCourses}', 'COURSES'),
-      // Green only while a session is genuinely live. The old copy took a
-      // `highlight: stats.activeSessions > 0` bool, so the tone is chosen
-      // at the call site rather than baked in.
-      stats.activeSessions > 0
-          ? AppStatValue.success('${stats.activeSessions}', 'LIVE NOW')
-          : AppStatValue('${stats.activeSessions}', 'LIVE NOW'),
+      // Neutral since 2026-11-01. It turned green while a class was live,
+      // but green means "present"; live is indigo, and the course card's
+      // indigo dot already marks which class it is.
+      AppStatValue('${stats.activeSessions}', 'LIVE NOW'),
       AppStatValue('${stats.todayCheckins}', 'CHECK-INS TODAY'),
     ]);
   }
@@ -306,9 +303,9 @@ class _CourseCard extends StatelessWidget {
           color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: course.hasActiveSession
-                ? AppStatus.success.withValues(alpha: 0.35)
-                : colorScheme.outline.withValues(alpha: 0.1),
+            // Live is marked by the indigo dot below; the green edge this
+            // had (until 2026-11-01) spent "present" on a lifecycle state.
+            color: colorScheme.outline.withValues(alpha: 0.1),
           ),
         ),
         child: Row(
@@ -335,8 +332,9 @@ class _CourseCard extends StatelessWidget {
                         Container(
                           width: 6,
                           height: 6,
-                          decoration: const BoxDecoration(
-                            color: AppStatus.success,
+                          // Indigo: "live" in DESIGN.md's One Signal Rule.
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary,
                             shape: BoxShape.circle,
                           ),
                         ),

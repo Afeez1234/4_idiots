@@ -5,7 +5,6 @@ import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
-import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
 import 'package:suaams/shared/widgets/app_skeleton.dart';
 
@@ -117,8 +116,10 @@ class _ActiveCourseCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
           borderRadius: BorderRadius.circular(12),
+          // Live is the indigo dot; green (until 2026-11-01) means
+          // "present" and stays on attendance figures.
           border: Border.all(
-            color: AppStatus.success.withValues(alpha: 0.35),
+            color: colorScheme.outline.withValues(alpha: 0.1),
           ),
         ),
         child: Row(
@@ -126,8 +127,8 @@ class _ActiveCourseCard extends StatelessWidget {
             Container(
               width: 8,
               height: 8,
-              decoration: const BoxDecoration(
-                color: AppStatus.success,
+              decoration: BoxDecoration(
+                color: colorScheme.primary,
                 shape: BoxShape.circle,
               ),
             ),

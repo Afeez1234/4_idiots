@@ -265,13 +265,6 @@ class CoursesView extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: healthColor,
                         borderRadius: BorderRadius.circular(3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: healthColor.withValues(alpha: 0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
                       ),
                     ),
                   );

@@ -1361,6 +1361,7 @@ on a light card). Never recolour the dot or arcs to the indigo accent.
 - **Don't** render app text below 11sp, or hand-roll a `TextStyle` font size outside the theme scale.
 - **Don't** use the raw status hues (#10B981, #F59E0B, #EF4444) as text. They are fills only.
 - **Don't** add drop shadows to app surfaces. Step the tone instead.
+- **Don't** colour a live class, a phone binding or decoration green or amber in the app; live is the indigo dot, the rest neutral. `SUAAMS_Mobile/suaams/test/design_rules_test.dart` fails on any `boxShadow`, any raw `Colors.amber/green/orange/red/yellow`, and `AppStatus.success/warning` outside its short list of attendance files.
 - **Don't** build portal tone classes by string interpolation (`bg-{{ tone }}`). Use `data-tone`.
 - **Don't** load Google Fonts, an icon font or any third-party font on the app, the site or the portal.
 - **Don't** add a second accent to the site or the portal, or use Brand Blue anywhere but the logo mark.

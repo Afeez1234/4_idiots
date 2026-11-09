@@ -97,13 +97,6 @@ class SessionDetailScreen extends ConsumerWidget {
                         decoration: BoxDecoration(
                           color: statusColor,
                           shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: statusColor.withValues(alpha: 0.4),
-                              blurRadius: 6,
-                              spreadRadius: 1,
-                            ),
-                          ],
                         ),
                       ),
                       const SizedBox(width: 10),

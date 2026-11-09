@@ -257,15 +257,6 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
                 decoration: BoxDecoration(
                   color: isSelected ? colorScheme.primary : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: colorScheme.primary.withValues(alpha: 0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : [],
                 ),
                 child: Center(
                   child: Text(
@@ -357,13 +348,7 @@ class _RecordsViewState extends ConsumerState<RecordsView> {
               decoration: BoxDecoration(
                 color: statusColor,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: statusColor.withValues(alpha: 0.4),
-                    blurRadius: 6,
-                    spreadRadius: 1,
-                  ),
-                ],
+                // No glow (removed 2026-11-01): the app is flat.
               ),
             ),
             const SizedBox(width: 16),

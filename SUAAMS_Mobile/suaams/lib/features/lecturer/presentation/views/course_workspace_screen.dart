@@ -315,13 +315,13 @@ class _SessionControls extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
         borderRadius: BorderRadius.circular(16),
-        border: Border(
-          left: BorderSide(
-            color: activeSession != null
-                ? AppStatus.success
-                : colorScheme.primary,
-            width: 4,
-          ),
+        // A 1px full border since 2026-11-01: indigo while live, the
+        // normal outline otherwise. It was a 4px left stripe, green while
+        // live -- a decorative side stripe, in attendance's colour.
+        border: Border.all(
+          color: activeSession != null
+              ? colorScheme.primary
+              : colorScheme.outline.withValues(alpha: 0.1),
         ),
       ),
       child: activeSession != null
@@ -334,9 +334,13 @@ class _SessionControls extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.circle, size: 8, color: AppStatus.success),
+            Icon(
+              Icons.circle,
+              size: 8,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             SizedBox(width: 8),
             Text(
               'SESSION ACTIVE',

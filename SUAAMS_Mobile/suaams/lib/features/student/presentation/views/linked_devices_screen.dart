@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/student/providers/device_info_provider.dart';
-import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
 import 'package:suaams/shared/widgets/app_skeleton.dart';
 
@@ -48,9 +47,10 @@ class LinkedDevicesScreen extends ConsumerWidget {
     }
 
     final bound = data.deviceBound;
-    final statusColor = bound
-        ? AppStatus.success
-        : AppStatus.warning;
+    // Neutral either way since 2026-11-01. It was green when bound and
+    // amber when not, but those colours mean present and late; a phone's
+    // binding is a lifecycle state, and the label says which.
+    final statusColor = colorScheme.onSurface;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
