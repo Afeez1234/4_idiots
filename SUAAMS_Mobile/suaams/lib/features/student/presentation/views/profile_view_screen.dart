@@ -437,9 +437,11 @@ class ProfileView extends ConsumerWidget {
     final deviceInfo = ref.watch(deviceInfoProvider).data;
 
     final (icon, accent, detail) = switch (deviceInfo?.deviceBound) {
+      // Neutral, not green (2026-11-01): green means present, and a bound
+      // phone isn't attendance. Same call as linked_devices_screen.
       true => (
           Icons.phonelink_lock_rounded,
-          terminal.successText,
+          colorScheme.onSurface,
           'Sign-in is locked to one phone. If you lose it, IT Administration '
               'has to release the binding in person.',
         ),
@@ -483,7 +485,7 @@ class ProfileView extends ConsumerWidget {
     final (icon, accent, detail) = switch (resolved) {
       BiometricStatus.enrolled => (
           Icons.fingerprint_rounded,
-          terminal.successText,
+          colorScheme.onSurface,
           'Enabled — you will be asked for it at check-in.',
         ),
       BiometricStatus.passcodeOnly => (

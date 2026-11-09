@@ -7,6 +7,8 @@ import 'package:suaams/features/lecturer/providers/lecturer_week_schedule_provid
 import 'package:suaams/features/student/models/week_schedule_entry.dart';
 import 'package:suaams/shared/utils/date_label.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:go_router/go_router.dart';
+import 'package:suaams/shared/widgets/week_schedule_list.dart';
 
 /// What the lecturer is doing right now.
 ///
@@ -26,7 +28,9 @@ class LecturerTodaySection extends ConsumerWidget {
     // DateTime.weekday is 1=Monday; Timetable.day_of_week is 0=Monday.
     // This subtraction is the same conversion the student timetable uses.
     final today = DateTime.now().weekday - 1;
-    final entries = state.onDay(today);
+    // Start-time order, so the next class is always the first card.
+    final entries = classesOn(state.entries, today);
+    final next = nextClassAfterToday(state.entries, DateTime.now());
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,6 +61,11 @@ class LecturerTodaySection extends ConsumerWidget {
               ),
             ),
           )
+        else if (entries.isEmpty && state.errorMessage == null && next != null)
+          // An empty today used to be a large "Nothing scheduled today"
+          // umbrella that left the real question -- when am I next on? --
+          // to the Timetable tab. Answer it here instead (2026-11-01).
+          _NextClassCard(entry: next)
         else if (entries.isEmpty)
           // No retry here. An empty day is a real answer, and a button
           // promising to reload something that was never going to appear is
@@ -90,8 +99,9 @@ class LecturerTodaySection extends ConsumerWidget {
 ///
 /// The distinction a lecturer actually cares about is whether they should
 /// already be walking to the room, which "3 classes today" cannot express.
-/// IN PROGRESS is deliberately green -- same token the student's PRESENT
-/// uses, because it means the same thing.
+/// IN PROGRESS is indigo, DESIGN.md's colour for "live". It was green
+/// until 2026-11-01, but green means a student was present, and a class
+/// being under way is not attendance.
 ({String label, bool live}) _timingFor(WeekScheduleEntry entry) {
   final start = entry.startTime;
   final end = entry.endTime;
@@ -136,7 +146,11 @@ class _TodayCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final timing = _timingFor(entry);
-    final accent = timing.live ? terminal.successText : colorScheme.primary;
+    // Only a live class takes the accent; the other labels are neutral, so
+    // the one class that needs you now is the one that stands out.
+    final accent = timing.live
+        ? colorScheme.primary
+        : colorScheme.onSurface.withValues(alpha: 0.7);
     final timeRange = (entry.startTime != null && entry.endTime != null)
         ? '${entry.startTime} - ${entry.endTime}'
         : '--:-- - --:--';
@@ -146,11 +160,12 @@ class _TodayCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(12),
-        border: Border(
-          left: BorderSide(
-            color: timing.live ? terminal.successText : colorScheme.outline,
-            width: 4,
-          ),
+        // A 1px border, indigo while live, since 2026-11-01. It was a 4px
+        // left stripe in green -- a decorative stripe in attendance's colour.
+        border: Border.all(
+          color: timing.live
+              ? colorScheme.primary
+              : colorScheme.outline.withValues(alpha: 0.1),
         ),
       ),
       child: Row(
@@ -184,10 +199,11 @@ class _TodayCard extends StatelessWidget {
                       ),
                       child: Text(
                         timing.label,
+                        // 11sp: the app's floor (was 9).
                         style: TextStyle(
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
+                          letterSpacing: 0.6,
                           color: accent,
                         ),
                       ),
@@ -216,6 +232,73 @@ class _TodayCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// "Nothing today. Next: MCT 402, Friday 10:00, LT2" -- one tappable line
+/// that opens that day in the Timetable tab.
+class _NextClassCard extends StatelessWidget {
+  final WeekScheduleEntry entry;
+
+  const _NextClassCard({required this.entry});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final day = weekdayNames[entry.dayOfWeek];
+    final when = [
+      day,
+      if (entry.startTime != null) entry.startTime!,
+      if (entry.room != null && entry.room!.isNotEmpty) entry.room!,
+    ].join(', ');
+
+    return Material(
+      color: colorScheme.surfaceContainer.withValues(alpha: 0.72),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.1)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/lecturer/timetable/day/$day'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Nothing today', style: textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    Text.rich(
+                      TextSpan(
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                        children: [
+                          const TextSpan(text: 'Next: '),
+                          TextSpan(
+                            text: entry.courseCode,
+                            style: AppTheme.accent(weight: FontWeight.w700),
+                          ),
+                          TextSpan(text: ', $when'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: colorScheme.onSurface.withValues(alpha: 0.3),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -22,6 +22,7 @@ List<(String, String)> _sources() => Directory('lib')
 /// decoration. Those take indigo (`colorScheme.primary`) or neutral.
 const _attendanceColourFiles = {
   'lib/shared/utils/attendance_status.dart', // the one map
+  'lib/core/theme/app_terminal.dart', // defines successText/warningText
   'lib/shared/widgets/app_stat_box.dart', // success/warning stat tones
   'lib/features/student/presentation/views/nfc_broadcast_sheet.dart',
   'lib/features/student/presentation/student_home_screen.dart',
@@ -29,6 +30,8 @@ const _attendanceColourFiles = {
   'lib/features/student/presentation/views/course_detail_screen.dart',
   'lib/features/lecturer/presentation/views/course_analytics_screen.dart',
   'lib/features/lecturer/presentation/views/lecturer_session_history_screen.dart',
+  // Amber only, for real warnings (no phone bound, passcode-only check-in).
+  'lib/features/student/presentation/views/profile_view_screen.dart',
 };
 
 void main() {
@@ -51,7 +54,12 @@ void main() {
 
 
   test('attendance colours stay on attendance', () {
-    final use = RegExp(r'AppStatus\.(success|warning)');
+    // Both spellings: the raw AppStatus hues and the theme's text shades
+    // (terminal.successText), which is how live-in-green on lecturer Home
+    // slipped past the first version of this test.
+    final use = RegExp(
+      r'AppStatus\.(success|warning)\b|\.(successText|warningText)\b',
+    );
     final hits = [
       for (final (path, src) in _sources())
         if (use.hasMatch(src) && !_attendanceColourFiles.contains(path)) path,

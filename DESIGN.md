@@ -1347,6 +1347,7 @@ on a light card). Never recolour the dot or arcs to the indigo accent.
 - **Do** keep app tap targets at 48dp or more, and full-width primary buttons at 56dp tall.
 - **Do** set times, codes and terminal strings in the mono face, and everything else in the sans.
 - **Do** give every app screen's first load a skeleton of its layout (`AppLoadingView`, or a screen's own skeleton wrapped in `WithSlowLoadHint`), never a bare spinner. After 5 s the slow-load hint says the server may be waking up. Spinners stay in buttons, the splash and the check-in sheet.
+- **Do** build both Timetable tabs from the shared `WeekScheduleList`: the week starts at Today, a day with classes is one card listing each class's time (mono), code, name and room, and an empty day is one untappable line. An empty Home "Today" names the next class instead of showing an empty state.
 - **Do** write the check-in sheet in plain, sentence-case words ("Hold your phone to the reader", "Cancel"), and call the door hardware the **reader** wherever a student sees it. Its uppercase "protocol" voice was retired on 2026-11-01; only the seconds count stays mono.
 - **Do** contrast-check new pairs against the surface they actually sit on, including tinted fills.
 - **Do** build site pages from the app's tokens and the `styles.css` custom properties; dark by default, light by `prefers-color-scheme`.
