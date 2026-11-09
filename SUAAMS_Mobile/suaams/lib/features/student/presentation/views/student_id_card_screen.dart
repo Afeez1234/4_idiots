@@ -16,6 +16,7 @@ import 'package:suaams/features/student/providers/checkin_method_provider.dart'
     show CheckInChannel, checkInChannelProvider;
 import 'package:suaams/shared/utils/initials.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 // ID Card tab -- "Full screen digital ID with NFC tap button". The card
 // visuals are lifted as-is from ProfileView's old _buildDigitalIDCard (now
@@ -41,8 +42,7 @@ class StudentIdCardScreen extends ConsumerWidget {
     // Same rule as the home session card: Bluetooth makes a phone without
     // NFC able to check in.
     final channel = ref.watch(checkInChannelProvider);
-    final canTap =
-        channel == CheckInChannel.ble || !availability.cannotTapIn;
+    final canTap = channel == CheckInChannel.ble || !availability.cannotTapIn;
     final (hintIcon, hintText) = NfcBroadcastSheet.entryHint(
       availability,
       channel: channel,
@@ -65,7 +65,11 @@ class StudentIdCardScreen extends ConsumerWidget {
           SafeArea(
             child: data == null
                 ? (state.isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const AppLoadingView(
+                          scaffold: false,
+                          rows: 2,
+                          trailing: SkeletonTrailing.text,
+                        )
                       : AppStateView(
                           kind: AppStateKind.error,
                           icon: Icons.badge_rounded,
@@ -112,9 +116,8 @@ class StudentIdCardScreen extends ConsumerWidget {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(
-                            onPressed: () => ref
-                                .read(cardPrivacyProvider.notifier)
-                                .toggle(),
+                            onPressed: () =>
+                                ref.read(cardPrivacyProvider.notifier).toggle(),
                             icon: Icon(
                               detailsVisible
                                   ? Icons.visibility_off_rounded
@@ -130,8 +133,9 @@ class StudentIdCardScreen extends ConsumerWidget {
                               ),
                             ),
                             style: TextButton.styleFrom(
-                              foregroundColor: colorScheme.onSurface
-                                  .withValues(alpha: 0.6),
+                              foregroundColor: colorScheme.onSurface.withValues(
+                                alpha: 0.6,
+                              ),
                               visualDensity: VisualDensity.compact,
                             ),
                           ),

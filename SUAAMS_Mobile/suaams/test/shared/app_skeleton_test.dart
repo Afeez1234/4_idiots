@@ -51,4 +51,63 @@ void main() {
     expect(find.bySemanticsLabel('Loading'), findsOneWidget);
     handle.dispose();
   });
+
+  // SlowLoadHint (2026-11-01): silent for the first 5 s, then shown and
+  // readable by a screen reader; no fade with reduced motion.
+  Widget hintHost({required bool disableAnimations}) => MaterialApp(
+    theme: AppTheme.darkTheme,
+    home: MediaQuery(
+      data: MediaQueryData(disableAnimations: disableAnimations),
+      child: const Scaffold(body: SlowLoadHint()),
+    ),
+  );
+
+  double hintOpacity(WidgetTester tester) => tester
+      .widget<AnimatedOpacity>(
+        find.descendant(
+          of: find.byType(SlowLoadHint),
+          matching: find.byType(AnimatedOpacity),
+        ),
+      )
+      .opacity;
+
+  testWidgets('slow-load hint waits 5 s, then shows', (tester) async {
+    final handle = tester.ensureSemantics();
+    await tester.pumpWidget(hintHost(disableAnimations: false));
+    await tester.pump(const Duration(seconds: 4));
+    expect(hintOpacity(tester), 0);
+    expect(find.bySemanticsLabel(SlowLoadHint.message), findsNothing);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(hintOpacity(tester), 1);
+    expect(find.bySemanticsLabel(SlowLoadHint.message), findsOneWidget);
+    handle.dispose();
+  });
+
+  testWidgets('slow-load hint appears without a fade under reduced motion', (
+    tester,
+  ) async {
+    await tester.pumpWidget(hintHost(disableAnimations: true));
+    await tester.pump(const Duration(seconds: 5));
+    final fade = tester.widget<AnimatedOpacity>(
+      find.descendant(
+        of: find.byType(SlowLoadHint),
+        matching: find.byType(AnimatedOpacity),
+      ),
+    );
+    expect(fade.opacity, 1);
+    expect(fade.duration, Duration.zero);
+  });
+
+  testWidgets('slow-load hint cancels its timer when the data arrives', (
+    tester,
+  ) async {
+    await tester.pumpWidget(hintHost(disableAnimations: false));
+    await tester.pump(const Duration(seconds: 2));
+    // Data landed: the loading view is replaced. A live timer here would
+    // fail the test ("A Timer is still pending").
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    await tester.pump(const Duration(seconds: 5));
+  });
 }

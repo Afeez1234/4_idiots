@@ -9,6 +9,7 @@ import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 String _fmtTime(String? raw) {
   if (raw == null || raw.length < 5) return '--:--';
@@ -32,7 +33,7 @@ class LecturerSessionDetailScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.data == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppLoadingView();
     }
 
     final data = state.data;

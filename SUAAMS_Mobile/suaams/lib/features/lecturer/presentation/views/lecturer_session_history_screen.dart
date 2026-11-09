@@ -8,6 +8,7 @@ import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 // "HH:MM:SS" (Python str(time)) -> "HH:MM", or a placeholder if unset.
 String _fmtTime(String? raw) {
@@ -26,7 +27,7 @@ class LecturerSessionHistoryScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.data == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppLoadingView(title: 'Session History');
     }
 
     final data = state.data;

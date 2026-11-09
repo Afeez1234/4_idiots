@@ -89,7 +89,10 @@ class CoursesView extends ConsumerWidget {
     // Attendance tab could sit blank with no way to retry. Same fix as
     // records_view.dart.
     if (data == null) {
-      if (state.errorMessage == null) return const _CoursesSkeleton();
+      if (state.errorMessage == null) {
+        // The hint after 5 s: a cold server can hold this for a minute.
+        return const WithSlowLoadHint(child: _CoursesSkeleton());
+      }
       return AppStateView(
         kind: AppStateKind.error,
         icon: Icons.school_rounded,

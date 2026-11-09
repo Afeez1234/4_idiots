@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:suaams/features/lecturer/providers/announcements_provider.dart';
 import 'package:suaams/features/lecturer/models/announcement_model.dart';
 import 'package:suaams/core/theme/app_theme.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 // Announce tab root. Course-scoped announcements only (scope='university'/
 // 'department' stay admin-only, see get_lecturer_announcements's
@@ -56,7 +57,10 @@ class AnnouncementsListScreen extends ConsumerWidget {
     ColorScheme colorScheme,
   ) {
     if (state.isLoading && state.announcements.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView(
+        scaffold: false,
+        trailing: SkeletonTrailing.pill,
+      );
     }
 
     if (state.errorMessage != null && state.announcements.isEmpty) {

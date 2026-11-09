@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 /// Loading placeholders shaped like the content they stand in for.
@@ -226,6 +228,165 @@ class SkeletonList extends StatelessWidget {
             SkeletonListCard(trailing: trailing, leadingDot: leadingDot),
         ],
       ),
+    );
+  }
+}
+
+/// The line a long first load shows, so a wait reads as "the server is
+/// slow" rather than "the app has hung".
+///
+/// Added 2026-11-01. A cold Render start kept lecturer Home on a bare
+/// spinner for about a minute with no words, long enough that a lecturer in
+/// front of a hall would kill the app and restart the wait. The app can't
+/// tell a cold server from slow Wi-Fi, so the copy says "may".
+///
+/// Invisible for [delay], then fades in (instantly with reduced motion).
+/// Hidden from screen readers until it shows, then announced once as a
+/// polite live region.
+class SlowLoadHint extends StatefulWidget {
+  final Duration delay;
+
+  const SlowLoadHint({super.key, this.delay = const Duration(seconds: 5)});
+
+  static const message =
+      'Still loading. The server may be waking up; this can take up to a '
+      'minute.';
+
+  @override
+  State<SlowLoadHint> createState() => _SlowLoadHintState();
+}
+
+class _SlowLoadHintState extends State<SlowLoadHint> {
+  Timer? _timer;
+  bool _shown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(widget.delay, () {
+      if (mounted) setState(() => _shown = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return ExcludeSemantics(
+      excluding: !_shown,
+      child: Semantics(
+        liveRegion: true,
+        child: AnimatedOpacity(
+          opacity: _shown ? 1 : 0,
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainer,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: colorScheme.outline.withValues(alpha: 0.1),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.cloud_sync_rounded,
+                  size: 18,
+                  color: colorScheme.onSurface.withValues(alpha: 0.7),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    SlowLoadHint.message,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Places a [SlowLoadHint] at the bottom of a skeleton, above it in the
+/// stack so the skeleton keeps its exact loaded-screen layout.
+class WithSlowLoadHint extends StatelessWidget {
+  final Widget child;
+
+  const WithSlowLoadHint({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        child,
+        const Positioned(
+          left: 24,
+          right: 24,
+          bottom: 24,
+          child: SlowLoadHint(),
+        ),
+      ],
+    );
+  }
+}
+
+/// A whole screen's first load: list-card placeholders and the slow-load
+/// hint. Replaced the bare `CircularProgressIndicator` that 18 screens
+/// returned on first load (2026-11-01).
+///
+/// With [scaffold] (the default) it brings its own app bar, so a pushed
+/// screen has its back button while it loads, which the bare spinner
+/// Scaffold didn't. Pass the loaded screen's [title] when it is fixed
+/// ("Timetable"); leave it null when it comes from the data. Use
+/// `scaffold: false` inside a screen that already has its Scaffold.
+class AppLoadingView extends StatelessWidget {
+  final String? title;
+  final bool scaffold;
+  final int rows;
+  final SkeletonTrailing trailing;
+
+  const AppLoadingView({
+    super.key,
+    this.title,
+    this.scaffold = true,
+    this.rows = 4,
+    this.trailing = SkeletonTrailing.chevron,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final body = WithSlowLoadHint(
+      child: SingleChildScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(24),
+        child: SkeletonList(count: rows, trailing: trailing),
+      ),
+    );
+    if (!scaffold) return body;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      appBar: AppBar(
+        title: title == null ? null : Text(title!),
+        backgroundColor: colorScheme.surface,
+        elevation: 0,
+      ),
+      body: body,
     );
   }
 }

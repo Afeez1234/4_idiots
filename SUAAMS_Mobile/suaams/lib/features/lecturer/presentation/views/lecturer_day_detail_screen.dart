@@ -6,6 +6,7 @@ import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_week_schedule_provider.dart';
 import 'package:suaams/features/student/models/week_schedule_entry.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 const _dayNameToIndex = {
   'Monday': 0,
@@ -31,7 +32,7 @@ class LecturerDayDetailScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.entries.isEmpty) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppLoadingView();
     }
 
     final dayIndex = _dayNameToIndex[day];

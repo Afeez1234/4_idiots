@@ -8,6 +8,7 @@ import 'package:suaams/features/auth/providers/auth_provider.dart';
 import 'package:suaams/features/lecturer/providers/lecturer_provider.dart';
 import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
@@ -31,7 +32,26 @@ class LecturerHomeScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.data == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      // Was a bare spinner on a blank Scaffold until 2026-11-01; on a cold
+      // server it sat there for about a minute with no words. Same
+      // background as the loaded screen, a skeleton of its layout, and the
+      // slow-load hint after 5 s.
+      return Scaffold(
+        backgroundColor: colorScheme.surface,
+        body: Stack(
+          children: [
+            RepaintBoundary(
+              child: DashboardBackground(
+                isDarkMode: isDarkMode,
+                colorScheme: colorScheme,
+              ),
+            ),
+            const SafeArea(
+              child: WithSlowLoadHint(child: _LecturerHomeSkeleton()),
+            ),
+          ],
+        ),
+      );
     }
 
     final data = state.data;
@@ -40,10 +60,12 @@ class LecturerHomeScreen extends ConsumerWidget {
         body: AppStateView(
           kind: AppStateKind.error,
           icon: Icons.cloud_off_rounded,
-          title: 'Couldn''t load your dashboard',
+          title:
+              'Couldn'
+              't load your dashboard',
           message: isGenericServerMessage(state.errorMessage)
-                      ? 'Check your connection and try again.'
-                      : state.errorMessage,
+              ? 'Check your connection and try again.'
+              : state.errorMessage,
           onRetry: () =>
               ref.read(lecturerDashboardProvider.notifier).loadDashboardData(),
         ),
@@ -85,7 +107,9 @@ class LecturerHomeScreen extends ConsumerWidget {
 
                     Text(
                       'YOUR COURSES',
-                      style: AppTheme.eyebrow(colorScheme.onSurface.withValues(alpha: 0.6)),
+                      style: AppTheme.eyebrow(
+                        colorScheme.onSurface.withValues(alpha: 0.6),
+                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -127,10 +151,7 @@ class _DashboardHeader extends ConsumerWidget {
   final LecturerProfile profile;
   final ColorScheme colorScheme;
 
-  const _DashboardHeader({
-    required this.profile,
-    required this.colorScheme,
-  });
+  const _DashboardHeader({required this.profile, required this.colorScheme});
 
   Future<void> _showLogoutDialog(BuildContext context, WidgetRef ref) async {
     // One of four hand-rolled copies of this dialog; see
@@ -334,6 +355,87 @@ class _CourseCard extends StatelessWidget {
               Icons.chevron_right_rounded,
               color: colorScheme.onSurface.withValues(alpha: 0.3),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Loading placeholder for the screen above: header, the three stat boxes,
+// the Today block and two course cards, with build()'s padding and gaps so
+// nothing shifts when the data lands. Mirrors the student _HomeSkeleton;
+// if the loaded layout changes, change this to match.
+class _LecturerHomeSkeleton extends StatelessWidget {
+  const _LecturerHomeSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final cardColor = colorScheme.surfaceContainer.withValues(alpha: 0.5);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      physics: const NeverScrollableScrollPhysics(),
+      child: SkeletonPulse(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: eyebrow, name, department; the 48dp avatar right.
+            const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SkeletonBox(width: 110, height: 10),
+                      SizedBox(height: 8),
+                      SkeletonBox(width: 160, height: 22),
+                      SizedBox(height: 8),
+                      SkeletonBox(width: 190, height: 12),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12),
+                SkeletonBox.circle(size: 48),
+              ],
+            ),
+            const SizedBox(height: 32),
+
+            // Stat row: three equal boxes, like AppStatRow (62dp, the
+            // height the student skeleton measured).
+            Row(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      height: 62,
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Today: eyebrow, date line, one class.
+            const SkeletonBox(width: 60, height: 10),
+            const SizedBox(height: 8),
+            const SkeletonBox(width: 150, height: 12),
+            const SizedBox(height: 16),
+            const SkeletonListCard(trailing: SkeletonTrailing.text),
+            const SizedBox(height: 20),
+
+            // Your courses.
+            const SkeletonBox(width: 110, height: 10),
+            const SizedBox(height: 16),
+            const SkeletonListCard(trailing: SkeletonTrailing.chevron),
+            const SkeletonListCard(trailing: SkeletonTrailing.chevron),
           ],
         ),
       ),

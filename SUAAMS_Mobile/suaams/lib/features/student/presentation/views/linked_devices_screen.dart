@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/features/student/providers/device_info_provider.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 // Read-only by design -- see get_device_info's doc-comment in
 // api/student.py. This screen explains the admin-reset flow rather than
@@ -21,7 +22,11 @@ class LinkedDevicesScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.data == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppLoadingView(
+        title: 'Linked Devices',
+        rows: 1,
+        trailing: SkeletonTrailing.text,
+      );
     }
 
     final data = state.data;

@@ -7,6 +7,7 @@ import 'package:suaams/features/student/providers/student_provider.dart';
 import 'package:suaams/features/student/models/student_dashboard_model.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 // Reuses the already-loaded studentDashboardProvider -- CourseBreakdown
 // already carries everything this screen needs (id/name/code/pct/attended/
@@ -24,7 +25,7 @@ class CourseDetailScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.data == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppLoadingView();
     }
 
     final data = state.data;

@@ -5,6 +5,7 @@ import 'package:suaams/features/student/providers/course_registration_provider.d
 import 'package:suaams/shared/widgets/confirm_dialog.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 // Self-service course registration -- see get_available_courses/
 // register_course/drop_course in api/student.py. Scoped server-side to the
@@ -54,7 +55,10 @@ class CourseRegistrationScreen extends ConsumerWidget {
     ColorScheme colorScheme,
   ) {
     if (state.isLoading && state.courses.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView(
+        scaffold: false,
+        trailing: SkeletonTrailing.pill,
+      );
     }
 
     if (state.errorMessage != null && state.courses.isEmpty) {

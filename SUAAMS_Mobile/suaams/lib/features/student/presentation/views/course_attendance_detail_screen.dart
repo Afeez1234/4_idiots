@@ -7,6 +7,7 @@ import 'package:suaams/features/student/providers/course_attendance_history_prov
 import 'package:suaams/features/student/models/course_attendance_history_model.dart';
 import 'package:suaams/core/theme/app_terminal.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 String _fmtTime(String? raw) {
   if (raw == null || raw.length < 5) return '--:--';
@@ -24,7 +25,7 @@ class CourseAttendanceDetailScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.data == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppLoadingView(title: 'Course Attendance');
     }
 
     final data = state.data;

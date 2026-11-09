@@ -102,7 +102,8 @@ class _StudentHomeScreenState extends ConsumerState<StudentHomeScreen>
                 colorScheme: colorScheme,
               ),
             ),
-            const SafeArea(child: _HomeSkeleton()),
+            // The hint after 5 s: a cold server can hold this for a minute.
+            const SafeArea(child: WithSlowLoadHint(child: _HomeSkeleton())),
           ],
         ),
       );

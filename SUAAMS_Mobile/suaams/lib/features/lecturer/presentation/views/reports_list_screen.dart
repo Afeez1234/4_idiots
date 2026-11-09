@@ -7,6 +7,7 @@ import 'package:suaams/features/lecturer/models/lecturer_dashboard_model.dart';
 import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 // Reports tab root -- reuses the already-loaded lecturerDashboardProvider
 // course list (same reasoning as ActiveSessionsScreen) rather than a
@@ -22,7 +23,7 @@ class ReportsListScreen extends ConsumerWidget {
     final exportingCourseId = ref.watch(courseExportProvider);
 
     if (state.isLoading && state.data == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppLoadingView(title: 'Reports', rows: 2);
     }
 
     final data = state.data;

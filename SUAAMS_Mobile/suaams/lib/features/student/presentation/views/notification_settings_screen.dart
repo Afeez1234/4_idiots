@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/student/models/notification_item.dart';
 import 'package:suaams/features/student/providers/notifications_provider.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 // Profile > "Notifications" -- was a ComingSoonScreen placeholder;
 // now the real notification inbox (list.dart + Notification model backing
@@ -48,7 +49,10 @@ class NotificationSettingsScreen extends ConsumerWidget {
     ColorScheme colorScheme,
   ) {
     if (state.isLoading && state.notifications.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView(
+        scaffold: false,
+        trailing: SkeletonTrailing.pill,
+      );
     }
 
     if (state.errorMessage != null && state.notifications.isEmpty) {

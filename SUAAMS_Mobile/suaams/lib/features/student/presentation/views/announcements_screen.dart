@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/features/student/providers/student_announcements_provider.dart';
 import 'package:suaams/features/student/models/student_announcement_model.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 // Reached from the Home tab's app bar (see student_home_screen.dart).
 // Read-only -- unlike the lecturer side's AnnouncementsListScreen, a student
@@ -66,7 +67,10 @@ class _AnnouncementsScreenState extends ConsumerState<AnnouncementsScreen> {
     ColorScheme colorScheme,
   ) {
     if (state.isLoading && state.announcements.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const AppLoadingView(
+        scaffold: false,
+        trailing: SkeletonTrailing.pill,
+      );
     }
 
     if (state.errorMessage != null && state.announcements.isEmpty) {

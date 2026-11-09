@@ -7,6 +7,7 @@ import 'package:suaams/shared/widgets/app_state_view.dart';
 import 'package:suaams/core/theme/app_theme.dart';
 import 'package:suaams/shared/utils/attendance_status.dart';
 import 'package:suaams/core/network/user_facing_error.dart';
+import 'package:suaams/shared/widgets/app_skeleton.dart';
 
 // Sessions tab root. Reuses the already-loaded lecturerDashboardProvider
 // (LecturerCourse.hasActiveSession/activeSessionId) instead of a separate
@@ -23,7 +24,7 @@ class ActiveSessionsScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (state.isLoading && state.data == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const AppLoadingView(title: 'Active Sessions');
     }
 
     final data = state.data;
